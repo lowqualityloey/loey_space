@@ -35,28 +35,21 @@ let carried = [];
 if (yesterdayFile) {
   const content = await app.vault.read(yesterdayFile);
   const lines = content.split("\n");
-  let inTomorrowSetup = false;
+  let inTargetSection = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    if (/^##\s+.*Tomorrow Setup/i.test(line)) {
-      inTomorrowSetup = true;
+    if (/^##\s+.*(Tasks|Tomorrow Setup)/i.test(line)) {
+      inTargetSection = true;
       continue;
     } else if (/^##\s+/.test(line)) {
-      inTomorrowSetup = false;
+      inTargetSection = false;
     }
 
-    if (inTomorrowSetup) {
-      if (/^\s*- \[ \]\s+/.test(line) || /^\s*-\s+/.test(line)) {
-        const itemText = line.replace(/^\s*(-\s*\[ \]\s*|-\s*)/, "").trim();
-        if (itemText && itemText !== "[ ]" && !carried.includes(`- [ ] ${itemText}`)) {
-          carried.push(`- [ ] ${itemText}`);
-        }
-      }
-    } else if (/^\s*- \[ \]\s+/.test(line)) {
+    if (inTargetSection && /^\s*- \[ \]\s+/.test(line)) {
       const itemText = line.replace(/^\s*-\s*\[ \]\s*/, "").trim();
-      if (itemText && !carried.includes(`- [ ] ${itemText}`)) {
+      if (itemText && itemText !== "[ ]" && !carried.includes(`- [ ] ${itemText}`)) {
         carried.push(`- [ ] ${itemText}`);
       }
     }
@@ -68,7 +61,7 @@ if (carried.length > 0) {
 } else {
   tR += "- None";
 }
-%>
+-%>
 
 ## 🎯 Focus 3 (Daily Goals)
 What 3 main outcomes would make today feel successful?
