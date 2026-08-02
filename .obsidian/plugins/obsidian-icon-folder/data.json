@@ -42,10 +42,10 @@
   "02-Projects": "LiRocket",
   "03-Dev": "LiCodeXml",
   "04-Learning": "LiBookOpen",
-  "05-Personal": "LiDumbbell",
   "06-Resources": "LiLibrary",
   "07-Reviews": "LiBarChart3",
   "99-Templates": "LiFileCog",
   "08-Concepts": "LiLightbulb",
-  "99-Attachments": "LiUpload"
+  "99-Attachments": "LiUpload",
+  "05-Personal": "LiDumbbell"
 }

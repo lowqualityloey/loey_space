@@ -7,6 +7,7 @@ updated: 2026-08-02
 
 ## Captured Notes
 
+- another one (captured: 2026-08-02 23:01)
 - just testing (captured: 2026-08-02 19:18)
 - just testing (captured: 2026-08-02 19:11)
 - Plant to refine Dev section for 2nd brain notebook in [[Notion]] (captured: 2026-08-02 19:07)

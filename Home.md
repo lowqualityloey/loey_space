@@ -4,6 +4,7 @@ status: active
 area: general
 tags:
   - type/dashboard
+updated: 2026-08-03
 ---
 
 # 🏠 Welcome Home
@@ -14,19 +15,19 @@ tags:
 
 ## ⚡ Quick Navigation
 
-| Folder | MOC / Hub Link | Purpose |
-| :--- | :--- | :--- |
-| **📥 Inbox** | [[00-Inbox/_Inbox MOC\|Inbox MOC]] | Quick capture & triage |
-| **🚀 Projects** | [[02-Projects/_Projects MOC\|Projects MOC]] | Active development & builds |
-| **💻 Dev** | [[03-Dev/_Dev MOC\|Dev MOC]] | Code snippets & technical patterns |
-| **📖 Learning** | [[04-Learning/_Learning MOC\|Learning MOC]] | Courses & React concepts |
-| **🏋️ Personal** | [[05-Personal/_Personal MOC\|Personal MOC]] | Goals, life & gym notes |
-| **📚 Resources** | [[06-Resources/_Resources MOC\|Resources MOC]] | Reference links & cheatsheets |
-| **🔌 APIs** | [[06-Resources/APIs/_APIs MOC\|APIs MOC]] | API specs & integration docs |
-| **📊 Reviews** | [[07-Reviews/_Reviews MOC\|Reviews MOC]] | Weekly & monthly reviews |
-| **💡 Concepts** | [[08-Concepts/_Concepts MOC\|Concepts MOC]] | Evergreen concept hubs |
-| **🧠 Guide** | [[06-Resources/Second Brain Guide\|Workflow Guide]] | System usage & daily routine |
-| **🛡️ Security** | [[06-Resources/Vault Security Policy\|Security Policy]] | Secrets handling & Git safety |
+| Folder           | MOC / Hub Link                                          | Purpose                            |
+| :--------------- | :------------------------------------------------------ | :--------------------------------- |
+| **📥 Inbox**     | [[00-Inbox/_Inbox MOC\|Inbox MOC]]                      | Quick capture & triage             |
+| **🚀 Projects**  | [[02-Projects/_Projects MOC\|Projects MOC]]             | Active development & builds        |
+| **💻 Dev**       | [[03-Dev/_Dev MOC\|Dev MOC]]                            | Code snippets & technical patterns |
+| **📖 Learning**  | [[04-Learning/_Learning MOC\|Learning MOC]]             | Courses & React concepts           |
+| **🏋️ Personal** | [[_Personal MOC\|Personal MOC]]                         | Goals, life & gym notes            |
+| **📚 Resources** | [[06-Resources/_Resources MOC\|Resources MOC]]          | Reference links & cheatsheets      |
+| **🔌 APIs**      | [[06-Resources/APIs/_APIs MOC\|APIs MOC]]               | API specs & integration docs       |
+| **📊 Reviews**   | [[07-Reviews/_Reviews MOC\|Reviews MOC]]                | Weekly & monthly reviews           |
+| **💡 Concepts**  | [[08-Concepts/_Concepts MOC\|Concepts MOC]]             | Evergreen concept hubs             |
+| **🧠 Guide**     | [[06-Resources/Second Brain Guide\|Workflow Guide]]     | System usage & daily routine       |
+| **🛡️ Security** | [[06-Resources/Vault Security Policy\|Security Policy]] | Secrets handling & Git safety      |
 
 ---
 
