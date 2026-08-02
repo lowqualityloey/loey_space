@@ -52,6 +52,12 @@
       "icon": "lucide-lightbulb",
       "name": "QuickAdd: 💡 Create Concept Note",
       "mode": "any"
+    },
+    {
+      "id": "quickadd:choice:e4f0a1b2-aaaa-4000-8000-000000000010",
+      "icon": "lucide-plug",
+      "name": "QuickAdd: 🔌 New API Note",
+      "mode": "any"
     }
   ],
   "rightRibbon": [],

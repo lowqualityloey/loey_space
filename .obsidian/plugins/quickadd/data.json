@@ -237,7 +237,7 @@
     },
     {
       "id": "e4f0a1b2-aaaa-4000-8000-000000000010",
-      "name": "🔌 Create API Doc",
+      "name": "🔌 New API Note",
       "type": "Template",
       "command": true,
       "templatePath": "99-Templates/API.md",
