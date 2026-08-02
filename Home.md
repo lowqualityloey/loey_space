@@ -36,8 +36,7 @@ tags:
 TASK
 FROM "02-Projects" OR "03-Dev" OR "04-Learning"
 WHERE !completed
-AND text
-AND length(trim(text)) > 0
+AND text != ""
 AND !contains(file.name, "Kanban")
 AND !contains(file.name, "MOC")
 SORT file.mtime DESC
@@ -64,10 +63,13 @@ LIMIT 10
 
 ## 📥 Unprocessed Inbox Notes
 
-```dataview
-TABLE file.ctime AS "Captured Date"
-FROM "00-Inbox"
-WHERE file.name != "_Inbox MOC" AND !contains(file.name, "quick-capture-dump")
+```dataviewjs
+const pages = dv.pages('"00-Inbox"').where(p => p.file.name !== "_Inbox MOC" && !p.file.name.includes("quick-capture-dump"));
+if (pages.length > 0) {
+  dv.table(["Note", "Captured Date"], pages.map(p => [p.file.link, p.file.ctime]));
+} else {
+  dv.paragraph("🎉 Inbox is completely clear!");
+}
 ```
 
 ---
