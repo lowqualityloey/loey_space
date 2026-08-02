@@ -24,6 +24,7 @@ tags:
 | **📚 Resources** | [[06-Resources/_Resources MOC\|Resources MOC]]                         | Reference links & cheatsheets      |
 | **📊 Reviews**   | [[07-Reviews/_Reviews MOC\|Reviews MOC]]                               | Weekly & monthly reviews           |
 | **🧠 Guide**     | [[06-Resources/Second Brain Guide\|Workflow Guide]]                    | System usage & daily routine       |
+| **🛡️ Security**  | [[06-Resources/Vault Security Policy\|Security Policy]]                 | Secrets handling & Git safety      |
 
 ---
 
