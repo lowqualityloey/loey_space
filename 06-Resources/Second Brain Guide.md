@@ -1,5 +1,6 @@
 ---
 created: 2026-08-02
+updated: 2026-08-02
 type: resource
 status: active
 area: general
@@ -7,11 +8,12 @@ source_type: documentation
 tags:
   - type/resource
   - area/general
+  - topic/guide
 ---
 
 # 🧠 Second Brain Workflow Guide
 
-> A simple, low-friction guide to using your Obsidian vault with QuickAdd, Folder Notes, and Dataview.
+> Comprehensive operational guide for your Obsidian vault — covering folder structure, QuickAdd creation flows, Concept hubs, API documentation, vault security, and daily routines.
 
 ---
 
@@ -19,81 +21,111 @@ tags:
 
 ```mermaid
 flowchart LR
-    A["⚡ Capture<br/>(QuickAdd / Inbox)"] --> B["📁 Organize<br/>(Templates & MOCs)"]
-    B --> C["🔗 Connect<br/>([[WikiLinks]])"]
+    A["⚡ Capture<br/>(QuickAdd / Inbox)"] --> B["📁 Organize<br/>(Templates & Folders)"]
+    B --> C["🔗 Connect<br/>([[Concept Hubs]])"]
     C --> D["📊 Review<br/>(Weekly / Monthly)"]
 ```
 
-1. **Capture**: Dump ideas in 3 seconds using QuickAdd shortcuts.
-2. **Organize**: QuickAdd applies templates automatically into Projects, Learning, or Resources.
-3. **Connect**: Link reusable concepts (`[[React Hooks]]`, `[[weather-dashboard]]`) as you write.
-4. **Review**: Automated Dataview widgets calculate habit stats, track progress, and flag stale projects.
+1. **Capture**: Dump thoughts instantly with 1-click QuickAdd sidebar buttons.
+2. **Organize**: QuickAdd auto-creates structured notes and folder trees.
+3. **Connect**: Link concept words (`[[AI integration]]`, `[[Fetch API]]`) to generate evergreen concept notes with live Dataview backreferences.
+4. **Review**: Automated Dataview MOCs calculate habit averages, track project status, and summarize weekly/monthly reviews.
 
 ---
 
-## ⚡ 1. QuickAdd (Main Capture & Creation)
-Use **QuickAdd** (`Ctrl + P` $\rightarrow$ `QuickAdd`) to eliminate friction:
-- 📥 **Quick Capture to Inbox**: Dump quick thoughts/links without leaving your work.
-- 🧠 **Append to Today's Daily Note**: Add thoughts directly into today's `## 🧠 Notes / Thoughts`.
-- 🚀 **Create Project Note**: Generates structured project folder & note in `02-Projects/`.
-- 📖 **Create Learning Note**: Generates course/tutorial note in `04-Learning/`.
-- 📚 **Create Resource Note**: Generates documentation/tool note in `06-Resources/`.
+## 🗂️ 1. Current Vault Folder Architecture
+
+| Folder | Purpose | Key Contents & Notes |
+| :--- | :--- | :--- |
+| **`00-Inbox/`** | Fast triage & raw capture | `_Inbox MOC.md`, `quick-capture-dump.md` |
+| **`01-Daily/`** | Daily logs & habit tracking | `YYYY-MM-DD.md`, `_Daily MOC.md` |
+| **`02-Projects/`** | Active development builds | Subfolder per project (`Project Note` + `Kanban`), `_Projects MOC.md` |
+| **`03-Dev/`** | Code snippets & tech patterns | `Dev.md` notes, debugging guides, `_Dev MOC.md` |
+| **`04-Learning/`** | Courses, tutorials, & topics | Study topics, React notes, `_Learning MOC.md` |
+| **`05-Personal/`** | Life notes, fitness, & goals | Reflections, gym logs, `_Personal MOC.md` |
+| **`06-Resources/`** | Reference docs & API catalogs | `APIs/` subfolder, `notion-sync.js`, `Second Brain Guide.md`, `Vault Security Policy.md` |
+| **`07-Reviews/`** | Periodic review archives | Weekly (`YYYY-[W]WW.md`) & Monthly (`YYYY-MM.md`) reviews, `_Reviews MOC.md` |
+| **`08-Concepts/`** | Evergreen concepts & hubs | Concept notes (`YYYY-MM-DD_HHmm {{VALUE}}`), `_Concepts MOC.md` |
+| **`99-Attachments/`** | Media storage | Monthly subfolders (`YYYY-MM/`), `_Attachments MOC.md` |
+| **`99-Templates/`** | Note structure blueprints | `Daily.md`, `Project.md`, `Dev.md`, `Learning.md`, `Personal.md`, `Resource.md`, `Concept.md`, `API.md` |
+| **`.secrets/`** | **Git-ignored** private notes | Bank details, private logs, credential notes |
+| **`.env`** | **Git-ignored** script keys | `NOTION_API_KEY`, `VITE_OPENWEATHER_API_KEY` |
 
 ---
 
-## 📁 2. Folder Notes & MOC Hubs
-- **One-Click Folders**: Clicking any main folder (`00-Inbox`, `03-Dev`, `04-Learning`, `05-Personal`, `06-Resources`, `07-Reviews`) instantly opens its Map of Content (MOC).
-- **Automated Tables**: Dataview automatically tables and sorts your notes inside each folder MOC.
+## ⚡ 2. QuickAdd Shortcuts & Sidebar Buttons
+
+The vault features **10 1-click QuickAdd actions**. Each action creates the note, populates the template, and **opens immediately in a right split pane with focus**:
+
+| Sidebar Icon | Choice Name | Type | Folder Target | Naming Format |
+| :---: | :--- | :---: | :--- | :--- |
+| 📥 | **Quick Capture to Inbox** | Capture | `00-Inbox/` | `quick-capture-dump.md` |
+| 📅 | **Append to Today's Daily Note** | Capture | `01-Daily/` | `YYYY-MM-DD.md` |
+| ⏰ | **Create Timestamped Daily Note** | Template | `01-Daily/` | `YYYY-MM-DD_HHmm {{VALUE}}` |
+| 🚀 | **Create Project Note** | Template | `02-Projects/{{VALUE}}/` | `02-Projects/{{VALUE}}/{{VALUE}}.md` (+ Auto-Kanban) |
+| 📖 | **Create Learning Note** | Template | `04-Learning/` | `YYYY-MM-DD_HHmm {{VALUE}}` |
+| 📚 | **Create Resource Note** | Template | `06-Resources/` | `YYYY-MM-DD_HHmm {{VALUE}}` |
+| 💻 | **Create Dev Note** | Template | `03-Dev/` | `YYYY-MM-DD_HHmm {{VALUE}}` |
+| 🧘 | **Create Personal Note** | Template | `05-Personal/` | `YYYY-MM-DD_HHmm {{VALUE}}` |
+| 💡 | **Create Concept Note** | Template | `08-Concepts/` | `YYYY-MM-DD_HHmm {{VALUE}}` |
+| 🔌 | **New API Note** | Template | `06-Resources/APIs/` | `YYYY-MM-DD_HHmm {{VALUE}}` |
 
 ---
 
-## ☕ 3. Daily Routine (5–10 Minutes)
+## 💡 3. Concept Notes & Auto-Routing
 
-### 🌅 Morning (2 min)
+* **No Empty Notes**: When you write `[[AI integration]]` or `[[Fetch API]]` anywhere in your vault, Obsidian automatically creates the file inside **`08-Concepts/`**.
+* **Templater Auto-Binding**: Bound `08-Concepts/` to `99-Templates/Concept.md`. On creation, the template auto-applies immediately.
+* **Dataview Auto-Backlinks**: Every concept note includes a live Dataview block under `## Related notes (Auto-backlinks)`:
+  ```dataview
+  LIST
+  FROM [[]] AND !"99-Templates"
+  WHERE file.name != this.file.name
+  SORT file.mtime DESC
+  ```
+  This automatically lists every note in your vault referencing that concept without manual typing.
+
+---
+
+## 🔒 4. Vault Security & API Documentation Policy
+
+Refer to **[[06-Resources/Vault Security Policy|Vault Security Policy]]** for complete specs:
+
+### Storage Boundaries
+1. **`.env`**: Real API keys used by scripts (e.g. `notion-sync.js`). **Never committed to Git**.
+2. **`.secrets/`**: Private human-readable sensitive notes. **Never committed to Git**.
+3. **Tracked Vault Notes**: Documentation ONLY. **Zero actual API keys or secrets allowed**.
+
+### API Documentation Rules (`06-Resources/APIs/`)
+* Document API specs using `99-Templates/API.md`.
+* Record variable names (`Environment variable name: VITE_OPENWEATHER_API_KEY`) and secret pointers (`Secret location: .env`).
+* Keep a safe `.env.example` file at vault root containing placeholder keys only.
+
+---
+
+## ☕ 5. Daily Routine & Review Schedule
+
+### Morning (2 min)
 1. Open `Home.md` dashboard.
-2. Open Today's Daily Note (in `01-Daily`).
-3. Set `mood`, `energy`, `sleep_hours`, and pick your **Focus 3**.
-   - *Note*: Unfinished tasks automatically carry forward under `## ↪ Carry Forward`.
+2. Open Today's Daily Note (`01-Daily/YYYY-MM-DD.md`).
+3. Log `mood`, `energy`, `sleep_hours`, and set **Focus 3**.
 
-### ☀️ Daytime (As you work/code/study)
-- Use **QuickAdd** to capture thoughts or create Project/Learning/Resource notes.
-- Check off habits (`exercise`, `meditate`, `coding`, `clean`, `hydrate`, `sleep`).
+### Evening (3 min)
+1. Complete habit checkboxes (`coding`, `exercise`, `sleep`, etc.).
+2. Fill out **Work / Study / Dev** progress and set **Tomorrow Setup**.
 
-### 🌙 Evening (3 min)
-- Fill in **Work / Study / Dev** progress.
-- Write a 1-line **Daily Reflection** and set **Tomorrow Setup**.
-
----
-
-## 📊 4. Reviews (`07-Reviews/`)
-
-### 📅 Weekly Review (10–15 min, Sundays/Mondays)
-- Trigger `99-Templates/Weekly Review.md`.
-- View habit averages, completed tasks, and **Stale Projects** (flagged dynamically via `review_cycle`).
-- Complete the 3 reflection questions.
-
-### 🏆 Monthly Review (15 min, 1st of the Month)
-- Trigger `99-Templates/Monthly Review.md`.
-- Review completed projects, mastered study topics, and system friction.
+### Periodic Reviews (`07-Reviews/`)
+* **Weekly Review** (`YYYY-[W]WW`): Habit averages, completed task rollup, and stale project audits.
+* **Monthly Review** (`YYYY-MM`): 30-day wellness summary, completed projects, and strategic focus.
 
 ---
 
-## 🔗 5. Simple Rule: When to Link vs. Unlink
+## 🔗 6. Orphan Notes & Link Management
 
-- 📥 **Leave Unlinked in Inbox**: Fast, temporary thoughts, quick clips, or unrefined ideas.
-- 🔗 **Link (`[[Note Name]]`)**: Whenever a term represents a reusable entity you will reference again in coding, projects, or study (e.g. `[[React State]]`, `[[weather-dashboard]]`, `[[Tailwind]]`).
+### What is an Orphan Note?
+An orphan note is a note with zero incoming links (`length(file.inlinks) = 0`).
 
----
-
-## 📋 6. "What Goes Where" Cheat Sheet
-
-| Content / Idea                      | Action                      | Location                 | Template                                 |
-| :---------------------------------- | :-------------------------- | :----------------------- | :--------------------------------------- |
-| **Fast thought, quick link**        | QuickAdd: *Quick Capture*   | `00-Inbox/`              | Plain text                               |
-| **Daily habits, focus, journaling** | Open Daily Note             | `01-Daily/YYYY-MM-DD.md` | `Daily.md`                               |
-| **App build, multi-step goal**      | QuickAdd: *Create Project*  | `02-Projects/`           | `Project.md`                             |
-| **Code snippet, syntax trick**      | QuickAdd / New Note         | `03-Dev/`                | `Snippet.md`                             |
-| **Course, tutorial, study topic**   | QuickAdd: *Create Learning* | `04-Learning/`           | `Learning.md`                            |
-| **Life notes, fitness, goals**      | New Note                    | `05-Personal/`           | Plain note                               |
-| **Doc link, tool, cheatsheet**      | QuickAdd: *Create Resource* | `06-Resources/`          | `Resource.md`                            |
-| **Weekly / Monthly Review**         | Create in `07-Reviews/`     | `07-Reviews/`            | `Weekly Review.md` / `Monthly Review.md` |
+### Guidance:
+* **Inbox Notes**: Temporary orphan status is normal while drafting.
+* **Permanent Notes**: When processing an inbox note, connect it to a Project, Learning topic, or Concept hub using `[[WikiLinks]]`.
+* **Dashboard Monitor**: `Home.md` surfaces unlinked notes so you can periodically file or connect them.
