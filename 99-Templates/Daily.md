@@ -70,11 +70,11 @@ if (carried.length > 0) {
 }
 %>
 
-## 🎯 Focus 3
-What 3 things would make today feel successful?
-- [ ] 
-- [ ] 
-- [ ] 
+## 🎯 Focus 3 (Daily Goals)
+What 3 main outcomes would make today feel successful?
+1. 
+2. 
+3. 
 
 ## ✅ Tasks
 Things I need or want to get done today.
