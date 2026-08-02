@@ -123,3 +123,15 @@ AND !contains(file.name, "MOC")
 SORT file.ctime DESC
 LIMIT 5
 ```
+
+---
+
+## 🏷️ Standardized Vault Tag Taxonomy
+
+| Tag Namespace | Purpose | Standard Examples |
+| :--- | :--- | :--- |
+| **`type/*`** | Note schema & blueprint | `type/project`, `type/learning`, `type/snippet`, `type/resource`, `type/concept`, `type/review`, `type/daily`, `type/moc` |
+| **`area/*`** | Knowledge domain | `area/dev`, `area/learning`, `area/personal`, `area/resources`, `area/reviews`, `area/security` |
+| **`topic/*`** | Subject / Tech stack | `topic/react`, `topic/typescript`, `topic/tailwind`, `topic/api`, `topic/git`, `topic/obsidian`, `topic/ai`, `topic/fitness` |
+| **`status/*`** | Lifecycle state | `status/planning`, `status/in-progress`, `status/completed`, `status/active` |
+
