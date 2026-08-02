@@ -234,6 +234,31 @@
         "direction": "vertical",
         "focus": true
       }
+    },
+    {
+      "id": "e4f0a1b2-aaaa-4000-8000-000000000010",
+      "name": "🔌 Create API Doc",
+      "type": "Template",
+      "command": true,
+      "templatePath": "99-Templates/API.md",
+      "fileNameFormat": {
+        "enabled": true,
+        "format": "06-Resources/APIs/{{DATE:YYYY-MM-DD_HHmm}} {{VALUE}}"
+      },
+      "folder": {
+        "enabled": true,
+        "folders": [
+          "06-Resources/APIs"
+        ],
+        "chooseWhenCreatingNote": false,
+        "createInSameFolderAsActiveFile": false
+      },
+      "append": false,
+      "openInNewTab": {
+        "enabled": true,
+        "direction": "vertical",
+        "focus": true
+      }
     }
   ],
   "inputPrompt": "single-line",

@@ -34,6 +34,10 @@
       "template": "99-Templates/Resource.md"
     },
     {
+      "folder": "06-Resources/APIs",
+      "template": "99-Templates/API.md"
+    },
+    {
       "folder": "08-Concepts",
       "template": "99-Templates/Concept.md"
     },
