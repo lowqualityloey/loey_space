@@ -1,0 +1,11 @@
+{
+  "editor:toggle-link": [
+    {
+      "modifiers": [
+        "Mod",
+        "Shift"
+      ],
+      "key": "K"
+    }
+  ]
+}

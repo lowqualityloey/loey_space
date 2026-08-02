@@ -1,0 +1,15 @@
+# Obsidian local workplace states & caches
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/workspace*
+.obsidian/cache/
+.obsidian/indexed*
+
+# System files
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# Logs & temp
+*.log

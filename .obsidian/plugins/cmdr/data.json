@@ -1,0 +1,86 @@
+{
+  "confirmDeletion": true,
+  "showAddCommand": true,
+  "debug": false,
+  "editorMenu": [],
+  "fileMenu": [],
+  "leftRibbon": [
+    {
+      "id": "quickadd:choice:e4f0a1b2-1111-4000-8000-000000000001",
+      "icon": "lucide-inbox",
+      "name": "QuickAdd: 📥 Quick Capture to Inbox",
+      "mode": "any"
+    },
+    {
+      "id": "quickadd:choice:e4f0a1b2-8888-4000-8000-000000000008",
+      "icon": "lucide-calendar-clock",
+      "name": "QuickAdd: ⏳ Create Timestamped Daily Note",
+      "mode": "any"
+    },
+    {
+      "id": "quickadd:choice:e4f0a1b2-2222-4000-8000-000000000002",
+      "icon": "lucide-rocket",
+      "name": "QuickAdd: 🚀 Create Project Note",
+      "mode": "any"
+    },
+    {
+      "id": "quickadd:choice:e4f0a1b2-3333-4000-8000-000000000003",
+      "icon": "lucide-book-open",
+      "name": "QuickAdd: 📖 Create Learning Note",
+      "mode": "any"
+    },
+    {
+      "id": "quickadd:choice:e4f0a1b2-4444-4000-8000-000000000004",
+      "icon": "lucide-library",
+      "name": "QuickAdd: 📚 Create Resource Note",
+      "mode": "any"
+    },
+    {
+      "id": "quickadd:choice:e4f0a1b2-6666-4000-8000-000000000006",
+      "icon": "lucide-code",
+      "name": "QuickAdd: 💻 Create Dev Note",
+      "mode": "any"
+    },
+    {
+      "id": "quickadd:choice:e4f0a1b2-7777-4000-8000-000000000007",
+      "icon": "lucide-heart",
+      "name": "QuickAdd: 🧘 Create Personal Note",
+      "mode": "any"
+    },
+    {
+      "id": "quickadd:choice:e4f0a1b2-9999-4000-8000-000000000009",
+      "icon": "lucide-lightbulb",
+      "name": "QuickAdd: 💡 Create Concept Note",
+      "mode": "any"
+    }
+  ],
+  "rightRibbon": [],
+  "titleBar": [],
+  "statusBar": [],
+  "pageHeader": [
+    {
+      "id": "omnisearch:show-modal",
+      "icon": "lucide-search",
+      "name": "Omnisearch: Vault search",
+      "mode": "any"
+    }
+  ],
+  "macros": [],
+  "explorer": [],
+  "textToolbarCommands": [],
+  "hide": {
+    "statusbar": [],
+    "leftRibbon": []
+  },
+  "spacing": 8,
+  "advancedToolbar": {
+    "rowHeight": 48,
+    "rowCount": 1,
+    "spacing": 0,
+    "buttonWidth": 48,
+    "columnLayout": false,
+    "mappedIcons": [],
+    "tooltips": false,
+    "heightOffset": 0
+  }
+}

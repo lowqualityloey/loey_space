@@ -1,0 +1,51 @@
+{
+  "settings": {
+    "fontSize": 16,
+    "iconColor": "",
+    "margin": {
+      "top": 0,
+      "right": 4,
+      "bottom": 0,
+      "left": 0
+    },
+    "iconPacksPath": ".obsidian/plugins/obsidian-icon-folder/icons",
+    "iconInTabsEnabled": true,
+    "iconInTitleEnabled": true,
+    "iconInTitlePosition": "above",
+    "iconInFrontmatterEnabled": false,
+    "iconInFrontmatterFieldName": "icon",
+    "migrated": 6,
+    "emojiStyle": "native",
+    "recentlyUsedIcons": [
+      "LiUpload",
+      "LiLightbulb"
+    ],
+    "recentlyUsedIconsSize": 5,
+    "rules": [],
+    "extraMargin": {
+      "top": 0,
+      "right": 4,
+      "bottom": 0,
+      "left": 0
+    },
+    "iconColorInFrontmatterFieldName": "iconColor",
+    "iconsBackgroundCheckEnabled": false,
+    "iconsInNotesEnabled": true,
+    "iconsInLinksEnabled": true,
+    "iconIdentifier": ":",
+    "lucideIconPackType": "native",
+    "debugMode": false,
+    "useInternalPlugins": false
+  },
+  "00-Inbox": "LiInbox",
+  "01-Daily": "LiCalendarDays",
+  "02-Projects": "LiRocket",
+  "03-Dev": "LiCodeXml",
+  "04-Learning": "LiBookOpen",
+  "05-Personal": "LiDumbbell",
+  "06-Resources": "LiLibrary",
+  "07-Reviews": "LiBarChart3",
+  "99-Templates": "LiFileCog",
+  "08-Concepts": "LiLightbulb",
+  "99-Attachments": "LiUpload"
+}

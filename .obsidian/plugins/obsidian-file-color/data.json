@@ -1,0 +1,31 @@
+{
+  "cascadeColors": false,
+  "colorBackground": false,
+  "palette": [
+    {
+      "id": "NB52DQ5jFTcvSk3biKHXt",
+      "name": "purple",
+      "value": "#6549a7"
+    },
+    {
+      "id": "8jq8hVF4T5vfwrkwjMTMd",
+      "name": "earth green",
+      "value": "#4d6f54"
+    },
+    {
+      "id": "IbvGP149Y7hakLE3ZQM9U",
+      "name": "brown",
+      "value": "#877954"
+    }
+  ],
+  "fileColors": [
+    {
+      "path": "02-Projects/weather-dashboard",
+      "color": "IbvGP149Y7hakLE3ZQM9U"
+    },
+    {
+      "path": "06-Resources/Second Brain Guide.md",
+      "color": "NB52DQ5jFTcvSk3biKHXt"
+    }
+  ]
+}

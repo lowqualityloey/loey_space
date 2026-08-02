@@ -1,0 +1,52 @@
+{
+  "data_version": 2,
+  "command_timeout": 5,
+  "templates_folder": "99-Templates",
+  "templates_pairs": [],
+  "trigger_on_file_creation_mode": "folder",
+  "auto_jump_to_cursor": true,
+  "jump_to_cursor_after_file_name": false,
+  "shell_path": "",
+  "user_scripts_folder": "",
+  "folder_templates": [
+    {
+      "folder": "01-Daily",
+      "template": "99-Templates/Daily.md"
+    },
+    {
+      "folder": "02-Projects",
+      "template": "99-Templates/Project.md"
+    },
+    {
+      "folder": "03-Dev",
+      "template": "99-Templates/Dev.md"
+    },
+    {
+      "folder": "04-Learning",
+      "template": "99-Templates/Learning.md"
+    },
+    {
+      "folder": "05-Personal",
+      "template": "99-Templates/Personal.md"
+    },
+    {
+      "folder": "06-Resources",
+      "template": "99-Templates/Resource.md"
+    },
+    {
+      "folder": "08-Concepts",
+      "template": "99-Templates/Concept.md"
+    },
+    {
+      "folder": "99-Templates",
+      "template": "99-Templates/Kanban.md"
+    }
+  ],
+  "file_templates": [],
+  "syntax_highlighting": true,
+  "syntax_highlighting_mobile": false,
+  "enabled_templates_hotkeys": [],
+  "startup_templates": [],
+  "intellisense_render": "1",
+  "ignore_folders_on_creation": []
+}

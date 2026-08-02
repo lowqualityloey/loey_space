@@ -1,0 +1,295 @@
+{
+  "choices": [
+    {
+      "id": "e4f0a1b2-1111-4000-8000-000000000001",
+      "name": "📥 Quick Capture to Inbox",
+      "type": "Capture",
+      "command": true,
+      "append": false,
+      "captureTo": "00-Inbox/quick-capture-dump.md",
+      "captureToCanvas": false,
+      "createFileIfItDNE": true,
+      "createFileIfItDNEPath": "00-Inbox/quick-capture-dump.md",
+      "format": {
+        "enabled": true,
+        "format": "- {{VALUE}} (captured: {{DATE:YYYY-MM-DD HH:mm}})"
+      },
+      "insertAfter": {
+        "enabled": true,
+        "after": "## Captured Notes",
+        "createIfNotFound": true,
+        "createIfNotFoundLocation": "bottom"
+      },
+      "openInNewTab": {
+        "enabled": true,
+        "direction": "vertical",
+        "focus": true
+      },
+      "openingPosition": "first",
+      "prepend": false,
+      "task": false
+    },
+    {
+      "id": "e4f0a1b2-5555-4000-8000-000000000005",
+      "name": "🧠 Append to Today's Daily Note",
+      "type": "Capture",
+      "command": true,
+      "append": false,
+      "captureTo": "01-Daily/{{DATE:YYYY-MM-DD}}.md",
+      "captureToCanvas": false,
+      "createFileIfItDNE": true,
+      "createFileIfItDNEPath": "01-Daily/{{DATE:YYYY-MM-DD}}.md",
+      "createFileIfItDNEFromTemplate": true,
+      "createFileIfItDNETemplatePath": "99-Templates/Daily.md",
+      "format": {
+        "enabled": true,
+        "format": "- {{VALUE}}"
+      },
+      "insertAfter": {
+        "enabled": true,
+        "after": "## 🧠 Notes / Thoughts",
+        "createIfNotFound": true,
+        "createIfNotFoundLocation": "bottom"
+      },
+      "openInNewTab": {
+        "enabled": true,
+        "direction": "vertical",
+        "focus": true
+      },
+      "openingPosition": "first",
+      "prepend": false,
+      "task": false
+    },
+    {
+      "id": "e4f0a1b2-2222-4000-8000-000000000002",
+      "name": "🚀 Create Project Note",
+      "type": "Template",
+      "command": true,
+      "templatePath": "99-Templates/Project.md",
+      "fileNameFormat": {
+        "enabled": true,
+        "format": "02-Projects/{{VALUE}}/{{VALUE}}"
+      },
+      "folder": {
+        "enabled": true,
+        "folders": [
+          "02-Projects"
+        ],
+        "chooseWhenCreatingNote": false,
+        "createInSameFolderAsActiveFile": false
+      },
+      "append": false,
+      "openInNewTab": {
+        "enabled": true,
+        "direction": "vertical",
+        "focus": true
+      }
+    },
+    {
+      "id": "e4f0a1b2-3333-4000-8000-000000000003",
+      "name": "📖 Create Learning Note",
+      "type": "Template",
+      "command": true,
+      "templatePath": "99-Templates/Learning.md",
+      "fileNameFormat": {
+        "enabled": true,
+        "format": "04-Learning/{{DATE:YYYY-MM-DD_HHmm}} {{VALUE}}"
+      },
+      "folder": {
+        "enabled": true,
+        "folders": [
+          "04-Learning"
+        ],
+        "chooseWhenCreatingNote": false,
+        "createInSameFolderAsActiveFile": false
+      },
+      "append": false,
+      "openInNewTab": {
+        "enabled": true,
+        "direction": "vertical",
+        "focus": true
+      }
+    },
+    {
+      "id": "e4f0a1b2-4444-4000-8000-000000000004",
+      "name": "📚 Create Resource Note",
+      "type": "Template",
+      "command": true,
+      "templatePath": "99-Templates/Resource.md",
+      "fileNameFormat": {
+        "enabled": true,
+        "format": "06-Resources/{{DATE:YYYY-MM-DD_HHmm}} {{VALUE}}"
+      },
+      "folder": {
+        "enabled": true,
+        "folders": [
+          "06-Resources"
+        ],
+        "chooseWhenCreatingNote": false,
+        "createInSameFolderAsActiveFile": false
+      },
+      "append": false,
+      "openInNewTab": {
+        "enabled": true,
+        "direction": "vertical",
+        "focus": true
+      }
+    },
+    {
+      "id": "e4f0a1b2-6666-4000-8000-000000000006",
+      "name": "💻 Create Dev Note",
+      "type": "Template",
+      "command": true,
+      "templatePath": "99-Templates/Dev.md",
+      "fileNameFormat": {
+        "enabled": true,
+        "format": "03-Dev/{{DATE:YYYY-MM-DD_HHmm}} {{VALUE}}"
+      },
+      "folder": {
+        "enabled": true,
+        "folders": [
+          "03-Dev"
+        ],
+        "chooseWhenCreatingNote": false,
+        "createInSameFolderAsActiveFile": false
+      },
+      "append": false,
+      "openInNewTab": {
+        "enabled": true,
+        "direction": "vertical",
+        "focus": true
+      }
+    },
+    {
+      "id": "e4f0a1b2-7777-4000-8000-000000000007",
+      "name": "🧘 Create Personal Note",
+      "type": "Template",
+      "command": true,
+      "templatePath": "99-Templates/Personal.md",
+      "fileNameFormat": {
+        "enabled": true,
+        "format": "05-Personal/{{DATE:YYYY-MM-DD_HHmm}} {{VALUE}}"
+      },
+      "folder": {
+        "enabled": true,
+        "folders": [
+          "05-Personal"
+        ],
+        "chooseWhenCreatingNote": false,
+        "createInSameFolderAsActiveFile": false
+      },
+      "append": false,
+      "openInNewTab": {
+        "enabled": true,
+        "direction": "vertical",
+        "focus": true
+      }
+    },
+    {
+      "id": "e4f0a1b2-8888-4000-8000-000000000008",
+      "name": "⏳ Create Timestamped Daily Note",
+      "type": "Template",
+      "command": true,
+      "templatePath": "99-Templates/Daily.md",
+      "fileNameFormat": {
+        "enabled": true,
+        "format": "01-Daily/{{DATE:YYYY-MM-DD_HHmm}} {{VALUE}}"
+      },
+      "folder": {
+        "enabled": true,
+        "folders": [
+          "01-Daily"
+        ],
+        "chooseWhenCreatingNote": false,
+        "createInSameFolderAsActiveFile": false
+      },
+      "append": false,
+      "openInNewTab": {
+        "enabled": true,
+        "direction": "vertical",
+        "focus": true
+      }
+    },
+    {
+      "id": "e4f0a1b2-9999-4000-8000-000000000009",
+      "name": "💡 Create Concept Note",
+      "type": "Template",
+      "command": true,
+      "templatePath": "99-Templates/Concept.md",
+      "fileNameFormat": {
+        "enabled": true,
+        "format": "08-Concepts/{{DATE:YYYY-MM-DD_HHmm}} {{VALUE}}"
+      },
+      "folder": {
+        "enabled": true,
+        "folders": [
+          "08-Concepts"
+        ],
+        "chooseWhenCreatingNote": false,
+        "createInSameFolderAsActiveFile": false
+      },
+      "append": false,
+      "openInNewTab": {
+        "enabled": true,
+        "direction": "vertical",
+        "focus": true
+      }
+    }
+  ],
+  "inputPrompt": "single-line",
+  "persistInputPromptDrafts": true,
+  "useSelectionAsCaptureValue": true,
+  "searchNestedChoices": true,
+  "templateFolderLauncherRow": "bottom",
+  "devMode": false,
+  "templateFolderPaths": [
+    "99-Templates"
+  ],
+  "announceUpdates": "major",
+  "version": "2.20.0",
+  "globalVariables": {},
+  "onePageInputEnabled": false,
+  "disableOnlineFeatures": true,
+  "enableUriCallbacks": false,
+  "enableRibbonIcon": false,
+  "showCaptureNotification": true,
+  "showInputCancellationNotification": false,
+  "enableTemplatePropertyTypes": false,
+  "dateAliases": {
+    "t": "today",
+    "tm": "tomorrow",
+    "yd": "yesterday",
+    "nw": "next week",
+    "nm": "next month",
+    "ny": "next year",
+    "lw": "last week",
+    "lm": "last month",
+    "ly": "last year"
+  },
+  "ai": {
+    "defaultModel": "Ask me",
+    "defaultSystemPrompt": "As an AI assistant within Obsidian, your primary goal is to help users manage their ideas and knowledge more effectively.",
+    "promptTemplatesFolderPath": "",
+    "showAssistant": false,
+    "providers": [],
+    "confirmToolCalls": "destructive"
+  },
+  "migrations": {
+    "migrateToMacroIDFromEmbeddedMacro": true,
+    "useQuickAddTemplateFolder": true,
+    "incrementFileNameSettingMoveToDefaultBehavior": true,
+    "consolidateFileExistsBehavior": true,
+    "repairTemplateFileExistsBehavior": true,
+    "mutualExclusionInsertAfterAndWriteToBottomOfFile": true,
+    "setVersionAfterUpdateModalRelease": true,
+    "addDefaultAIProviders": true,
+    "removeMacroIndirection": true,
+    "migrateFileOpeningSettings": true,
+    "backfillFileOpeningDefaults": true,
+    "setProviderModelDiscoveryMode": true,
+    "migrateProviderApiKeysToSecretStorage": true,
+    "migrateToMultipleTemplateFolders": true,
+    "refreshStaleDefaultModelSeeds": true,
+    "pinAiModelRefs": true
+  }
+}
