@@ -5,6 +5,14 @@
 .obsidian/cache/
 .obsidian/indexed*
 
+# 🔒 SECRETS & SENSITIVE KEYS (NEVER COMMIT TO GIT)
+.secrets/
+00-Private/
+*.env
+*.env.*
+*_secret*
+*_private*
+
 # System files
 .DS_Store
 Thumbs.db
