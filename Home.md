@@ -34,8 +34,12 @@ tags:
 
 ```dataview
 TASK
-FROM "02-Projects" OR "04-Learning" OR "03-Dev"
-WHERE !completed AND !contains(file.name, "Kanban") AND !contains(file.name, "MOC")
+FROM "02-Projects" OR "03-Dev" OR "04-Learning"
+WHERE !completed
+AND text
+AND length(trim(text)) > 0
+AND !contains(file.name, "Kanban")
+AND !contains(file.name, "MOC")
 SORT file.mtime DESC
 LIMIT 10
 ```
@@ -45,10 +49,15 @@ LIMIT 10
 ## 🚀 Active Projects
 
 ```dataview
-TABLE status AS "Status", priority AS "Priority", tags AS "Tags"
+TABLE WITHOUT ID
+file.link AS "Project",
+status AS "Status",
+priority AS "Priority",
+file.tags AS "Tags"
 FROM "02-Projects"
-WHERE type = "project" AND (status = "in-progress" OR status = "active")
-SORT priority DESC
+WHERE !contains(file.name, "Kanban") AND !contains(file.name, "MOC")
+SORT file.mtime DESC
+LIMIT 10
 ```
 
 ---
@@ -58,7 +67,7 @@ SORT priority DESC
 ```dataview
 TABLE file.ctime AS "Captured Date"
 FROM "00-Inbox"
-WHERE file.name != "_Inbox MOC" AND file.name != "quick-capture-dump.md"
+WHERE file.name != "_Inbox MOC" AND !contains(file.name, "quick-capture-dump")
 ```
 
 ---
@@ -68,7 +77,9 @@ WHERE file.name != "_Inbox MOC" AND file.name != "quick-capture-dump.md"
 ```dataview
 TABLE topic AS "Topic", source_url AS "Resource Link"
 FROM "04-Learning"
-WHERE status = "in-progress"
+WHERE file.name != "_Learning MOC"
+SORT file.mtime DESC
+LIMIT 5
 ```
 
 ---
