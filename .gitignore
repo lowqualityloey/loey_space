@@ -5,6 +5,10 @@
 .obsidian/cache/
 .obsidian/indexed*
 
+# 🤖 Local AI Indices & Plugin Caches
+.smart-env/
+.claudian/
+
 # 🔒 SECRETS & SENSITIVE KEYS (NEVER COMMIT TO GIT)
 .secrets/
 00-Private/
