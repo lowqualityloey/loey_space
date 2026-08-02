@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const NOTION_TOKEN = 'ntn_i36779894338EYI3dTh92QZEcSC4bTQqOK1DEhAB7Lw4UA';
+const NOTION_TOKEN = process.env.NOTION_TOKEN || process.env.NOTION_API_KEY || '';
 const VAULT_PATH = path.join(__dirname, '..');
 
 const DATABASES = [
