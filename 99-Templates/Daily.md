@@ -13,9 +13,9 @@ energy: 3
 sleep_hours: 7
 ---
 
-# <% tp.date.now("dddd, MMMM D") %>
+# <% tp.date.now("dddd, MMMM D, YYYY") %>
 
-> Mood: calm | good | okay | tired | stressed | low
+> Mood options: calm | good | okay | tired | stressed | low | focused | grateful | energized | productive | peaceful | overwhelmed | anxious | creative | restless | exhausted | unmotivated | reflective
 > Energy: 1–5
 > Sleep: hours slept, e.g. 7 or 6.5
 
@@ -103,6 +103,17 @@ Something positive from today, even if small.
 - 
 
 ## 🤖 AI Daily Summary
+
+### Summary
+- 
+
+### Highlights
+- Core takeaway: 
+- Key concept: 
+- Actionable step: 
+- Related note ideas: 
+
+### AI Reflection
 - 
 
 ## 🌙 Tomorrow Setup

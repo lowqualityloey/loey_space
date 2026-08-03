@@ -6,3 +6,4 @@ updated: 2026-08-03
 > Quick capture thoughts, links, and temporary notes. Empty or triage weekly into Projects, Dev, Learning, or Resources.
 
 ## Captured Notes
+- test (captured: 2026-08-04 04:09)

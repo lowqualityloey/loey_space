@@ -6,6 +6,12 @@
   "fileMenu": [],
   "leftRibbon": [
     {
+      "id": "quickadd:choice:e4f0a1b2-ffff-4000-8000-000000000100",
+      "icon": "lucide-sparkles",
+      "name": "QuickAdd: ✨ AI Enrich Daily Note Macro",
+      "mode": "any"
+    },
+    {
       "id": "quickadd:choice:e4f0a1b2-1111-4000-8000-000000000001",
       "icon": "lucide-inbox",
       "name": "QuickAdd: 📥 Quick Capture to Inbox",
