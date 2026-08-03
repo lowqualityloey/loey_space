@@ -5,12 +5,7 @@ const NOTION_TOKEN = process.env.NOTION_TOKEN || process.env.NOTION_API_KEY || '
 const VAULT_PATH = path.join(__dirname, '..');
 
 const DATABASES = [
-  { id: 'd28ea424-1ad0-4492-a83a-59acb2fadbae', name: 'Inbox', folder: '00-Inbox', type: 'inbox', area: 'general' },
-  { id: 'ba03415d-78cb-4d12-be86-c67be44f5fcf', name: 'Daily Notes', folder: '01-Daily', type: 'daily', area: 'general' },
-  { id: 'abd7b176-1406-4aa7-9309-5dd51dda97a1', name: 'Projects', folder: '02-Projects', type: 'project', area: 'dev' },
-  { id: '66f24548-60e0-4068-8ff7-530793214c9b', name: 'Code Snippets', folder: '03-Dev', type: 'snippet', area: 'dev' },
-  { id: 'c1e9feeb-0fd1-41e9-a433-d422924af349', name: 'Learning', folder: '04-Learning', type: 'learning', area: 'learning' },
-  { id: '2da30617-12f4-43f3-861b-40ace82555ad', name: 'Resources', folder: '06-Resources', type: 'resource', area: 'dev' }
+  { id: 'ba03415d-78cb-4d12-be86-c67be44f5fcf', name: 'Daily Notes', folder: '01-Daily', type: 'daily', area: 'general' }
 ];
 
 const headers = {
@@ -350,4 +345,8 @@ function extractNumber(props, key) {
   return null;
 }
 
-sync();
+if (require.main === module) {
+  sync();
+}
+
+module.exports = { sync };
