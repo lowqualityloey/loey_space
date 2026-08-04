@@ -24,23 +24,40 @@ sleep_hours: 7
 
 ## ↪ Carry Forward
 <%*
-let titleDate = window.moment(tp.file.title, "YYYY-MM-DD");
+let titleDate = window.moment(tp.file.title.substring(0, 10), "YYYY-MM-DD");
 if (!titleDate.isValid()) {
   titleDate = window.moment(tp.date.now("YYYY-MM-DD"), "YYYY-MM-DD");
 }
-const yesterday = titleDate.subtract(1, "day").format("YYYY-MM-DD");
-const yesterdayFile = app.vault.getAbstractFileByPath(`01-Daily/${yesterday}.md`);
+const currentDateStr = titleDate.format("YYYY-MM-DD");
+
+// Find all daily files in 01-Daily/ except _Daily MOC and active file
+const dailyFiles = app.vault.getMarkdownFiles()
+  .filter(f => f.path.startsWith("01-Daily/") && !f.name.startsWith("_") && f.name !== tp.file.title + ".md");
+
+// Match most recent previous daily note (date < currentDateStr)
+let prevFile = null;
+let latestPrevDate = "";
+
+for (const file of dailyFiles) {
+  const match = file.name.match(/^(\d{4}-\d{2}-\d{2})/);
+  const fileDate = match ? match[1] : null;
+  if (fileDate && fileDate < currentDateStr && fileDate > latestPrevDate) {
+    latestPrevDate = fileDate;
+    prevFile = file;
+  }
+}
+
 let carried = [];
 
-if (yesterdayFile) {
-  const content = await app.vault.read(yesterdayFile);
+if (prevFile) {
+  const content = await app.vault.read(prevFile);
   const lines = content.split("\n");
   let inTargetSection = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    if (/^##\s+.*(Tasks|Tomorrow Setup)/i.test(line)) {
+    if (/^##\s+.*(Tomorrow Setup|Tasks)/i.test(line)) {
       inTargetSection = true;
       continue;
     } else if (/^##\s+/.test(line)) {
@@ -49,7 +66,7 @@ if (yesterdayFile) {
 
     if (inTargetSection && /^\s*- \[ \]\s+/.test(line)) {
       const itemText = line.replace(/^\s*-\s*\[ \]\s*/, "").trim();
-      if (itemText && itemText !== "[ ]" && !carried.includes(`- [ ] ${itemText}`)) {
+      if (itemText && itemText !== "[ ]" && itemText !== "..." && !carried.includes(`- [ ] ${itemText}`)) {
         carried.push(`- [ ] ${itemText}`);
       }
     }
