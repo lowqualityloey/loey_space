@@ -1,4 +1,11 @@
 {
-  "cssTheme": "Things",
-  "accentColor": ""
+  "cssTheme": "Isinglass",
+  "accentColor": "",
+  "theme": "obsidian",
+  "interfaceFontFamily": "Outfit, Inter, sans-serif",
+  "textFontFamily": "Inter, Plus Jakarta Sans, sans-serif",
+  "monospaceFontFamily": "JetBrains Mono, monospace",
+  "enabledCssSnippets": [
+    "fonts"
+  ]
 }

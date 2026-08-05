@@ -1,0 +1,54 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
+/* ==========================================================================
+   Obsidian Typography Override (Fixes Serif Theme Defaults)
+   ========================================================================== */
+
+:root {
+  --default-font: 'Inter', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  --font-text: 'Inter', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  --font-editor: 'Inter', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  --font-interface: 'Outfit', 'Inter', sans-serif !important;
+  --font-monospace: 'JetBrains Mono', Consolas, monospace !important;
+}
+
+/* Force modern sans-serif across all Reading and Editing views */
+body,
+.markdown-rendered,
+.markdown-rendered p,
+.markdown-rendered div,
+.markdown-rendered li,
+.markdown-rendered span,
+.markdown-preview-view,
+.cm-content,
+.cm-line,
+.view-content {
+  font-family: 'Inter', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Headings (Outfit) */
+.cm-header, 
+.markdown-rendered h1, 
+.markdown-rendered h2, 
+.markdown-rendered h3, 
+.markdown-rendered h4, 
+.markdown-rendered h5, 
+.markdown-rendered h6,
+.markdown-rendered .heading {
+  font-family: 'Outfit', 'Inter', sans-serif !important;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--text-normal);
+}
+
+/* Monospace & Code Blocks (JetBrains Mono) */
+.cm-inline-code, 
+.markdown-rendered code, 
+pre code,
+.cm-codeblock {
+  font-family: 'JetBrains Mono', Consolas, monospace !important;
+  font-size: 0.9em;
+}

@@ -1,0 +1,2931 @@
+/* ─────────────────────────────────────────────────────────────
+   macOS Tahoe
+   Pixel-faithful chrome from MacOS Design System vault notes.
+   Text sizes intentionally left Obsidian-native.
+   Sources: Colors · Materials · Text Styles · Windows · Sidebars ·
+   Toolbars and Titlebars · Buttons · Forms · Text Fields ·
+   Search Fields · Toggles · Menus · Dialogs · Alerts · Sheets ·
+   Popovers · Lists and Tables · Scrollbar · Tooltips ·
+   Segmented Controls · Boxes · Sliders and Dials · Progress ·
+   Steppers · Disclosure · Combo Boxes · Pop-up Buttons ·
+   Notifications · Color Wells · Menu Bar and Dock
+   ───────────────────────────────────────────────────────────── */
+
+/* ═══════════════════════════════════════════════════════════════
+   1. Design-system tokens
+   ═══════════════════════════════════════════════════════════════ */
+
+body {
+  /* —— Colors.md (Opaque System Colors) —— */
+  --macos-red: #ff383c;
+  --macos-red-dark: #ff4245;
+  --macos-orange: #ff8d28;
+  --macos-orange-dark: #ff9230;
+  --macos-yellow: #ffcc00;
+  --macos-yellow-dark: #ffd600;
+  --macos-green: #34c759;
+  --macos-green-dark: #30d158;
+  --macos-mint: #00c8b3;
+  --macos-mint-dark: #00dac3;
+  --macos-teal: #00c3d0;
+  --macos-teal-dark: #00d2e0;
+  --macos-cyan: #00c0e8;
+  --macos-cyan-dark: #3cd3fe;
+  --macos-blue: #0088ff;
+  --macos-blue-dark: #0091ff;
+  --macos-blue-preferred: #0d6fff; /* Buttons / Toggles / Forms tint */
+  --macos-blue-selection: #2962d9; /* Lists and Tables.md selected */
+  --macos-blue-focus: #007aff; /* Text Fields.md focus ring */
+  --macos-indigo: #6155f5;
+  --macos-indigo-dark: #6d7cff;
+  --macos-purple: #cb30e0;
+  --macos-purple-dark: #db34f2;
+  --macos-pink: #ff2d55;
+  --macos-pink-dark: #ff375f;
+  --macos-brown: #ac7f5e;
+  --macos-brown-dark: #b78a66;
+  --macos-gray: #8e8e93;
+  --macos-gray-dark: #98989f;
+
+  /* Sidebars.md · Menus.md · Dialogs.md secondary chrome */
+  --macos-label-primary-solid: #1a1a1a;
+  --macos-disabled: #bfbfbf; /* Sidebars disabled · Menus shortcuts */
+  --macos-menu-section: #727272; /* Menus.md section label */
+  --macos-tooltip-label: #4d4d4d; /* Tooltips.md · Materials label */
+  --macos-canvas: #ecebeb; /* control boards in Search/Toggles/Steppers */
+  --macos-wallpaper: #e5e5e5; /* Materials.md light wallpaper */
+  --macos-surface-gray: #f5f5f5;
+  --macos-alert-neutral: #e6e6e6; /* Alerts.md neutral button */
+  --macos-list-inactive: rgba(0, 0, 0, 0.14); /* Lists and Tables.md */
+
+  /* Windows.md traffic lights */
+  --macos-traffic-close: #ff736a;
+  --macos-traffic-minimize: #febc2e;
+  --macos-traffic-zoom: #19c332;
+
+  /* Materials.md */
+  --macos-material-ultrathick: rgba(246, 246, 246, 0.84);
+  --macos-material-thick: rgba(246, 246, 246, 0.72);
+  --macos-material-medium: rgba(246, 246, 246, 0.6);
+  --macos-material-thin: rgba(246, 246, 246, 0.48);
+  --macos-material-ultrathin: rgba(246, 246, 246, 0.36);
+  --macos-material-dark-ultrathick: rgba(0, 0, 0, 0.5);
+  --macos-material-dark-thick: rgba(0, 0, 0, 0.4);
+  --macos-material-dark-medium: rgba(0, 0, 0, 0.29);
+  --macos-material-dark-thin: rgba(0, 0, 0, 0.2);
+  --macos-material-dark-ultrathin: rgba(0, 0, 0, 0.1);
+  --macos-material-blur: 15px;
+  --macos-popover-blur: 40.7742px;
+
+  /* Radii from component specs */
+  --macos-radius-control: 6px; /* Buttons · Forms · Segmented · Steppers */
+  --macos-radius-field-sm: 4px; /* Combo Boxes compact */
+  --macos-radius-sidebar-item: 8px; /* Sidebars · Menus item */
+  --macos-radius-menu: 13px; /* Menus.md */
+  --macos-radius-alert: 10px; /* Alerts.md stacked */
+  --macos-radius-sheet: 26px; /* Dialogs · Sheets · Windows */
+  --macos-radius-utility: 15px; /* Windows.md Utility Panel */
+  --macos-radius-window-sm: 16px; /* Windows.md / Notifications */
+  --macos-radius-dialog-compact: 18px; /* Dialogs.md compact */
+  --macos-radius-popover: 20px; /* Popovers.md */
+  --macos-radius-notification: 16px; /* Notifications.md */
+  --macos-radius-box: 12px; /* Boxes.md */
+  --macos-radius-search: 9px; /* Search Fields.md */
+  --macos-radius-checkbox: 5.5px; /* Forms.md checkboxes */
+  --macos-radius-radio: 100px; /* Forms.md radios */
+  --macos-radius-tooltip: 1px; /* Tooltips.md */
+  --macos-radius-pill: 1000px;
+
+  /* Shadows */
+  --macos-utility-shadow: 0 5px 20px rgba(0, 0, 0, 0.3); /* Windows.md Utility */
+  --macos-window-shadow: 0 0 0 1px rgba(0, 0, 0, 0.23),
+    0 16px 48px rgba(0, 0, 0, 0.35); /* Windows · Dialogs · Sheets */
+  --macos-alert-shadow: 0 0 1px rgba(0, 0, 0, 0.2),
+    0 17px 45px rgba(0, 0, 0, 0.5); /* Alerts.md drop-shadow */
+  --macos-menu-shadow: 0 0 2px rgba(0, 0, 0, 0.1),
+    0 0 25px rgba(0, 0, 0, 0.16); /* Menus.md */
+  --macos-menu-fill: linear-gradient(
+      0deg,
+      rgba(245, 245, 245, 0.67),
+      rgba(245, 245, 245, 0.67)
+    ),
+    #262626; /* Menus · Alerts · Notifications fill */
+  --macos-notification-shadow: 0 8px 40px rgba(0, 0, 0, 0.12);
+  --macos-popover-shadow: 0 2px 4px rgba(0, 0, 0, 0.15),
+    0 8px 15px 6px rgba(0, 0, 0, 0.18),
+    inset 0 0.5px 1px 0.5px rgba(255, 255, 255, 0.5);
+  --macos-tooltip-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  --macos-field-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08); /* Forms · Text Fields */
+  --macos-field-shadow-soft: 0 0 0 1px rgba(0, 0, 0, 0.04); /* Combo · Search idle */
+  --macos-field-focus-ring: 0 0 0 3.5px rgba(0, 122, 255, 0.25); /* Text Fields.md */
+  --macos-field-focus-border: 0 0 0 1px rgba(0, 122, 255, 0.15); /* Search Fields.md */
+  --macos-knob-shadow: 0 0 1px rgba(0, 0, 0, 0.05), 0 0 4px rgba(0, 0, 0, 0.05),
+    0 0 44px rgba(0, 0, 0, 0.1), inset 1.75px 1.75px 1px -1px #ffffff,
+    inset -1.75px -1.75px 2px -1px #ffffff,
+    inset 0 0 1px 0.25px rgba(255, 255, 255, 0.1); /* Toggles · Sliders */
+  --macos-menu-item-selected: linear-gradient(0deg, #0088ff, #0088ff),
+    linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.65),
+      rgba(255, 255, 255, 0.65)
+    ),
+    rgba(0, 0, 0, 0.05); /* Menus.md */
+
+  /* Typography — Text Styles.md (family only; sizes stay Obsidian-native) */
+  --font-interface-theme: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "SF Pro", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-text-theme: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "SF Pro", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-monospace-theme: "SF Mono", ui-monospace, Menlo, Monaco, Consolas,
+    "Liberation Mono", monospace;
+
+  /* Control metrics */
+  --input-height: 24px; /* Forms · Buttons · Text Fields · Steppers */
+  --button-height: 24px;
+  --toggle-width: 36px; /* Toggles.md compact */
+  --toggle-height: 16px;
+  --checkbox-size: 16px; /* Forms.md */
+  --checkbox-radius: var(--macos-radius-checkbox);
+  --slider-thumb-height: 20px; /* Sliders and Dials.md */
+  --slider-thumb-width: 20px;
+  --slider-track-height: 4px;
+
+  /* Obsidian radius map → design system */
+  --radius-s: 5px;
+  --radius-m: var(--macos-radius-control);
+  --radius-l: var(--macos-radius-sidebar-item);
+  --radius-xl: var(--macos-radius-notification);
+
+  /* Accent → Colors.md Blue */
+  --accent-h: 208;
+  --accent-s: 100%;
+  --accent-l: 50%;
+
+  /* Property / tag pills — match inline hashtags (16px · pad 2×9) */
+  --pill-color: rgba(0, 0, 0, 0.85);
+  --pill-background: var(--macos-alert-neutral); /* #E6E6E6 */
+  --pill-background-hover: #dcdcdc;
+  --pill-padding-x: 9px;
+  --pill-padding-y: 2px;
+  --tag-radius: var(--macos-radius-pill);
+  --tag-padding-x: 9px;
+  --tag-padding-y: 2px;
+  --tag-size: 16px;
+  --tag-weight: 510;
+  --callout-radius: var(--macos-radius-box);
+  --callout-blend-mode: normal;
+  /* Obsidian defaults to 12/12/12/24 for the left accent bar — we hide the bar */
+  --callout-padding: 20px;
+  --callout-border-width: 0;
+
+  /* Idle regular · hover/active medium — Sidebars.md labels are 510 when selected */
+  --nav-item-weight: 400;
+  --nav-item-weight-hover: 510;
+  --nav-item-weight-active: 510;
+  --nav-item-padding: 4px 10px;
+  --nav-indentation-guide-width: 1px;
+
+  --tab-radius: var(--macos-radius-control);
+  --tab-radius-active: var(--macos-radius-control);
+  /* Kill Obsidian's default concave tab "feet" / scoops */
+  --tab-curve: 0px;
+  --tab-font-weight: 510;
+  --tab-outline-width: 0;
+  --titlebar-background-focused: var(--background-secondary);
+
+  --divider-width: 1px;
+  --modal-radius: var(--macos-radius-sheet);
+  --modal-border-width: 0;
+  --prompt-border-width: 0;
+  --prompt-border-width-mobile: 0;
+
+  --scrollbar-width: 12px; /* Scrollbar.md frame */
+  --size-4-1: 4px;
+  --size-4-2: 8px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   2. Light — Colors.md · Materials.md · Windows.md
+   ═══════════════════════════════════════════════════════════════ */
+
+.theme-light {
+  color-scheme: light;
+  --highlight-mix-blend-mode: darken;
+
+  --color-red-rgb: 255, 56, 60;
+  --color-red: var(--macos-red);
+  --color-orange-rgb: 255, 141, 40;
+  --color-orange: var(--macos-orange);
+  --color-yellow-rgb: 255, 204, 0;
+  --color-yellow: var(--macos-yellow);
+  --color-green-rgb: 52, 199, 89;
+  --color-green: var(--macos-green);
+  --color-cyan-rgb: 0, 192, 232;
+  --color-cyan: var(--macos-cyan);
+  --color-blue-rgb: 0, 136, 255;
+  --color-blue: var(--macos-blue);
+  --color-purple-rgb: 203, 48, 224;
+  --color-purple: var(--macos-purple);
+  --color-pink-rgb: 255, 45, 85;
+  --color-pink: var(--macos-pink);
+
+  /* Windows.md #FFFFFF · Materials · #F5F5F5 · #ECEBEB */
+  --background-primary: #ffffff;
+  --background-primary-alt: var(--macos-surface-gray);
+  --background-secondary: #f6f6f6;
+  --background-secondary-alt: var(--macos-canvas);
+  --background-modifier-border: rgba(0, 0, 0, 0.12); /* Forms separators */
+  --background-modifier-border-hover: rgba(0, 0, 0, 0.18);
+  --background-modifier-border-focus: var(--macos-blue-focus);
+  --background-modifier-hover: rgba(0, 0, 0, 0.05); /* Colors fills */
+  --background-modifier-active-hover: rgba(0, 0, 0, 0.08);
+  --background-modifier-form-field: #ffffff;
+  --background-modifier-box-shadow: rgba(0, 0, 0, 0.16);
+  --background-modifier-cover: rgba(0, 0, 0, 0.2); /* Dialogs.md overlay */
+  --background-modifier-error: rgba(255, 56, 60, 0.23); /* Alerts.md */
+  --background-modifier-success: rgba(52, 199, 89, 0.15);
+  --background-modifier-message: rgba(0, 0, 0, 0.85);
+
+  /* Colors.md Label levels */
+  --text-normal: rgba(0, 0, 0, 0.85);
+  --text-muted: rgba(0, 0, 0, 0.5);
+  --text-faint: rgba(0, 0, 0, 0.25);
+  --text-on-accent: #ffffff;
+  --text-on-accent-inverted: #ffffff;
+  --text-error: var(--macos-red);
+  --text-success: var(--macos-green);
+  --text-accent: var(--macos-blue);
+  --text-accent-hover: #0070d8;
+  --text-selection: rgba(0, 136, 255, 0.22);
+  --text-highlight-bg: rgba(255, 204, 0, 0.4);
+  --text-highlight-bg-active: rgba(255, 204, 0, 0.55);
+
+  --interactive-normal: #ffffff;
+  --interactive-hover: rgba(0, 0, 0, 0.05);
+  --interactive-accent: var(--macos-blue-preferred);
+  --interactive-accent-hover: #0a63e8;
+  --interactive-accent-hsl: 216, 100%, 53%;
+
+  --color-accent: var(--macos-blue);
+  --color-accent-1: #1a94ff;
+  --color-accent-2: #007aeb;
+  --color-accent-hsl: var(--accent-h), var(--accent-s), var(--accent-l);
+
+  /* Sidebars.md selection rgba(0,0,0,0.11) · text #1A1A1A / label */
+  --nav-item-color: rgba(0, 0, 0, 0.85);
+  --nav-item-color-hover: rgba(0, 0, 0, 0.85);
+  --nav-item-color-active: rgba(0, 0, 0, 0.85);
+  --nav-item-color-selected: rgba(0, 0, 0, 0.85);
+  --nav-item-background-hover: rgba(0, 0, 0, 0.05);
+  --nav-item-background-active: rgba(0, 0, 0, 0.11);
+  --nav-item-background-selected: rgba(0, 0, 0, 0.11);
+  --nav-indentation-guide-color: rgba(0, 0, 0, 0.12);
+
+  /* Toolbars and Titlebars.md tabs */
+  --tab-container-background: transparent;
+  --tab-text-color: #4d4d4d;
+  --tab-text-color-active: rgba(0, 0, 0, 0.85);
+  --tab-text-color-focused: rgba(0, 0, 0, 0.85);
+  --tab-text-color-focused-active: rgba(0, 0, 0, 0.85);
+  --tab-background-active: rgba(0, 0, 0, 0.03);
+  --tab-divider-color: transparent;
+
+  --ribbon-background: var(--background-secondary);
+  --ribbon-background-collapsed: var(--background-secondary);
+  --titlebar-background: var(--background-secondary);
+  --titlebar-background-focused: var(--background-secondary);
+  --titlebar-text-color-focused: rgba(0, 0, 0, 0.85);
+  --titlebar-text-color: rgba(0, 0, 0, 0.5);
+
+  --divider-color: rgba(0, 0, 0, 0.12);
+  --divider-color-hover: rgba(0, 0, 0, 0.25);
+
+  /* Forms.md · Toggles.md */
+  --checkbox-color: var(--macos-blue-preferred);
+  --checkbox-color-hover: #0a63e8;
+  --checkbox-border-color: rgba(0, 0, 0, 0.25);
+  --checkbox-border-color-hover: rgba(0, 0, 0, 0.4);
+
+  --slider-track-background: rgba(0, 0, 0, 0.12);
+  --slider-thumb-border-width: 0;
+
+  /* Scrollbar.md */
+  --scrollbar-bg: transparent;
+  --scrollbar-thumb-bg: rgba(0, 0, 0, 0.15);
+  --scrollbar-active-thumb-bg: rgba(0, 0, 0, 0.28);
+
+  --code-background: rgba(0, 0, 0, 0.03); /* Boxes.md / Colors fills */
+  --code-normal: rgba(0, 0, 0, 0.85);
+
+  --table-header-background: rgba(0, 0, 0, 0.03);
+  --table-row-background-hover: rgba(0, 0, 0, 0.03);
+  --table-selection: var(--macos-blue-selection);
+  --table-selection-border-color: var(--macos-blue-selection);
+
+  --tag-background: rgba(0, 136, 255, 0.12);
+  --tag-background-hover: rgba(0, 136, 255, 0.2);
+  --tag-color: var(--macos-blue);
+  --tag-color-hover: #0070d8;
+
+  --graph-line: rgba(0, 0, 0, 0.12);
+  --graph-node: var(--macos-blue);
+  --graph-node-unresolved: rgba(0, 0, 0, 0.25);
+  --graph-node-focused: var(--macos-blue-preferred);
+  --graph-node-tag: var(--macos-green);
+  --graph-node-attachment: var(--macos-orange);
+
+  --shadow-s: var(--macos-menu-shadow);
+  --shadow-l: var(--macos-window-shadow);
+
+  --input-shadow: var(--macos-field-shadow);
+  --input-shadow-hover: 0 0 0 1px rgba(0, 0, 0, 0.14);
+  --input-border-width: 0;
+
+  --canvas-color: 0, 0, 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   3. Dark — Colors.md dark swatches · Materials dark
+   ═══════════════════════════════════════════════════════════════ */
+
+.theme-dark {
+  color-scheme: dark;
+  --highlight-mix-blend-mode: lighten;
+
+  --color-red-rgb: 255, 66, 69;
+  --color-red: var(--macos-red-dark);
+  --color-orange-rgb: 255, 146, 48;
+  --color-orange: var(--macos-orange-dark);
+  --color-yellow-rgb: 255, 214, 0;
+  --color-yellow: var(--macos-yellow-dark);
+  --color-green-rgb: 48, 209, 88;
+  --color-green: var(--macos-green-dark);
+  --color-cyan-rgb: 60, 211, 254;
+  --color-cyan: var(--macos-cyan-dark);
+  --color-blue-rgb: 0, 145, 255;
+  --color-blue: var(--macos-blue-dark);
+  --color-purple-rgb: 219, 52, 242;
+  --color-purple: var(--macos-purple-dark);
+  --color-pink-rgb: 255, 55, 95;
+  --color-pink: var(--macos-pink-dark);
+
+  /* Menus.md / Alerts.md dark base #262626 */
+  --background-primary: #1c1c1c;
+  --background-primary-alt: #222222;
+  --background-secondary: #262626;
+  --background-secondary-alt: #2a2a2a;
+  --background-modifier-border: rgba(255, 255, 255, 0.1);
+  --background-modifier-border-hover: rgba(255, 255, 255, 0.16);
+  --background-modifier-border-focus: var(--macos-blue-dark);
+  --background-modifier-hover: rgba(255, 255, 255, 0.05);
+  --background-modifier-active-hover: rgba(255, 255, 255, 0.08);
+  --background-modifier-form-field: rgba(255, 255, 255, 0.08);
+  --background-modifier-box-shadow: rgba(0, 0, 0, 0.45);
+  --background-modifier-cover: rgba(0, 0, 0, 0.45);
+  --background-modifier-error: rgba(255, 66, 69, 0.28);
+  --background-modifier-success: rgba(48, 209, 88, 0.18);
+  --background-modifier-message: rgba(255, 255, 255, 0.9);
+
+  --text-normal: rgba(255, 255, 255, 0.85);
+  --text-muted: rgba(255, 255, 255, 0.55);
+  --text-faint: rgba(255, 255, 255, 0.25);
+  --text-on-accent: #ffffff;
+  --text-on-accent-inverted: #ffffff;
+  --text-error: var(--macos-red-dark);
+  --text-success: var(--macos-green-dark);
+  --text-accent: var(--macos-blue-dark);
+  --text-accent-hover: #33a6ff;
+  --text-selection: rgba(0, 145, 255, 0.28);
+  --text-highlight-bg: rgba(255, 214, 0, 0.28);
+  --text-highlight-bg-active: rgba(255, 214, 0, 0.4);
+
+  --interactive-normal: rgba(255, 255, 255, 0.1);
+  --interactive-hover: rgba(255, 255, 255, 0.14);
+  --interactive-accent: var(--macos-blue-preferred);
+  --interactive-accent-hover: #2a80ff;
+  --interactive-accent-hsl: 216, 100%, 53%;
+
+  --color-accent: var(--macos-blue-dark);
+  --color-accent-1: #33a6ff;
+  --color-accent-2: #007fd6;
+  --color-accent-hsl: 208, 100%, 50%;
+
+  --nav-item-color: rgba(255, 255, 255, 0.85);
+  --nav-item-color-hover: rgba(255, 255, 255, 0.85);
+  --nav-item-color-active: rgba(255, 255, 255, 0.85);
+  --nav-item-color-selected: rgba(255, 255, 255, 0.85);
+  --nav-item-background-hover: rgba(255, 255, 255, 0.06);
+  --nav-item-background-active: rgba(255, 255, 255, 0.12);
+  --nav-item-background-selected: rgba(255, 255, 255, 0.12);
+  --nav-indentation-guide-color: rgba(255, 255, 255, 0.1);
+
+  --tab-container-background: transparent;
+  --tab-text-color: rgba(255, 255, 255, 0.55);
+  --tab-text-color-active: rgba(255, 255, 255, 0.85);
+  --tab-text-color-focused: rgba(255, 255, 255, 0.85);
+  --tab-text-color-focused-active: rgba(255, 255, 255, 0.85);
+  --tab-background-active: rgba(255, 255, 255, 0.08);
+  --tab-divider-color: transparent;
+
+  --ribbon-background: var(--background-secondary);
+  --ribbon-background-collapsed: var(--background-secondary);
+  --titlebar-background: var(--background-secondary);
+  --titlebar-background-focused: var(--background-secondary);
+  --titlebar-text-color-focused: rgba(255, 255, 255, 0.85);
+  --titlebar-text-color: rgba(255, 255, 255, 0.55);
+
+  --divider-color: rgba(255, 255, 255, 0.1);
+  --divider-color-hover: rgba(255, 255, 255, 0.22);
+
+  --checkbox-color: var(--macos-blue-preferred);
+  --checkbox-color-hover: #2a80ff;
+  --checkbox-border-color: rgba(255, 255, 255, 0.25);
+  --checkbox-border-color-hover: rgba(255, 255, 255, 0.4);
+
+  --slider-track-background: rgba(255, 255, 255, 0.14);
+
+  --scrollbar-bg: transparent;
+  --scrollbar-thumb-bg: rgba(255, 255, 255, 0.2);
+  --scrollbar-active-thumb-bg: rgba(255, 255, 255, 0.35);
+
+  --code-background: rgba(255, 255, 255, 0.06);
+  --code-normal: rgba(255, 255, 255, 0.85);
+
+  --table-header-background: rgba(255, 255, 255, 0.04);
+  --table-row-background-hover: rgba(255, 255, 255, 0.04);
+  --table-selection: rgba(0, 145, 255, 0.22);
+  --table-selection-border-color: var(--macos-blue-dark);
+
+  --pill-color: rgba(255, 255, 255, 0.85);
+  --pill-background: rgba(255, 255, 255, 0.14);
+  --pill-background-hover: rgba(255, 255, 255, 0.2);
+
+  --tag-background: rgba(0, 145, 255, 0.18);
+  --tag-background-hover: rgba(0, 145, 255, 0.28);
+  --tag-color: var(--macos-blue-dark);
+  --tag-color-hover: #33a6ff;
+
+  --graph-line: rgba(255, 255, 255, 0.12);
+  --graph-node: var(--macos-blue-dark);
+  --graph-node-unresolved: rgba(255, 255, 255, 0.25);
+  --graph-node-focused: var(--macos-blue-preferred);
+  --graph-node-tag: var(--macos-green-dark);
+  --graph-node-attachment: var(--macos-orange-dark);
+
+  --shadow-s: 0 0 2px rgba(0, 0, 0, 0.35), 0 0 25px rgba(0, 0, 0, 0.45);
+  --shadow-l: 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 16px 48px rgba(0, 0, 0, 0.55);
+
+  --input-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
+  --input-shadow-hover: 0 0 0 1px rgba(255, 255, 255, 0.18);
+
+  --canvas-color: 255, 255, 255;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   4. Shell / materials — Materials.md · Windows.md · Menu Bar
+   ═══════════════════════════════════════════════════════════════ */
+
+.workspace-leaf,
+.workspace-split,
+.workspace-tabs {
+  background-color: transparent;
+}
+
+.workspace-split.mod-root .workspace-leaf {
+  background-color: var(--background-primary);
+}
+
+.workspace-ribbon {
+  background-color: var(--background-secondary);
+  border-right: none;
+}
+
+/* Obsidian paints a titlebar spacer above the left ribbon — keep it flush */
+.workspace-ribbon.mod-left:before {
+  background-color: var(--titlebar-background-focused);
+  border-bottom: none;
+  box-shadow: none;
+}
+
+.workspace-ribbon .clickable-icon {
+  border-radius: var(--macos-radius-control);
+  color: var(--text-muted);
+}
+
+.workspace-ribbon .clickable-icon:hover {
+  background-color: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.workspace-ribbon .clickable-icon.is-active {
+  background-color: var(--nav-item-background-selected);
+  color: var(--text-normal);
+}
+
+/* Sidebars — Materials ultrathick + Sidebars.md */
+.workspace-split.mod-left-split .workspace-sidedock-vault-profile,
+.workspace-split.mod-left-split .workspace-leaf-content,
+.workspace-split.mod-right-split .workspace-leaf-content,
+.workspace-split.mod-left-split > .workspace-leaf,
+.workspace-split.mod-right-split > .workspace-leaf,
+.mod-left-split .workspace-tab-header-container,
+.mod-right-split .workspace-tab-header-container {
+  background-color: var(--background-secondary);
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .theme-light .workspace-split.mod-left-split,
+  .theme-light .workspace-split.mod-right-split {
+    background-color: var(--macos-material-ultrathick);
+    -webkit-backdrop-filter: blur(var(--macos-material-blur));
+    backdrop-filter: blur(var(--macos-material-blur));
+  }
+
+  .theme-dark .workspace-split.mod-left-split,
+  .theme-dark .workspace-split.mod-right-split {
+    background-color: var(--macos-material-dark-ultrathick);
+    -webkit-backdrop-filter: blur(var(--macos-material-blur));
+    backdrop-filter: blur(var(--macos-material-blur));
+  }
+}
+
+.workspace-leaf-resize-handle {
+  background-color: transparent;
+}
+
+.workspace-leaf-resize-handle:hover,
+.workspace-leaf-resize-handle:active {
+  background-color: var(--divider-color-hover);
+}
+
+.status-bar {
+  background-color: var(--background-secondary);
+  border-top: 1px solid var(--divider-color);
+  color: var(--text-muted);
+  font-weight: 510;
+}
+
+.status-bar-item {
+  border-radius: var(--macos-radius-control);
+}
+
+.status-bar-item:hover {
+  background-color: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   5. Titlebar & tabs — Toolbars and Titlebars.md · Windows.md
+   Active tab fill rgba(0,0,0,0.03) · radius 6 · height 29
+   ═══════════════════════════════════════════════════════════════ */
+
+.titlebar,
+.workspace .mod-root .workspace-tabs .workspace-tab-header-container,
+.workspace-tab-header-container {
+  background-color: var(--background-secondary);
+  border-bottom: none;
+  align-items: center;
+}
+
+/* Beat Obsidian’s 8px / 15px insets — keep tabs close to the split edge */
+.workspace .mod-root .workspace-tabs .workspace-tab-header-container {
+  padding: 0 4px;
+}
+
+.workspace-tab-header-container-inner,
+.workspace .mod-root .workspace-tabs .workspace-tab-header-container-inner,
+.mod-root .workspace-tab-header-container-inner {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 2px;
+  min-height: 37px; /* 29 tab + 4+4 container pad — Toolbars.md */
+}
+
+/*
+  Utility Panel/Tabs — Toolbars and Titlebars.md
+  Item 29px · radius 6 · active rgba(0,0,0,0.03)
+  Label weight 510 · line-height 22 · color #4D4D4D / primary when active
+*/
+.workspace .mod-root .workspace-tabs .workspace-tab-header,
+.workspace-tab-header {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  border-radius: var(--macos-radius-control);
+  height: 29px;
+  min-height: 29px;
+  max-height: 29px;
+  padding: 0 8px;
+  border: none;
+  box-shadow: none;
+  background-color: transparent;
+  overflow: hidden; /* clip any leftover curve artifacts */
+}
+
+/* Obsidian draws concave corner scoops via ::before/::after — hide them */
+.workspace-tab-header::before,
+.workspace-tab-header::after {
+  content: none !important;
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  box-shadow: none !important;
+  background: none !important;
+}
+
+.workspace .mod-root .workspace-tabs .workspace-tab-header.is-active,
+.workspace-tab-header.is-active {
+  background-color: var(--tab-background-active);
+  box-shadow: none;
+}
+
+.workspace-tab-header-inner {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  min-height: 0;
+  padding: 0 2px;
+  gap: 6px;
+}
+
+.workspace-tab-header-inner-title {
+  font-weight: 510;
+  line-height: 22px;
+  color: var(--tab-text-color);
+}
+
+.workspace-tab-header.is-active .workspace-tab-header-inner-title {
+  color: var(--tab-text-color-active);
+}
+
+.workspace-tab-header-inner-icon,
+.workspace-tab-header-status-container {
+  opacity: 0.55;
+}
+
+.workspace-tab-header.is-active .workspace-tab-header-inner-icon {
+  opacity: 0.85;
+}
+
+.workspace-tab-header-inner-close-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  margin: 0;
+  opacity: 0.55;
+}
+
+.workspace-tab-header-inner-close-button:hover {
+  opacity: 0.85;
+}
+
+/* Match tab pill center — Obsidian defaults pad 8/0/6 which lifts the + */
+.workspace-tab-header-new-tab,
+.workspace-tab-header-tab-list,
+.workspace .mod-root .workspace-tabs .workspace-tab-header-new-tab,
+.workspace .mod-root .workspace-tabs .workspace-tab-header-tab-list {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  box-sizing: border-box;
+  border-radius: var(--macos-radius-control);
+  height: 29px;
+  width: 29px;
+  padding: 0;
+  margin-block: 0;
+  margin-inline-start: 2px;
+  margin-inline-end: 4px;
+}
+
+.workspace-tab-header-new-tab .clickable-icon,
+.workspace-tab-header-tab-list .clickable-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 29px;
+  height: 29px;
+  padding: 0;
+  margin: 0;
+}
+
+.view-header {
+  background-color: var(--background-primary);
+  border-bottom: 1px solid var(--divider-color);
+  height: 40px;
+}
+
+.view-header-title {
+  font-weight: 590;
+  color: var(--text-normal);
+}
+
+.view-header-title-parent {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+/* Toolbars.md Utility — icon clusters use gap 3, not a shared bezel */
+.view-header-nav-buttons,
+.view-actions,
+.titlebar-button-container.mod-right,
+.titlebar-button-container.mod-left {
+  gap: 3px;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Mobile: reading/more actions must not sit in a ghost pill track */
+.is-mobile .view-actions,
+.is-phone .view-actions,
+.is-mobile .view-header-nav-buttons,
+.is-phone .view-header-nav-buttons {
+  gap: 3px;
+  background: transparent;
+  box-shadow: none;
+  border: none;
+  padding: 0;
+}
+
+.view-actions .clickable-icon,
+.view-header-nav-buttons .clickable-icon {
+  border-radius: var(--macos-radius-control);
+  color: var(--text-muted);
+  background-color: transparent;
+  box-shadow: none;
+}
+
+.view-actions .clickable-icon:hover,
+.view-header-nav-buttons .clickable-icon:hover {
+  background-color: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   6. Sidebars / nav — Sidebars.md
+   Selected rgba(0,0,0,0.11) · radius 8 · weight 510
+   ═══════════════════════════════════════════════════════════════ */
+
+.nav-files-container {
+  padding: 4px 8px 12px;
+}
+
+.nav-folder-title,
+.nav-file-title,
+.tree-item-self {
+  border-radius: var(--macos-radius-sidebar-item);
+  margin: 1px 0;
+  padding: 4px 10px 4px 8px;
+  font-weight: var(--nav-item-weight);
+  border: none;
+}
+
+.nav-folder-title:hover,
+.nav-file-title:hover,
+.tree-item-self:hover {
+  background-color: var(--nav-item-background-hover);
+  font-weight: var(--nav-item-weight-hover);
+}
+
+.nav-file-title.is-active,
+.nav-folder-title.is-active,
+.tree-item-self.is-active,
+.tree-item-self.is-selected {
+  background-color: var(--nav-item-background-selected);
+  color: var(--nav-item-color-selected);
+  font-weight: var(--nav-item-weight-active);
+}
+
+.nav-folder-collapse-indicator,
+.tree-item-self .collapse-icon svg.svg-icon,
+.nav-folder-title .collapse-icon svg.svg-icon {
+  color: var(--text-muted);
+}
+
+.nav-folder-title-content,
+.nav-file-title-content,
+.tree-item-inner {
+  color: inherit;
+  font-weight: inherit;
+}
+
+/* Tree/nav chevrons: Obsidian layout only — no optical nudges. */
+
+.workspace-leaf-content[data-type="search"] .tree-item-self.is-active,
+.workspace-leaf-content[data-type="file-explorer"] .tree-item-self.is-active,
+.workspace-leaf-content[data-type="bookmarks"] .tree-item-self.is-active,
+.workspace-leaf-content[data-type="outline"] .tree-item-self.is-active,
+.workspace-leaf-content[data-type="tag"] .tree-item-self.is-active {
+  background-color: var(--nav-item-background-selected);
+}
+
+/* Lists and Tables.md — active-window list selection #2962D9 */
+.workspace-leaf-content[data-type="search"] .search-result.is-active,
+.workspace-leaf-content[data-type="search"] .tree-item-self.is-flashing,
+.is-flashing {
+  background-color: rgba(41, 98, 217, 0.18);
+}
+
+.theme-dark .is-flashing {
+  background-color: rgba(0, 145, 255, 0.22);
+}
+
+.nav-header {
+  padding: 8px 10px 4px;
+}
+
+/* Segmented Controls.md — track rgba(0,0,0,0.02) + selected bezel */
+.nav-buttons-container {
+  gap: 0;
+  padding: 0;
+  background-color: rgba(0, 0, 0, 0.02);
+  border-radius: var(--macos-radius-control);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
+  min-height: 24px;
+}
+
+.theme-dark .nav-buttons-container {
+  background-color: rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.nav-action-button {
+  border-radius: var(--macos-radius-control);
+  color: var(--text-muted);
+  margin: 1px;
+}
+
+.nav-action-button:hover,
+.nav-action-button.is-active {
+  background-color: rgba(0, 0, 0, 0.05);
+  color: var(--text-normal);
+  box-shadow: none;
+}
+
+.theme-light .nav-action-button.is-active {
+  background-color: #ffffff;
+  box-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.12), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
+}
+
+.theme-dark .nav-action-button:hover,
+.theme-dark .nav-action-button.is-active {
+  background-color: rgba(255, 255, 255, 0.1);
+  box-shadow: none;
+}
+
+/* Disclosure — surface only on tree/nav; no size/position overrides */
+.tree-item-self .collapse-icon,
+.tree-item-self .tree-item-icon,
+.nav-folder-title .collapse-icon,
+.nav-folder-collapse-indicator {
+  background: transparent;
+  box-shadow: none;
+  border: none;
+}
+
+.clickable-icon.mod-disclosure:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   7. Buttons — Buttons.md
+   Preferred tint #0D6FFF · height 24 · radius 6 · weight 510
+   Bordered push buttons ≠ borderless toolbar icons (clickable-icon)
+   ═══════════════════════════════════════════════════════════════ */
+
+button:not(.clickable-icon),
+.mod-cta,
+.mobile-navbar-action {
+  font-family: var(--font-interface-theme);
+  font-weight: 510;
+  border-radius: var(--macos-radius-control);
+}
+
+/* Push / bordered buttons only — never toolbar icon buttons */
+button:not(.clickable-icon) {
+  min-height: var(--button-height);
+  padding: 0 16px;
+  box-shadow: var(--macos-field-shadow-soft);
+  background-color: #ffffff;
+  color: #1a1a1a;
+  border: none;
+  position: relative;
+}
+
+.theme-light button:not(.clickable-icon) {
+  background-image: linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.02),
+    rgba(0, 0, 0, 0.02)
+  );
+}
+
+.theme-dark button:not(.clickable-icon) {
+  background-color: rgba(255, 255, 255, 0.1);
+  background-image: none;
+  color: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+button:not(.clickable-icon):hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.theme-dark button:not(.clickable-icon):hover {
+  background-color: rgba(255, 255, 255, 0.14);
+}
+
+button:not(.clickable-icon):active {
+  background-color: rgba(0, 0, 0, 0.13); /* Buttons.md clicked black */
+}
+
+.theme-dark button:not(.clickable-icon):active {
+  background-color: rgba(255, 255, 255, 0.18);
+}
+
+button.mod-cta:not(.clickable-icon),
+.mod-cta {
+  background-color: var(--macos-blue-preferred);
+  background-image: none;
+  color: #ffffff;
+  box-shadow: none;
+}
+
+button.mod-cta:not(.clickable-icon):hover,
+.mod-cta:hover {
+  background-color: #0a63e8;
+  color: #ffffff;
+}
+
+button.mod-cta:not(.clickable-icon):active,
+.mod-cta:active {
+  background-color: #0a5ce0;
+  color: #ffffff;
+}
+
+/* Alerts.md destructive */
+button.mod-warning:not(.clickable-icon),
+.mod-warning {
+  background-color: rgba(255, 56, 60, 0.23);
+  background-image: none;
+  color: var(--macos-red);
+  box-shadow: none;
+}
+
+.theme-dark button.mod-warning:not(.clickable-icon),
+.theme-dark .mod-warning {
+  background-color: rgba(255, 66, 69, 0.28);
+  color: var(--macos-red-dark);
+}
+
+button:not(.clickable-icon):disabled,
+button:not(.clickable-icon)[disabled] {
+  opacity: 0.5; /* Buttons.md disabled */
+}
+
+/* Buttons.md Borderless — toolbar / header / ribbon icon affordances */
+button.clickable-icon,
+.clickable-icon,
+.mobile-navbar-action {
+  font-family: var(--font-interface-theme);
+  font-weight: 510;
+  border-radius: var(--macos-radius-control);
+  border: none;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+  min-height: 0;
+  color: var(--text-muted);
+}
+
+button.clickable-icon:hover,
+.clickable-icon:hover,
+.mobile-navbar-action:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  background-image: none;
+  box-shadow: none;
+  color: var(--text-normal);
+}
+
+.theme-dark button.clickable-icon:hover,
+.theme-dark .clickable-icon:hover,
+.theme-dark .mobile-navbar-action:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+button.clickable-icon:active,
+.clickable-icon:active,
+.mobile-navbar-action:active {
+  background-color: rgba(0, 0, 0, 0.13);
+  background-image: none;
+  box-shadow: none;
+}
+
+.theme-dark button.clickable-icon:active,
+.theme-dark .clickable-icon:active,
+.theme-dark .mobile-navbar-action:active {
+  background-color: rgba(255, 255, 255, 0.16);
+}
+
+button.clickable-icon:disabled,
+button.clickable-icon[disabled],
+button.clickable-icon[aria-disabled="true"],
+.clickable-icon[aria-disabled="true"] {
+  opacity: 0.35;
+  background-color: transparent;
+  box-shadow: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   8. Forms · Text Fields · Search · Combo Boxes · Pop-up Buttons
+   ═══════════════════════════════════════════════════════════════ */
+
+input[type="text"],
+input[type="search"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"],
+input[type="month"],
+input[type="week"],
+textarea,
+select,
+.dropdown {
+  font-family: var(--font-interface-theme);
+  font-weight: 510;
+  color: var(--text-normal);
+  border-radius: var(--macos-radius-control);
+  border: none;
+  box-shadow: var(--input-shadow);
+  background-color: var(--background-modifier-form-field);
+  min-height: var(--input-height);
+  padding: 3px 8px;
+}
+
+.theme-light input[type="text"],
+.theme-light input[type="search"],
+.theme-light input[type="email"],
+.theme-light input[type="password"],
+.theme-light input[type="number"],
+.theme-light input[type="date"],
+.theme-light input[type="datetime-local"],
+.theme-light input[type="time"],
+.theme-light input[type="month"],
+.theme-light input[type="week"],
+.theme-light textarea,
+.theme-light select,
+.theme-light .dropdown {
+  background-color: #ffffff;
+  color: #1a1a1a;
+}
+
+/*
+  Obsidian app.css pins the native picker glyph at
+  left: var(--size-4-1). Reserve start padding so the value
+  never sits under that icon (also covers time/month/week).
+*/
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"],
+input[type="month"],
+input[type="week"] {
+  position: relative;
+  padding-inline-start: calc(var(--size-4-1, 4px) + 18px);
+  padding-inline-end: 8px;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="month"]::-webkit-calendar-picker-indicator,
+input[type="week"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.45;
+}
+
+.theme-dark input[type="date"]::-webkit-calendar-picker-indicator,
+.theme-dark input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+.theme-dark input[type="time"]::-webkit-calendar-picker-indicator,
+.theme-dark input[type="month"]::-webkit-calendar-picker-indicator,
+.theme-dark input[type="week"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.55;
+}
+
+/* Number steppers — avoid spin buttons crowding the value */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  height: var(--input-height);
+  opacity: 0.55;
+  cursor: pointer;
+}
+
+input:hover,
+textarea:hover,
+select:hover,
+.dropdown:hover {
+  box-shadow: var(--input-shadow-hover);
+}
+
+/* Text Fields.md + Search Fields.md focus */
+input:focus,
+textarea:focus,
+select:focus,
+.dropdown:focus {
+  box-shadow: var(--macos-field-focus-ring), var(--macos-field-focus-border);
+  outline: none;
+}
+
+.theme-dark input:focus,
+.theme-dark textarea:focus,
+.theme-dark select:focus,
+.theme-dark .dropdown:focus {
+  box-shadow: 0 0 0 3.5px rgba(0, 145, 255, 0.35),
+    0 0 0 1px rgba(0, 145, 255, 0.25);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-faint);
+  font-weight: 400;
+}
+
+/* Search Fields.md — pill field, soft idle shadow */
+.workspace-leaf-content[data-type="search"] input[type="search"],
+.workspace-leaf-content[data-type="search"] .search-input-container input,
+.search-input-container input,
+.global-search-input-container input,
+input[type="search"] {
+  border-radius: var(--macos-radius-search);
+  box-shadow: var(--macos-field-shadow-soft);
+  min-height: 28px;
+  padding-left: 28px;
+}
+
+.theme-light .workspace-leaf-content[data-type="search"] input[type="search"],
+.theme-light .search-input-container input,
+.theme-light .global-search-input-container input,
+.theme-light input[type="search"] {
+  background-color: #ffffff;
+}
+
+.workspace-leaf-content[data-type="search"] input[type="search"]:focus,
+.search-input-container input:focus,
+.global-search-input-container input:focus,
+input[type="search"]:focus {
+  box-shadow: var(--macos-field-focus-ring), var(--macos-field-focus-border);
+  border-radius: var(--macos-radius-pill);
+}
+
+/* Search Fields.md — prompt query field (Spotlight-style) */
+.prompt-input-container {
+  padding: 0;
+  margin: 0 0 4px;
+}
+
+input.prompt-input {
+  border-radius: var(--macos-radius-pill);
+  border: none;
+  border-bottom: none;
+  box-shadow: var(--macos-field-shadow);
+  background-color: #ffffff;
+  font-weight: 510;
+  font-size: 13px;
+  line-height: 16px;
+  min-height: 28px;
+  height: 28px;
+  padding: 0 10px;
+  color: var(--macos-label-primary-solid);
+}
+
+.theme-dark input.prompt-input {
+  background-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+input.prompt-input:focus {
+  box-shadow: var(--macos-field-focus-ring), var(--macos-field-focus-border);
+  border-bottom: none;
+}
+
+.prompt-input-container .search-input-clear-button {
+  color: var(--macos-menu-section);
+  margin: 0;
+  opacity: 1;
+}
+
+.prompt-input-container .search-input-clear-button:hover {
+  color: var(--macos-label-primary-solid);
+  background-color: transparent;
+}
+
+/* Pop-up / Combo — chevron affordance */
+select,
+.dropdown {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath fill='%23000000' fill-opacity='0.5' d='M0 0l4 5 4-5z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 8px 5px;
+  padding-right: 22px;
+  -webkit-appearance: none;
+  appearance: none;
+  box-shadow: var(--macos-field-shadow-soft);
+}
+
+.theme-dark select,
+.theme-dark .dropdown {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath fill='%23ffffff' fill-opacity='0.55' d='M0 0l4 5 4-5z'/%3E%3C/svg%3E");
+}
+
+/* Steppers.md — number inputs keep 6px radius control chrome */
+input[type="number"] {
+  border-radius: var(--macos-radius-control);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   9. Toggles · Checkboxes · Radios — Toggles.md · Forms.md
+   Switch on #0D6FFF · off black 0.15 · knob white + knobs shadow
+   Checkbox 16×16 · radius 5.5 · tint #0D6FFF
+   ═══════════════════════════════════════════════════════════════ */
+
+input[type="checkbox"],
+input[type="radio"] {
+  width: var(--checkbox-size);
+  height: var(--checkbox-size);
+  border: 1px solid var(--checkbox-border-color);
+  background-color: #ffffff;
+  box-shadow: var(--macos-field-shadow-soft);
+}
+
+.theme-dark input[type="checkbox"],
+.theme-dark input[type="radio"] {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+input[type="checkbox"] {
+  border-radius: var(--macos-radius-checkbox);
+}
+
+input[type="radio"] {
+  border-radius: var(--macos-radius-pill);
+}
+
+input[type="checkbox"]:checked,
+input[type="radio"]:checked {
+  background-color: var(--macos-blue-preferred);
+  border-color: var(--macos-blue-preferred);
+  box-shadow: none;
+}
+
+input[type="checkbox"]:hover,
+input[type="radio"]:hover {
+  border-color: var(--checkbox-border-color-hover);
+}
+
+/* Obsidian settings toggles → Toggles.md compact 36×16 */
+.checkbox-container {
+  background-color: rgba(0, 0, 0, 0.15);
+  border-radius: var(--macos-radius-pill);
+  width: 36px;
+  height: 16px;
+  box-shadow: none;
+  transition: background-color 120ms ease;
+}
+
+.theme-dark .checkbox-container {
+  background-color: rgba(255, 255, 255, 0.18);
+}
+
+.checkbox-container.is-enabled {
+  background-color: var(--macos-blue-preferred);
+}
+
+.checkbox-container:after {
+  width: 13px;
+  height: 13px;
+  margin: 1.5px;
+  border-radius: 100px;
+  background-color: #ffffff;
+  box-shadow: var(--macos-knob-shadow);
+}
+
+.checkbox-container.is-enabled:after {
+  transform: translate3d(20px, 0, 0);
+  background-color: #ffffff;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   10. Sliders · Progress — Sliders and Dials.md · Progress Indicators
+   Track 4px · fill #0D6FFF · thumb 20px knobby white
+   Progress bar 10px pill · fill #0D6FFF
+   ═══════════════════════════════════════════════════════════════ */
+
+input[type="range"] {
+  background: transparent;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: var(--macos-radius-pill);
+  background: var(--slider-track-background);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: -8px;
+  border-radius: var(--macos-radius-pill);
+  background: linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.35),
+      rgba(255, 255, 255, 0.35)
+    ),
+    linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.45),
+      rgba(255, 255, 255, 0.45)
+    ),
+    rgba(255, 255, 255, 0.65);
+  box-shadow: 0 0 1px rgba(0, 0, 0, 0.05), 0 0 4px rgba(0, 0, 0, 0.05),
+    0 0 44px rgba(0, 0, 0, 0.1);
+  border: none;
+}
+
+.slider-track {
+  border-radius: var(--macos-radius-pill);
+  height: 4px;
+  background-color: var(--slider-track-background);
+}
+
+.slider-track-bg {
+  background-color: var(--macos-blue-preferred);
+  border-radius: var(--macos-radius-pill);
+}
+
+.progress-bar,
+.loading-bar {
+  height: 10px;
+  border-radius: var(--macos-radius-pill);
+  background-color: rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.theme-dark .progress-bar,
+.theme-dark .loading-bar {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.progress-bar .progress-bar-value,
+.loading-bar .loading-bar-value,
+.progress-bar-inner {
+  background-color: var(--macos-blue-preferred);
+  border-radius: var(--macos-radius-pill);
+  height: 100%;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   11. Menus · prompts · suggestions — Menus.md
+   Glass fill · radius 13 · padding 5×12 · items 24 / r8 · #0088FF
+   Cmd+P / command palette / switcher use .prompt (menu, not sheet)
+   ═══════════════════════════════════════════════════════════════ */
+
+.menu,
+.suggestion-container,
+.prompt {
+  border-radius: var(--macos-radius-menu);
+  padding: 5px 12px;
+  background: var(--macos-menu-fill);
+  background-blend-mode: normal, color-dodge;
+  border: none;
+  box-shadow: var(--macos-menu-shadow);
+  -webkit-backdrop-filter: blur(40px);
+  backdrop-filter: blur(40px);
+  overflow: hidden;
+}
+
+.theme-light .menu,
+.theme-light .suggestion-container,
+.theme-light .prompt {
+  background: rgba(246, 246, 246, 0.92);
+  background-blend-mode: normal;
+}
+
+.theme-dark .menu,
+.theme-dark .suggestion-container,
+.theme-dark .prompt {
+  background: linear-gradient(
+      0deg,
+      rgba(245, 245, 245, 0.08),
+      rgba(245, 245, 245, 0.08)
+    ),
+    #262626;
+  background-blend-mode: normal;
+}
+
+.menu-item,
+.suggestion,
+.suggestion-item {
+  border-radius: var(--macos-radius-sidebar-item);
+  font-weight: 510;
+  font-size: 13px;
+  line-height: 16px;
+  min-height: 24px;
+  padding: 4px 8px 4px 12px;
+  margin: 0;
+  color: var(--macos-label-primary-solid);
+  background: transparent;
+}
+
+.theme-dark .menu-item,
+.theme-dark .suggestion,
+.theme-dark .suggestion-item {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Menus.md — idle hover (no key) uses #E6E6E6 */
+.menu-item:hover:not(.is-selected):not(.selected),
+.suggestion:hover:not(.is-selected),
+.suggestion-item:hover:not(.is-selected):not(.mobile-tap) {
+  background: var(--macos-alert-neutral);
+  color: var(--macos-label-primary-solid);
+}
+
+.theme-dark .menu-item:hover:not(.is-selected):not(.selected),
+.theme-dark .suggestion:hover:not(.is-selected),
+.theme-dark .suggestion-item:hover:not(.is-selected):not(.mobile-tap) {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Menus.md — Hover + Key selection #0088FF stack */
+.menu-item.is-selected,
+.menu-item.selected,
+.menu-item:hover.is-selected,
+.suggestion.is-selected,
+.suggestion-item.is-selected,
+.suggestion-item.mobile-tap {
+  background: var(--macos-menu-item-selected);
+  background-blend-mode: normal, normal, normal;
+  color: #ffffff;
+}
+
+.menu-item.is-selected .menu-item-icon,
+.menu-item.selected .menu-item-icon,
+.menu-item.is-selected .menu-item-title,
+.menu-item.selected .menu-item-title,
+.menu-item.is-selected .menu-item-command,
+.menu-item.selected .menu-item-command,
+.suggestion.is-selected .suggestion-hotkey,
+.suggestion.is-selected .suggestion-flair,
+.suggestion.is-selected .suggestion-note,
+.suggestion.is-selected .suggestion-title,
+.suggestion.is-selected .suggestion-aux,
+.suggestion-item.is-selected .suggestion-hotkey,
+.suggestion-item.is-selected .suggestion-flair,
+.suggestion-item.is-selected .suggestion-note,
+.suggestion-item.is-selected .suggestion-title,
+.suggestion-item.is-selected .suggestion-content,
+.suggestion-item.is-selected .suggestion-aux,
+.suggestion-item.mobile-tap .suggestion-hotkey,
+.suggestion-item.mobile-tap .suggestion-title,
+.suggestion-item.mobile-tap .suggestion-content,
+.suggestion-item.mobile-tap .suggestion-aux {
+  color: #ffffff;
+}
+
+.menu-separator {
+  margin: 5px 0;
+  border-bottom: 1px solid #e6e6e6;
+}
+
+.theme-dark .menu-separator {
+  border-bottom-color: rgba(255, 255, 255, 0.12);
+}
+
+/* Menus.md shortcut / disabled chrome — plain, not a keycap chip */
+.suggestion-item .suggestion-hotkey,
+.suggestion .suggestion-hotkey,
+.menu-item .menu-item-command {
+  color: var(--macos-disabled);
+  background: transparent !important;
+  border: none;
+  box-shadow: none;
+  padding: 0 !important;
+  font-size: 13px;
+  font-weight: 510;
+  border-radius: 0;
+}
+
+.suggestion-item.is-selected .suggestion-hotkey,
+.suggestion.is-selected .suggestion-hotkey,
+.menu-item.is-selected .menu-item-command {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.prompt-results {
+  padding: 0;
+  margin: 0;
+}
+
+.prompt-instructions {
+  border-top: 1px solid #e6e6e6;
+  margin-top: 4px;
+  padding: 6px 4px 2px;
+  color: var(--macos-menu-section);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.theme-dark .prompt-instructions {
+  border-top-color: rgba(255, 255, 255, 0.12);
+}
+
+.prompt-instruction {
+  color: var(--macos-menu-section);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   12. Dialogs · Alerts · Sheets — Dialogs · Alerts · Sheets
+   Sheet/dialog radius 26 · window shadow · cover 0.2
+   Alert stacked radius 10 · pill CTA #0088FF
+   ═══════════════════════════════════════════════════════════════ */
+
+.modal-container.mod-dim .modal-bg {
+  background-color: rgba(0, 0, 0, 0.2);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+
+.modal,
+.modal.mod-settings {
+  border-radius: var(--macos-radius-sheet);
+  border: none;
+  box-shadow: var(--macos-window-shadow);
+  background-color: var(--background-primary);
+  overflow: hidden;
+}
+
+.theme-light .modal,
+.theme-light .modal.mod-settings {
+  background-color: #ffffff;
+}
+
+.theme-dark .modal,
+.theme-dark .modal.mod-settings {
+  background-color: #262626;
+}
+
+/* Alerts.md — confirmation prompts feel like alert sheets */
+.modal.mod-confirmation {
+  border-radius: var(--macos-radius-alert);
+  box-shadow: var(--macos-alert-shadow);
+}
+
+.modal-title {
+  font-weight: 590;
+  color: var(--text-normal);
+  text-align: center;
+}
+
+.modal-close-button {
+  border-radius: var(--macos-radius-pill);
+  opacity: 0.55;
+}
+
+/* Alerts.md buttons — pill radius 100 · primary #0088FF */
+.modal-button-container button {
+  border-radius: var(--macos-radius-pill);
+  min-width: 72px;
+  padding: 0 18px;
+  min-height: 28px;
+}
+
+.modal-button-container button.mod-cta {
+  background-color: var(--macos-blue);
+  border-radius: var(--macos-radius-pill);
+}
+
+.modal-button-container button.mod-warning {
+  background-color: rgba(255, 56, 60, 0.23);
+  color: var(--macos-red);
+  border-radius: var(--macos-radius-pill);
+}
+
+.theme-dark .modal-button-container button.mod-warning {
+  background-color: rgba(255, 66, 69, 0.28);
+  color: var(--macos-red-dark);
+}
+
+/* Neutral alert button — Alerts.md #E6E6E6 */
+.modal-button-container button:not(.mod-cta):not(.mod-warning) {
+  background-color: #e6e6e6;
+  box-shadow: none;
+  color: rgba(0, 0, 0, 0.85);
+}
+
+.theme-dark .modal-button-container button:not(.mod-cta):not(.mod-warning) {
+  background-color: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Settings nav — Dialogs.md list selection */
+.vertical-tab-header-group-title {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  text-transform: none;
+  padding: 12px 12px 4px;
+}
+
+.vertical-tab-nav-item {
+  border-radius: var(--macos-radius-sidebar-item);
+  font-weight: var(--nav-item-weight);
+  margin: 1px 8px;
+  padding: 5px 10px;
+  border: none;
+}
+
+.vertical-tab-nav-item:hover {
+  background-color: var(--background-modifier-hover);
+  font-weight: var(--nav-item-weight-hover);
+}
+
+.vertical-tab-nav-item.is-active {
+  background-color: var(--nav-item-background-selected);
+  color: var(--text-normal);
+  box-shadow: none;
+  font-weight: var(--nav-item-weight-active);
+}
+
+.setting-item {
+  border-top-color: var(--divider-color);
+  padding: 14px 0;
+}
+
+.setting-item-name {
+  font-weight: 510;
+  color: var(--text-normal);
+}
+
+.setting-item-description {
+  color: var(--text-muted);
+}
+
+.setting-item-heading .setting-item-name {
+  font-weight: 590;
+}
+
+.vertical-tab-content {
+  background-color: var(--background-primary);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   13. Popovers · Tooltips · Notifications
+   ═══════════════════════════════════════════════════════════════ */
+
+.popover,
+.popover.hover-popover {
+  border-radius: var(--macos-radius-popover);
+  border: none;
+  box-shadow: var(--macos-popover-shadow);
+  background: linear-gradient(
+      0deg,
+      rgba(226, 226, 226, 0.35),
+      rgba(226, 226, 226, 0.35)
+    ),
+    rgba(255, 255, 255, 0.86);
+  -webkit-backdrop-filter: blur(var(--macos-popover-blur));
+  backdrop-filter: blur(var(--macos-popover-blur));
+  overflow: hidden;
+}
+
+.theme-dark .popover,
+.theme-dark .popover.hover-popover {
+  background: rgba(38, 38, 38, 0.88);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35), 0 8px 20px rgba(0, 0, 0, 0.45);
+}
+
+/* Tooltips.md — Materials/Thick · radius 1 · weight 510 · #4D4D4D */
+.tooltip {
+  font-weight: 510;
+  color: #4d4d4d;
+  background-color: var(--macos-material-thick);
+  border-radius: var(--macos-radius-tooltip);
+  padding: 3px 6px 2px;
+  box-shadow: var(--macos-tooltip-shadow);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: none;
+}
+
+.theme-dark .tooltip {
+  color: rgba(255, 255, 255, 0.85);
+  background-color: rgba(60, 60, 60, 0.92);
+}
+
+.tooltip .tooltip-arrow {
+  display: none;
+}
+
+/* Notifications.md */
+.notice {
+  border-radius: var(--macos-radius-notification);
+  background: var(--macos-menu-fill);
+  background-blend-mode: normal, color-dodge;
+  color: var(--text-normal);
+  box-shadow: var(--macos-notification-shadow);
+  border: none;
+  font-weight: 510;
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+}
+
+.theme-light .notice {
+  background: rgba(246, 246, 246, 0.92);
+  background-blend-mode: normal;
+}
+
+.theme-dark .notice {
+  background: rgba(38, 38, 38, 0.92);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   14. Lists & tables — Lists and Tables.md
+   Selected #2962D9 · inactive rgba(0,0,0,0.14) · radius 5–8
+   ═══════════════════════════════════════════════════════════════ */
+
+.markdown-rendered table,
+.markdown-preview-view table {
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.markdown-rendered th,
+.markdown-preview-view th {
+  background-color: var(--table-header-background);
+  font-weight: 590;
+  border-color: var(--divider-color);
+}
+
+.markdown-rendered td,
+.markdown-preview-view td {
+  border-color: var(--divider-color);
+}
+
+.markdown-rendered tr:hover td,
+.markdown-preview-view tr:hover td {
+  background-color: var(--table-row-background-hover);
+}
+
+.search-result-file-title,
+.search-result-file-match {
+  border-radius: var(--macos-radius-sidebar-item);
+}
+
+.search-result-file-title:hover,
+.search-result-file-match:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   15. Scrollbar — Scrollbar.md
+   Frame 12 · thumb 6 · rgba(0,0,0,0.15) · pill
+   ═══════════════════════════════════════════════════════════════ */
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+  background: transparent;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb-bg);
+  border-radius: var(--macos-radius-pill);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  min-height: 32px;
+}
+
+::-webkit-scrollbar-thumb:hover,
+::-webkit-scrollbar-thumb:active {
+  background-color: var(--scrollbar-active-thumb-bg);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   16. Editor & reading — Colors.md (sizes Obsidian-native)
+   ═══════════════════════════════════════════════════════════════ */
+
+.markdown-source-view,
+.markdown-preview-view,
+.markdown-rendered {
+  font-family: var(--font-text-theme);
+  color: var(--text-normal);
+}
+
+.cm-s-obsidian,
+.markdown-source-view.mod-cm6 .cm-content {
+  font-family: var(--font-text-theme);
+  color: var(--text-normal);
+}
+
+.cm-editor .cm-cursor,
+.cm-editor .cm-cursor-primary {
+  border-left-color: var(--macos-blue);
+}
+
+.cm-editor .cm-selectionBackground,
+.markdown-source-view.mod-cm6 .cm-selectionBackground,
+.cm-s-obsidian span.cm-selection {
+  background-color: var(--text-selection) !important;
+}
+
+.markdown-preview-view h1,
+.markdown-preview-view h2,
+.markdown-preview-view h3,
+.markdown-preview-view h4,
+.markdown-preview-view h5,
+.markdown-preview-view h6,
+.markdown-rendered h1,
+.markdown-rendered h2,
+.markdown-rendered h3,
+.markdown-rendered h4,
+.markdown-rendered h5,
+.markdown-rendered h6,
+.cm-s-obsidian .cm-header-1,
+.cm-s-obsidian .cm-header-2,
+.cm-s-obsidian .cm-header-3,
+.cm-s-obsidian .cm-header-4,
+.cm-s-obsidian .cm-header-5,
+.cm-s-obsidian .cm-header-6,
+.HyperMD-header-1,
+.HyperMD-header-2,
+.HyperMD-header-3 {
+  color: var(--text-normal);
+}
+
+.markdown-preview-view h6,
+.markdown-rendered h6,
+.cm-s-obsidian .cm-header-6 {
+  color: var(--text-muted);
+}
+
+strong,
+.cm-strong {
+  font-weight: 590;
+}
+
+em,
+.cm-em {
+  font-style: italic;
+}
+
+a,
+.external-link,
+.internal-link,
+.cm-s-obsidian span.cm-hmd-internal-link,
+.cm-s-obsidian span.cm-link,
+.cm-s-obsidian span.cm-url {
+  color: var(--text-accent);
+  text-decoration-color: rgba(0, 136, 255, 0.35);
+}
+
+a:hover,
+.internal-link:hover,
+.external-link:hover {
+  color: var(--text-accent-hover);
+}
+
+.is-unresolved {
+  opacity: 0.55;
+}
+
+/* Boxes.md group fill */
+code,
+.cm-s-obsidian span.cm-inline-code,
+.markdown-rendered code {
+  font-family: var(--font-monospace-theme);
+  background-color: var(--code-background);
+  border-radius: 5px;
+  padding: 1px 5px;
+  color: var(--text-normal);
+}
+
+pre,
+.markdown-rendered pre {
+  background-color: var(--code-background);
+  border-radius: var(--macos-radius-box);
+  border: none;
+}
+
+/* CM6 puts HyperMD-codeblock on every line — round only the block ends */
+.cm-s-obsidian .HyperMD-codeblock {
+  background-color: var(--code-background);
+  border-radius: 0;
+}
+
+.cm-s-obsidian .HyperMD-codeblock-begin {
+  border-top-left-radius: var(--macos-radius-box);
+  border-top-right-radius: var(--macos-radius-box);
+}
+
+.cm-s-obsidian .HyperMD-codeblock-end {
+  border-bottom-left-radius: var(--macos-radius-box);
+  border-bottom-right-radius: var(--macos-radius-box);
+}
+
+pre code,
+.markdown-rendered pre code {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+}
+
+blockquote,
+.markdown-rendered blockquote {
+  border-left: 3px solid rgba(0, 0, 0, 0.12);
+  color: var(--text-muted);
+  background-color: rgba(0, 0, 0, 0.03);
+  border-radius: 0 8px 8px 0;
+  padding: 6px 14px;
+}
+
+.theme-dark blockquote,
+.theme-dark .markdown-rendered blockquote {
+  border-left-color: rgba(255, 255, 255, 0.14);
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+hr,
+.markdown-rendered hr {
+  border: none;
+  border-top: 1px solid var(--divider-color);
+  margin: 1.5em 0;
+}
+
+/*
+  Tags sit on the body line (~19–25px): 16px type + light vertical pad,
+  wider horizontal pad for readable pill chrome without blowing line-height.
+*/
+a.tag {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: auto;
+  min-height: 0;
+  padding: var(--tag-padding-y) var(--tag-padding-x);
+  background-color: var(--tag-background);
+  color: var(--tag-color);
+  border-radius: var(--tag-radius);
+  border: none;
+  font-size: var(--tag-size);
+  font-weight: var(--tag-weight);
+  line-height: 1.2;
+  vertical-align: baseline;
+}
+
+/* CM6 splits # / label — only vars drive begin/end padding (no full pad here) */
+.cm-s-obsidian span.cm-hashtag {
+  background-color: var(--tag-background);
+  color: var(--tag-color);
+  border: none;
+  font-size: var(--tag-size);
+  font-weight: var(--tag-weight);
+  line-height: 1.2;
+  padding-block: var(--tag-padding-y);
+}
+
+.cm-s-obsidian span.cm-hashtag.cm-hashtag-begin {
+  padding-inline-start: var(--tag-padding-x);
+  padding-inline-end: 0;
+}
+
+.cm-s-obsidian span.cm-hashtag.cm-hashtag-end {
+  padding-inline-start: 0;
+  padding-inline-end: var(--tag-padding-x);
+}
+
+a.tag:hover {
+  background-color: var(--tag-background-hover);
+  color: var(--tag-color-hover);
+}
+
+/* Boxes.md group boxes */
+.callout {
+  border-radius: var(--macos-radius-box);
+  border: none;
+  background-color: rgba(0, 0, 0, 0.03);
+  mix-blend-mode: normal;
+}
+
+.theme-dark .callout {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Properties — light surface; leave type weight/chips to Obsidian */
+.metadata-container {
+  padding: 8px 12px;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  border-radius: var(--macos-radius-box);
+  background-color: rgba(0, 0, 0, 0.03);
+  overflow: hidden;
+  isolation: isolate;
+  mix-blend-mode: normal;
+  font-family: var(--font-interface-theme);
+}
+
+.theme-dark .metadata-container {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.metadata-container .metadata-properties-heading,
+.metadata-container .metadata-properties-title,
+.metadata-container .collapse-indicator,
+.metadata-container .collapse-icon,
+.metadata-container .clickable-icon,
+.metadata-container button,
+.metadata-properties-heading .clickable-icon,
+.metadata-properties-heading button {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border: none !important;
+  min-height: 0 !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+  border-radius: var(--macos-radius-control);
+}
+
+.metadata-content,
+.metadata-properties {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.markdown-source-view.mod-cm6 .metadata-container,
+.cm-content .edit-block-button {
+  box-shadow: none !important;
+}
+
+.metadata-properties-heading {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+.metadata-container .collapse-icon,
+.metadata-container .collapse-icon:hover,
+.metadata-container .collapse-icon:active,
+.metadata-properties-heading .collapse-icon,
+.metadata-properties-heading .collapse-icon:hover,
+.metadata-properties-heading .collapse-icon:active {
+  width: auto;
+  height: auto;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.metadata-property {
+  display: flex;
+  align-items: center;
+  border: none;
+  border-radius: var(--macos-radius-control);
+  min-height: var(--input-height);
+}
+
+.metadata-property:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.metadata-property-key {
+  display: flex;
+  align-items: center;
+  align-self: center;
+  height: var(--input-height);
+  min-height: var(--input-height);
+  margin: 0;
+  padding: 0;
+}
+
+/*
+  Strip form-field chrome. Undo global input { font-weight: 510 } so
+  properties stay regular weight like Obsidian default — not bold pills.
+*/
+.metadata-property-key,
+.metadata-property-key:hover,
+.metadata-property-key:focus,
+.metadata-property-key:focus-visible,
+.metadata-input,
+.metadata-input:hover,
+.metadata-input:focus,
+.metadata-input:focus-visible,
+.metadata-input-longtext,
+.metadata-input-longtext:hover,
+.metadata-input-longtext:focus,
+.metadata-property .metadata-property-key-input,
+.metadata-property input[type="text"],
+.metadata-property input[type="number"],
+.metadata-property input[type="date"],
+.metadata-property input[type="datetime-local"],
+.metadata-property input[type="time"],
+.metadata-property textarea,
+.theme-light .metadata-property input,
+.theme-dark .metadata-property input,
+.theme-light .metadata-property textarea,
+.theme-dark .metadata-property textarea {
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border: none !important;
+  border-radius: 0;
+  font-weight: 400 !important;
+}
+
+.metadata-property .metadata-property-key-input,
+.metadata-property-key input,
+.metadata-property-key .metadata-input,
+.theme-light .metadata-property .metadata-property-key-input,
+.theme-dark .metadata-property .metadata-property-key-input {
+  display: block;
+  width: 100%;
+  height: var(--input-height) !important;
+  min-height: var(--input-height) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: var(--input-height) !important;
+  font-weight: 400 !important;
+  color: var(--text-muted) !important;
+  vertical-align: middle;
+}
+
+/*
+  Obsidian’s multi-select-container uses 8px horizontal padding, which
+  pushes pills past text/date values. Zero sides so pill edges align.
+*/
+.metadata-property-value .multi-select-container {
+  padding-inline: 0;
+}
+
+/*
+  Property pills (tags, aliases, multi-select) — same as inline hashtags:
+  16px type · pad 2×9 · weight 510. Obsidian zeroes --pill-padding-* here.
+*/
+.metadata-container .multi-select-pill,
+.metadata-property-value .multi-select-pill {
+  --pill-padding-x: var(--tag-padding-x);
+  --pill-padding-y: var(--tag-padding-y);
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center;
+  gap: 4px;
+  box-sizing: border-box;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  padding: var(--tag-padding-y) var(--tag-padding-x) !important;
+  border-radius: var(--macos-radius-pill);
+  background-color: var(--pill-background) !important;
+  color: var(--pill-color) !important;
+  font-size: var(--tag-size) !important;
+  line-height: 1.2 !important;
+  font-weight: var(--tag-weight) !important;
+}
+
+.metadata-container .multi-select-pill-content,
+.metadata-property-value .multi-select-pill-content {
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  line-height: inherit !important;
+  color: inherit !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: visible !important;
+}
+
+.metadata-container .multi-select-pill-remove-button,
+.metadata-property-value .multi-select-pill-remove-button {
+  margin: 0 !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  color: var(--text-muted);
+}
+
+.metadata-property[data-property-key="tags"] .multi-select-pill,
+.metadata-property[data-property-type="tags"] .multi-select-pill,
+.metadata-property-value[data-property-type="tags"] .multi-select-pill {
+  background-color: var(--tag-background) !important;
+  color: var(--tag-color) !important;
+}
+
+.theme-dark .metadata-property[data-property-key="tags"] .multi-select-pill,
+.theme-dark .metadata-property[data-property-type="tags"] .multi-select-pill,
+.theme-dark .metadata-property-value[data-property-type="tags"] .multi-select-pill {
+  background-color: var(--tag-background) !important;
+  color: var(--tag-color) !important;
+}
+
+.metadata-property-value {
+  display: flex;
+  align-items: center;
+  align-self: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: var(--input-height);
+}
+
+.metadata-property-value input,
+.metadata-property-value textarea,
+.metadata-property-value .metadata-input,
+.metadata-property-value .metadata-input-longtext {
+  margin: 0 !important;
+  padding: 0 !important;
+  min-height: var(--input-height) !important;
+  line-height: var(--input-height) !important;
+}
+
+.metadata-add-button {
+  color: var(--text-muted);
+}
+
+/*
+  Date / time property values — Obsidian pins the native picker glyph at
+  left: var(--size-4-1). The key already shows the type icon, so hide the
+  duplicate glyph in the value (avoids overlap from padding:0).
+*/
+.metadata-property-value input[type="date"],
+.metadata-property-value input[type="datetime-local"],
+.metadata-property-value input[type="time"],
+.metadata-property-value input[type="month"],
+.metadata-property-value input[type="week"],
+.metadata-property-value .metadata-input.mod-date,
+.metadata-property-value .metadata-input.mod-datetime {
+  position: relative;
+  display: block !important;
+  width: auto;
+  max-width: 100%;
+  height: var(--input-height) !important;
+  min-height: var(--input-height) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: var(--input-height) !important;
+  vertical-align: middle;
+}
+
+.metadata-property-value input[type="date"]:not([disabled="true"])::-webkit-calendar-picker-indicator,
+.metadata-property-value input[type="datetime-local"]:not([disabled="true"])::-webkit-calendar-picker-indicator,
+.metadata-property-value input[type="time"]:not([disabled="true"])::-webkit-calendar-picker-indicator,
+.metadata-property-value input[type="month"]:not([disabled="true"])::-webkit-calendar-picker-indicator,
+.metadata-property-value input[type="week"]:not([disabled="true"])::-webkit-calendar-picker-indicator,
+.metadata-property-value .metadata-input.mod-date:not([disabled="true"])::-webkit-calendar-picker-indicator,
+.metadata-property-value .metadata-input.mod-datetime:not([disabled="true"])::-webkit-calendar-picker-indicator {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.metadata-property-value input[type="date"]::-webkit-datetime-edit,
+.metadata-property-value input[type="datetime-local"]::-webkit-datetime-edit,
+.metadata-property-value input[type="time"]::-webkit-datetime-edit,
+.metadata-property-value .metadata-input.mod-date::-webkit-datetime-edit,
+.metadata-property-value .metadata-input.mod-datetime::-webkit-datetime-edit {
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+  line-height: normal;
+}
+
+.metadata-property-value input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+.metadata-property-value input[type="datetime-local"]::-webkit-datetime-edit-fields-wrapper,
+.metadata-property-value input[type="time"]::-webkit-datetime-edit-fields-wrapper,
+.metadata-property-value .metadata-input.mod-date::-webkit-datetime-edit-fields-wrapper,
+.metadata-property-value .metadata-input.mod-datetime::-webkit-datetime-edit-fields-wrapper {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+}
+
+.metadata-property-value input[type="date"]::-webkit-datetime-edit-text,
+.metadata-property-value input[type="datetime-local"]::-webkit-datetime-edit-text,
+.metadata-property-value input[type="time"]::-webkit-datetime-edit-text,
+.metadata-property-value .metadata-input.mod-date::-webkit-datetime-edit-text,
+.metadata-property-value .metadata-input.mod-datetime::-webkit-datetime-edit-text {
+  color: var(--text-muted);
+  padding: 0 0.05em;
+}
+
+.metadata-property-value input[type="date"]::-webkit-datetime-edit-month-field,
+.metadata-property-value input[type="date"]::-webkit-datetime-edit-day-field,
+.metadata-property-value input[type="date"]::-webkit-datetime-edit-year-field,
+.metadata-property-value input[type="datetime-local"]::-webkit-datetime-edit-month-field,
+.metadata-property-value input[type="datetime-local"]::-webkit-datetime-edit-day-field,
+.metadata-property-value input[type="datetime-local"]::-webkit-datetime-edit-year-field,
+.metadata-property-value input[type="datetime-local"]::-webkit-datetime-edit-hour-field,
+.metadata-property-value input[type="datetime-local"]::-webkit-datetime-edit-minute-field,
+.metadata-property-value input[type="time"]::-webkit-datetime-edit-hour-field,
+.metadata-property-value input[type="time"]::-webkit-datetime-edit-minute-field,
+.metadata-property-value .metadata-input.mod-date::-webkit-datetime-edit-month-field,
+.metadata-property-value .metadata-input.mod-date::-webkit-datetime-edit-day-field,
+.metadata-property-value .metadata-input.mod-date::-webkit-datetime-edit-year-field,
+.metadata-property-value .metadata-input.mod-datetime::-webkit-datetime-edit-month-field,
+.metadata-property-value .metadata-input.mod-datetime::-webkit-datetime-edit-day-field,
+.metadata-property-value .metadata-input.mod-datetime::-webkit-datetime-edit-year-field,
+.metadata-property-value .metadata-input.mod-datetime::-webkit-datetime-edit-hour-field,
+.metadata-property-value .metadata-input.mod-datetime::-webkit-datetime-edit-minute-field {
+  padding: 0;
+  color: var(--text-normal);
+}
+
+/* Number property values — hide steppers; type icon + typing is enough */
+.metadata-property-value input[type="number"]::-webkit-inner-spin-button,
+.metadata-property-value input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+  display: none;
+}
+
+.metadata-property-value input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.metadata-property-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  flex-shrink: 0;
+  color: var(--text-faint);
+  margin-inline-end: 6px;
+  height: var(--input-height);
+  width: var(--icon-size);
+  padding-block: 0 !important;
+  padding-inline: 0 !important;
+}
+
+.metadata-property-icon svg.svg-icon {
+  display: block;
+  width: var(--icon-size);
+  height: var(--icon-size);
+  /* Optical center vs SF/UI text — Lucide glyphs sit a hair high */
+  transform: translateY(0.5px);
+}
+
+/* Property row trailing actions (e.g. date → note link) */
+.metadata-property-value .clickable-icon,
+.metadata-property .metadata-link-button,
+.metadata-property-value > .clickable-icon {
+  flex-shrink: 0;
+  align-self: center;
+  width: var(--icon-size);
+  height: var(--icon-size);
+  margin: 0 !important;
+  padding: 0 !important;
+  color: var(--text-faint);
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.callout-title {
+  font-weight: 590;
+}
+
+.callout[data-callout="warning"],
+.callout[data-callout="caution"],
+.callout[data-callout="error"],
+.callout[data-callout="danger"],
+.callout[data-callout="bug"] {
+  --callout-color: var(--color-red-rgb);
+}
+
+.callout[data-callout="success"],
+.callout[data-callout="check"],
+.callout[data-callout="done"] {
+  --callout-color: var(--color-green-rgb);
+}
+
+.callout[data-callout="tip"],
+.callout[data-callout="hint"],
+.callout[data-callout="important"],
+.callout[data-callout="info"],
+.callout[data-callout="todo"],
+.callout[data-callout="question"],
+.callout[data-callout="help"],
+.callout[data-callout="faq"],
+.callout[data-callout="note"] {
+  --callout-color: var(--color-blue-rgb);
+}
+
+.inline-title {
+  color: var(--text-normal);
+  font-weight: 700;
+}
+
+.cm-s-obsidian .cm-hmd-frontmatter,
+.cm-s-obsidian span.cm-def,
+.cm-s-obsidian span.cm-atom {
+  color: var(--text-muted);
+}
+
+.cm-s-obsidian span.cm-comment {
+  color: var(--text-faint);
+}
+
+.cm-s-obsidian span.cm-formatting-list,
+.cm-s-obsidian span.cm-formatting-task {
+  color: var(--macos-blue);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   17. Misc chrome — Color Wells · Canvas · Graph · Mobile
+   ═══════════════════════════════════════════════════════════════ */
+
+.community-item {
+  border-radius: var(--macos-radius-sidebar-item);
+}
+
+.community-item:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.workspace-drawer,
+.mobile-navbar {
+  background-color: var(--background-secondary);
+}
+
+.mobile-navbar-tabs {
+  background-color: var(--background-secondary);
+  border-top: 1px solid var(--divider-color);
+}
+
+.workspace-sidedock-vault-profile {
+  border-top: 1px solid var(--divider-color);
+  font-weight: 510;
+}
+
+.workspace-drawer-vault-switcher:hover,
+.workspace-sidedock-vault-profile:hover {
+  background-color: var(--background-modifier-hover);
+}
+
+.graph-controls {
+  border-radius: var(--macos-radius-menu);
+  box-shadow: var(--macos-menu-shadow);
+  border: none;
+  background-color: var(--background-primary);
+}
+
+/* Windows.md content cards */
+.canvas-node-container .canvas-node {
+  border-radius: var(--macos-radius-box);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12), 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.theme-dark .canvas-node-container .canvas-node {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.canvas-node.is-focused {
+  box-shadow: 0 0 0 2px var(--macos-blue), 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.markdown-embed,
+.internal-embed.markdown-embed {
+  border-radius: var(--macos-radius-box);
+  border: 1px solid var(--divider-color);
+  background-color: transparent;
+}
+
+/* Color Wells.md — circular wells for color inputs */
+input[type="color"] {
+  border-radius: var(--macos-radius-pill);
+  border: none;
+  box-shadow: var(--macos-field-shadow);
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  overflow: hidden;
+}
+
+/* Text Fields.md focus ring — controls only (never editor body) */
+button:focus-visible,
+.clickable-icon:focus-visible,
+.nav-file-title:focus-visible,
+.nav-folder-title:focus-visible,
+.tree-item-self:focus-visible,
+.menu-item:focus-visible,
+.suggestion:focus-visible,
+.checkbox-container:focus-visible,
+.workspace-tab-header:focus-visible {
+  outline: none;
+  box-shadow: var(--macos-field-focus-ring);
+}
+
+/* CM6 editor / reading surface — no persistent focus frame */
+.cm-editor,
+.cm-editor.cm-focused,
+.cm-scroller,
+.cm-content,
+.cm-contentContainer,
+.markdown-source-view,
+.markdown-source-view.mod-cm6 .cm-editor,
+.markdown-source-view.mod-cm6 .cm-content,
+.markdown-preview-view,
+.workspace-leaf-content[data-type="markdown"] {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   18. Module compliance pass — every design-system note
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Colors.md — system selection caret / highlight */
+::selection {
+  background-color: rgba(0, 136, 255, 0.22);
+  color: var(--text-normal);
+}
+
+.theme-dark ::selection {
+  background-color: rgba(0, 145, 255, 0.28);
+}
+
+/* Text Fields.md — caret #0088FF */
+input,
+textarea {
+  caret-color: var(--macos-blue);
+}
+
+.theme-dark input,
+.theme-dark textarea {
+  caret-color: var(--macos-blue-dark);
+}
+
+/* Text Fields.md — disabled fields soft shadow + muted text */
+input:disabled,
+textarea:disabled,
+select:disabled,
+.dropdown:disabled {
+  opacity: 1;
+  color: var(--macos-disabled);
+  box-shadow: var(--macos-field-shadow-soft);
+}
+
+.theme-dark input:disabled,
+.theme-dark textarea:disabled,
+.theme-dark select:disabled,
+.theme-dark .dropdown:disabled {
+  color: rgba(255, 255, 255, 0.25);
+}
+
+/* Buttons.md — Borderless Colored / link actions → #0088FF */
+button.mod-plain,
+.mod-plain {
+  color: var(--macos-blue);
+  background-color: transparent;
+  box-shadow: none;
+}
+
+button.mod-plain:hover,
+.mod-plain:hover {
+  color: var(--text-accent-hover);
+  background-color: transparent;
+  box-shadow: none;
+}
+
+/* Toolbars and Titlebars.md — window title weight 700; tabs 510 */
+.titlebar-text {
+  font-weight: 700;
+}
+
+.workspace-tab-header-inner-title {
+  font-weight: 510;
+}
+
+.view-header-title {
+  font-weight: 590;
+}
+
+/* Sidebars.md — disabled / accessory #BFBFBF */
+.nav-file-tag,
+.tree-item-flair,
+.nav-file-title.is-being-renamed,
+.tree-item-self .tree-item-flair {
+  color: var(--macos-disabled);
+}
+
+.nav-file-title.is-unsupported,
+.nav-folder-title.is-unsupported {
+  color: var(--macos-disabled);
+}
+
+/* Lists and Tables.md — active selection #2962D9 + white label */
+.workspace-leaf-content[data-type="search"] .tree-item-self.is-active,
+.workspace-leaf-content[data-type="search"] .search-result-file-title.is-active,
+.search-result-file-match:hover {
+  border-radius: var(--macos-radius-sidebar-item);
+}
+
+.workspace-leaf-content[data-type="search"] .tree-item-self.is-active {
+  background-color: var(--macos-blue-selection);
+  color: #ffffff;
+}
+
+.workspace-leaf-content[data-type="search"] .tree-item-self.is-active .tree-item-inner,
+.workspace-leaf-content[data-type="search"] .tree-item-self.is-active .tree-item-icon,
+.workspace-leaf-content[data-type="search"] .tree-item-self.is-active .tree-item-flair {
+  color: #ffffff;
+}
+
+/* Lists and Tables.md — inactive selection */
+body:not(.is-focused) .nav-file-title.is-active,
+body:not(.is-focused) .nav-folder-title.is-active,
+body:not(.is-focused) .tree-item-self.is-active {
+  background-color: var(--macos-list-inactive);
+  color: var(--text-normal);
+}
+
+.theme-dark body:not(.is-focused) .nav-file-title.is-active,
+.theme-dark body:not(.is-focused) .nav-folder-title.is-active,
+.theme-dark body:not(.is-focused) .tree-item-self.is-active {
+  background-color: rgba(255, 255, 255, 0.14);
+}
+
+/* Tables — selected cells use list blue */
+.markdown-rendered tr.is-selected > td,
+.markdown-preview-view tr.is-selected > td,
+.cm-embed-block.cm-table-widget .selected {
+  background-color: var(--macos-blue-selection) !important;
+  color: #ffffff;
+}
+
+/* Menus.md — shortcuts / secondary #BFBFBF · section #727272 */
+.menu-item .menu-item-command,
+.menu-item .menu-item-icon,
+.suggestion-hotkey,
+.suggestion-flair {
+  color: var(--macos-disabled);
+}
+
+.menu-item.is-selected .menu-item-command,
+.menu-item.selected .menu-item-command,
+.menu-item.is-selected .menu-item-icon,
+.menu-item.selected .menu-item-icon,
+.suggestion.is-selected .suggestion-hotkey,
+.suggestion.is-selected .suggestion-flair,
+.suggestion-item.is-selected .suggestion-hotkey,
+.suggestion-item.is-selected .suggestion-flair {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.menu-separator + .menu-item .menu-item-title,
+.vertical-tab-header-group-title {
+  color: var(--macos-menu-section);
+}
+
+.theme-dark .vertical-tab-header-group-title {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* Dialogs.md — compact sheets 18px · utility panels 15px */
+.modal.mod-sidebar-layout {
+  border-radius: var(--macos-radius-dialog-compact);
+}
+
+.graph-controls,
+.document-search-container {
+  border-radius: var(--macos-radius-utility);
+  box-shadow: var(--macos-utility-shadow);
+}
+
+/* Dialogs.md — action links #007AFF / #0088FF */
+.modal a,
+.setting-item-description a,
+.vertical-tab-content a {
+  color: var(--macos-blue-focus);
+}
+
+.theme-dark .modal a,
+.theme-dark .setting-item-description a {
+  color: var(--macos-blue-dark);
+}
+
+/* Alerts.md — neutral pill uses #E6E6E6 */
+.modal-button-container button:not(.mod-cta):not(.mod-warning) {
+  background-color: var(--macos-alert-neutral);
+}
+
+/* Popovers.md — outer rim shadow also present in spec */
+.popover,
+.popover.hover-popover {
+  box-shadow: 0 0 2.5px rgba(0, 0, 0, 0.5), 0 4px 20px rgba(0, 0, 0, 0.15),
+    var(--macos-popover-shadow);
+}
+
+/* Tooltips.md — exact label color */
+.tooltip {
+  color: var(--macos-tooltip-label);
+}
+
+/* Notifications.md — title emphasized */
+.notice {
+  font-weight: 400;
+}
+
+/* Segmented Controls.md — selected segment elevated white */
+.theme-light .nav-action-button.is-active {
+  background-color: #ffffff;
+  box-shadow: 0 0.5px 1px rgba(0, 0, 0, 0.12), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
+  color: var(--macos-label-primary-solid);
+}
+
+/* Forms.md — radio 16px pill; checkbox already 5.5 */
+input[type="radio"] {
+  border-radius: var(--macos-radius-radio);
+  width: 16px;
+  height: 16px;
+}
+
+input[type="checkbox"] {
+  border-radius: var(--macos-radius-checkbox);
+  width: 16px;
+  height: 16px;
+}
+
+/* Steppers.md — tight control bezel on number spin areas */
+input[type="number"] {
+  box-shadow: var(--macos-field-shadow);
+  border-radius: var(--macos-radius-control);
+}
+
+/* Disclosure Controls.md — circular hit targets only outside trees/nav */
+.clickable-icon.mod-disclosure {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--macos-radius-pill);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.clickable-icon.mod-disclosure:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.theme-dark .clickable-icon.mod-disclosure:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.clickable-icon.mod-disclosure:active {
+  background-color: rgba(0, 0, 0, 0.13);
+}
+
+/* Combo Boxes / Pop-up Buttons — chevron muted #BFBFBF when inactive */
+select:disabled,
+.dropdown:disabled {
+  color: var(--macos-disabled);
+}
+
+/* Progress Indicators.md — track near-black wash */
+.progress-bar,
+.loading-bar {
+  background-color: rgba(0, 0, 0, 0.08);
+}
+
+.theme-dark .progress-bar,
+.theme-dark .loading-bar {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Sliders and Dials.md — filled portion preferred blue */
+input[type="range"] {
+  accent-color: var(--macos-blue-preferred);
+}
+
+/* Boxes.md — group box opacity feel for embeds/callouts */
+.callout {
+  opacity: 1;
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+/* Color Wells.md — 28px circular already; ensure overflow clip */
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+input[type="color"]::-webkit-color-swatch {
+  border: none;
+  border-radius: var(--macos-radius-pill);
+}
+
+/* Menu Bar and Dock.md — status bar as compact system chrome */
+.status-bar {
+  background-color: var(--background-secondary);
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .theme-light .status-bar {
+    background-color: var(--macos-material-thick);
+    -webkit-backdrop-filter: blur(var(--macos-material-blur));
+    backdrop-filter: blur(var(--macos-material-blur));
+  }
+
+  .theme-dark .status-bar {
+    background-color: var(--macos-material-dark-thick);
+    -webkit-backdrop-filter: blur(var(--macos-material-blur));
+    backdrop-filter: blur(var(--macos-material-blur));
+  }
+}
+
+/* Windows.md — titlebar secondary symbol color */
+.titlebar-button,
+.titlebar .clickable-icon {
+  color: var(--text-muted);
+}
+
+/* Text Styles.md — interface weights only (sizes stay Obsidian-native) */
+.setting-item-name,
+.menu-item,
+.suggestion,
+.suggestion-item,
+button {
+  font-weight: 510;
+}
+
+.setting-item-heading .setting-item-name,
+.callout-title,
+.modal-title {
+  font-weight: 590;
+}
+
+.inline-title,
+.titlebar-text,
+.notice strong {
+  font-weight: 700;
+}
+
+/* Pointers.md — system cursors for interactive chrome */
+.clickable-icon,
+.nav-action-button,
+.workspace-tab-header,
+.menu-item,
+.suggestion,
+.suggestion-item,
+button,
+.checkbox-container,
+.collapse-icon {
+  cursor: default;
+}
+
+a,
+.internal-link,
+.external-link,
+.cm-underline {
+  cursor: pointer;
+}
+
+/* Examples.md / Materials — empty workspace uses wallpaper gray */
+.workspace-leaf-content .empty-state {
+  color: var(--text-muted);
+}
+
+.workspace-fake-target-overlay {
+  background-color: rgba(0, 136, 255, 0.12);
+}
+
+/* Scrollbar.md — ensure 6px visual thumb via 3px border inset on 12px */
+body {
+  --scrollbar-width: 12px;
+}

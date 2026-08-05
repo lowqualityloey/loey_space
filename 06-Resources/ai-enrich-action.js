@@ -30,28 +30,114 @@ module.exports = async function aiEnrichAction(params) {
 
   const existingNotesListStr = existingNoteNames.slice(0, 60).join(", ");
 
-  // 3. Extract unfinished tasks across the note (excluding Habits and Tomorrow Setup)
+  // 3. Extract clean structured user data (separating completed [x] vs unfinished [ ])
   const lines = content.split('\n');
+  let completedTasks = [];
   let unfinishedTasks = [];
-  let currentSection = "";
+  let checkedHabits = [];
+  let devLog = [];
+  let leisureLog = [];
+  let notesLog = [];
+  let smallWinsLog = [];
 
+  let currentSec = "";
   for (const line of lines) {
-    if (line.startsWith("## ")) {
-      currentSection = line.trim();
-    }
-    
-    if (currentSection.includes("Habits") || currentSection.includes("Tomorrow Setup")) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("## ")) {
+      currentSec = trimmed;
       continue;
     }
 
-    const match = line.match(/^\s*-\s*\[ \]\s+(.*)$/);
-    if (match) {
-      const taskText = match[1].trim();
-      if (taskText && taskText !== "" && taskText !== "..." && !unfinishedTasks.includes(taskText)) {
-        unfinishedTasks.push(taskText);
+    // Skip template guides, tables, and section headers
+    if (!trimmed || trimmed.startsWith(">") || trimmed.startsWith("|") || 
+        trimmed.startsWith("Things I need") || trimmed.startsWith("Daily basics") || 
+        trimmed.startsWith("Progress from today") || trimmed.startsWith("What I played") || 
+        trimmed.startsWith("Anything on my mind") || trimmed.startsWith("Something positive")) {
+      continue;
+    }
+
+    if (currentSec.includes("Tasks") || currentSec.includes("Carry Forward") || currentSec.includes("Focus 3")) {
+      const doneMatch = trimmed.match(/^\s*-\s*\[x\]\s+(.*)$/i);
+      const openMatch = trimmed.match(/^\s*-\s*\[ \]\s+(.*)$/);
+      if (doneMatch && doneMatch[1].trim()) {
+        const itemText = doneMatch[1].trim();
+        if (!completedTasks.includes(itemText)) completedTasks.push(itemText);
+      } else if (openMatch && openMatch[1].trim() && openMatch[1].trim() !== "..." && openMatch[1].trim() !== "None") {
+        const itemText = openMatch[1].trim();
+        if (!unfinishedTasks.includes(itemText)) unfinishedTasks.push(itemText);
       }
+    } else if (currentSec.includes("Habits")) {
+      const habitMatch = trimmed.match(/^\s*-\s*\[x\]\s+(.*)$/i);
+      if (habitMatch && habitMatch[1].trim()) {
+        const habitText = habitMatch[1].trim();
+        if (!checkedHabits.includes(habitText)) checkedHabits.push(habitText);
+      }
+    } else if (currentSec.includes("Work") || currentSec.includes("Dev")) {
+      const cleanItem = trimmed.replace(/^-\s*/, "").trim();
+      if (cleanItem && !cleanItem.endsWith(":")) devLog.push(cleanItem);
+    } else if (currentSec.includes("Leisure") || currentSec.includes("Fun")) {
+      const cleanItem = trimmed.replace(/^-\s*/, "").trim();
+      if (cleanItem) leisureLog.push(cleanItem);
+    } else if (currentSec.includes("Notes") || currentSec.includes("Thoughts")) {
+      const cleanItem = trimmed.replace(/^-\s*/, "").trim();
+      if (cleanItem) notesLog.push(cleanItem);
+    } else if (currentSec.includes("Small Wins") || currentSec.includes("Wins")) {
+      const cleanItem = trimmed.replace(/^-\s*/, "").trim();
+      if (cleanItem) smallWinsLog.push(cleanItem);
     }
   }
+
+  // 3b. Content completeness check (excluding Motivation)
+  let sectionCounts = {
+    tasks: completedTasks.length + unfinishedTasks.length,
+    habitsChecked: checkedHabits.length,
+    devWork: devLog.length,
+    leisure: leisureLog.length,
+    notes: notesLog.length,
+    smallWins: smallWinsLog.length
+  };
+
+  let filledSectionCount = 0;
+  if (sectionCounts.tasks >= 1) filledSectionCount++;
+  if (sectionCounts.habitsChecked >= 1) filledSectionCount++;
+  if (sectionCounts.devWork >= 1) filledSectionCount++;
+  if (sectionCounts.leisure >= 1) filledSectionCount++;
+  if (sectionCounts.notes >= 1) filledSectionCount++;
+  if (sectionCounts.smallWins >= 1) filledSectionCount++;
+
+  const totalEntries = sectionCounts.tasks + sectionCounts.devWork + sectionCounts.leisure + sectionCounts.notes + sectionCounts.smallWins;
+
+  if (filledSectionCount < 2 && totalEntries < 2) {
+    new Notice("⚠️ Daily note is mostly empty! Please log at least 1–2 items in your sections (Tasks, Dev Work, Notes, Wins, etc.) before generating AI Daily Summary.", 7000);
+    return;
+  }
+
+  // Build clean noise-free payload of actual user logs
+  const userLoggedDataText = `
+USER LOGGED DATA FOR TODAY:
+- Metadata: Mood: ${mood}, Energy: ${energy}/5, Sleep: ${sleepHours} hours
+
+- COMPLETED TASKS [x] (${completedTasks.length}):
+${completedTasks.length > 0 ? completedTasks.map(t => `  * ${t}`).join('\n') : '  * (No tasks completed today)'}
+
+- UNFINISHED / OPEN TASKS [ ] (${unfinishedTasks.length}):
+${unfinishedTasks.length > 0 ? unfinishedTasks.map(t => `  * ${t}`).join('\n') : '  * (All tasks completed today)'}
+
+- HABITS COMPLETED:
+${checkedHabits.length > 0 ? checkedHabits.map(h => `  * ${h}`).join(', ') : '  * (No habits checked)'}
+
+- WORK / STUDY / DEV PROGRESS:
+${devLog.length > 0 ? devLog.map(d => `  * ${d}`).join('\n') : '  * (No dev progress logged)'}
+
+- LEISURE & FUN LOGGED:
+${leisureLog.length > 0 ? leisureLog.map(l => `  * ${l}`).join('\n') : '  * (No leisure activity logged)'}
+
+- NOTES & THOUGHTS LOGGED:
+${notesLog.length > 0 ? notesLog.map(n => `  * ${n}`).join('\n') : '  * (No notes/thoughts logged)'}
+
+- SMALL WINS LOGGED:
+${smallWinsLog.length > 0 ? smallWinsLog.map(w => `  * ${w}`).join('\n') : '  * (No small wins logged)'}
+`.trim();
 
   // 4. Load Gemini API Key from .env
   let geminiApiKey = "";
@@ -69,78 +155,136 @@ module.exports = async function aiEnrichAction(params) {
   let motivationQuote = "";
   let summarySectionText = "";
 
-  const systemPrompt = `You are a supportive, articulate, and grounded personal reviewer writing for an Obsidian daily log.
-Your tone is casual, natural, and conversational — never corporate, cheerful, repetitive, or judgmental.`;
+  const systemPrompt = `You are a thoughtful, observant, and articulate personal companion reviewing my daily journal note in Obsidian.
+Your tone is deeply human, casual, grounded, observant, and reflective — like a smarter, clearer version of me writing at the end of the day.
 
-  const userPromptText = `Analyze this entire daily log note.
+STRICT WRITING RULES & FORBIDDEN LANGUAGE:
+- NO corporate, startup, or generic productivity buzzwords (e.g., "operational baseline", "steady execution", "maintaining momentum", "key deliverables", "operationally strong", "optimizing bandwidth", "synergy", "paradigm").
+- NO therapist clichés, artificial cheerleading, or generic self-help platitudes (e.g., "be kind to yourself", "every step counts", "remember to breathe", "embrace the journey").
+- Avoid repetitive sentence openings or rigid templates. Prefer specific, concrete observations over abstract claims.
+- Write like a real person with genuine opinions, emotional texture, self-awareness, and natural em-dashes (—).`;
 
-Metadata: Mood: ${mood}, Energy: ${energy}/5, Sleep: ${sleepHours} hours.
+  const userPromptText = `Synthesize and analyze this Obsidian daily log note based STRICTLY on the user's logged data below.
 
-TASK HANDLING:
-- Treat checked '- [x]' items as completed.
-- Treat unchecked '- [ ]' items as unfinished/remaining. Ignore blank placeholder '- [ ]' lines.
+${userLoggedDataText}
+
+CRITICAL ACCURACY & GROUNDING RULES:
+1. ONLY summarize activities, tasks, wins, thoughts, and progress explicitly listed under USER LOGGED DATA FOR TODAY above.
+2. Differentiate clearly between COMPLETED TASKS [x] vs UNFINISHED TASKS [ ]. Mention what actually got done and what stayed open.
+3. Do NOT invent fake activities or repeat generic productivity fluff.
+4. Ground every single claim on the specific notes, dev progress, leisure activities, and small wins recorded.
 
 CRITICAL WIKILINK RULE:
 Only use Obsidian wikilinks [[Note Title]] if the title EXACTLY matches one of these existing vault notes:
 [${existingNotesListStr}]
 If a term is not in this list, use **bold text** instead. DO NOT invent uncreated wikilinks!
 
-SECTION 1: MOTIVATION
-Provide a short, grounded 1-sentence motivation quote.
+SECTION 1: MOTIVATION / QUOTE
+Provide a short, grounded quote that fits the exact mood and feel of today.
+If the quote is from a known historical figure, author, or thinker, append " - Author Name" (e.g. "Do what you can - Theodore Roosevelt"). If it is an unauthored observation or personal thought, do NOT append an author.
 
 SECTION 2: AI DAILY SUMMARY & REFLECTION
 Provide exactly two sub-sections:
 
 ### Summary
-Write one detailed, casual paragraph (around 150 to 250 words) synthesizing the entire daily note (Motivation, Top 3 Priorities, Tasks, Dev Work, Notes/Brain Dump, Wins, Tomorrow).
-- Clearly mention completed vs unfinished tasks, coding/weather-dashboard progress, important thoughts/blockers from notes, wins, and tomorrow's focus.
-- Do NOT invent activities or progress for empty sections.
-- Apply Obsidian Markdown highlight syntax ==highlight sentence== to 1 to 3 key takeaway sentences directly inside the paragraph (e.g. a win, key lesson, decision, or blocker). DO NOT create a separate "Highlights" list or heading.
+Write a short, concise end-of-day summary in 1 to 2 compact paragraphs (around 70 to 120 words TOTAL).
+- Keep it punchy, direct, and brief — absolutely NO long walls of text.
+- Summarize what got done, what remained open, and how the day felt.
+- Apply Obsidian Markdown highlight syntax ==highlight sentence== to 1 key takeaway sentence.
 
 ### AI Reflection
-Write one longer, practical, and constructive paragraph (around 180 to 300 words).
-- Discuss patterns: whether priorities matched actual work, what helped/slowed progress, task scope realism, Dev Work specificity, and how to make tomorrow simpler and more achievable.
-- Be honest but kind. Do not shame for incomplete tasks or low energy. Do not invent facts.
-- If the note is mostly empty, explain that there is not enough info for a deep reflection and suggest one simple way to make tomorrow's note more useful.
+Write a short, concise personal reflection in 1 compact paragraph (around 50 to 90 words TOTAL).
+- Keep it brief, honest, and direct — write like a quick thought out loud at the end of the day.
+- Mention key mindset or lesson without long-winded fluff.
 
-Note Content:
-${content}`;
+SECTION 3: TOMORROW SETUP
+Do NOT copy tasks word-for-word from earlier sections. Infer what tomorrow should actually focus on based on the unfinished tasks and user notes above.
+Provide 3 to 5 prioritized actionable bullet points formatted as markdown checkboxes:
+- [ ] Actionable task 1 (the main thing / top priority)
+- [ ] Actionable task 2
+- [ ] Actionable task 3
+(Optionally 4 and 5 if relevant)
 
-  // 5. Call AI Provider (Gemini 3.6 Flash / 2.5 Flash High)
-  if (geminiApiKey) {
-    try {
-      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`;
+Instructions for Tomorrow Setup:
+- Make decisions: if today was overloaded or messy, simplify tomorrow to 3 focused tasks instead of carrying everything over.
+- Rewrite tasks in clearer, smarter, well-phrased language.`;
 
-      const res = await requestUrl({
-        url: geminiUrl,
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: systemPrompt }] },
-          contents: [{ parts: [{ text: userPromptText }] }],
-          generationConfig: {
-            temperature: 0.7,
-            topP: 0.95
-          }
-        })
-      });
+  let aiTomorrowSetupList = [];
 
-      const json = JSON.parse(res.text);
-      if (json.candidates && json.candidates[0] && json.candidates[0].content) {
-        const fullText = json.candidates[0].content.parts[0].text.trim();
-        
-        if (fullText.includes("SECTION 2:") || fullText.includes("### Summary")) {
-          const parts = fullText.split(/SECTION 2:|### Summary/i);
-          motivationQuote = parts[0].replace(/SECTION 1:|MOTIVATION:/gi, "").replace(/^"/, "").replace(/"$/, "").trim();
-          summarySectionText = "### Summary\n" + (parts[1] || fullText).trim();
-        } else {
-          const firstLineEnd = fullText.indexOf("\n");
-          motivationQuote = fullText.substring(0, firstLineEnd).trim();
-          summarySectionText = fullText.substring(firstLineEnd).trim();
+  function parseResponse(fullText) {
+    let quote = "";
+    let summaryRef = "";
+    let tomorrowItems = [];
+
+    let text = fullText;
+
+    // Strictly isolate Tomorrow Setup to prevent duplicate section leakage
+    if (text.includes("SECTION 3:") || text.includes("TOMORROW SETUP:") || text.includes("## 🌙 Tomorrow Setup") || text.includes("## Tomorrow Setup")) {
+      const s3Parts = text.split(/SECTION 3:|TOMORROW SETUP:|## 🌙 Tomorrow Setup|## Tomorrow Setup/i);
+      text = s3Parts[0];
+      const rawTomorrow = s3Parts.slice(1).join("\n").trim();
+      const tLines = rawTomorrow.split("\n");
+      for (const line of tLines) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith("- [ ]") || trimmed.startsWith("- ")) {
+          let item = trimmed.startsWith("- [ ]") ? trimmed : "- [ ] " + trimmed.replace(/^-\s*/, "");
+          tomorrowItems.push(item);
         }
       }
-    } catch (err) {
-      console.warn("Gemini API Request Warning:", err.message);
+    }
+
+    if (text.includes("SECTION 2:") || text.includes("### Summary")) {
+      const parts = text.split(/SECTION 2:|### Summary/i);
+      quote = parts[0].replace(/SECTION 1:|MOTIVATION:|MOTIVATION \/ QUOTE:/gi, "").replace(/^"/, "").replace(/"$/, "").trim();
+      summaryRef = "### Summary\n" + (parts[1] || text).trim();
+    } else {
+      const firstLineEnd = text.indexOf("\n");
+      quote = text.substring(0, firstLineEnd).trim();
+      summaryRef = text.substring(firstLineEnd).trim();
+    }
+
+    // Strip out any trailing Tomorrow Setup headers that leaked into summaryRef
+    summaryRef = summaryRef.replace(/## 🌙 Tomorrow Setup[\s\S]*$/gi, "")
+                           .replace(/## Tomorrow Setup[\s\S]*$/gi, "")
+                           .replace(/SECTION 3[\s\S]*$/gi, "")
+                           .trim();
+
+    return { quote, summaryRef, tomorrowItems };
+  }
+
+  // 5. Call AI Provider (Gemini API with fallback models)
+  if (geminiApiKey) {
+    const modelsToTry = ["gemini-flash-latest", "gemini-2.0-flash-lite", "gemini-2.5-flash-lite"];
+    for (const model of modelsToTry) {
+      try {
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`;
+
+        const res = await requestUrl({
+          url: geminiUrl,
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            system_instruction: { parts: [{ text: systemPrompt }] },
+            contents: [{ parts: [{ text: userPromptText }] }],
+            generationConfig: {
+              temperature: 0.7,
+              topP: 0.95
+            }
+          })
+        });
+
+        const json = JSON.parse(res.text);
+        if (json.candidates && json.candidates[0] && json.candidates[0].content) {
+          const fullText = json.candidates[0].content.parts[0].text.trim();
+          const parsed = parseResponse(fullText);
+          motivationQuote = parsed.quote;
+          summarySectionText = parsed.summaryRef;
+          if (parsed.tomorrowItems.length > 0) aiTomorrowSetupList = parsed.tomorrowItems;
+          if (summarySectionText) break; // Successfully generated content!
+        }
+      } catch (err) {
+        console.warn(`Gemini API (${model}) Warning:`, err.message);
+      }
     }
   }
 
@@ -164,9 +308,10 @@ ${content}`;
       });
       const json = JSON.parse(res.text);
       const text = json.choices[0].message.content.trim();
-      const parts = text.split(/SECTION 2:|### Summary/i);
-      motivationQuote = parts[0].replace(/SECTION 1:|MOTIVATION:/gi, "").replace(/^"/, "").replace(/"$/, "").trim();
-      summarySectionText = "### Summary\n" + (parts[1] || text).trim();
+      const parsed = parseResponse(text);
+      motivationQuote = parsed.quote;
+      summarySectionText = parsed.summaryRef;
+      if (parsed.tomorrowItems.length > 0) aiTomorrowSetupList = parsed.tomorrowItems;
     } catch (err) {
       console.warn("OpenAI API Fallback Warning:", err.message);
     }
@@ -179,33 +324,65 @@ ${content}`;
 
   if (!summarySectionText) {
     summarySectionText = `### Summary
-A day logged with a **${mood}** mindset, **${energy}/5** energy, and **${sleepHours} hours** of sleep. Progress focused on core daily routines, completing key tasks while leaving open items carried forward. ==Steady execution on basic habits builds long-term consistency even on low-energy days.== Dev work advanced on [[Weather Dashboard]] alongside workflow setup in [[second brain]].
+Progress focused on core daily tasks, completing key items while leaving open priorities for tomorrow. ==Fixing workflow hurdles brought clarity to today's focus.==
 
 ### AI Reflection
-Logging mood and maintaining basic habit check-offs provides a solid operational baseline. Today's task scope was broad, so focusing tomorrow on one concrete deliverable will keep momentum steady without overextending.`;
+Logging mood and maintaining basic check-offs provides clarity. Tomorrow needs a clear focus to keep momentum without overextending.`;
   }
 
-  // Clean quote formatting
-  motivationQuote = motivationQuote.replace(/^>\s*/, "").replace(/^Motivation:\s*/i, "").trim();
+  // Clean quote & author formatting
+  let authorAttribution = "";
+  let cleanQuote = motivationQuote
+    .replace(/^>\s*/, "")
+    .replace(/^SECTION\s*\d*:?\s*/gi, "")
+    .replace(/^MOTIVATION\s*\/?\s*QUOTE:?\s*/gi, "")
+    .replace(/^["'\s]+|["'\s]+$/g, "")
+    .trim();
+
+  if (cleanQuote.includes("—") || cleanQuote.includes(" - ")) {
+    const parts = cleanQuote.split(/—| - /);
+    cleanQuote = parts[0].replace(/^["'\s]+|["'\s]+$/g, "").trim();
+    if (parts[1] && parts[1].trim()) {
+      authorAttribution = parts[1].replace(/\*\*/g, "").replace(/^["'\s]+|["'\s]+$/g, "").trim();
+    }
+  } else {
+    cleanQuote = cleanQuote.replace(/^["'\s]+|["'\s]+$/g, "").trim();
+  }
+
+  const quoteCallout = authorAttribution 
+    ? `> [!QUOTE] 💡 Daily Spark\n> *"${cleanQuote}"*\n> — **${authorAttribution}**`
+    : `> [!QUOTE] 💡 Daily Spark\n> *${cleanQuote}*`;
 
   // 6. Prepare Tomorrow Setup content
-  let tomorrowSetupContent = unfinishedTasks.length > 0
-    ? unfinishedTasks.map(t => `- [ ] ${t}`).join("\n")
-    : "- [ ] All tasks completed today! 🎉";
+  let tomorrowSetupLines = ["What I want to carry or prepare for tomorrow."];
+  const finalTasksToUse = aiTomorrowSetupList.length > 0 
+    ? aiTomorrowSetupList 
+    : (unfinishedTasks.length > 0 ? unfinishedTasks.map(t => `- [ ] ${t}`) : ["- [ ] "]);
+
+  finalTasksToUse.forEach(t => tomorrowSetupLines.push(t.startsWith("- [ ]") ? t : `- [ ] ${t}`));
+  const tomorrowSetupContent = tomorrowSetupLines.join("\n");
 
   // 7. Update sections cleanly
-  if (content.includes("## ✨ Motivation")) {
-    content = content.replace(/(## ✨ Motivation\s*\n)([\s\S]*?)(?=\n## |\n$)/, `$1> ${motivationQuote}\n\n`);
+  if (content.includes("> [!QUOTE] 💡 Daily Spark")) {
+    content = content.replace(/> \[!QUOTE\] 💡 Daily Spark[\s\S]*?(?=\n\n## |\n## |\n$)/, `${quoteCallout}`);
+  } else if (content.includes("## ✨ Motivation")) {
+    content = content.replace(/## ✨ Motivation\s*\n[\s\S]*?(?=\n\n## |\n## |\n$)/, `${quoteCallout}`);
+  } else if (content.includes("> | **sleep_hours**")) {
+    content = content.replace(/(> \| \*\*sleep_hours\*\*[\s\S]*?\n\n)/, `$1${quoteCallout}\n\n`);
   }
 
   if (content.includes("## 🤖 AI Daily Summary")) {
-    content = content.replace(/(## 🤖 AI Daily Summary\s*\n)([\s\S]*?)(?=\n## |\n$)/, `$1${summarySectionText}\n\n`);
+    content = content.replace(/(## 🤖 AI Daily Summary\s*\n)[\s\S]*?(?=\n## 🌙 Tomorrow Setup|\n## Tomorrow Setup|\n$)/, `$1${summarySectionText}\n\n`);
   } else if (content.includes("## AI Daily Summary")) {
-    content = content.replace(/(## AI Daily Summary\s*\n)([\s\S]*?)(?=\n## |\n$)/, `$1${summarySectionText}\n\n`);
+    content = content.replace(/(## AI Daily Summary\s*\n)[\s\S]*?(?=\n## 🌙 Tomorrow Setup|\n## Tomorrow Setup|\n$)/, `$1${summarySectionText}\n\n`);
   }
 
   if (content.includes("## 🌙 Tomorrow Setup")) {
-    content = content.replace(/(## 🌙 Tomorrow Setup[\s\S]*?\n)([\s\S]*?)(?=\n## |\n$)/, `$1What I want to carry or prepare for tomorrow.\n${tomorrowSetupContent}\n`);
+    content = content.replace(/## 🌙 Tomorrow Setup[\s\S]*$/, `## 🌙 Tomorrow Setup\n${tomorrowSetupContent}\n`);
+  } else if (content.includes("## Tomorrow Setup")) {
+    content = content.replace(/## Tomorrow Setup[\s\S]*$/, `## Tomorrow Setup\n${tomorrowSetupContent}\n`);
+  } else {
+    content += `\n\n## 🌙 Tomorrow Setup\n${tomorrowSetupContent}\n`;
   }
 
   await app.vault.modify(file, content);

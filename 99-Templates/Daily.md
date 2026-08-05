@@ -1,6 +1,6 @@
 ---
 created: <% tp.date.now("YYYY-MM-DD") %>
-updated: <% tp.date.now("YYYY-MM-DD") %>
+updated: 2026-08-05
 type: daily
 status: active
 area: general
@@ -15,14 +15,18 @@ sleep_hours: 7
 
 # <% tp.date.now("dddd, MMMM D, YYYY") %>
 
-> Mood options: calm | good | okay | tired | stressed | low | focused | grateful | energized | productive | peaceful | overwhelmed | anxious | creative | restless | exhausted | unmotivated | reflective
-> Energy: 1–5
-> Sleep: hours slept, e.g. 7 or 6.5
+> [!INFO] 💡 Daily Properties Reference
+> | Property | Allowed Options / Range | Example |
+> | :--- | :--- | :--- |
+> | **mood** | calm, good, okay, tired, stressed, low, focused, grateful, energized, productive, peaceful, overwhelmed, anxious, creative, restless, exhausted, unmotivated, reflective | `mood: good` |
+> | **energy** | Scale 1 (lowest) to 5 (highest) | `energy: 4` |
+> | **sleep_hours** | Hours slept (e.g. 7 or 6.5) | `sleep_hours: 7.5` |
 
-## ✨ Motivation
-- 
+> [!QUOTE] 💡 Daily Spark
+> 
 
-## ↪ Carry Forward
+## ✅ Tasks
+Things I need or want to get done today.
 <%*
 let titleDate = window.moment(tp.file.title.substring(0, 10), "YYYY-MM-DD");
 if (!titleDate.isValid()) {
@@ -74,23 +78,11 @@ if (prevFile) {
 }
 
 if (carried.length > 0) {
-  tR += carried.join("\n");
+  tR += carried.join("\n") + "\n";
 } else {
-  tR += "- None";
+  tR += "- [ ] \n";
 }
 -%>
-
-## 🎯 Focus 3 (Daily Goals)
-What 3 main outcomes would make today feel successful?
-1. 
-2. 
-3. 
-
-## ✅ Tasks
-Things I need or want to get done today.
-- [ ] 
-- [ ] 
-- [ ] 
 
 ## 🔁 Habits
 Daily basics (keep it flexible, not perfect).
@@ -123,12 +115,6 @@ Something positive from today, even if small.
 
 ### Summary
 - 
-
-### Highlights
-- Core takeaway: 
-- Key concept: 
-- Actionable step: 
-- Related note ideas: 
 
 ### AI Reflection
 - 

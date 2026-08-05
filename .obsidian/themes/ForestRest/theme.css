@@ -1,0 +1,1110 @@
+/*
+    =========================================================
+    ForestRest  —  a serene "dwell-in-the-woods" Obsidian theme
+    Ported from lightmind.css (a Typora theme)
+    Body font   : LXGW WenKai
+    Code font    : JetBrains Mono
+    Palette      : warm beige paper · forest-green accents · ink-black code blocks
+    =========================================================
+*/
+
+/* ---------- Design tokens (kept in sync with the original lightmind theme for easy comparison) ---------- */
+:root {
+    color-scheme: light;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    /* Surface colors */
+    --bg-page: #f4f1e8;
+    --bg-write: #faf7ef;
+    --bg-soft: #ece8db;
+    --bg-formula: #f7f3e8;
+    --bg-quote: #eef0e6;
+    --bg-callout: #d6e7d6;
+    --bg-inline-code: #ece8df;
+
+    /* Text colors */
+    --fg-main: #2c3a32;
+    --fg-muted: #4a5e4d;
+    --fg-faint: #5e7363;
+    --fg-heading: #1f2a23;
+
+    /* Accent colors — drawn from the landscape */
+    --accent: #4a7c59;
+    --accent-deep: #234a31;
+    --accent-soft: #8fb39b;
+    --accent-warm: #c2a878;
+
+    /* Code block base (ink — a block of ink on rice paper) */
+    --code-bg: #232220;
+    --code-fg: #e7e2d4;
+    --code-line: #3a372f;
+    --code-gutter: #8a8576;
+
+    /* Syntax colors — a forest spectrum (moss purple / autumn gold / new moss / ochre / stream cyan / warm clay) */
+    --cm-keyword: #b58bbf;
+    --cm-type: #d9b870;
+    --cm-string: #9bc08a;
+    --cm-number: #d39a5e;
+    --cm-comment: #7e9b7a;
+    --cm-variable: #d98a7a;
+    --cm-def: #6fb3c4;
+    --cm-property: #d98a7a;
+    --cm-operator: #a8a596;
+    --cm-bracket: #8fb39b;
+    --cm-meta: #d9b870;
+    --cm-tag: #b58bbf;
+    --cm-attr: #6fb3c4;
+
+    /* Effects */
+    --radius-sm: 4px;
+    --radius: 8px;
+    --radius-lg: 12px;
+    --shadow-sm: 0 1px 2px rgba(44, 58, 50, 0.06);
+    --shadow: 0 2px 10px rgba(44, 58, 50, 0.08), 0 1px 3px rgba(44, 58, 50, 0.05);
+    --shadow-lg: 0 6px 24px rgba(44, 58, 50, 0.12), 0 2px 6px rgba(44, 58, 50, 0.06);
+
+    /* Font stacks (no external resources; pure local fallback chain) */
+    --font-body: "LXGW WenKai", "LXGW WenKai Screen", "霞鹜文楷", "Noto Serif CJK SC",
+        "Source Han Serif CN", "PingFang SC", "Microsoft YaHei", system-ui, serif;
+    --font-mono: "JetBrains Mono", "JetBrainsMono NF", "Fira Code", "Cascadia Code",
+        "SF Mono", Consolas, "Courier New", "LXGW WenKai", "LXGW WenKai Screen",
+        "霞鹜文楷", "Noto Serif CJK SC", "PingFang SC", monospace;
+    --font-heading: "LXGW WenKai", "LXGW WenKai Screen", "霞鹜文楷", "Noto Serif CJK SC",
+        "PingFang SC", system-ui, serif;
+
+    /* Graph (forest: green nodes + warm-gold tags) */
+    --graph-node: #4a7c59;
+    --graph-node-unresolved: #93a098;
+    --graph-node-tag: #c2a878;
+    --graph-node-attachment: #4a8fc4;
+    --graph-line: #4a7c59;
+    --graph-text: #2c3a32;
+    --graph-arrow: #4a7c59;
+}
+
+/* =========================================================
+   Light mode — maps Obsidian variables
+   ========================================================= */
+.theme-light {
+    --background-primary: var(--bg-write);
+    --background-primary-alt: var(--bg-page);
+    --background-secondary: var(--bg-soft);
+    --background-secondary-alt: var(--bg-page);
+    --background-modifier-hover: rgba(74, 124, 89, 0.08);
+    --background-modifier-active-hover: rgba(74, 124, 89, 0.14);
+    --background-modifier-selected: rgba(74, 124, 89, 0.18);
+    --background-modifier-border: rgba(74, 124, 89, 0.25);
+    --background-modifier-border-hover: var(--accent);
+    --background-modifier-form-field: var(--bg-soft);
+
+    --text-normal: var(--fg-main);
+    --text-muted: var(--fg-muted);
+    --text-faint: var(--fg-faint);
+    --text-title: var(--fg-heading);
+    --text-accent: var(--accent);
+    --text-accent-hover: var(--accent-deep);
+    --text-selection: rgba(74, 124, 89, 0.25);
+
+    --interactive-normal: var(--bg-soft);
+    --interactive-hover: rgba(74, 124, 89, 0.12);
+    --interactive-active: rgba(74, 124, 89, 0.18);
+    --interactive-accent: var(--accent);
+    --interactive-accent-hover: var(--accent-deep);
+
+    --font-text: var(--font-body);
+    --font-ui: var(--font-body);
+    --font-monospace: var(--font-mono);
+    --font-text-theme: var(--font-body);
+    --font-ui-theme: var(--font-body);
+    --font-monospace-theme: var(--font-mono);
+
+    --radius-s: var(--radius-sm);
+    --radius-m: var(--radius);
+    --radius-l: var(--radius-lg);
+    --shadow-s: var(--shadow-sm);
+    --shadow-l: var(--shadow-lg);
+
+    /* Code block base (light variant · forest green): pale green ground, deep ink-green text, echoing the theme's motif */
+    --code-bg: #d6e7d6;
+    --code-fg: #2c3a32;
+    --code-line: #b3cabd;
+    --code-gutter: #9aa890;
+    --bg-inline-code: #e6ebdd;
+
+    --code-background: var(--code-bg);
+    --code-normal: var(--code-fg);
+    --code-border: var(--code-line);
+    --code-keyword: var(--cm-keyword);
+    --code-function: var(--cm-def);
+    --code-string: var(--cm-string);
+    --code-number: var(--cm-number);
+    --code-comment: var(--cm-comment);
+    --code-variable: var(--cm-variable);
+    --code-property: var(--cm-property);
+    --code-operator: var(--cm-operator);
+    --code-tag: var(--cm-tag);
+    --code-attribute: var(--cm-attr);
+    --code-meta: var(--cm-meta);
+    --code-value: var(--cm-type);
+    --code-definition: var(--cm-def);
+    --code-punctuation: var(--cm-bracket);
+    --code-escape: var(--cm-keyword);
+
+    /* Syntax highlighting on a light ground: deep forest-spectrum colors, clear on pale paper */
+    --cm-keyword: #8a5fa0;
+    --cm-type: #9c7420;
+    --cm-string: #4a7c3f;
+    --cm-number: #b06a2c;
+    --cm-comment: #8a917f;
+    --cm-variable: #b0533f;
+    --cm-def: #2f7d94;
+    --cm-property: #b0533f;
+    --cm-operator: #5a6b5f;
+    --cm-bracket: #4a7c59;
+    --cm-meta: #9c7420;
+    --cm-tag: #8a5fa0;
+    --cm-attr: #2f7d94;
+
+    /* Callout colors — correspond to Typora's md-alert variants */
+    --callout-note: #4a8fc4;
+    --callout-tip: #4a7c59;
+    --callout-important: #8b5fbf;
+    --callout-warning: #b8853a;
+    --callout-caution: #a8443c;
+    --callout-question: #8b5fbf;
+    --callout-info: #4a8fc4;
+    --callout-success: #4a7c59;
+    --callout-fail: #a8443c;
+    --callout-failure: #a8443c;
+    --callout-danger: #a8443c;
+    --callout-bug: #a8443c;
+    --callout-example: #4a7c59;
+    --callout-quote: #93a098;
+    --callout-default: #4a7c59;
+
+    /* Tables (Obsidian native variables, shared by reading view and live preview) */
+    --table-background: var(--bg-write);
+    --table-border-color: rgba(74, 124, 89, 0.38);
+    --table-border-width: 1px;
+    --table-header-background: var(--accent);
+    --table-header-background-color: var(--accent);
+    --table-header-text-color: #faf7ef;
+    --table-text-color: var(--fg-main);
+    --table-row-alt-background: var(--bg-soft);
+    --table-row-alt-background-color: var(--bg-soft);
+    --table-column-alt-background: transparent;
+    --table-column-alt-background-color: transparent;
+    --table-selection-border-color: var(--accent);
+    --table-selection-background-color: rgba(74, 124, 89, 0.18);
+    --table-line-height: 1.5;
+    --table-text-size: 0.95em;
+    --table-white-space: normal;
+}
+
+/* =========================================================
+   Dark mode — derived from the same forest palette (fallback only; light is primary)
+   ========================================================= */
+.theme-dark {
+    color-scheme: dark;
+    --bg-page: #161b18;
+    --bg-write: #1c211e;
+    --bg-soft: #232a26;
+    --bg-formula: #20271f;
+    --bg-quote: #304235;
+    --bg-callout: #304235;
+    --bg-inline-code: #2a2823;
+
+    --fg-main: #d7e0d6;
+    --fg-muted: #93a098;
+    --fg-faint: #6b7a6f;
+    --fg-heading: #eef2ea;
+
+    --accent: #7dba8b;
+    --accent-deep: #8fb39b;
+    --accent-soft: #4a7c59;
+    --accent-warm: #c2a878;
+
+    --code-bg: #1a1815;
+    --code-fg: #e7e2d4;
+    --code-line: #322f28;
+    --code-gutter: #8a8576;
+
+    --shadow: 0 2px 10px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.25);
+    --shadow-lg: 0 6px 24px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+
+    --background-primary: var(--bg-write);
+    --background-primary-alt: var(--bg-page);
+    --background-secondary: var(--bg-soft);
+    --background-secondary-alt: var(--bg-page);
+    --background-modifier-hover: rgba(125, 186, 139, 0.1);
+    --background-modifier-active-hover: rgba(125, 186, 139, 0.16);
+    --background-modifier-selected: rgba(125, 186, 139, 0.2);
+    --background-modifier-border: rgba(125, 186, 139, 0.22);
+    --background-modifier-border-hover: var(--accent);
+    --background-modifier-form-field: var(--bg-soft);
+
+    --text-normal: var(--fg-main);
+    --text-muted: var(--fg-muted);
+    --text-faint: var(--fg-faint);
+    --text-title: var(--fg-heading);
+    --text-accent: var(--accent);
+    --text-accent-hover: var(--accent-deep);
+    --text-selection: rgba(125, 186, 139, 0.25);
+
+    --interactive-normal: var(--bg-soft);
+    --interactive-hover: rgba(125, 186, 139, 0.14);
+    --interactive-active: rgba(125, 186, 139, 0.2);
+    --interactive-accent: var(--accent);
+    --interactive-accent-hover: var(--accent-deep);
+
+    --font-text: var(--font-body);
+    --font-ui: var(--font-body);
+    --font-monospace: var(--font-mono);
+    --font-text-theme: var(--font-body);
+    --font-ui-theme: var(--font-body);
+    --font-monospace-theme: var(--font-mono);
+
+    --radius-s: var(--radius-sm);
+    --radius-m: var(--radius);
+    --radius-l: var(--radius-lg);
+    --shadow-s: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-l: var(--shadow-lg);
+
+    --code-background: var(--code-bg);
+    --code-normal: var(--code-fg);
+    --code-border: var(--code-line);
+    --code-keyword: var(--cm-keyword);
+    --code-function: var(--cm-def);
+    --code-string: var(--cm-string);
+    --code-number: var(--cm-number);
+    --code-comment: var(--cm-comment);
+    --code-variable: var(--cm-variable);
+    --code-property: var(--cm-property);
+    --code-operator: var(--cm-operator);
+    --code-tag: var(--cm-tag);
+    --code-attribute: var(--cm-attr);
+    --code-meta: var(--cm-meta);
+    --code-value: var(--cm-type);
+    --code-definition: var(--cm-def);
+    --code-punctuation: var(--cm-bracket);
+    --code-escape: var(--cm-keyword);
+
+    --callout-note: #4a8fc4;
+    --callout-tip: #7dba8b;
+    --callout-important: #8b5fbf;
+    --callout-warning: #b8853a;
+    --callout-caution: #a8443c;
+    --callout-question: #8b5fbf;
+    --callout-info: #4a8fc4;
+    --callout-success: #7dba8b;
+    --callout-fail: #a8443c;
+    --callout-failure: #a8443c;
+    --callout-danger: #a8443c;
+    --callout-bug: #a8443c;
+    --callout-example: #7dba8b;
+    --callout-quote: #93a098;
+    --callout-default: #7dba8b;
+
+    /* Tables (Obsidian native variables, shared by reading view and live preview) */
+    --table-background: var(--bg-write);
+    --table-border-color: rgba(125, 186, 139, 0.3);
+    --table-border-width: 1px;
+    --table-header-background: var(--accent);
+    --table-header-background-color: var(--accent);
+    --table-header-text-color: #161b18;
+    --table-text-color: var(--fg-main);
+    --table-row-alt-background: var(--bg-soft);
+    --table-row-alt-background-color: var(--bg-soft);
+    --table-column-alt-background: transparent;
+    --table-column-alt-background-color: transparent;
+    --table-selection-border-color: var(--accent);
+    --table-selection-background-color: rgba(125, 186, 139, 0.2);
+    --table-line-height: 1.5;
+    --table-text-size: 0.95em;
+    --table-white-space: normal;
+}
+
+/* =========================================================
+   Workspace frame
+   ========================================================= */
+.workspace {
+    background-color: var(--bg-page);
+    color: var(--fg-main);
+    font-family: var(--font-body);
+}
+
+/* Side dock / file explorer */
+.workspace-sidedock,
+.workspace-ribbon,
+.side-dock-ribbon,
+.workspace-tabs,
+.workspace-leaf {
+    background-color: var(--bg-page);
+    color: var(--fg-main);
+    font-family: var(--font-body);
+}
+
+/* File tree items */
+.nav-folder-title,
+.nav-file-title,
+.tree-item-self {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--fg-main);
+    border-radius: var(--radius-sm);
+}
+.nav-folder-title:hover,
+.nav-file-title:hover,
+.tree-item-self:hover {
+    background-color: var(--background-modifier-hover);
+}
+.nav-file-title.is-active,
+.nav-folder-title.is-active,
+.tree-item-self.is-active,
+.nav-file-title.is-selected,
+.tree-item-self.is-selected {
+    background-color: var(--bg-soft);
+    color: var(--accent-deep);
+    font-weight: 600;
+}
+.nav-folder-title-content,
+.nav-file-title-content,
+.tree-item-inner {
+    color: inherit;
+}
+
+/* Left ribbon (icon bar) */
+.side-dock-ribbon-action {
+    color: var(--fg-muted);
+}
+.side-dock-ribbon-action:hover {
+    color: var(--accent-deep);
+    background-color: var(--background-modifier-hover);
+}
+
+/* Title bar */
+.titlebar {
+    background-color: var(--bg-page);
+    color: var(--fg-main);
+    font-family: var(--font-body);
+}
+.titlebar-text {
+    color: var(--fg-muted);
+}
+
+/* Status bar */
+.status-bar {
+    background-color: var(--bg-page);
+    color: var(--fg-muted);
+    border-top: 1px solid var(--background-modifier-border);
+    font-family: var(--font-body);
+}
+
+/* Tab headers */
+.workspace-tab-header {
+    color: var(--fg-muted);
+}
+.workspace-tab-header.is-active {
+    color: var(--accent-deep);
+    background-color: var(--bg-write);
+}
+.workspace-tab-header-inner {
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+/* =========================================================
+   Editor (CM6) — general
+   ========================================================= */
+.cm-editor {
+    background-color: var(--background-primary);
+    color: var(--text-normal);
+    font-family: var(--font-text);
+}
+.cm-scroller {
+    font-family: var(--font-text);
+    line-height: 1.78;
+}
+.cm-editor .cm-content {
+    font-size: var(--font-text-size, 17px);
+}
+.cm-editor .cm-cursor,
+.cm-editor .cm-dropCursor {
+    border-left-color: var(--accent-warm);
+}
+.cm-editor .cm-selectionBackground,
+.cm-editor .cm-content ::selection {
+    background: var(--text-selection);
+}
+.cm-editor .cm-active {
+    background: transparent;
+}
+
+/* Headings (live preview / source mode) */
+.cm-editor .cm-header-1 { font-size: 1.85em; color: var(--fg-heading); font-weight: 700; }
+.cm-editor .cm-header-2 { font-size: 1.5em; color: var(--accent-deep); font-weight: 700; }
+.cm-editor .cm-header-3 { font-size: 1.25em; color: var(--accent-deep); font-weight: 700; }
+.cm-editor .cm-header-4 { font-size: 1.1em; color: var(--accent-deep); font-weight: 700; }
+.cm-editor .cm-header-5 { font-size: 1em; color: var(--fg-muted); font-weight: 700; }
+.cm-editor .cm-header-6 { font-size: 0.95em; color: var(--fg-faint); font-weight: 600; }
+
+.cm-editor .cm-strong { color: var(--accent-deep); font-weight: 700; }
+.cm-editor .cm-em { color: var(--text-normal); font-style: italic; }
+
+/* Inline code (editor) */
+.cm-editor .cm-inline-code {
+    font-family: var(--font-monospace);
+    font-size: 0.9em;
+    background: var(--bg-inline-code);
+    color: var(--accent-deep);
+    border: 1px solid rgba(44, 58, 50, 0.12);
+    border-radius: var(--radius-sm);
+    padding: 0 4px;
+}
+
+/* Fenced code blocks (editor, ink) */
+.cm-editor .HyperMD-codeblock-begin,
+.cm-editor .HyperMD-codeblock,
+.cm-editor .HyperMD-codeblock-end {
+    background: var(--code-bg);
+    color: var(--code-fg);
+    font-family: var(--font-monospace);
+    font-size: var(--font-text-size, 17px);
+}
+.cm-editor .HyperMD-codeblock-begin {
+    border-top-left-radius: var(--radius);
+    border-top-right-radius: var(--radius);
+    padding-top: 4px;
+}
+.cm-editor .HyperMD-codeblock-end {
+    border-bottom-left-radius: var(--radius);
+    border-bottom-right-radius: var(--radius);
+    padding-bottom: 4px;
+}
+.cm-editor .cm-gutters {
+    background: var(--code-bg);
+    border-right: 1px solid var(--code-line);
+    color: var(--code-gutter);
+}
+.cm-editor .cm-lineNumbers .cm-gutterElement {
+    color: var(--code-gutter);
+}
+
+/* =========================================================
+   Reading view (Markdown preview)
+   ========================================================= */
+.markdown-preview-view {
+    font-family: var(--font-body);
+    font-size: var(--font-text-size, 17px);
+    line-height: 1.78;
+    color: var(--fg-main);
+    background-color: var(--background-primary);
+    padding: 24px 48px 96px 48px;
+}
+.markdown-preview-view .markdown-preview-sizer {
+    max-width: 760px;
+    margin: 0 auto;
+}
+
+.markdown-rendered p,
+.markdown-preview-view p {
+    margin: 0.9em 0;
+    letter-spacing: 0.01em;
+}
+
+.markdown-rendered strong,
+.markdown-rendered b,
+.markdown-preview-view strong,
+.markdown-preview-view b {
+    color: var(--accent-deep);
+    font-weight: 700;
+}
+.markdown-rendered em,
+.markdown-rendered i,
+.markdown-preview-view em,
+.markdown-preview-view i {
+    color: var(--fg-main);
+    font-style: italic;
+}
+
+.markdown-rendered a,
+.markdown-rendered .internal-link,
+.markdown-rendered .external-link,
+.markdown-preview-view a,
+.markdown-preview-view .internal-link,
+.markdown-preview-view .external-link {
+    color: var(--accent-deep);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(74, 124, 89, 0.35);
+    transition: color 0.15s ease, border-color 0.15s ease;
+}
+.markdown-rendered a:hover,
+.markdown-rendered .internal-link:hover,
+.markdown-rendered .external-link:hover,
+.markdown-preview-view a:hover,
+.markdown-preview-view .internal-link:hover,
+.markdown-preview-view .external-link:hover {
+    color: var(--accent-deep);
+    border-bottom-color: var(--accent-deep);
+}
+
+.markdown-rendered mark,
+.markdown-preview-view mark {
+    background: rgba(194, 168, 120, 0.35);
+    color: var(--fg-heading);
+    padding: 0 2px;
+    border-radius: 2px;
+}
+
+.markdown-rendered kbd,
+.markdown-preview-view kbd {
+    display: inline-block;
+    font-family: var(--font-monospace);
+    font-size: 0.85em;
+    font-weight: 600;
+    color: var(--fg-heading);
+    background: linear-gradient(180deg, var(--bg-write) 0%, var(--bg-soft) 100%);
+    border: 1px solid rgba(74, 124, 89, 0.35);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    padding: 1px 6px;
+    margin: 0 1px;
+    line-height: 1.4;
+    box-shadow: 0 1px 0 rgba(44, 58, 50, 0.1), inset 0 -1px 0 rgba(255, 255, 255, 0.4);
+    vertical-align: 1px;
+    white-space: nowrap;
+}
+
+/* ---------- Headings ---------- */
+.markdown-rendered h1,
+.markdown-rendered h2,
+.markdown-rendered h3,
+.markdown-rendered h4,
+.markdown-rendered h5,
+.markdown-rendered h6,
+.markdown-preview-view h1,
+.markdown-preview-view h2,
+.markdown-preview-view h3,
+.markdown-preview-view h4,
+.markdown-preview-view h5,
+.markdown-preview-view h6 {
+    font-family: var(--font-heading);
+    color: var(--fg-heading);
+    font-weight: 700;
+    line-height: 1.35;
+    margin-top: 1.6em;
+    margin-bottom: 0.6em;
+    letter-spacing: 0.005em;
+}
+.markdown-rendered h1,
+.markdown-preview-view h1 {
+    font-size: 1.85em;
+    border-bottom: none;
+    background-image: linear-gradient(to right, var(--accent) 0%, var(--accent-warm) 65%, transparent 100%);
+    background-repeat: no-repeat;
+    background-position: 0 100%;
+    background-size: 100% 2px;
+    padding-bottom: 0.35em;
+    margin-top: 0.6em;
+}
+.markdown-rendered h2,
+.markdown-preview-view h2 {
+    font-size: 1.5em;
+    color: var(--accent-deep);
+    border-bottom: 1px solid rgba(74, 124, 89, 0.25);
+    padding-bottom: 0.3em;
+}
+.markdown-rendered h3,
+.markdown-preview-view h3 {
+    font-size: 1.25em;
+    color: var(--accent-deep);
+}
+.markdown-rendered h3::before,
+.markdown-preview-view h3::before {
+    content: "";
+    display: inline-block;
+    width: 4px;
+    height: 0.95em;
+    background: var(--accent);
+    border-radius: 2px;
+    margin-right: 0.55em;
+    vertical-align: -0.08em;
+}
+.markdown-rendered h4,
+.markdown-preview-view h4 { font-size: 1.1em; color: var(--accent-deep); }
+.markdown-rendered h5,
+.markdown-preview-view h5 { font-size: 1em; color: var(--fg-muted); letter-spacing: 0.04em; }
+.markdown-rendered h6,
+.markdown-preview-view h6 { font-size: 0.95em; color: var(--fg-faint); font-weight: 600; }
+
+/* ---------- Inline code ---------- */
+.markdown-rendered code,
+.markdown-preview-view code {
+    font-family: var(--font-monospace);
+    font-size: 0.9em;
+    background: var(--bg-inline-code);
+    color: var(--accent-deep);
+    padding: 1px 6px;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(44, 58, 50, 0.12);
+}
+
+/* ---------- Code blocks (ink) ---------- */
+.markdown-rendered pre,
+.markdown-preview-view pre {
+    font-family: var(--font-monospace);
+    font-size: var(--font-text-size, 17px);
+    line-height: 1.62;
+    background: var(--code-bg);
+    color: var(--code-fg);
+    border: 1px solid var(--code-line);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    margin: 0.9em 0;
+    box-shadow: var(--shadow);
+    overflow: auto;
+}
+.theme-light .markdown-rendered pre,
+.theme-light .markdown-preview-view pre {
+    box-shadow: 0 1px 2px rgba(44, 58, 50, 0.04);
+}
+
+.markdown-rendered pre code,
+.markdown-preview-view pre code {
+    background: transparent;
+    border: none;
+    padding: 0;
+    color: var(--code-fg);
+    font-size: inherit;
+}
+
+/* Prism syntax highlighting (reading view) mapped to the theme palette */
+.markdown-rendered pre code .token.keyword,
+    .markdown-preview-view pre code .token.keyword,
+.markdown-rendered pre code .token.boolean,
+    .markdown-preview-view pre code .token.boolean,
+.markdown-rendered pre code .token.atrule,
+    .markdown-preview-view pre code .token.atrule { color: var(--cm-keyword); }
+.markdown-rendered pre code .token.function,
+    .markdown-preview-view pre code .token.function { color: var(--cm-def); }
+.markdown-rendered pre code .token.string,
+    .markdown-preview-view pre code .token.string,
+.markdown-rendered pre code .token.char,
+    .markdown-preview-view pre code .token.char { color: var(--cm-string); }
+.markdown-rendered pre code .token.number,
+    .markdown-preview-view pre code .token.number { color: var(--cm-number); }
+.markdown-rendered pre code .token.comment,
+    .markdown-preview-view pre code .token.comment,
+.markdown-rendered pre code .token.prolog,
+    .markdown-preview-view pre code .token.prolog,
+.markdown-rendered pre code .token.doctype,
+    .markdown-preview-view pre code .token.doctype { color: var(--cm-comment); font-style: italic; }
+.markdown-rendered pre code .token.class-name,
+    .markdown-preview-view pre code .token.class-name,
+.markdown-rendered pre code .token.constant,
+    .markdown-preview-view pre code .token.constant { color: var(--cm-type); }
+.markdown-rendered pre code .token.variable,
+    .markdown-preview-view pre code .token.variable { color: var(--cm-variable); }
+.markdown-rendered pre code .token.property,
+    .markdown-preview-view pre code .token.property { color: var(--cm-property); }
+.markdown-rendered pre code .token.operator,
+    .markdown-preview-view pre code .token.operator { color: var(--cm-operator); }
+.markdown-rendered pre code .token.tag,
+    .markdown-preview-view pre code .token.tag { color: var(--cm-tag); }
+.markdown-rendered pre code .token.attr-name,
+    .markdown-preview-view pre code .token.attr-name { color: var(--cm-attr); }
+.markdown-rendered pre code .token.punctuation,
+    .markdown-preview-view pre code .token.punctuation { color: var(--cm-bracket); }
+.markdown-rendered pre code .token.selector,
+    .markdown-preview-view pre code .token.selector,
+.markdown-rendered pre code .token.builtin,
+    .markdown-preview-view pre code .token.builtin { color: var(--cm-type); }
+
+/* ---------- Code rendering extras (teal/blue, follows the theme's code rules) ---------- */
+/* Soft inner edge for inline code */
+.markdown-rendered :not(pre) > code {
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+/* Copy button hidden by default, revealed on hover */
+.markdown-rendered pre .copy-code-button {
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    color: var(--code-fg);
+}
+.markdown-rendered pre:hover .copy-code-button {
+    opacity: 0.7;
+}
+
+/* ---------- Blockquotes ---------- */
+.markdown-rendered blockquote,
+.markdown-preview-view blockquote {
+    background-color: var(--bg-quote);
+    background-image: linear-gradient(135deg, rgba(74, 124, 89, 0.14) 0%, rgba(74, 124, 89, 0) 65%);
+    color: var(--fg-main);
+    border: 1px solid rgba(74, 124, 89, 0.28);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    margin: 0.9em 0;
+    box-shadow: var(--shadow);
+    font-style: normal;
+}
+.markdown-rendered blockquote > :first-child,
+.markdown-preview-view blockquote > :first-child { margin-top: 0; }
+.markdown-rendered blockquote > :last-child,
+.markdown-preview-view blockquote > :last-child { margin-bottom: 0; }
+.markdown-rendered blockquote p,
+.markdown-preview-view blockquote p { margin: 0.45em 0; }
+.markdown-rendered blockquote blockquote,
+.markdown-preview-view blockquote blockquote {
+    background-color: var(--bg-write);
+    background-image: none;
+    border-color: rgba(143, 179, 155, 0.45);
+    border-left: 4px solid var(--accent-soft);
+    box-shadow: none;
+    margin: 0.6em 0;
+}
+
+/* Dark-mode blockquote border emphasis */
+.theme-dark .markdown-rendered blockquote,
+.theme-dark .markdown-preview-view blockquote {
+    border-color: rgba(125, 186, 139, 0.3);
+}
+.theme-dark .cm-editor .cm-blockquote {
+    border-color: rgba(125, 186, 139, 0.3);
+}
+.theme-dark .cm-editor .cm-blockquote .cm-blockquote {
+    border-color: rgba(143, 179, 155, 0.45);
+}
+/* Editor blockquote — Live Preview / reading view: give the rendered
+   .cm-blockquote widget the full panel treatment so it matches reading view. */
+.cm-editor .cm-blockquote {
+    background-color: var(--bg-quote);
+    background-image: linear-gradient(135deg, rgba(74, 124, 89, 0.14) 0%, rgba(74, 124, 89, 0) 65%);
+    color: var(--fg-main);
+    border: 1px solid rgba(74, 124, 89, 0.28);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    margin: 0.9em 0;
+    box-shadow: var(--shadow);
+    font-style: normal;
+}
+/* Nested quote (editor) — mirror the reading-view nested treatment */
+.cm-editor .cm-blockquote .cm-blockquote {
+    background-color: var(--bg-write);
+    background-image: none;
+    border-color: rgba(143, 179, 155, 0.45);
+    border-left: 4px solid var(--accent-soft);
+    box-shadow: none;
+    margin: 0.6em 0;
+}
+/* Source mode (pure): Live Preview wraps the quote in a .cm-blockquote widget
+   (styled above to match reading view). In plain source mode there is no block
+   wrapper, only per-line .cm-quote tokens, so we wash every quoted line via
+   :has() to give it the same panel, left bar, rounded right edge and soft shadow
+   as the reading-view blockquote. (minAppVersion 1.1.9 = Electron 21 / Chromium
+   105, which supports :has().) */
+.cm-editor .cm-line:has(.cm-quote):not(:has(.cm-blockquote)) {
+    background-color: var(--bg-quote);
+    background-image: linear-gradient(135deg, rgba(74, 124, 89, 0.14) 0%, rgba(74, 124, 89, 0) 65%);
+    border-left: 4px solid var(--accent);
+    border-radius: 0 6px 6px 0;
+    box-shadow: var(--shadow-sm);
+    padding-left: 6px;
+}
+.theme-dark .cm-editor .cm-line:has(.cm-quote):not(:has(.cm-blockquote)) {
+    border-left-color: rgba(125, 186, 139, 0.3);
+}
+/* Quoted text color in source mode — the line wash above carries the panel */
+.cm-editor .cm-quote {
+    color: var(--fg-main);
+}
+
+/* ---------- Callouts — corresponds to Typora md-alert ---------- */
+.callout {
+    border-radius: var(--radius);
+    border-width: 1px;
+    border-left-width: 4px;
+    border-color: var(--callout-color);
+    background-color: var(--bg-callout);
+    box-shadow: var(--shadow-sm);
+    --callout-color: var(--callout-default);
+}
+.callout-title { color: var(--callout-color); }
+.callout-icon { color: var(--callout-color); }
+
+.callout[data-callout="note"] { --callout-color: var(--callout-note); }
+.callout[data-callout="info"] { --callout-color: var(--callout-info); }
+.callout[data-callout="tip"] { --callout-color: var(--callout-tip); }
+.callout[data-callout="success"],
+.callout[data-callout="check"],
+.callout[data-callout="done"] { --callout-color: var(--callout-success); }
+.callout[data-callout="question"],
+.callout[data-callout="help"],
+.callout[data-callout="faq"] { --callout-color: var(--callout-question); }
+.callout[data-callout="warning"],
+.callout[data-callout="caution"] { --callout-color: var(--callout-warning); }
+.callout[data-callout="failure"],
+.callout[data-callout="fail"],
+.callout[data-callout="missing"] { --callout-color: var(--callout-failure); }
+.callout[data-callout="danger"],
+.callout[data-callout="error"] { --callout-color: var(--callout-danger); }
+.callout[data-callout="bug"] { --callout-color: var(--callout-bug); }
+.callout[data-callout="example"] { --callout-color: var(--callout-example); }
+.callout[data-callout="quote"] { --callout-color: var(--callout-quote); }
+
+/* ---------- Lists ---------- */
+.markdown-rendered ul,
+.markdown-rendered ol,
+.markdown-preview-view ul,
+.markdown-preview-view ol { padding-left: 1.6em; }
+.markdown-rendered li,
+.markdown-preview-view li { margin: 0.25em 0; }
+.markdown-rendered ul li::marker,
+.markdown-preview-view ul li::marker { color: var(--accent); }
+.markdown-rendered ol li::marker,
+.markdown-preview-view ol li::marker { color: var(--accent-deep); font-weight: 600; }
+
+/* Task lists */
+.markdown-rendered .task-list-item-checkbox,
+.markdown-preview-view .task-list-item-checkbox {
+    appearance: none;
+    -webkit-appearance: none;
+    border-radius: 6px;
+    border: 2px solid var(--accent);
+    background: transparent;
+    width: 1.15em;
+    height: 1.15em;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.markdown-rendered .task-list-item-checkbox:checked,
+.markdown-preview-view .task-list-item-checkbox:checked {
+    background-color: var(--accent);
+    border-color: var(--accent);
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3.5 8.5l3 3 6-6' stroke='%23faf7ef' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 90%;
+}
+.markdown-rendered li.task-list-item.is-checked,
+.markdown-preview-view li.task-list-item.is-checked { color: var(--fg-muted); text-decoration: line-through; }
+
+/* ---------- Tables ----------
+   Note: Obsidian's Live Preview renders tables inside a .markdown-rendered container
+   within .cm-editor rather than .markdown-preview-view. Selectors must therefore cover
+   both .markdown-rendered (shared by both modes) and .markdown-preview-view (reading-view fallback).
+   Borders / backgrounds / headers / zebra striping are all driven by the --table-* native
+   variables in .theme-light / .theme-dark, ensuring consistent rendering in both modes. */
+.markdown-rendered table,
+.markdown-preview-view table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin: 0.9em 0;
+    background-color: var(--table-background);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+    font-size: var(--table-text-size);
+    border: 2px solid var(--accent-deep);
+}
+.markdown-rendered thead,
+.markdown-preview-view thead {
+    background: var(--table-header-background);
+    color: var(--table-header-text-color);
+}
+.markdown-rendered th,
+.markdown-preview-view th {
+    padding: 10px 14px;
+    font-weight: 600;
+    text-align: left;
+    color: var(--table-header-text-color);
+    border-right: 1px solid rgba(255, 255, 255, 0.3);
+}
+.markdown-rendered td,
+.markdown-preview-view td {
+    padding: 9px 14px;
+    border-top: 1px solid var(--table-border-color);
+    border-right: 1px solid var(--table-border-color);
+}
+.markdown-rendered tr > :last-child,
+.markdown-preview-view tr > :last-child { border-right: none; }
+.markdown-rendered tbody tr:nth-child(even),
+.markdown-preview-view tbody tr:nth-child(even) { background-color: var(--table-row-alt-background); }
+.markdown-rendered td p,
+.markdown-rendered th p,
+.markdown-preview-view td p,
+.markdown-preview-view th p { margin: 0; line-height: 1.5; }
+
+/* ---------- Horizontal rules ---------- */
+.markdown-rendered hr,
+.markdown-preview-view hr {
+    border: none;
+    height: 1px;
+    background: linear-gradient(to right, transparent, var(--accent-soft) 30%, var(--accent-soft) 70%, transparent);
+    margin: 2em 0;
+}
+
+/* ---------- Images and captions ---------- */
+.markdown-rendered img,
+.markdown-preview-view img {
+    max-width: 100%;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    display: block;
+    margin: 0.6em auto;
+}
+.markdown-rendered figure,
+.markdown-preview-view figure { margin: 0.9em 0; text-align: center; }
+.markdown-rendered figcaption,
+.markdown-preview-view figcaption { color: var(--fg-muted); font-size: 0.9em; margin-top: 0.4em; }
+
+/* ---------- Tags (#tag) ---------- */
+.markdown-rendered .tag,
+.markdown-preview-view .tag,
+.cm-editor .cm-hashtag {
+    color: var(--accent);
+    background: rgba(74, 124, 89, 0.1);
+    border-radius: var(--radius-sm);
+    padding: 1px 6px;
+}
+
+/* ---------- Math ---------- */
+.markdown-rendered .math,
+.markdown-rendered .math-block,
+.markdown-preview-view .math,
+.markdown-preview-view .math-block {
+    color: var(--fg-heading);
+}
+.markdown-rendered .block-math,
+.markdown-preview-view .block-math {
+    background: var(--bg-formula);
+    border: 1px solid rgba(194, 168, 120, 0.25);
+    border-radius: var(--radius);
+    padding: 18px 22px;
+    margin: 0.9em auto;
+    box-shadow: var(--shadow);
+    text-align: center;
+}
+.markdown-rendered .MathJax,
+.markdown-rendered .MathJax_SVG,
+.markdown-preview-view .MathJax,
+.markdown-preview-view .MathJax_SVG { color: var(--fg-heading); }
+.markdown-rendered .MathJax text,
+.markdown-rendered .MathJax_SVG text,
+.markdown-preview-view .MathJax text,
+.markdown-preview-view .MathJax_SVG text { font-family: var(--font-body); }
+
+/* ---------- Footnotes ---------- */
+.markdown-rendered .footnote-link,
+.markdown-preview-view .footnote-link,
+.cm-editor .footnote-ref {
+    background: var(--bg-soft);
+    color: var(--accent-deep);
+    border-radius: var(--radius-sm);
+    padding: 0 4px;
+    font-size: 0.85em;
+}
+
+/* ---------- Document info / frontmatter ---------- */
+.cm-editor .frontmatter,
+.markdown-rendered .frontmatter,
+.markdown-preview-view .frontmatter,
+.metadata-container {
+    font-family: var(--font-body);
+    color: var(--fg-muted);
+}
+
+/* =========================================================
+   Scrollbars
+   ========================================================= */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+    background: rgba(74, 124, 89, 0.25);
+    border-radius: 5px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(74, 124, 89, 0.45);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+.theme-dark ::-webkit-scrollbar-thumb {
+    background: rgba(143, 179, 155, 0.55);
+}
+.theme-dark ::-webkit-scrollbar-thumb:hover {
+    background: rgba(143, 179, 155, 0.85);
+}
+.cm-editor .HyperMD-codeblock ::-webkit-scrollbar-thumb,
+.cm-editor .cm-gutters ::-webkit-scrollbar-thumb,
+.markdown-rendered pre::-webkit-scrollbar-thumb,
+.markdown-preview-view pre::-webkit-scrollbar-thumb {
+    background: var(--code-line);
+    background-clip: padding-box;
+    border: 2px solid transparent;
+}
+/* Dark mode: --code-line is near-black, so code-block / gutter scrollbars are
+   invisible. Lift them to a visible sage so they match the workspace thumb. */
+.theme-dark .cm-editor .HyperMD-codeblock ::-webkit-scrollbar-thumb,
+.theme-dark .cm-editor .cm-gutters ::-webkit-scrollbar-thumb,
+.theme-dark .markdown-rendered pre::-webkit-scrollbar-thumb,
+.theme-dark .markdown-preview-view pre::-webkit-scrollbar-thumb {
+    background: rgba(143, 179, 155, 0.5);
+    background-clip: padding-box;
+    border: 2px solid transparent;
+}
+
+/* =========================================================
+   Modals / search / prompts
+   ========================================================= */
+.modal,
+.prompt,
+.suggestion-container {
+    background-color: var(--bg-write);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    color: var(--fg-main);
+}
+.modal-close-button { color: var(--fg-muted); }
+.prompt-input {
+    background-color: var(--bg-soft);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--radius-sm);
+    color: var(--fg-main);
+}
+.suggestion-item.is-selected {
+    background-color: var(--background-modifier-hover);
+    color: var(--accent-deep);
+}
+
+/* Text selection */
+.theme-light ::selection { background: rgba(74, 124, 89, 0.25); }
+.theme-dark ::selection { background: rgba(125, 186, 139, 0.25); }
+
+/* =========================================================
+
+   Print / export
+   ========================================================= */
+@media print {
+    .markdown-rendered,
+    .markdown-preview-view {
+        background: #faf7ef;
+        color: #2c3a32;
+    }
+    .markdown-rendered pre,
+    .markdown-preview-view pre,
+    .markdown-rendered .block-math,
+    .markdown-preview-view .block-math {
+        box-shadow: none;
+        background: #f4f1e8;
+        color: #2c3a32;
+    }
+    .markdown-rendered pre code,
+    .markdown-preview-view pre code { color: #2c3a32; }
+}
