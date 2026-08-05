@@ -3,10 +3,11 @@ created: <% tp.date.now("YYYY-MM-DD") %>
 updated: <% tp.date.now("YYYY-MM-DD") %>
 type: resource
 status: active
-area: dev
+area: resources
 tags:
   - type/resource
-  - area/dev
+  - area/resources
+  - status/active
 ---
 
 # {{VALUE}}
@@ -25,9 +26,7 @@ Short description of the resource.
 ## Link
 - 
 
-## Related
-- [[ ]]
-- [[ ]]
+## 🔗 Related References
 - [[ ]]
 
 ## Notes

@@ -1,35 +1,24 @@
 ---
 created: <% tp.date.now("YYYY-MM-DD") %>
 updated: <% tp.date.now("YYYY-MM-DD") %>
-type: dev
+type: snippet
 status: active
 area: dev
+language: javascript/typescript/python
 tags:
-  - type/dev
+  - type/snippet
   - area/dev
+  - status/active
 ---
-
 # {{VALUE}}
-
-## Problem
-What are you trying to solve?
 
 ## Context
 - System:
 - Stack:
 - Where this fits:
-
-## Solution / Notes
-- 
-
-## Related
-- [[ ]]
-- [[ ]]
-- [[ ]]
+## Code Explanation
 
 ## Snippets
-```txt
+```js
 ```
-
-## Next step
-- 
+## Related

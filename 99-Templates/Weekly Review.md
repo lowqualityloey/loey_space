@@ -1,15 +1,18 @@
 ---
 created: <% tp.date.now("YYYY-MM-DD") %>
+updated: <% tp.date.now("YYYY-MM-DD") %>
 type: review
 status: completed
-area: general
+area: reviews
 tags:
   - type/review
+  - area/reviews
+  - status/completed
 ---
 
 # Weekly Review (<% tp.date.now("YYYY-[W]WW") %>)
 
-## 📊 Habit & Wellness Stats
+## 📊 Habit & Wellness Stats (Auto-Generated)
 
 ### Energy Average
 ```dataviewjs
@@ -26,7 +29,7 @@ const weekPages = pages.where(p => {
 });
 const vals = weekPages.map(p => Number(p.energy)).where(v => !isNaN(v));
 const avg = vals.length ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2) : "—";
-dv.paragraph(`Average energy: **${avg}** / 5`);
+dv.paragraph(`⚡ Average energy: **${avg}** / 5`);
 ```
 
 ### Sleep Average
@@ -44,10 +47,10 @@ const weekPages = pages.where(p => {
 });
 const vals = weekPages.map(p => Number(p.sleep_hours)).where(v => !isNaN(v));
 const avg = vals.length ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2) : "—";
-dv.paragraph(`Average sleep: **${avg}** hours`);
+dv.paragraph(`😴 Average sleep: **${avg}** hours`);
 ```
 
-### Mood Counts
+### Mood Distribution
 ```dataviewjs
 const moods = ["calm", "good", "okay", "tired", "stressed", "low"];
 const pages = dv.pages('"01-Daily"').where(p => p.file.day && p.mood);

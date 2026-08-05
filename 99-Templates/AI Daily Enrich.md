@@ -67,47 +67,28 @@ try {
 let motivationQuote = "";
 let summarySectionText = "";
 
-const systemPrompt = `You are a supportive, articulate, and grounded personal reviewer writing for an Obsidian daily log.
-Your tone is casual, natural, and conversational — never corporate, cheerful, repetitive, or judgmental.`;
+const systemPrompt = `You are a personal reviewer. Provide concise daily summaries.`;
 
-const userPromptText = `Analyze this entire daily log note.
+const userPromptText = `Daily log analysis. Provide JSON only.
 
-Metadata: Mood: ${mood}, Energy: ${energy}/5, Sleep: ${sleepHours} hours.
+Metadata: Mood: ${mood}, Energy: ${energy}/5, Sleep: ${sleepHours} hours
 
-TASK HANDLING:
-- Treat checked '- [x]' items as completed.
-- Treat unchecked '- [ ]' items as unfinished/remaining. Ignore blank placeholder '- [ ]' lines.
+Note:
+${content}
 
-CRITICAL WIKILINK RULE:
-Only use Obsidian wikilinks [[Note Title]] if the title EXACTLY matches one of these existing vault notes:
-[${existingNotesListStr}]
-If a term is not in this list, use **bold text** instead. DO NOT invent uncreated wikilinks!
-
-SECTION 1: MOTIVATION
-Provide a short, grounded 1-sentence motivation quote.
-
-SECTION 2: AI DAILY SUMMARY & REFLECTION
-Provide exactly two sub-sections:
-
-### Summary
-Write one detailed, casual paragraph (around 150 to 250 words) synthesizing the entire daily note (Motivation, Top 3 Priorities, Tasks, Dev Work, Notes/Brain Dump, Wins, Tomorrow).
-- Clearly mention completed vs unfinished tasks, coding/weather-dashboard progress, important thoughts/blockers from notes, wins, and tomorrow's focus.
-- Do NOT invent activities or progress for empty sections.
-- Apply Obsidian Markdown highlight syntax ==highlight sentence== to 1 to 3 key takeaway sentences directly inside the paragraph (e.g. a win, key lesson, decision, or blocker). DO NOT create a separate "Highlights" list or heading.
-
-### AI Reflection
-Write one longer, practical, and constructive paragraph (around 180 to 300 words).
-- Discuss patterns: whether priorities matched actual work, what helped/slowed progress, task scope realism, Dev Work specificity, and how to make tomorrow simpler and more achievable.
-- Be honest but kind. Do not shame for incomplete tasks or low energy. Do not invent facts.
-- If the note is mostly empty, explain that there is not enough info for a deep reflection and suggest one simple way to make tomorrow's note more useful.
-
-Note Content:
-${content}`;
+JSON format:
+{
+  "quote":"1-sentence motivation",
+  "summary":"1 paragraph summary",
+  "reflection":"1 paragraph reflection",
+  "tomorrow":["- [ ] task 1","- [ ] task 2","- [ ] task 3"]
+}
+`;
 
 // 5. Call AI Provider (Gemini 3.6 Flash / 2.5 Flash High)
 if (geminiApiKey) {
   try {
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`;
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${geminiApiKey}`;
 
     const res = await requestUrl({
       url: geminiUrl,

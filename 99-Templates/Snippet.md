@@ -2,10 +2,13 @@
 created: <% tp.date.now("YYYY-MM-DD") %>
 updated: <% tp.date.now("YYYY-MM-DD") %>
 type: snippet
-language: 
+status: active
+area: dev
+language: javascript/typescript/python
 tags:
   - type/snippet
-  - tech/
+  - area/dev
+  - status/active
 ---
 # <% tp.file.title %>
 
@@ -16,7 +19,7 @@ tags:
 ## Explanation
 
 
-## Related
+## 🔗 Related References
 - 
 
 <% tp.file.cursor() %>

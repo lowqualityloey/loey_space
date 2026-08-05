@@ -1,0 +1,9 @@
+{
+  "version": "v1",
+  "hooks": [{
+    "name": "Template Versioning Log",
+    "trigger": "PostFileCreate",
+    "matcher": "99-Templates/",
+    "action": { "type": "command", "command": "node -e \"const fs = require('fs'); const path = require('path'); const filePath = process.env.KIRO_POST_FILE_CREATE_PATH || ''; if (filePath && filePath.includes('99-Templates')) { const versionFile = path.join(path.dirname(filePath), 'VERSION.txt'); fs.writeFileSync(versionFile, 'v1.0.0 - ' + new Date().toISOString() + '\\n', { flag: 'a' }); console.log('Template version logged: ' + filePath); }\""
+  }]
+}

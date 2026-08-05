@@ -1,0 +1,14 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Triage Suggestion on Inbox Capture",
+      "trigger": "UserPromptSubmit",
+      "description": "After quick capture to Inbox, suggest triaging by creating a triage note",
+      "action": {
+        "type": "agent",
+        "prompt": "If the user's message looks like a quick capture (short, unstructured content) that should go to 00-Inbox, suggest creating a triage note using the Triage.md template. The suggestion should include:\n1. Identifying what type of content it appears to be (idea, task, reference, etc.)\n2. Recommending appropriate classification using the tag taxonomy\n3. Suggesting which folder it might belong to after triage\n4. Mentioning that they can use the Triage.md template in 99-Templates\n\nKeep the suggestion concise and helpful, not intrusive."
+      }
+    }
+  ]
+}

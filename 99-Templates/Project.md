@@ -6,9 +6,12 @@ review_cycle: 14d
 type: project
 status: planning
 priority: medium
+area: dev
 tags:
   - type/project
   - area/dev
+  - status/planning
+  - priority/medium
 ---
 <%*
   const title = tp.file.title;

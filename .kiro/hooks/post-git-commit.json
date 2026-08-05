@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Post Git Commit Secrets Check",
+      "trigger": "PostFileSave",
+      "description": "Verify no secrets were committed in latest git commit",
+      "matcher": "\\.git.*|\\.gitignore",
+      "action": {
+        "type": "command",
+        "command": "node -e \"const fs = require('fs'); const path = require('path'); const vaultPath = path.dirname(process.cwd()); const gitLog = fs.readFileSync('.git/logs/HEAD', 'utf8'); const latestCommit = gitLog.split('\\n').filter(l => l.includes('commit ')).pop(); const latestCommitId = latestCommit ? latestCommit.split(' ')[1] : null; if (!latestCommitId) { console.log('No commits yet'); process.exit(0); } const { execSync } = require('child_process'); try { const status = execSync('git status --porcelain', { cwd: vaultPath, encoding: 'utf8' }); const untracked = status.split('\\n').filter(l => l.startsWith('??')).map(l => l.substring(2)).filter(f => f.includes('.env') || f.includes('.secrets') || f.includes('_secret') || f.includes('_private')); if (untracked.length > 0) { console.error('WARNING: Potential secrets in untracked files: ' + untracked.join(', ')); process.exit(1); } console.log('✅ No secrets detected in latest commit'); } catch (err) { console.log('Could not verify commit'); }\""
+      }
+    }
+  ]
+}

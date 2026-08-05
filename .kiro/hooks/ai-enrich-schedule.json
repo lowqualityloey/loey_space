@@ -1,0 +1,9 @@
+{
+  "version": "v1",
+  "hooks": [{
+    "name": "AI Enrichment Scheduler",
+    "trigger": "PreToolUse",
+    "matcher": "ai.*enrich|Enrich",
+    "action": { "type": "command", "command": "node 06-Resources/scheduled-enrich.js" }
+  }]
+}

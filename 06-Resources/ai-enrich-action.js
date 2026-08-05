@@ -2,13 +2,298 @@ module.exports = async function aiEnrichAction(params) {
   const app = (params && params.app) ? params.app : (window.app || app);
   const file = app.workspace.getActiveFile();
 
-  if (!file || !file.path.startsWith("01-Daily")) {
-    new Notice("⚠️ Please open a daily note inside 01-Daily first!");
+  if (!file) {
+    new Notice("⚠️ Please open a note first!");
     return;
   }
 
+  const isDaily = file.path.startsWith("01-Daily");
+  const isConcept = file.path.startsWith("08-Concepts");
+  const isDev = file.path.startsWith("03-Dev");
+
+  if (!isDaily && !isConcept && !isDev) {
+    new Notice("⚠️ Please open a Daily, Concept, or Dev note first!");
+    return;
+  }
+
+  if (isConcept) {
+    await enrichConceptNote(app, file);
+  } else if (isDev) {
+    await enrichDevNote(app, file);
+  } else {
+    await enrichDailyNote(app, file);
+  }
+};
+
+/* ==========================================================================
+   DEV NOTE AI ENRICHER
+   ========================================================================== */
+async function enrichDevNote(app, file) {
   let content = await app.vault.read(file);
-  new Notice("🤖 Gemini 3.6 Flash is analyzing note & generating summary + reflection...");
+  const noteTitle = file.basename;
+
+  new Notice(`🤖 Analyzing & enriching Dev Note: "${noteTitle}"...`);
+
+  // 1. Load Gemini API Key
+  let geminiApiKey = "";
+  try {
+    const envContent = await app.vault.adapter.read(".env");
+    const match = envContent.match(/GEMINI_API_KEY\s*=\s*([^\s]+)/);
+    if (match && !match[1].includes("your_gemini")) geminiApiKey = match[1].trim();
+  } catch (e) {}
+
+  if (!geminiApiKey) {
+    new Notice("⚠️ GEMINI_API_KEY missing in .env!");
+    return;
+  }
+
+  // 2. Collect existing markdown notes for wikilinks
+  const existingNotes = app.vault.getMarkdownFiles()
+    .map(f => f.basename)
+    .filter(n => n && !n.startsWith("_") && n !== noteTitle && !n.match(/^\d{4}-\d{2}-\d{2}/));
+  const existingNotesStr = existingNotes.slice(0, 60).join(", ");
+
+  const systemPrompt = `You are a senior software engineer. Enrich dev notes with frontmatter and sections.`;
+
+  const userPrompt = `Analyze this dev note. Provide JSON only.
+
+Title: "${noteTitle}"
+Existing Notes: [${existingNotesStr}]
+
+Content:
+${content}
+
+JSON format:
+{
+  "type":"snippet",
+  "area":"dev",
+  "language":"JavaScript ES6",
+  "tags":["type/dev","area/dev"],
+  "context":{"system":"[[second brain]]","stack":"JavaScript ES6+","whereItFits":""},
+  "codeExplanation":[],
+  "related":[]
+}
+`;
+
+  const modelsToTry = ["gemini-2.0-flash-lite"];
+  let responseText = "";
+
+  for (const model of modelsToTry) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`;
+      const res = await requestUrl({
+        url,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          contents: [{ parts: [{ text: userPrompt }] }],
+          generationConfig: { responseMimeType: "application/json" }
+        })
+      });
+
+      const json = JSON.parse(res.text);
+      if (json.candidates && json.candidates[0] && json.candidates[0].content) {
+        responseText = json.candidates[0].content.parts[0].text.trim();
+        if (responseText) break;
+      }
+    } catch (e) {
+      console.warn(`Dev Enrich model ${model} warning:`, e.message);
+    }
+  }
+
+  if (!responseText) {
+    new Notice("⚠️ Failed to generate AI content for Dev note.");
+    return;
+  }
+
+  try {
+    const cleanJsonText = responseText.replace(/^```json\s*/i, "").replace(/^```\s*/, "").replace(/```$/, "").trim();
+    const data = JSON.parse(cleanJsonText);
+
+    // Update frontmatter properties
+    if (data.type) content = content.replace(/^type:\s*.*$/m, `type: ${data.type}`);
+    if (data.area) content = content.replace(/^area:\s*.*$/m, `area: ${data.area}`);
+    if (data.language) content = content.replace(/^language:\s*.*$/m, `language: ${data.language}`);
+
+    if (data.tags && Array.isArray(data.tags)) {
+      data.tags.forEach(t => {
+        if (!content.includes(t)) {
+          content = content.replace(/(tags:\s*\n)/, `$1  - ${t}\n`);
+        }
+      });
+    }
+
+    // Update Context
+    if (data.context) {
+      let ctxLines = [];
+      if (data.context.system) ctxLines.push(`- System: ${data.context.system}`);
+      if (data.context.stack) ctxLines.push(`- Stack: ${data.context.stack}`);
+      if (data.context.whereItFits) ctxLines.push(`- Where this fits: ${data.context.whereItFits}`);
+      content = content.replace(/(## Context\s*\n)([\s\S]*?)(?=\n## |\n$)/, `$1${ctxLines.join("\n")}\n\n`);
+    }
+
+    // Update Code Explanation
+    if (data.codeExplanation && Array.isArray(data.codeExplanation)) {
+      const expText = data.codeExplanation.map(e => `- ${e}`).join("\n");
+      content = content.replace(/(## Code Explanation\s*\n)([\s\S]*?)(?=\n## |\n$)/, `$1${expText}\n\n`);
+    }
+
+    // Update Related
+    if (data.related && Array.isArray(data.related)) {
+      const relText = data.related.map(r => `- ${r.startsWith("[[") ? r : "[[" + r + "]]"}`).join("\n");
+      content = content.replace(/(## Related\s*[\s\S]*$)/, `## Related\n${relText}\n`);
+    }
+
+    await app.vault.modify(file, content);
+    new Notice(`✨ Dev note "${noteTitle}" enriched with AI!`);
+
+  } catch (err) {
+    console.error("Failed to parse Dev JSON:", err);
+    new Notice("⚠️ Failed to parse AI Dev response.");
+  }
+}
+
+/* ==========================================================================
+   CONCEPT NOTE AI ENRICHER
+   ========================================================================== */
+async function enrichConceptNote(app, file) {
+  let content = await app.vault.read(file);
+  const conceptName = file.basename;
+
+  new Notice(`🤖 Analyzing & enriching Concept: "${conceptName}"...`);
+
+  // 1. Load Gemini API Key from .env
+  let geminiApiKey = "";
+  try {
+    const envContent = await app.vault.adapter.read(".env");
+    const match = envContent.match(/GEMINI_API_KEY\s*=\s*([^\s]+)/);
+    if (match && !match[1].includes("your_gemini")) geminiApiKey = match[1].trim();
+  } catch (e) {}
+
+  if (!geminiApiKey) {
+    new Notice("⚠️ GEMINI_API_KEY missing in .env!");
+    return;
+  }
+
+  // 2. Collect existing vault markdown notes to populate valid wikilinks
+  const existingNotes = app.vault.getMarkdownFiles()
+    .map(f => f.basename)
+    .filter(n => n && !n.startsWith("_") && n !== conceptName && !n.match(/^\d{4}-\d{2}-\d{2}/));
+  const existingNotesStr = existingNotes.slice(0, 60).join(", ");
+
+  const systemPrompt = `You are a knowledge base curator. Analyze concepts and provide concise JSON.`;
+
+  const userPrompt = `Analyze concept: "${conceptName}". Provide JSON only.
+Existing Notes: [${existingNotesStr}]
+
+JSON format:
+{
+  "tags":["area/knowledge"],
+  "summary":"1 sentence",
+  "whyItMatters":["1 key point"],
+  "examples":["example"],
+  "relatedConcepts":["[[second brain]]"],
+  "questions":["Question?"],
+  "nextSteps":["- [ ] action"]
+}
+`;
+
+  const modelsToTry = ["gemini-2.0-flash-lite"];
+  let responseText = "";
+
+  for (const model of modelsToTry) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`;
+      const res = await requestUrl({
+        url,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          contents: [{ parts: [{ text: userPrompt }] }],
+          generationConfig: { responseMimeType: "application/json" }
+        })
+      });
+
+      const json = JSON.parse(res.text);
+      if (json.candidates && json.candidates[0] && json.candidates[0].content) {
+        responseText = json.candidates[0].content.parts[0].text.trim();
+        if (responseText) break;
+      }
+    } catch (e) {
+      console.warn(`Concept Enrich model ${model} warning:`, e.message);
+    }
+  }
+
+  if (!responseText) {
+    new Notice("⚠️ Failed to generate AI content for concept.");
+    return;
+  }
+
+  try {
+    const cleanJsonText = responseText.replace(/^```json\s*/i, "").replace(/^```\s*/, "").replace(/```$/, "").trim();
+    const data = JSON.parse(cleanJsonText);
+
+    // Update tags in frontmatter
+    if (data.tags && Array.isArray(data.tags)) {
+      data.tags.forEach(t => {
+        if (!content.includes(t)) {
+          content = content.replace(/(tags:\s*\n)/, `$1  - ${t}\n`);
+        }
+      });
+    }
+
+    // Update Summary
+    if (data.summary) {
+      content = content.replace(/(## Summary\s*\n)([\s\S]*?)(?=\n## |\n$)/, `$1${data.summary}\n\n`);
+    }
+
+    // Update Why it matters
+    if (data.whyItMatters && Array.isArray(data.whyItMatters)) {
+      const wimText = data.whyItMatters.map(w => `- ${w}`).join("\n");
+      content = content.replace(/(## Why it matters\s*\n)([\s\S]*?)(?=\n## |\n$)/, `$1${wimText}\n\n`);
+    }
+
+    // Update Examples
+    if (data.examples && Array.isArray(data.examples)) {
+      const exText = data.examples.map(e => `- ${e}`).join("\n\n");
+      content = content.replace(/(## Examples\s*\n)([\s\S]*?)(?=\n## |\n$)/, `$1${exText}\n\n`);
+    }
+
+    // Update Related concepts
+    if (data.relatedConcepts && Array.isArray(data.relatedConcepts)) {
+      const rcText = data.relatedConcepts.map(c => `- ${c.startsWith("[[") ? c : "[[" + c + "]]"}`).join("\n");
+      content = content.replace(/(## Related concepts\s*\n)([\s\S]*?)(?=\n## |\n$)/, `$1${rcText}\n\n`);
+    }
+
+    // Update Questions
+    if (data.questions && Array.isArray(data.questions)) {
+      const qText = data.questions.map(q => `- ${q}`).join("\n");
+      content = content.replace(/(## Questions\s*\n)([\s\S]*?)(?=\n## |\n$)/, `$1${qText}\n\n`);
+    }
+
+    // Update Next steps
+    if (data.nextSteps && Array.isArray(data.nextSteps)) {
+      const nsText = data.nextSteps.map(s => s.startsWith("- [ ]") ? s : `- [ ] ${s.replace(/^-\s*/, "")}`).join("\n");
+      content = content.replace(/(## Next steps\s*[\s\S]*$)/, `## Next steps\n${nsText}\n`);
+    }
+
+    await app.vault.modify(file, content);
+    new Notice(`✨ Concept note "${conceptName}" enriched with AI!`);
+
+  } catch (err) {
+    console.error("Failed to parse concept JSON:", err);
+    new Notice("⚠️ Failed to parse AI concept response.");
+  }
+}
+
+/* ==========================================================================
+   DAILY NOTE AI ENRICHER
+   ========================================================================== */
+async function enrichDailyNote(app, file) {
+  let content = await app.vault.read(file);
+  new Notice("🤖 Gemini Flash is analyzing note & generating summary + reflection...");
 
   // 1. Extract Frontmatter Properties (mood, energy, sleep_hours)
   let mood = "okay";
@@ -155,59 +440,28 @@ ${smallWinsLog.length > 0 ? smallWinsLog.map(w => `  * ${w}`).join('\n') : '  * 
   let motivationQuote = "";
   let summarySectionText = "";
 
-  const systemPrompt = `You are a thoughtful, observant, and articulate personal companion reviewing my daily journal note in Obsidian.
-Your tone is deeply human, casual, grounded, observant, and reflective — like a smarter, clearer version of me writing at the end of the day.
+  const systemPrompt = `You are a personal companion. Review daily logs and provide concise summaries.`;
 
-STRICT WRITING RULES & FORBIDDEN LANGUAGE:
-- NO corporate, startup, or generic productivity buzzwords (e.g., "operational baseline", "steady execution", "maintaining momentum", "key deliverables", "operationally strong", "optimizing bandwidth", "synergy", "paradigm").
-- NO therapist clichés, artificial cheerleading, or generic self-help platitudes (e.g., "be kind to yourself", "every step counts", "remember to breathe", "embrace the journey").
-- Avoid repetitive sentence openings or rigid templates. Prefer specific, concrete observations over abstract claims.
-- Write like a real person with genuine opinions, emotional texture, self-awareness, and natural em-dashes (—).`;
+  const userPromptText = `Daily log analysis. Provide JSON only.
 
-  const userPromptText = `Synthesize and analyze this Obsidian daily log note based STRICTLY on the user's logged data below.
+Metadata: Mood: ${mood}, Energy: ${energy}/5, Sleep: ${sleepHours} hours
 
-${userLoggedDataText}
+USER LOGGED DATA:
+- COMPLETED TASKS [x]: ${completedTasks.length > 0 ? completedTasks.slice(0,5).join(", ") : "None"}
+- UNFINISHED TASKS [ ]: ${unfinishedTasks.length > 0 ? unfinishedTasks.slice(0,5).join(", ") : "None"}
+- HABITS: ${checkedHabits.length > 0 ? checkedHabits.slice(0,3).join(", ") : "None"}
+- DEV: ${devLog.length > 0 ? devLog.slice(0,3).join(", ") : "None"}
+- LEISURE: ${leisureLog.length > 0 ? leisureLog.slice(0,3).join(", ") : "None"}
+- WINS: ${smallWinsLog.length > 0 ? smallWinsLog.slice(0,3).join(", ") : "None"}
 
-CRITICAL ACCURACY & GROUNDING RULES:
-1. ONLY summarize activities, tasks, wins, thoughts, and progress explicitly listed under USER LOGGED DATA FOR TODAY above.
-2. Differentiate clearly between COMPLETED TASKS [x] vs UNFINISHED TASKS [ ]. Mention what actually got done and what stayed open.
-3. Do NOT invent fake activities or repeat generic productivity fluff.
-4. Ground every single claim on the specific notes, dev progress, leisure activities, and small wins recorded.
-
-CRITICAL WIKILINK RULE:
-Only use Obsidian wikilinks [[Note Title]] if the title EXACTLY matches one of these existing vault notes:
-[${existingNotesListStr}]
-If a term is not in this list, use **bold text** instead. DO NOT invent uncreated wikilinks!
-
-SECTION 1: MOTIVATION / QUOTE
-Provide a short, grounded quote that fits the exact mood and feel of today.
-If the quote is from a known historical figure, author, or thinker, append " - Author Name" (e.g. "Do what you can - Theodore Roosevelt"). If it is an unauthored observation or personal thought, do NOT append an author.
-
-SECTION 2: AI DAILY SUMMARY & REFLECTION
-Provide exactly two sub-sections:
-
-### Summary
-Write a short, concise end-of-day summary in 1 to 2 compact paragraphs (around 70 to 120 words TOTAL).
-- Keep it punchy, direct, and brief — absolutely NO long walls of text.
-- Summarize what got done, what remained open, and how the day felt.
-- Apply Obsidian Markdown highlight syntax ==highlight sentence== to 1 key takeaway sentence.
-
-### AI Reflection
-Write a short, concise personal reflection in 1 compact paragraph (around 50 to 90 words TOTAL).
-- Keep it brief, honest, and direct — write like a quick thought out loud at the end of the day.
-- Mention key mindset or lesson without long-winded fluff.
-
-SECTION 3: TOMORROW SETUP
-Do NOT copy tasks word-for-word from earlier sections. Infer what tomorrow should actually focus on based on the unfinished tasks and user notes above.
-Provide 3 to 5 prioritized actionable bullet points formatted as markdown checkboxes:
-- [ ] Actionable task 1 (the main thing / top priority)
-- [ ] Actionable task 2
-- [ ] Actionable task 3
-(Optionally 4 and 5 if relevant)
-
-Instructions for Tomorrow Setup:
-- Make decisions: if today was overloaded or messy, simplify tomorrow to 3 focused tasks instead of carrying everything over.
-- Rewrite tasks in clearer, smarter, well-phrased language.`;
+JSON format:
+{
+  "quote":"1-sentence motivation",
+  "summary":"1 paragraph summary",
+  "reflection":"1 paragraph reflection",
+  "tomorrow":["- [ ] task 1","- [ ] task 2","- [ ] task 3"]
+}
+`;
 
   let aiTomorrowSetupList = [];
 
@@ -254,7 +508,7 @@ Instructions for Tomorrow Setup:
 
   // 5. Call AI Provider (Gemini API with fallback models)
   if (geminiApiKey) {
-    const modelsToTry = ["gemini-flash-latest", "gemini-2.0-flash-lite", "gemini-2.5-flash-lite"];
+    const modelsToTry = ["gemini-2.0-flash-lite"];
     for (const model of modelsToTry) {
       try {
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`;
@@ -386,18 +640,5 @@ Logging mood and maintaining basic check-offs provides clarity. Tomorrow needs a
   }
 
   await app.vault.modify(file, content);
-
-  // 8. Auto-clean any unwanted concept junk files
-  try {
-    const conceptsFolder = app.vault.getAbstractFileByPath("08-Concepts");
-    if (conceptsFolder && conceptsFolder.children) {
-      for (const child of conceptsFolder.children) {
-        if (["AI Daily Enrich.md", "generate.md", "trigger it.md", "updated.md"].includes(child.name)) {
-          await app.vault.delete(child, true);
-        }
-      }
-    }
-  } catch (e) {}
-
   new Notice("✨ Daily Note enriched with AI Summary & Reflection!");
-};
+}

@@ -1,18 +1,15 @@
 ---
 created: <% tp.date.now("YYYY-MM-DD") %>
-updated: 2026-08-05
+updated: <% tp.date.now("YYYY-MM-DD") %>
 type: daily
-status: active
-area: general
-notion_id: 
+area: personal
+mood: 
+energy: 
+sleep_hours: 
 tags:
   - type/daily
-  - area/general
-mood: okay
-energy: 3
-sleep_hours: 7
+  - area/personal
 ---
-
 # <% tp.date.now("dddd, MMMM D, YYYY") %>
 
 > [!INFO] 💡 Daily Properties Reference

@@ -1,15 +1,18 @@
 ---
 created: <% tp.date.now("YYYY-MM-DD") %>
+updated: <% tp.date.now("YYYY-MM-DD") %>
 type: review
 status: completed
-area: general
+area: reviews
 tags:
   - type/review
+  - area/reviews
+  - status/completed
 ---
 
 # Monthly Review (<% tp.date.now("MMMM YYYY") %>)
 
-## 📊 Monthly Habit & Wellness Summary
+## 📊 Monthly Habit & Wellness Summary (Auto-Generated)
 
 ### Energy & Sleep Averages
 ```dataviewjs
@@ -29,6 +32,30 @@ const sleepAvg = sleepVals.length ? (sleepVals.reduce((a, b) => a + b, 0) / slee
 const monthLabel = currentDay.monthLong ? `${currentDay.monthLong} ${currentDay.year}` : "This Month";
 dv.paragraph(`⚡ Average Energy (${monthLabel}): **${energyAvg}** / 5`);
 dv.paragraph(`😴 Average Sleep (${monthLabel}): **${sleepAvg}** hours`);
+```
+
+### Habit Trends Visualization (Energy & Sleep Over Time)
+```dataviewjs
+const currentDay = dv.current().file.day || moment();
+const pages = dv.pages('"01-Daily"').where(p => p.file.day && p.energy != null && p.sleep_hours != null);
+const monthPages = pages.where(p => {
+  const d = p.file.day;
+  return d.year === currentDay.year && d.month === currentDay.month;
+});
+
+if (monthPages.length >= 3) {
+  const days = monthPages.map(p => {
+    const d = p.file.day;
+    return { day: d.date, energy: Number(p.energy), sleep: Number(p.sleep_hours) };
+  }).filter(d => !isNaN(d.energy) && !isNaN(d.sleep)).sort((a, b) => a.day - b.day);
+  
+  dv.table(
+    ["Date", "Day", "Energy (1-5)", "Sleep (hrs)"],
+    days.map(d => [d.day.toISOString().split('T')[0], d.day.toLocaleDateString('en-US', { weekday: 'short' }), d.energy, d.sleep])
+  );
+} else {
+  dv.paragraph("📈 Habit trends: Need at least 3 days of data for visualization");
+}
 ```
 
 ### Mood Distribution

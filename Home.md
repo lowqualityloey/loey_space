@@ -126,12 +126,160 @@ LIMIT 5
 
 ---
 
+## 🔒 Security & Git Health
+
+```dataviewjs
+// Git status check - shows if secrets are tracked
+const shell = require('child_process');
+try {
+  const status = shell.execSync('git status --porcelain', { encoding: 'utf8', maxBuffer: 1024*1024 });
+  const lines = status.split('\n').filter(l => l.trim());
+  
+  // Check for potentially tracked secrets
+  const secretPatterns = ['.env', '.secrets/', '00-Private/', '_secret', '_private'];
+  const secretFiles = lines.filter(l => 
+    secretPatterns.some(p => l.includes(p)) && (l.startsWith('A ') || l.startsWith(' M'))
+  );
+  
+  if (secretFiles.length > 0) {
+    dv.paragraph('❌ **WARNING**: Secrets detected in tracked files!');
+    dv.paragraph('Review: ' + secretFiles.map(l => l.substring(3)).join(', '));
+  } else {
+    dv.paragraph('✅ **Git Health**: No secrets in tracked files');
+  }
+  
+  // Show recent commits
+  const commits = shell.execSync('git log --oneline -5', { encoding: 'utf8', maxBuffer: 1024*1024 });
+  dv.paragraph('Last commit: ' + (commits.split('\n')[0] || 'No commits yet'));
+  
+} catch (err) {
+  dv.paragraph('Git status unavailable');
+}
+```
+
+---
+
+## 🛠️ Vault Health & Status
+
+### Vault Health
+```dataviewjs
+// Orphan notes check
+const pages = dv.pages('');
+const linkedPages = new Set();
+pages.forEach(p => {
+  if (p.file && p.file.outlinks) {
+    p.file.outlinks.forEach(link => {
+      if (link.path) linkedPages.add(link.path);
+    });
+  }
+});
+
+const allFiles = dv.pages('').where(p => !p.file.name.startsWith('_') && !p.file.name.endsWith('MOC'));
+const orphanCount = allFiles.filter(p => !linkedPages.has(p.file.path)).length;
+
+// Missing backlinks (files with outlinks but no inlinks)
+const brokenLinks = allFiles.filter(p => p.file.outlinks && p.file.outlinks.length > 0 && p.file.inlinks.length === 0).length;
+
+dv.paragraph(`📄 **Total Notes**: ${allFiles.length}`);
+dv.paragraph(`🔗 **Broken Links**: ${brokenLinks} (files with outgoing links but no incoming)`);
+dv.paragraph(`🔗 **Orphan Notes**: ${orphanCount} (unlinked notes)`);
+```
+
+### Notion Sync Status
+```dataviewjs
+// Check Notion sync status
+const fs = require('fs');
+const path = require('path');
+
+try {
+  const logFile = path.join(__dirname, '06-Resources', 'sync-daemon.log');
+  if (fs.existsSync(logFile)) {
+    const log = fs.readFileSync(logFile, 'utf8');
+    const lines = log.split('\n').filter(l => l.trim());
+    const lastSync = lines.slice(-5).join('\n');
+    dv.paragraph(`📅 **Last Notion Sync**: \n` + lastSync);
+  } else {
+    dv.paragraph('📅 **Last Notion Sync**: Not yet run');
+  }
+  
+  // Check for pending daily notes in Notion
+  const envContent = fs.readFileSync('.env', 'utf8');
+  const hasKey = envContent.includes('NOTION_API_KEY=secret_');
+  if (hasKey) {
+    dv.paragraph('✅ Notion sync configured');
+  } else {
+    dv.paragraph('⚠️ Notion sync: Missing API key in .env');
+  }
+} catch (err) {
+  dv.paragraph('Notion sync status: Unavailable');
+}
+```
+
+---
+
 ## 🏷️ Standardized Vault Tag Taxonomy
 
-| Tag Namespace  | Purpose                 | Standard Examples                                                                                                            |
-| :------------- | :---------------------- | :--------------------------------------------------------------------------------------------------------------------------- |
-| **`type/*`**   | Note schema & blueprint | `type/project`, `type/learning`, `type/snippet`, `type/resource`, `type/concept`, `type/review`, `type/daily`, `type/moc`    |
-| **`area/*`**   | Knowledge domain        | `area/dev`, `area/learning`, `area/personal`, `area/resources`, `area/reviews`, `area/security`                              |
-| **`topic/*`**  | Subject / Tech stack    | `topic/react`, `topic/typescript`, `topic/tailwind`, `topic/api`, `topic/git`, `topic/obsidian`, `topic/ai`, `topic/fitness` |
-| **`status/*`** | Lifecycle state         | `status/planning`, `status/in-progress`, `status/completed`, `status/active`                                                 |
+> **Complete metadata taxonomy for effective organization** | [[Tagging & Properties|Full Documentation]]
+
+| Tag Namespace  | Purpose                 | Standard Examples & Usage                                                                                                                                                                                              |
+| :------------- | :---------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`type/*`**   | Note schema & blueprint | `type/project` (dev initiatives), `type/learning` (course notes), `type/snippet` (code patterns), `type/resource` (external references), `type/concept` (evergreen ideas), `type/review` (retrospectives), `type/daily` (journal), `type/moc` (hubs), `type/guide` (how-tos), `type/personal` (life mgmt), `type/template` (file templates) |
+| **`area/*`**   | Knowledge domain        | `area/general` (cross-cutting), `area/dev` (development), `area/learning` (education), `area/personal` (life), `area/resources` (references), `area/reviews` (reflection), `area/security` (safety), `area/system` (vault setup), `area/automation` (workflows), `area/ai` (AI tools) |
+| **`topic/*`**  | Subject / Tech stack    | `topic/react`, `topic/typescript`, `topic/tailwind`, `topic/api`, `topic/git`, `topic/obsidian`, `topic/ai`, `topic/fitness`, `topic/productivity`, `topic/security`, `topic/automation`, `topic/dataview`, `topic/notion`, `topic/javascript`, `topic/python` |
+| **`status/*`** | Lifecycle state         | `status/planning` (initial), `status/in-progress` (active work), `status/completed` (done), `status/active` (evergreen), `status/archived` (historical), `status/blocked` (waiting), `status/idea` (concept), `status/review-needed` (needs review) |
+| **`priority/*`** | Urgency level        | `priority/low` (nice-to-have), `priority/medium` (regular), `priority/high` (important), `priority/critical` (urgent)                                                                                                    |
+
+### 📋 Standard Properties (YAML Frontmatter)
+
+**Universal Properties (All Notes):**
+- `created`: Auto-generated creation date (YYYY-MM-DD)
+- `updated`: Auto-updated on save (YYYY-MM-DD)  
+- `type`: Primary classification (see `type/*` taxonomy)
+- `area`: Knowledge domain (see `area/*` taxonomy)
+- `status`: Lifecycle state (see `status/*` taxonomy)
+- `tags`: Tag collection following above taxonomies
+
+**Optional Properties (Type-Specific):**
+- `priority`: low/medium/high (projects, tasks)
+- `last_reviewed`: Review date (evergreen notes)
+- `review_cycle`: Review frequency (7d/14d/30d/90d)
+- `language`: Code language (snippets)
+- `energy`: 1-5 scale (daily notes)
+- `mood`: calm/good/okay/tired/etc (daily notes)
+- `sleep_hours`: Hours slept (daily notes)
+
+### 🔍 Quick Reference Queries
+
+**Find active projects:**
+```dataview
+TABLE priority, status, file.mtime AS "Last Modified"
+FROM "02-Projects"
+WHERE type = "project" AND status = "in-progress"
+SORT priority DESC, file.mtime DESC
+```
+
+**Find learning resources by topic:**  
+```dataview
+TABLE topic, status, file.ctime AS "Created"
+FROM "04-Learning"
+WHERE contains(tags, "topic/react") AND type = "learning"
+SORT file.ctime DESC
+```
+
+**Find code snippets by language:**
+```dataview
+TABLE language, file.link AS "Snippet", file.mtime AS "Updated"
+FROM "03-Dev"
+WHERE type = "snippet" AND language = "typescript"
+SORT file.mtime DESC
+```
+
+**Find notes needing review:**
+```dataview
+TABLE type, area, last_reviewed, review_cycle AS "Cycle"
+FROM ""
+WHERE (type = "concept" OR type = "learning")
+AND date(today) - date(last_reviewed) > dur(review_cycle)
+SORT last_reviewed ASC
+```
 
