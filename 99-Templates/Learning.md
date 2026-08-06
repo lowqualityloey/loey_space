@@ -1,6 +1,6 @@
 ---
 created: <% tp.date.now("YYYY-MM-DD") %>
-updated: <% tp.date.now("YYYY-MM-DD") %>
+updated: 2026-08-06
 last_reviewed: <% tp.date.now("YYYY-MM-DD") %>
 review_cycle: 30d
 type: learning
@@ -12,7 +12,7 @@ tags:
   - status/in-progress
 ---
 
-# {{VALUE}}
+# <% tp.file.title %>
 
 ## Summary
 One short explanation in your own words.

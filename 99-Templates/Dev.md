@@ -1,6 +1,6 @@
 ---
 created: <% tp.date.now("YYYY-MM-DD") %>
-updated: <% tp.date.now("YYYY-MM-DD") %>
+updated: 2026-08-06
 type: snippet
 status: active
 area: dev
@@ -10,7 +10,7 @@ tags:
   - area/dev
   - status/active
 ---
-# {{VALUE}}
+# <% tp.file.title %>
 
 ## Context
 - System:

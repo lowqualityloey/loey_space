@@ -17,10 +17,11 @@
     "migrated": 6,
     "emojiStyle": "native",
     "recentlyUsedIcons": [
+      "LiNotebook",
+      "📚",
+      "LiBook",
       "LiCheckSmall",
-      "LiCheckCircle",
-      "LiUpload",
-      "LiLightbulb"
+      "LiCheckCircle"
     ],
     "recentlyUsedIconsSize": 5,
     "rules": [],
@@ -49,5 +50,6 @@
   "99-Templates": "LiFileCog",
   "08-Concepts": "LiLightbulb",
   "99-Attachments": "LiUpload",
-  "05-Personal": "LiDumbbell"
+  "05-Personal": "LiDumbbell",
+  "README.md": "LiNotebook"
 }

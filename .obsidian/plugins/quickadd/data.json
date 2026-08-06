@@ -42,12 +42,13 @@
       },
       "openInNewTab": {
         "enabled": true,
-        "direction": "vertical",
+        "direction": "tab",
         "focus": true
       },
       "openingPosition": "first",
       "prepend": false,
-      "task": false
+      "task": false,
+      "openFile": true
     },
     {
       "id": "e4f0a1b2-5555-4000-8000-000000000005",
@@ -73,12 +74,13 @@
       },
       "openInNewTab": {
         "enabled": true,
-        "direction": "vertical",
+        "direction": "tab",
         "focus": true
       },
       "openingPosition": "first",
       "prepend": false,
-      "task": false
+      "task": false,
+      "openFile": true
     },
     {
       "id": "e4f0a1b2-2222-4000-8000-000000000002",
@@ -99,11 +101,12 @@
         "createInSameFolderAsActiveFile": false
       },
       "append": false,
-      "openInNewTab": {
+      "openFileInNewTab": {
         "enabled": true,
-        "direction": "vertical",
+        "direction": "tab",
         "focus": true
-      }
+      },
+      "openFile": true
     },
     {
       "id": "e4f0a1b2-3333-4000-8000-000000000003",
@@ -124,11 +127,12 @@
         "createInSameFolderAsActiveFile": false
       },
       "append": false,
-      "openInNewTab": {
+      "openFileInNewTab": {
         "enabled": true,
-        "direction": "vertical",
+        "direction": "tab",
         "focus": true
-      }
+      },
+      "openFile": true
     },
     {
       "id": "e4f0a1b2-4444-4000-8000-000000000004",
@@ -149,11 +153,12 @@
         "createInSameFolderAsActiveFile": false
       },
       "append": false,
-      "openInNewTab": {
+      "openFileInNewTab": {
         "enabled": true,
-        "direction": "vertical",
+        "direction": "tab",
         "focus": true
-      }
+      },
+      "openFile": true
     },
     {
       "id": "e4f0a1b2-6666-4000-8000-000000000006",
@@ -174,11 +179,12 @@
         "createInSameFolderAsActiveFile": false
       },
       "append": false,
-      "openInNewTab": {
+      "openFileInNewTab": {
         "enabled": true,
-        "direction": "vertical",
+        "direction": "tab",
         "focus": true
-      }
+      },
+      "openFile": true
     },
     {
       "id": "e4f0a1b2-7777-4000-8000-000000000007",
@@ -199,11 +205,12 @@
         "createInSameFolderAsActiveFile": false
       },
       "append": false,
-      "openInNewTab": {
+      "openFileInNewTab": {
         "enabled": true,
-        "direction": "vertical",
+        "direction": "tab",
         "focus": true
-      }
+      },
+      "openFile": true
     },
     {
       "id": "e4f0a1b2-8888-4000-8000-000000000008",
@@ -224,11 +231,12 @@
         "createInSameFolderAsActiveFile": false
       },
       "append": false,
-      "openInNewTab": {
+      "openFileInNewTab": {
         "enabled": true,
-        "direction": "vertical",
+        "direction": "tab",
         "focus": true
-      }
+      },
+      "openFile": true
     },
     {
       "id": "e4f0a1b2-9999-4000-8000-000000000009",
@@ -249,11 +257,12 @@
         "createInSameFolderAsActiveFile": false
       },
       "append": false,
-      "openInNewTab": {
+      "openFileInNewTab": {
         "enabled": true,
-        "direction": "vertical",
+        "direction": "tab",
         "focus": true
-      }
+      },
+      "openFile": true
     },
     {
       "id": "e4f0a1b2-aaaa-4000-8000-000000000010",
@@ -274,11 +283,12 @@
         "createInSameFolderAsActiveFile": false
       },
       "append": false,
-      "openInNewTab": {
+      "openFileInNewTab": {
         "enabled": true,
-        "direction": "vertical",
+        "direction": "tab",
         "focus": true
-      }
+      },
+      "openFile": true
     }
   ],
   "inputPrompt": "single-line",

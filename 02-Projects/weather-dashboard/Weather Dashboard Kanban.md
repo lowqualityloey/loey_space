@@ -2,6 +2,7 @@
 
 kanban-plugin: board
 
+updated: 2026-08-06
 ---
 
 ## Backlog
@@ -20,7 +21,7 @@ kanban-plugin: board
 
 ## In Progress
 
-- [ ] Build static dashboard layout with mock data
+- [/] Build static dashboard layout with mock data
 
 
 ## Review / Test

@@ -1,6 +1,6 @@
 ---
 created: <% tp.date.now("YYYY-MM-DD") %>
-updated: <% tp.date.now("YYYY-MM-DD") %>
+updated: 2026-08-06
 type: resource
 status: active
 area: resources
@@ -10,7 +10,7 @@ tags:
   - status/active
 ---
 
-# {{VALUE}}
+# <% tp.file.title %>
 
 ## What it is
 Short description of the resource.

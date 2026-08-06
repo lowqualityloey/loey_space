@@ -1,6 +1,6 @@
 ---
 created: <% tp.date.now("YYYY-MM-DD") %>
-updated: <% tp.date.now("YYYY-MM-DD") %>
+updated: 2026-08-06
 type: resource
 status: active
 area: resources
@@ -11,7 +11,7 @@ tags:
   - topic/api
 ---
 
-# {{VALUE}}
+# <% tp.file.title %>
 
 ## Purpose
 What is this API or integration used for?

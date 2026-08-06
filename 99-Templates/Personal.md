@@ -9,7 +9,7 @@ tags:
   - area/personal
 ---
 
-# {{VALUE}}
+# <% tp.file.title %>
 
 ## Context
 What is this about?
