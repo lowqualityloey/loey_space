@@ -27,6 +27,7 @@
     "area/reviews": 5,
     "area/security": 10,
     "area/system": 11,
+    "area/tasks": 12,
     "priority/medium": 1,
     "status/active": 1,
     "status/completed": 2,

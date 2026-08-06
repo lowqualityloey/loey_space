@@ -1,6 +1,6 @@
 ---
 created: <% tp.date.now("YYYY-MM-DD") %>
-updated: <% tp.date.now("YYYY-MM-DD") %>
+updated: 2026-08-06
 type: daily
 area: personal
 mood: 
@@ -118,4 +118,4 @@ Something positive from today, even if small.
 
 ## 🌙 Tomorrow Setup
 What I want to carry or prepare for tomorrow.
-- [ ] 
+- 
