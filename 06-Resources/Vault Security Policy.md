@@ -1,6 +1,6 @@
 ---
 created: 2026-08-02
-updated: 2026-08-02
+updated: 2026-08-06
 type: resource
 status: active
 area: dev
@@ -27,7 +27,7 @@ This policy defines the security standards for storing credentials, API keys, pr
 | Storage Location | Target Data Type | Git Status | Description |
 | :--- | :--- | :--- | :--- |
 | **`.secrets/`** | Private human-readable notes (passwords, bank info, private logs) | 🚫 **Ignored** | Vault-local directory at root. Completely excluded from Git commits. |
-| **`.env`** | Machine-readable credentials (API keys, tokens, DB connections) | 🚫 **Ignored** | Environment file loaded by scripts like [[notion-sync.js]]. |
+| **`.env`** | Machine-readable credentials (API keys, tokens, DB connections) | 🚫 **Ignored** | Environment file loaded by integration scripts like [[06-Resources/ai-enrich-action.js\|ai-enrich-action.js]]. |
 | **Normal Vault Folders** | Knowledge notes, projects, dev docs, learning | ✅ **Tracked** | Safe for public/private Git repo backup. MUST NOT contain secrets. |
 
 ---
@@ -46,7 +46,7 @@ This policy defines the security standards for storing credentials, API keys, pr
 
 ### Level 3: Secret Rotation
 * If any API key, password, or token is ever accidentally committed to Git:
-  1. **Revoke and rotate** the key immediately at the provider (GitHub, OpenAI, Notion, etc.).
+  1. **Revoke and rotate** the key immediately at the provider (Google AI Studio, OpenAI, GitHub, etc.).
   2. Purge the Git commit history using `git filter-repo` or force push a clean tree.
 
 ---
@@ -54,8 +54,8 @@ This policy defines the security standards for storing credentials, API keys, pr
 ## 4. Practical Rules
 
 1. **No Hardcoded Secrets**: Never write real API keys, passwords, or PINs inside tracked Markdown notes, source code, or template files.
-2. **Environment Variables**: For technical scripts (e.g. `notion-sync.js`), always consume credentials via [[Environment variables]] (`process.env.NOTION_API_KEY`) loaded from `.env`.
-3. **Template Safe Placeholders**: Keep an `.env.example` file containing placeholder keys (e.g. `NOTION_API_KEY=your_key_here`) for documentation purposes.
+2. **Environment Variables**: For technical scripts (e.g. `ai-enrich-action.js`), always consume credentials via [[Environment variables]] (`process.env.GEMINI_API_KEY`) loaded from `.env`.
+3. **Template Safe Placeholders**: Keep an `.env.example` file containing placeholder keys (e.g. `GEMINI_API_KEY=your_key_here`) for documentation purposes.
 4. **Password Manager Usage**: High-security credentials (master passwords, banking PINs) should primarily live in a dedicated password manager (Bitwarden / KeePass / 1Password).
 
 ---
@@ -96,7 +96,7 @@ loey_space/
 
 - [ ] Check `git status` to verify `.secrets/` and `.env` are not listed under untracked files.
 - [ ] Ensure `.env.example` contains only dummy placeholder values.
-- [ ] Confirm no hardcoded API keys exist in `06-Resources/notion-sync.js` or `99-Templates/`.
+- [ ] Confirm no hardcoded API keys exist in `06-Resources/ai-enrich-action.js` or `99-Templates/`.
 - [ ] Perform periodic [[Secrets management]] audit before pushing major repository releases.
 
 ---
