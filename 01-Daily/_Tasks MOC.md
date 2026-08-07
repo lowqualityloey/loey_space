@@ -1,5 +1,7 @@
 ---
 type: moc
+cssclasses:
+  - cards
 tags:
   - type/moc
   - area/tasks

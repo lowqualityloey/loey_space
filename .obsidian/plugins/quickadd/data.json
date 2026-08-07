@@ -301,7 +301,7 @@
     "99-Templates"
   ],
   "announceUpdates": "major",
-  "version": "2.20.0",
+  "version": "2.21.0",
   "globalVariables": {},
   "onePageInputEnabled": false,
   "disableOnlineFeatures": true,
@@ -329,21 +329,6 @@
     "providers": [],
     "confirmToolCalls": "destructive"
   },
-  "macros": [
-    {
-      "id": "e4f0a1b2-cccc-4000-8000-000000000022",
-      "name": "✨ AI Enrich Daily Note Macro",
-      "commands": [
-        {
-          "name": "Run AI Enrich UserScript",
-          "type": "UserScript",
-          "id": "e4f0a1b2-dddd-4000-8000-000000000033",
-          "path": "06-Resources/ai-enrich-action.js",
-          "settings": {}
-        }
-      ]
-    }
-  ],
   "migrations": {
     "migrateToMacroIDFromEmbeddedMacro": true,
     "useQuickAddTemplateFolder": true,
@@ -361,5 +346,20 @@
     "migrateToMultipleTemplateFolders": true,
     "refreshStaleDefaultModelSeeds": true,
     "pinAiModelRefs": true
-  }
+  },
+  "macros": [
+    {
+      "id": "e4f0a1b2-cccc-4000-8000-000000000022",
+      "name": "✨ AI Enrich Daily Note Macro",
+      "commands": [
+        {
+          "name": "Run AI Enrich UserScript",
+          "type": "UserScript",
+          "id": "e4f0a1b2-dddd-4000-8000-000000000033",
+          "path": "06-Resources/ai-enrich-action.js",
+          "settings": {}
+        }
+      ]
+    }
+  ]
 }

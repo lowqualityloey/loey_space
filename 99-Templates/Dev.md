@@ -1,6 +1,6 @@
 ---
 created: <% tp.date.now("YYYY-MM-DD") %>
-updated: 2026-08-06
+updated: <% tp.date.now("YYYY-MM-DD") %>
 type: snippet
 status: active
 area: dev
@@ -10,15 +10,21 @@ tags:
   - area/dev
   - status/active
 ---
+
 # <% tp.file.title %>
 
-## Context
-- System:
-- Stack:
-- Where this fits:
-## Code Explanation
+## Context & Architecture
+- **System / Project**: 
+- **Tech Stack**: 
+- **Problem / Goal**: 
 
-## Snippets
+## Technical Explanation & Solution
+- 
+
+## Code Snippets & Implementation
 ```js
+
 ```
-## Related
+
+## 🔗 Related References
+- [[ ]]

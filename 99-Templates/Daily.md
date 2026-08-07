@@ -1,6 +1,6 @@
 ---
 created: <% tp.date.now("YYYY-MM-DD") %>
-updated: 2026-08-06
+updated: <% tp.date.now("YYYY-MM-DD") %>
 type: daily
 area: personal
 mood: 
@@ -92,9 +92,7 @@ Daily basics (keep it flexible, not perfect).
 
 ## 💻 Work / Study / Dev
 Progress from today across coding, study, or problem-solving.
-- Worked on:
-- Learned:
-- Challenges:
+- 
 
 ## 🎮 Leisure / Fun
 What I played, watched, or enjoyed today.

@@ -6,6 +6,7 @@
   "textFontFamily": "Inter, Plus Jakarta Sans, sans-serif",
   "monospaceFontFamily": "JetBrains Mono, monospace",
   "enabledCssSnippets": [
-    "fonts"
+    "fonts",
+    "dashboard-cards"
   ]
 }

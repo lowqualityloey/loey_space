@@ -1,6 +1,6 @@
 ---
 created: <% tp.date.now("YYYY-MM-DD") %>
-updated: 2026-08-06
+updated: <% tp.date.now("YYYY-MM-DD") %>
 type: personal
 status: active
 area: personal

@@ -1,6 +1,6 @@
 ---
 created: <% tp.date.now("YYYY-MM-DD") %>
-updated: 2026-08-06
+updated: <% tp.date.now("YYYY-MM-DD") %>
 type: resource
 status: active
 area: resources
@@ -12,22 +12,19 @@ tags:
 
 # <% tp.file.title %>
 
-## What it is
-Short description of the resource.
+**Resource URL**: 
 
-## Why it matters
-- 
+## Overview
+Short description of the resource and what it offers.
 
-## Key takeaways
+## Key Takeaways & Highlights
 - 
 - 
-- 
-
-## Link
 - 
 
 ## 🔗 Related References
 - [[ ]]
 
-## Notes
+## Notes & Analysis
 - 
+

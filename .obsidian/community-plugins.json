@@ -5,7 +5,6 @@
   "cmdr",
   "tag-wrangler",
   "templater-obsidian",
-  "periodic-notes",
   "obsidian-kanban",
   "dataview",
   "obsidian-linter",
@@ -20,5 +19,6 @@
   "obsidian-custom-attachment-location",
   "obsidian-style-settings",
   "colored-tags-wrangler",
-  "obsidian-tasks-plugin"
+  "obsidian-tasks-plugin",
+  "obsidian-excalidraw-plugin"
 ]
