@@ -108,6 +108,13 @@
         "type": "FILES",
         "pattern": "99-Attachments/_Attachments MOC.md",
         "patternType": "STRICT"
+      },
+      {
+        "name": "",
+        "active": true,
+        "type": "FILES",
+        "pattern": "01-Daily/Habit Analytics Dashboard.md",
+        "patternType": "STRICT"
       }
     ],
     "frontMatter": [
