@@ -21,7 +21,7 @@ updated: 2026-08-09
 
 ## In Progress
 
-- [/] Build static dashboard layout with mock data
+- [/] Build static dashboard layout with mock data 
 
 
 ## Review / Test
@@ -31,7 +31,7 @@ updated: 2026-08-09
 ## Done
 
 - [x] Build OpenWeather API service, data mappers, and TypeScript types ✅ 2026-08-08
-- [x] Install UI component primitives (Button, Card, Input, Label, Badge, Switch, Collapsible) ✅ 2026-08-08
+- [x] Install UI component primitives (Button, Card, Input, Label, Badge, Switch, Collapsible) ✅ 2026-08-09
 
 
 ## Archive

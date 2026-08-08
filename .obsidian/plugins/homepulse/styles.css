@@ -1243,6 +1243,24 @@
   border-color: var(--komo-sakura);
 }
 
+.yh-task-status-icon {
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  background: rgba(var(--yh-accent-rgb, 245, 194, 231), 0.08);
+  color: var(--komo-sakura);
+}
+
+.yh-task-status-icon svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2;
+}
+
 .yh-task-content {
   display: flex;
   flex: 1;
