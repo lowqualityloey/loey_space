@@ -289,6 +289,124 @@
         "focus": true
       },
       "openFile": true
+    },
+    {
+      "id": "e4f0a1b2-b0b0-4000-8000-000000000011",
+      "name": "📱 Mobile Capture",
+      "type": "Capture",
+      "command": true,
+      "append": false,
+      "captureTo": "00-Inbox/quick-capture-dump.md",
+      "captureToCanvas": false,
+      "createFileIfItDNE": true,
+      "createFileIfItDNEPath": "00-Inbox/quick-capture-dump.md",
+      "format": {
+        "enabled": true,
+        "format": "- 📱 {{VALUE}} ({{DATE:YYYY-MM-DD HH:mm}})"
+      },
+      "insertAfter": {
+        "enabled": true,
+        "after": "## Captured Notes",
+        "createIfNotFound": true,
+        "createIfNotFoundLocation": "bottom"
+      },
+      "openInNewTab": {
+        "enabled": false,
+        "direction": "tab",
+        "focus": false
+      },
+      "openingPosition": "first",
+      "prepend": false,
+      "task": false,
+      "openFile": false
+    },
+    {
+      "id": "e4f0a1b2-b1b1-4000-8000-000000000012",
+      "name": "📱 Mobile Task",
+      "type": "Capture",
+      "command": true,
+      "append": false,
+      "captureTo": "00-Inbox/quick-capture-dump.md",
+      "captureToCanvas": false,
+      "createFileIfItDNE": true,
+      "createFileIfItDNEPath": "00-Inbox/quick-capture-dump.md",
+      "format": {
+        "enabled": true,
+        "format": "- [ ] 📱 {{VALUE}} ({{DATE:YYYY-MM-DD HH:mm}})"
+      },
+      "insertAfter": {
+        "enabled": true,
+        "after": "## Captured Notes",
+        "createIfNotFound": true,
+        "createIfNotFoundLocation": "bottom"
+      },
+      "openInNewTab": {
+        "enabled": false,
+        "direction": "tab",
+        "focus": false
+      },
+      "openingPosition": "first",
+      "prepend": false,
+      "task": true,
+      "openFile": false
+    },
+    {
+      "id": "e4f0a1b2-b2b2-4000-8000-000000000013",
+      "name": "📱 Mobile Idea",
+      "type": "Template",
+      "command": true,
+      "templatePath": "99-Templates/Mobile Idea.md",
+      "fileNameFormat": {
+        "enabled": true,
+        "format": "00-Inbox/{{DATE:YYYY-MM-DD_HHmm}} {{VALUE}}"
+      },
+      "folder": {
+        "enabled": true,
+        "folders": [
+          "00-Inbox"
+        ],
+        "chooseWhenCreatingNote": false,
+        "createInSameFolderAsActiveFile": false
+      },
+      "append": false,
+      "openFileInNewTab": {
+        "enabled": false,
+        "direction": "tab",
+        "focus": false
+      },
+      "openFile": false
+    },
+    {
+      "id": "e4f0a1b2-b3b3-4000-8000-000000000014",
+      "name": "📱 Mobile Add to Daily",
+      "type": "Capture",
+      "command": true,
+      "append": false,
+      "captureTo": "01-Daily/{{DATE:YYYY-MM-DD}}.md",
+      "captureToCanvas": false,
+      "createFileIfItDNE": true,
+      "createFileIfItDNEPath": "01-Daily/{{DATE:YYYY-MM-DD}}.md",
+      "createFileIfItDNEFromTemplate": true,
+      "createFileIfItDNETemplatePath": "99-Templates/Daily.md",
+      "format": {
+        "enabled": true,
+        "format": "- [ ] {{VALUE}}"
+      },
+      "insertAfter": {
+        "enabled": true,
+        "after": "### ✅ Tasks",
+        "createIfNotFound": true,
+        "createIfNotFoundLocation": "bottom"
+      },
+      "openInNewTab": {
+        "enabled": false,
+        "direction": "tab",
+        "focus": false
+      },
+      "openingPosition": "first",
+      "prepend": false,
+      "task": true,
+      "openFile": false
     }
   ],
   "inputPrompt": "single-line",
