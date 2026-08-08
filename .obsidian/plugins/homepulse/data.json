@@ -400,16 +400,11 @@
         "taskFile": "00-Inbox/quick-capture-dump.md"
       },
       "state": {
-        "status": "running",
-        "remainingSeconds": 1462,
-        "phaseStartedAt": 1786180385954,
+        "status": "idle",
+        "remainingSeconds": 1500,
+        "phaseStartedAt": 0,
         "todayCountDate": "2026-08-08",
         "todayCount": 1,
-        "activeTarget": {
-          "type": "task",
-          "id": "quick-capture-dump",
-          "title": "quick-capture-dump"
-        },
         "recentTargets": [
           {
             "type": "task",
