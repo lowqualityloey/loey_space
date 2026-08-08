@@ -96,8 +96,14 @@ Go to **Obsidian Settings -> Community Plugins** and ensure the following plugin
 * **Kanban** — Visual board view for project workflows.
 * **Calendar** — Visual daily note navigator.
 
+> [!IMPORTANT]
+> **Pre-Configured HomePulse Plugin**:
+> This vault comes pre-configured with an enhanced build of the HomePulse plugin located in `.obsidian/plugins/homepulse/` (featuring 2-way real-time habit file sync, custom Tech Tree PARA scanner, 1:1 Pomodoro timer fix, and QuickAdd daily note macro integration).
+> **Do not re-install or auto-update HomePulse from the Obsidian Community Store**, as doing so will overwrite these custom integrations with standard plugin code. We recommend disabling automatic plugin updates in Obsidian (**Settings ⚙️ -> Community plugins -> Auto-update plugins: OFF**).
+
 ### Step 4: Launch HomePulse Dashboard
 * Click the **HomePulse** icon on the ribbon action bar or press `Ctrl + P` and execute **HomePulse: Open Dashboard View**.
+
 
 ---
 
