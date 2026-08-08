@@ -49,7 +49,6 @@ loey_space/
 │   ├── _Daily MOC.md        # Daily notes navigation & monthly habit overview
 │   └── _Tasks MOC.md        # Task command center, in-progress items, completion history & analytics
 ├── 02-Projects/             # Active development projects & build specifications (_Projects MOC.md)
-│   ├── spotify project/     # Spotify app project notes & Kanban
 │   └── weather-dashboard/   # Weather dashboard project notes & Kanban
 ├── 03-Dev/                  # Code snippets, technical patterns, debugging notes (_Dev MOC.md)
 ├── 04-Learning/             # Courses, tutorials, & study notes (_Learning MOC.md)
@@ -81,12 +80,43 @@ loey_space/
 2. Open **Obsidian**, click **Open folder as vault**, and select the `loey_space` directory.
 
 ### Step 2: Environment Credentials Setup (`.env`)
-Create a `.env` file in the root of `loey_space` to store your Google Gemini API key securely:
-```env
-GEMINI_API_KEY=your_google_gemini_api_key_here
-```
-> 💡 *Note: The `.env` file is listed in `.gitignore` and will never be pushed to version control.*
+### Step 2: Environment Credentials Setup (`.env`)
 
+Copy the example file and fill in your API keys:
+```bash
+cp .env.example .env
+```
+
+Then edit `.env` with your real credentials:
+```env
+# Required for AI enrichment (daily summaries, concept analysis, dev note analysis)
+GEMINI_API_KEY=your_google_gemini_api_key_here
+
+# Optional - Weather Dashboard project
+VITE_OPENWEATHER_API_KEY=your_openweather_api_key_here
+
+# Optional - Notion sync
+NOTION_API_KEY=secret_your_notion_api_key_here
+NOTION_DATABASE_ID=your_database_id_here
+
+# Optional - OpenAI fallback
+OPENAI_API_KEY=sk-your_openai_api_key_here
+```
+
+> [!IMPORTANT]
+> **Getting a Gemini API Key** (required for AI features):
+> 1. Go to [Google AI Studio](https://aistudio.google.com/app/apikey)
+> 2. Click **Create API Key**
+> 3. Copy the key and paste it into your `.env` file
+>
+> The `.env` file is listed in `.gitignore` and will never be pushed to version control.
+
+> [!WARNING]
+> **If `.env` is missing or `GEMINI_API_KEY` is not set:**
+> - AI Daily Summary (`Ctrl+Shift+A`) will show an error notice
+> - Weekly AI Summary generation will fail
+> - Concept and Dev note enrichment will not work
+> - All other vault features (tasks, habits, navigation, dataview queries) work normally without an API key
 ### Step 3: Enable Core Community Plugins
 Go to **Obsidian Settings -> Community Plugins** and ensure the following plugins are enabled:
 * **HomePulse** — Dashboard command center & 2-way habit synchronization.

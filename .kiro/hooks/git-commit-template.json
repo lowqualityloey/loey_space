@@ -1,9 +1,12 @@
 {
   "version": "v1",
   "hooks": [{
-    "name": "Git Commit Message Generator",
+    "name": "Git Commit Secrets Guard",
     "trigger": "PreToolUse",
-    "matcher": "git.*commit",
-    "action": { "type": "command", "command": "node -e \"const fs = require('fs'); const commitFile = '.git/COMMIT_EDITMSG'; const messages = ['feat: Add new feature', 'fix: Correct bug', 'docs: Update documentation', 'refactor: Improve code structure', 'chore: Update dependencies', 'test: Add test cases']; const currentFile = process.env.KIRO_CURRENT_FILE || ''; const msg = currentFile ? 'Update: ' + currentFile : messages[Math.floor(Math.random() * messages.length)]; console.log('Suggested commit: ' + msg); process.exit(0);\""
+    "matcher": "execute_pwsh",
+    "action": {
+      "type": "agent",
+      "prompt": "If this command involves git commit or git push, verify no .env, .secrets/, or files containing API keys are being staged. If secrets are detected, block the operation."
+    }
   }]
 }

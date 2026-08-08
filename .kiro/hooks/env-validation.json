@@ -1,0 +1,14 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Environment Validation Check",
+      "trigger": "SessionStart",
+      "description": "Checks if .env exists and has required API keys configured on session start",
+      "action": {
+        "type": "command",
+        "command": "pwsh -NoProfile -Command \"if (!(Test-Path '.env')) { Write-Output 'WARNING: .env file not found. AI enrichment features (Gemini API) will not work. Create .env from .env.example with your API keys.'; exit 0 } $content = Get-Content '.env' -Raw; if ($content -notmatch 'GEMINI_API_KEY=(?!your_)') { Write-Output 'WARNING: GEMINI_API_KEY not configured in .env. AI features disabled. Add your key to .env file.' }; exit 0\""
+      }
+    }
+  ]
+}

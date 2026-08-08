@@ -1,9 +1,0 @@
-{
-  "version": "v1",
-  "hooks": [{
-    "name": "Daily Note Auto-Save Check",
-    "trigger": "PreToolUse",
-    "matcher": "save|Save",
-    "action": { "type": "agent", "prompt": "Check if current file is in 01-Daily/ and if it's not saved, remind user to save daily progress" }
-  }]
-}
