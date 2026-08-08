@@ -11,19 +11,36 @@
 
 ## 📚 Table of Contents
 
+- [✨ Main Features](#-main-features)
 - [⚡ HomePulse Command Center](#-homepulse-command-center)
 - [🗂️ Vault Directory Architecture](#️-vault-directory-architecture)
 - [🛠️ Installation \& Setup Guide](#️-installation--setup-guide)
-  - [Step 1: Clone or Open Vault in Obsidian](#step-1-clone-or-open-vault-in-obsidian)
-  - [Step 2: Environment Credentials Setup (`.env`)](#step-2-environment-credentials-setup-env)
-  - [Step 3: Enable Core Community Plugins](#step-3-enable-core-community-plugins)
-  - [Step 4: Launch HomePulse Dashboard](#step-4-launch-homepulse-dashboard)
 - [💡 Daily Workflows \& Keyboard Shortcuts](#-daily-workflows--keyboard-shortcuts)
-  - [1-Click Note Creation Shortcuts](#1-click-note-creation-shortcuts)
-  - [Multi-Domain AI Enricher (`Ctrl + Shift + A`)](#multi-domain-ai-enricher-ctrl--shift--a)
+- [📱 Mobile Workflow](#-mobile-workflow)
+- [📊 Habit Analytics](#-habit-analytics)
 - [📋 Task System Rules \& Conventions](#-task-system-rules--conventions)
 - [🎨 Styling \& Aesthetics](#-styling--aesthetics)
 - [🔒 Security \& Git Safety](#-security--git-safety)
+
+---
+
+## ✨ Main Features
+
+| Feature | Description |
+| :--- | :--- |
+| **HomePulse Dashboard** | Custom native plugin with real-time widgets — habits, tasks, pomodoro, focus, projects, tech tree, activity heatmap, all in one view |
+| **2-Way Habit Sync** | Toggle habits in the dashboard and they instantly update in today's daily note (and vice versa) |
+| **Multi-Domain AI Enrichment** | One shortcut (`Ctrl+Shift+A`) analyzes any note — generates summaries for daily notes, explanations for concepts, code breakdowns for dev notes |
+| **Weekly AI Summaries** | Automated 7-day analysis of mood, energy, tasks, and habits with actionable recommendations |
+| **Habit Analytics Dashboard** | 30-day rolling metrics, streak tracking, day-of-week patterns, and improvement recommendations |
+| **Smart Task Management** | Tasks live in daily notes and project kanbans, aggregated in real-time via `_Tasks MOC.md` with status indicators (`[ ]`, `[/]`, `[x]`) |
+| **Project Kanban Integration** | Each project gets a visual kanban board; tasks from To Do/In Progress/Review flow into the central task hub (Backlog excluded) |
+| **Mobile Quick Capture** | 4 mobile-optimized commands for instant capture on the go — process later on desktop |
+| **Inbox Auto-Classification** | Quick captures tagged with type/area/priority suggestions based on content analysis |
+| **Dynamic Tech Tree** | Auto-generated capability map scanning projects, concepts, and resources across the vault |
+| **Execution Pulse** | Live productivity analytics — habit %, focus minutes, note rhythm, task completion ratios |
+| **PARA/MOC Architecture** | Clean folder separation with Maps of Content for navigation — scales without friction |
+| **Ultra-Dark Command Center** | Glassmorphic `#0C0D13` theme with JetBrains Mono, Inter, and custom CSS snippets |
 
 ---
 
@@ -31,11 +48,14 @@
 
 The heart of `loey_space` is **HomePulse** (`.obsidian/plugins/homepulse`), a high-performance native dashboard plugin:
 
-* **🔄 2-Way Real-Time Habit Sync**: Toggling habit checkboxes inside the **Habits** widget instantly updates `- [ ]` / `- [x]` in today's active daily note (`01-Daily/YYYY-MM-DD*.md`) and `99-Templates/Daily.md`.
+* **🔄 2-Way Real-Time Habit Sync**: Toggling habit checkboxes inside the **Habits** widget instantly updates `- [ ]` / `- [x]` in today's active daily note (`01-Daily/YYYY-MM-DD.md`) and `99-Templates/Daily.md`.
 * **⚡ Execution Pulse**: Live productivity analytics tracking daily habit completion percentage, focus/pomodoro minutes, 7-day note creation rhythm, and task completion ratios.
-* **📊 Knowledge Profile**: Real-time vault metric counter displaying total **Notes** (`41`), **Areas** (`6`), **Projects** (`2`), and **Tags** (`34`).
-* **🛠️ System Quick Actions**: 1-click execution shortcuts for timestamped daily note generation (`⏳ Create Timestamped Daily Note`), quick capture, new projects, and dev snippets.
-* **📌 Open Tasks Widget**: Live active task feed mirroring `01-Daily/_Tasks MOC.md` across `01-Daily` and `02-Projects`, automatically excluding routine habit checkboxes.
+* **📊 Knowledge Profile**: Real-time vault metric counter displaying total Notes, Areas, Projects, and Tags.
+* **🎯 Today's Focus**: Editable focus widget that live-syncs with your daily note's Focus section (supports multiple focus items).
+* **🛠️ System Quick Actions**: 1-click execution shortcuts for timestamped daily note generation, quick capture, new projects, and dev snippets.
+* **📌 Open Tasks Widget**: Live active task feed with Lucide status icons — In Progress tasks sorted to top, Backlog/Archive excluded.
+* **🌳 Tech Tree**: Dynamic capability map auto-generated from your vault's projects, concepts, and resources.
+* **📅 Activity History**: GitHub-style contribution heatmap showing your vault activity over the year.
 
 ---
 
@@ -43,29 +63,41 @@ The heart of `loey_space` is **HomePulse** (`.obsidian/plugins/homepulse`), a hi
 
 ```text
 loey_space/
-├── Home.md                  # Central Command Dashboard (Navigation, Active Tasks, Projects, Inbox)
-├── 00-Inbox/                # Quick capture dump & triage (_Inbox MOC.md)
-├── 01-Daily/                # Daily logs, habits, energy/sleep tracking, AI reflections
-│   ├── _Daily MOC.md        # Daily notes navigation & monthly habit overview
-│   └── _Tasks MOC.md        # Task command center, in-progress items, completion history & analytics
-├── 02-Projects/             # Active development projects & build specifications (_Projects MOC.md)
-│   └── weather-dashboard/   # Weather dashboard project notes & Kanban
-├── 03-Dev/                  # Code snippets, technical patterns, debugging notes (_Dev MOC.md)
-├── 04-Learning/             # Courses, tutorials, & study notes (_Learning MOC.md)
-├── 05-Personal/             # Personal goals, life & fitness logs (_Personal MOC.md)
-├── 06-Resources/            # Technical documentation, API specs, & system scripts
-│   ├── APIs/                # API specs & integration documentation (_APIs MOC.md)
-│   ├── ai-enrich-action.js  # Universal Multi-Domain AI Enricher (Daily / Concept / Dev)
-│   └── Second Brain Guide.md# System usage, folder guidelines & workflow rules
-├── 07-Reviews/              # Weekly & Monthly retrospectives (_Reviews MOC.md)
-├── 08-Concepts/             # Evergreen technical & domain concepts (_Concepts MOC.md)
-├── 99-Attachments/          # Monthly subfolders (YYYY-MM/) for screenshots and media
-├── 99-Templates/            # Master Templater & QuickAdd note blueprints
-├── .obsidian/               # Vault configuration, custom HomePulse plugin, snippets & themes
-│   ├── plugins/homepulse/   # Custom HomePulse dashboard plugin (Habit sync, Execution Pulse, Widgets)
-│   └── snippets/            # CSS snippets (dashboard-cards.css, fonts.css)
-├── .secrets/                # [GIT-IGNORED] Private human-readable sensitive notes
-└── .env                     # [GIT-IGNORED] Real API keys and machine credentials
+├── Home.md                      # Central Command Dashboard (Navigation, Active Tasks, Projects, Inbox)
+├── 00-Inbox/                    # Quick capture dump & triage
+│   ├── _Inbox MOC.md            # Unprocessed notes dashboard
+│   └── _Triage MOC.md           # Stale notes & overdue reviews
+├── 01-Daily/                    # Daily logs, habits, energy/sleep tracking, AI reflections
+│   ├── _Daily MOC.md            # Daily notes navigation & monthly overview
+│   ├── _Tasks MOC.md            # Task command center, in-progress, completion history & analytics
+│   └── Habit Analytics Dashboard.md  # 30-day habit metrics, streaks, trends
+├── 02-Projects/                 # Active development projects & build specifications
+│   ├── _Projects MOC.md         # Project dashboard with progress bars
+│   └── weather-dashboard/       # Example project (notes + Kanban board)
+├── 03-Dev/                      # Code snippets, technical patterns, debugging notes
+├── 04-Learning/                 # Courses, tutorials, & study notes
+├── 05-Personal/                 # Personal goals, life & fitness logs
+├── 06-Resources/                # Technical documentation, API specs, & system scripts
+│   ├── APIs/                    # API specs & integration documentation
+│   ├── scripts/                 # Automation scripts (AI enricher, weekly summary, etc.)
+│   ├── Mobile Workflow Guide.md # Mobile capture setup & usage
+│   ├── Second Brain Guide.md    # System usage, folder guidelines & workflow rules
+│   └── Vault Security Policy.md # Secret management & Git safety rules
+├── 07-Reviews/                  # Weekly & Monthly retrospectives (AI-generated)
+├── 08-Concepts/                 # Evergreen technical & domain concepts
+├── 99-Attachments/              # Monthly subfolders (YYYY-MM/) for screenshots and media
+├── 99-Templates/                # Master Templater & QuickAdd note blueprints
+│   ├── Daily.md                 # Daily note template (habits, tasks, reflections)
+│   ├── Mobile Capture.md        # Mobile quick capture template
+│   ├── Mobile Task.md           # Mobile task capture template
+│   ├── Mobile Idea.md           # Mobile idea capture template
+│   └── Triage.md                # Inbox processing & classification template
+├── .obsidian/                   # Vault configuration, custom plugins, snippets & themes
+│   ├── plugins/homepulse/       # Custom HomePulse dashboard plugin
+│   └── snippets/                # CSS snippets (dashboard-cards.css, fonts.css)
+├── .kiro/                       # Kiro IDE hooks (env validation, git safety, triage suggestions)
+├── .secrets/                    # [GIT-IGNORED] Private human-readable sensitive notes
+└── .env                         # [GIT-IGNORED] Real API keys and machine credentials
 ```
 
 ---
@@ -79,7 +111,6 @@ loey_space/
    ```
 2. Open **Obsidian**, click **Open folder as vault**, and select the `loey_space` directory.
 
-### Step 2: Environment Credentials Setup (`.env`)
 ### Step 2: Environment Credentials Setup (`.env`)
 
 Copy the example file and fill in your API keys:
@@ -117,6 +148,7 @@ OPENAI_API_KEY=sk-your_openai_api_key_here
 > - Weekly AI Summary generation will fail
 > - Concept and Dev note enrichment will not work
 > - All other vault features (tasks, habits, navigation, dataview queries) work normally without an API key
+
 ### Step 3: Enable Core Community Plugins
 Go to **Obsidian Settings -> Community Plugins** and ensure the following plugins are enabled:
 * **HomePulse** — Dashboard command center & 2-way habit synchronization.
@@ -125,15 +157,15 @@ Go to **Obsidian Settings -> Community Plugins** and ensure the following plugin
 * **Dataview** — Real-time indexer queries for MOCs & task tracking.
 * **Kanban** — Visual board view for project workflows.
 * **Calendar** — Visual daily note navigator.
+* **Activity History** — Contribution heatmap for the dashboard.
 
 > [!IMPORTANT]
 > **Pre-Configured HomePulse Plugin**:
-> This vault comes pre-configured with an enhanced build of the HomePulse plugin located in `.obsidian/plugins/homepulse/` (featuring 2-way real-time habit file sync, custom Tech Tree PARA scanner, 1:1 Pomodoro timer fix, and QuickAdd daily note macro integration).
-> **Do not re-install or auto-update HomePulse from the Obsidian Community Store**, as doing so will overwrite these custom integrations with standard plugin code. We recommend disabling automatic plugin updates in Obsidian (**Settings ⚙️ -> Community plugins -> Auto-update plugins: OFF**).
+> This vault comes pre-configured with an enhanced build of the HomePulse plugin located in `.obsidian/plugins/homepulse/` (featuring 2-way real-time habit file sync, dynamic Tech Tree scanner, deferred dashboard refresh, and QuickAdd daily note macro integration).
+> **Do not re-install or auto-update HomePulse from the Obsidian Community Store**, as doing so will overwrite these custom integrations with standard plugin code. Disable automatic plugin updates in Obsidian (**Settings -> Community plugins -> Auto-update plugins: OFF**).
 
 ### Step 4: Launch HomePulse Dashboard
 * Click the **HomePulse** icon on the ribbon action bar or press `Ctrl + P` and execute **HomePulse: Open Dashboard View**.
-
 
 ---
 
@@ -141,15 +173,60 @@ Go to **Obsidian Settings -> Community Plugins** and ensure the following plugin
 
 ### 1-Click Note Creation Shortcuts
 Use QuickAdd ribbon buttons or command palette (`Ctrl + P` -> `QuickAdd: Run...`):
-* `⏳ Create Timestamped Daily Note` — Generates today's daily log (`01-Daily/YYYY-MM-DD_HHmm.md`) with habits, energy tracking, and task lists.
+* `⏳ Create Daily Note` — Generates today's daily log (`01-Daily/YYYY-MM-DD.md`) with habits, energy tracking, and task lists.
 * `💡 Create Concept Note` — Creates a structured evergreen note in `08-Concepts/`.
-* `💻 Create Dev Snippet` — Creates a technical code pattern in `03-Dev/`.
+* `💻 Create Dev Note` — Creates a technical code pattern in `03-Dev/`.
+* `📥 Quick Capture to Inbox` — Appends a quick note to the inbox dump.
+* `🚀 Create Project Note` — Scaffolds a new project with folder and kanban.
 
 ### Multi-Domain AI Enricher (`Ctrl + Shift + A`)
 Position your cursor inside any active note and press `Ctrl + Shift + A` (or run `QuickAdd: AI Enrich Note`):
-1. **Daily Notes (`01-Daily/`)**: Generates a 2-paragraph narrative summary, 1-paragraph AI reflection, quote callout, and automatically migrates unfinished tasks.
-2. **Concept Notes (`08-Concepts/`)**: Detects topic domain (Tech, Entertainment, Wellness) and generates technical explanations, runnable code snippets, or lore definitions.
+1. **Daily Notes (`01-Daily/`)**: Generates a narrative summary, AI reflection, inspirational quote, and suggested next step.
+2. **Concept Notes (`08-Concepts/`)**: Detects topic domain and generates technical explanations, examples, and related concept links.
 3. **Dev Notes (`03-Dev/`)**: Analyzes code snippets and updates tags, context, explanation, and wikilink references.
+
+### Weekly AI Summary
+Run `QuickAdd: 📊 Weekly AI Summary` (or bind to `Ctrl+Shift+W`):
+- Aggregates 7 days of daily notes (mood, energy, tasks, habits, wins, blockers)
+- Generates executive summary, patterns, and recommendations via Gemini AI
+- Creates a structured review note in `07-Reviews/YYYY-W[week].md`
+
+---
+
+## 📱 Mobile Workflow
+
+Designed for **capture fast, triage later**. All mobile commands land in inbox with `📱` marker.
+
+### Mobile Commands (add to Obsidian Mobile toolbar)
+| Command | What it does |
+| :--- | :--- |
+| `📱 Mobile Capture` | Appends thought to inbox with timestamp |
+| `📱 Mobile Task` | Appends as checkbox to inbox |
+| `📱 Mobile Idea` | Creates structured idea note in inbox |
+| `📱 Mobile Add to Daily` | Adds task directly to today's daily note |
+
+### Setup
+1. Install Obsidian Mobile and sync the vault
+2. Go to **Settings -> Mobile -> Manage toolbar**
+3. Add the `📱` QuickAdd commands
+4. Capture in < 10 seconds, batch-process on desktop
+
+See [`06-Resources/Mobile Workflow Guide.md`](06-Resources/Mobile%20Workflow%20Guide.md) for full setup instructions.
+
+---
+
+## 📊 Habit Analytics
+
+The **Habit Analytics Dashboard** (`01-Daily/Habit Analytics Dashboard.md`) provides:
+
+* **Overall Completion Rate** — 30-day rolling percentage with per-habit progress bars
+* **Daily Heatmap** — Last 14 days showing which habits were completed each day
+* **Day-of-Week Patterns** — Which days you're most/least consistent
+* **Streak Analysis** — Current and longest streaks for each habit
+* **Trend Analysis** — 7-day moving average with trend indicators
+* **Improvement Recommendations** — Identifies habits below 70% and suggests fixes
+
+All data is automatically pulled from daily notes — no manual tracking required.
 
 ---
 
@@ -158,16 +235,17 @@ Position your cursor inside any active note and press `Ctrl + Shift + A` (or run
 * **Source of Truth**: All tasks are logged directly inside daily notes (`01-Daily`) or project notes (`02-Projects`).
 * **Task Status Hierarchy**:
   * `- [ ] task` => **Active To-Do** (Visible in Open Tasks widget & `_Tasks MOC.md`)
-  * `- [/] task` => **In Progress** (Immediate focus anchor)
+  * `- [/] task` => **In Progress** (Sorted to top, focus anchor)
   * `- [x] task` => **Completed** (Logged in task analytics)
 * **Habit Isolation**: Routine checkboxes under `## 🔁 Habits` are strictly isolated from task command centers.
+* **Kanban Filtering**: Tasks under `## Backlog` and `## Archive` in project kanbans are excluded from the Open Tasks widget and `_Tasks MOC.md`.
 
 ---
 
 ## 🎨 Styling & Aesthetics
 
-* **Ultra-Dark Palette**: Designed around a high-contrast `#0C0D13` background, sleek card containers, and glassmorphic borders ([`.obsidian/snippets/dashboard-cards.css`](file:///C:/Users/jonel/OneDrive%20-%20雪玲团队/Documents/loey_space/.obsidian/snippets/dashboard-cards.css)).
-* **Typography System**: Custom Google Fonts hierarchy ([`.obsidian/snippets/fonts.css`](file:///C:/Users/jonel/OneDrive%20-%20雪玲团队/Documents/loey_space/.obsidian/snippets/fonts.css)):
+* **Ultra-Dark Palette**: Designed around a high-contrast `#0C0D13` background, sleek card containers, and glassmorphic borders (`.obsidian/snippets/dashboard-cards.css`).
+* **Typography System**: Custom Google Fonts hierarchy (`.obsidian/snippets/fonts.css`):
   * **Body / UI**: `Inter`, `Plus Jakarta Sans`, `Outfit`
   * **Code / Monospace**: `JetBrains Mono`
 
@@ -177,7 +255,9 @@ Position your cursor inside any active note and press `Ctrl + Shift + A` (or run
 
 * **No Hardcoded API Keys**: All machine credentials and API tokens strictly reside in `.env` (git-ignored).
 * **Private Notes Directory**: The `.secrets/` directory is strictly excluded from Git tracking for storing sensitive personal documents.
-* **Vault Security Policy**: Read the official [Vault Security Policy](https://github.com/lowqualityloey/loey_space/blob/main/06-Resources/Vault%20Security%20Policy.md) for complete guidelines.
+* **Session Validation**: Kiro IDE hooks check `.env` presence on startup and warn if API keys are missing.
+* **Git Guards**: Pre-commit hooks prevent accidental staging of `.env`, `.secrets/`, or files containing API key patterns.
+* **Vault Security Policy**: Read the official [Vault Security Policy](06-Resources/Vault%20Security%20Policy.md) for complete guidelines.
 
 ---
 
