@@ -22,6 +22,9 @@ tags:
 > [!QUOTE] 💡 Daily Spark
 > 
 
+## 🎯 Today's Focus
+Define your focus for today...
+
 ## ✅ Tasks
 Things I need or want to get done today.
 <%*

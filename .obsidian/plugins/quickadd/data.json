@@ -214,13 +214,13 @@
     },
     {
       "id": "e4f0a1b2-8888-4000-8000-000000000008",
-      "name": "⏳ Create Timestamped Daily Note",
+      "name": "⏳ Create Daily Note",
       "type": "Template",
       "command": true,
       "templatePath": "99-Templates/Daily.md",
       "fileNameFormat": {
         "enabled": true,
-        "format": "01-Daily/{{DATE:YYYY-MM-DD_HHmm}} {{VALUE}}"
+        "format": "01-Daily/{{DATE:YYYY-MM-DD}}"
       },
       "folder": {
         "enabled": true,

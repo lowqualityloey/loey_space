@@ -49,7 +49,8 @@
     "type/project": 3,
     "type/resource": 7,
     "type/review": 9,
-    "type/snippet": 4
+    "type/snippet": 4,
+    "type/template": 21
   },
   "tagColors": {},
   "_version": 4
