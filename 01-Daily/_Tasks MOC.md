@@ -57,6 +57,8 @@ for (let p of pages) {
     if (!t.text || t.text.trim() === "") continue;
     const sec = (t.header && t.header.subpath) ? t.header.subpath.toLowerCase() : "";
     if (sec.includes("habit")) continue;
+    // Exclude tasks under Backlog, Done, and Archive sections in project kanbans
+    if (sec.includes("backlog") || sec.includes("archive")) continue;
 
     if (t.status === " ") {
       const fileName = p.file.name;

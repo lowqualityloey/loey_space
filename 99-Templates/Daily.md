@@ -23,10 +23,9 @@ tags:
 > 
 
 ### 🎯 Today's Focus
->*Define your focus for today...*
-- 
+>_What's the 1-3 things I want to accomplish today? _
 
----
+
 ### ✅ Tasks
 >*Things I need or want to get done today.*
 <%*
@@ -88,7 +87,7 @@ if (carried.length > 0) {
 
 ---
 ### 🔁 Habits
-> *Daily basics (keep it flexible, not perfect).*
+> _Daily rituals I'm building. Track consistency, not perfection._
 - [ ] water
 - [ ] prioritised
 - [ ] move
