@@ -42,6 +42,6 @@ updated: 2026-08-08
 
 %% kanban:settings
 ```
-{"kanban-plugin":"board"}
+{"kanban-plugin":"board","list-collapse":[null,false,null,true,null,true]}
 ```
 %%

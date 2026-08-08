@@ -62,13 +62,13 @@
         "h": 2
       },
       {
-        "id": "recent-notes-rsoxrsi",
-        "type": "recent-notes",
+        "id": "tasks-lt2bqf1",
+        "type": "tasks",
         "x": 3,
         "y": 1,
-        "sizePreset": "W1H2",
+        "sizePreset": "W1H4",
         "w": 1,
-        "h": 2
+        "h": 4
       },
       {
         "id": "calendar-1hcbws7",
@@ -87,15 +87,6 @@
         "sizePreset": "W3H2",
         "w": 3,
         "h": 2
-      },
-      {
-        "id": "tasks-lt2bqf1",
-        "type": "tasks",
-        "x": 3,
-        "y": 3,
-        "sizePreset": "W1H4",
-        "w": 1,
-        "h": 4
       },
       {
         "id": "bookmarks-b1qil66",
@@ -119,6 +110,15 @@
         "id": "projects-3fn9vd3",
         "type": "projects",
         "x": 2,
+        "y": 5,
+        "sizePreset": "W1H2",
+        "w": 1,
+        "h": 2
+      },
+      {
+        "id": "recent-notes-rsoxrsi",
+        "type": "recent-notes",
+        "x": 3,
         "y": 5,
         "sizePreset": "W1H2",
         "w": 1,

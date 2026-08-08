@@ -239,38 +239,16 @@
 
 
 /* ==========================================================================
-   📌 KANBAN BOARD BEAUTIFICATION (100% Uniform Card & Header Transparency)
+   📌 KANBAN TEXT BACKGROUND TRANSPARENCY (Blend Text With Cards & Headers)
    ========================================================================== */
 
-.kanban-plugin,
-.kanban-plugin__board,
-.kanban-plugin__vertical {
-  background: #0C0D13 !important;
-  background-color: #0C0D13 !important;
-  padding: 12px !important;
-  gap: 16px !important;
-}
-
-.kanban-plugin__lane,
-.kanban-plugin__lane-wrapper {
-  background: rgba(22, 25, 36, 0.85) !important;
-  background-color: rgba(22, 25, 36, 0.85) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  border-radius: 12px !important;
-  padding: 12px !important;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25) !important;
-}
-
-/* 2. Column Headers (Backlog, To Do, In Progress) - ABSOLUTELY NO BLACK BACKGROUND */
+/* Remove text background color behind column headers (Backlog, To Do, In Progress) */
 .kanban-plugin__lane-header-wrapper,
 .kanban-plugin__lane-header-wrapper *,
 .kanban-plugin__lane-title,
 .kanban-plugin__lane-title *,
 .kanban-plugin__lane-title-text,
-.kanban-plugin__lane-title-count,
-.kanban-plugin__lane-grip,
-.kanban-plugin__lane-collapse,
-.kanban-plugin__lane-menu,
+.kanban-plugin__lane-title-wrapper,
 .kanban-plugin__list-header,
 .kanban-plugin__list-header *,
 .kanban-plugin__list-title,
@@ -278,83 +256,17 @@
   background: transparent !important;
   background-color: transparent !important;
   box-shadow: none !important;
-  color: #f8fafc !important;
 }
 
-.kanban-plugin__lane-title-text {
-  font-weight: 600 !important;
-  font-size: 1.05rem !important;
-  letter-spacing: -0.01em !important;
-}
-
-.kanban-plugin__lane-title-count {
-  color: #94a3b8 !important;
-  font-weight: 500 !important;
-}
-
-/* 3. Cards & Tickets - 100% UNIFORM DARK CARD BACKGROUND */
-.kanban-plugin__item,
-.kanban-plugin__item-wrapper {
-  background: rgba(30, 35, 50, 0.85) !important;
-  background-color: rgba(30, 35, 50, 0.85) !important;
-  border: 1px solid rgba(255, 255, 255, 0.09) !important;
-  border-radius: 8px !important;
-  margin-bottom: 10px !important;
-  padding: 10px 14px !important;
-  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
-}
-
-.kanban-plugin__item:hover,
-.kanban-plugin__item-wrapper:hover {
-  background: rgba(42, 49, 70, 0.95) !important;
-  background-color: rgba(42, 49, 70, 0.95) !important;
-  border-color: rgba(137, 251, 217, 0.45) !important;
-  transform: translateY(-1px) !important;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35) !important;
-}
-
-/* Force ALL inner card text elements, wrappers, paragraphs, spans to be transparent */
-.kanban-plugin__item *,
-.kanban-plugin__item-wrapper *,
+/* Remove text background color inside cards/tickets so text blends 100% with the card box */
 .kanban-plugin__item-title,
 .kanban-plugin__item-title-wrapper,
 .kanban-plugin__item-content-wrapper,
 .kanban-plugin__item-markdown,
+.kanban-plugin__item-markdown *,
 .kanban-plugin__markdown-preview-wrapper,
 .kanban-plugin__markdown-preview-view {
   background: transparent !important;
   background-color: transparent !important;
-  color: #f1f5f9 !important;
   box-shadow: none !important;
-  border: none !important;
-}
-
-.kanban-plugin__item-markdown p {
-  margin: 0 !important;
-  padding: 0 !important;
-  line-height: 1.5 !important;
-  font-size: 0.95rem !important;
-}
-
-/* 4. Add Card / List Buttons */
-.kanban-plugin__new-item-button,
-.kanban-plugin__new-list-button,
-.kanban-plugin__item-button-wrapper button {
-  background: rgba(255, 255, 255, 0.04) !important;
-  background-color: rgba(255, 255, 255, 0.04) !important;
-  border: 1px dashed rgba(255, 255, 255, 0.12) !important;
-  border-radius: 8px !important;
-  color: #94a3b8 !important;
-  font-weight: 500 !important;
-  transition: all 0.15s ease !important;
-}
-
-.kanban-plugin__new-item-button:hover,
-.kanban-plugin__new-list-button:hover,
-.kanban-plugin__item-button-wrapper button:hover {
-  background: rgba(137, 251, 217, 0.1) !important;
-  background-color: rgba(137, 251, 217, 0.1) !important;
-  color: #89fbd9 !important;
-  border-color: rgba(137, 251, 217, 0.35) !important;
 }
