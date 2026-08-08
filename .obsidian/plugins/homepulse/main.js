@@ -54,56 +54,269 @@ var mt=Object.defineProperty;var ss=Object.getOwnPropertyDescriptor;var os=Objec
     { id: "system", title: "⚙️ Inbox & System" }
   ];
 
-  let nodes = [
-    { id: "area:dev", title: "Development", group: "dev", status: "active", level: 1, kind: "area", link: "03-Dev/_Dev MOC.md", dependsOn: [] },
-    { id: "project:weather-dashboard", title: "Weather Dashboard", group: "dev", status: "in-progress", level: 2, kind: "project", link: "02-Projects/weather-dashboard/Weather Dashboard.md", dependsOn: ["area:dev"] },
-    { id: "resource:openweather-api", title: "OpenWeatherMap API", group: "dev", status: "active", level: 3, kind: "concept", link: "06-Resources/APIs/2026-08-02_2242 OpenWeatherMap API.md", dependsOn: ["project:weather-dashboard"] },
-    
-    { id: "area:learning", title: "Knowledge & Concepts", group: "learning", status: "active", level: 1, kind: "area", link: "04-Learning/_Learning MOC.md", dependsOn: [] },
-    { id: "doc:second-brain-guide", title: "Second Brain Guide", group: "learning", status: "active", level: 2, kind: "concept", link: "06-Resources/Second Brain Guide.md", dependsOn: ["area:learning"] },
-    { id: "doc:tagging-properties", title: "Tagging & Properties", group: "learning", status: "active", level: 2, kind: "concept", link: "06-Resources/Tagging & Properties.md", dependsOn: ["area:learning"] },
-    { id: "doc:vault-security", title: "Vault Security Policy", group: "learning", status: "active", level: 2, kind: "concept", link: "06-Resources/Vault Security Policy.md", dependsOn: ["area:learning"] },
-
-    { id: "area:personal", title: "Personal", group: "personal", status: "active", level: 1, kind: "area", link: "05-Personal/_Personal MOC.md", dependsOn: [] },
-    { id: "note:genshin-lore", title: "Genshin Lore", group: "personal", status: "active", level: 2, kind: "project", link: "05-Personal/2026-08-08_2041 genshin lore.md", dependsOn: ["area:personal"] },
-
-    { id: "area:system", title: "Quick Capture", group: "system", status: "active", level: 1, kind: "area", link: "00-Inbox/_Inbox MOC.md", dependsOn: [] },
-    { id: "task:quick-capture-dump", title: "quick-capture-dump", group: "system", status: "active", level: 2, kind: "project", link: "00-Inbox/quick-capture-dump.md", dependsOn: ["area:system"] }
-  ];
+  let nodes = [];
 
   try {
-    if (s && s.vault) {
-      let files = s.vault.getMarkdownFiles();
-      let kanbanFile = files.find(f => f.path.includes("Weather Dashboard Kanban.md"));
-      if (kanbanFile) {
-        let content = kanbanFile.cachedData || "";
-        if (typeof content === "string" && content.length > 0) {
+    if (!s || !s.vault) return { groups, nodes, warnings: [] };
+
+    let allFiles = s.vault.getMarkdownFiles();
+    let metaCache = s.metadataCache;
+
+    // --- Helper: determine status from frontmatter ---
+    function getStatus(file) {
+      let cache = metaCache.getFileCache(file);
+      let fm = cache && cache.frontmatter;
+      if (!fm || !fm.status) return "active";
+      let st = String(fm.status).toLowerCase();
+      if (st === "in-progress" || st === "in progress") return "in-progress";
+      if (st === "completed" || st === "done") return "idle";
+      if (st === "planning") return "idle";
+      return "active";
+    }
+
+    // --- Helper: get frontmatter type ---
+    function getType(file) {
+      let cache = metaCache.getFileCache(file);
+      let fm = cache && cache.frontmatter;
+      return fm && fm.type ? String(fm.type).toLowerCase() : "";
+    }
+
+    // --- Helper: clean display name ---
+    function cleanName(file) {
+      return file.basename
+        .replace(/^\d{4}-\d{2}-\d{2}(?:_\d{4})?\s*/, "")
+        .replace(/ Kanban$/i, "")
+        .trim() || file.basename;
+    }
+
+    // --- 1. PROJECTS (02-Projects/) ---
+    let projectFolders = allFiles
+      .filter(f => f.path.replace(/\\/g, "/").startsWith("02-Projects/"))
+      .reduce((acc, f) => {
+        let parts = f.path.replace(/\\/g, "/").replace("02-Projects/", "").split("/");
+        if (parts.length > 1) acc.add(parts[0]);
+        return acc;
+      }, new Set());
+
+    // Add area node for Development
+    nodes.push({ id: "area:dev", title: "Development", group: "dev", status: "active", level: 1, kind: "area", link: "03-Dev/_Dev MOC.md", dependsOn: [] });
+
+    // Add each project folder as a project node
+    for (let folder of projectFolders) {
+      let folderPath = "02-Projects/" + folder + "/";
+      let folderFiles = allFiles.filter(f => f.path.replace(/\\/g, "/").startsWith(folderPath));
+      
+      // Find main project note (not Kanban)
+      let mainNote = folderFiles.find(f => !f.basename.toLowerCase().includes("kanban"));
+      let kanbanNote = folderFiles.find(f => f.basename.toLowerCase().includes("kanban"));
+      let projectStatus = mainNote ? getStatus(mainNote) : "active";
+      let projectId = "project:" + folder;
+
+      nodes.push({
+        id: projectId,
+        title: cleanName(mainNote || { basename: folder }),
+        group: "dev",
+        status: projectStatus,
+        level: 2,
+        kind: "project",
+        link: mainNote ? mainNote.path : folderPath,
+        dependsOn: ["area:dev"]
+      });
+
+      // Add Kanban tasks as children
+      if (kanbanNote) {
+        try {
+          let content = await s.vault.cachedRead(kanbanNote);
           let lines = content.split(/\r?\n/);
+          let currentSec = "";
           let taskIdx = 0;
           for (let l of lines) {
+            if (/^#+\s+/.test(l)) {
+              currentSec = l.replace(/^#+\s+/, "").trim().toLowerCase();
+              continue;
+            }
+            // Only include To Do, In Progress, Review/Test tasks
+            if (currentSec === "backlog" || currentSec === "done" || currentSec === "archive") continue;
             let m = /^\s*[-*]\s+\[( |\/)\]\s+([^\r\n]+)$/.exec(l);
             if (m) {
               let txt = m[2].trim().replace(/✅.*$/, "").trim();
               if (txt) {
                 taskIdx++;
                 nodes.push({
-                  id: "task:weather-" + taskIdx,
+                  id: "task:" + folder + "-" + taskIdx,
                   title: txt,
                   group: "dev",
                   status: m[1] === "/" ? "in-progress" : "active",
                   level: 3,
-                  kind: "project",
-                  link: kanbanFile.path,
-                  dependsOn: ["project:weather-dashboard"]
+                  kind: "concept",
+                  link: kanbanNote.path,
+                  dependsOn: [projectId]
                 });
               }
             }
           }
-        }
+        } catch (err) {}
       }
     }
+
+    // Standalone project files (not in subfolders)
+    let standaloneProjects = allFiles.filter(f => {
+      let norm = f.path.replace(/\\/g, "/");
+      if (!norm.startsWith("02-Projects/")) return false;
+      let rel = norm.replace("02-Projects/", "");
+      if (rel.includes("/")) return false; // skip subfolder files
+      if (f.basename.startsWith("_")) return false; // skip MOCs
+      return true;
+    });
+
+    for (let file of standaloneProjects) {
+      let fType = getType(file);
+      if (fType === "moc") continue;
+      nodes.push({
+        id: "project:" + file.basename,
+        title: cleanName(file),
+        group: "dev",
+        status: getStatus(file),
+        level: 2,
+        kind: "project",
+        link: file.path,
+        dependsOn: ["area:dev"]
+      });
+    }
+
+    // --- 2. DEV NOTES (03-Dev/) ---
+    let devNotes = allFiles.filter(f => {
+      let norm = f.path.replace(/\\/g, "/");
+      return norm.startsWith("03-Dev/") && !f.basename.startsWith("_");
+    });
+
+    for (let file of devNotes) {
+      nodes.push({
+        id: "dev:" + file.basename,
+        title: cleanName(file),
+        group: "dev",
+        status: getStatus(file),
+        level: 2,
+        kind: "concept",
+        link: file.path,
+        dependsOn: ["area:dev"]
+      });
+    }
+
+    // --- 3. CONCEPTS (08-Concepts/) ---
+    let conceptNotes = allFiles.filter(f => {
+      let norm = f.path.replace(/\\/g, "/");
+      return norm.startsWith("08-Concepts/") && !f.basename.startsWith("_");
+    });
+
+    if (conceptNotes.length > 0) {
+      nodes.push({ id: "area:concepts", title: "Concepts", group: "learning", status: "active", level: 1, kind: "area", link: "08-Concepts/_Concepts MOC.md", dependsOn: [] });
+      for (let file of conceptNotes) {
+        nodes.push({
+          id: "concept:" + file.basename,
+          title: cleanName(file),
+          group: "learning",
+          status: getStatus(file),
+          level: 2,
+          kind: "concept",
+          link: file.path,
+          dependsOn: ["area:concepts"]
+        });
+      }
+    }
+
+    // --- 4. LEARNING (04-Learning/) ---
+    let learningNotes = allFiles.filter(f => {
+      let norm = f.path.replace(/\\/g, "/");
+      return norm.startsWith("04-Learning/") && !f.basename.startsWith("_");
+    });
+
+    if (learningNotes.length > 0) {
+      nodes.push({ id: "area:learning", title: "Learning", group: "learning", status: "active", level: 1, kind: "area", link: "04-Learning/_Learning MOC.md", dependsOn: [] });
+      for (let file of learningNotes) {
+        nodes.push({
+          id: "learning:" + file.basename,
+          title: cleanName(file),
+          group: "learning",
+          status: getStatus(file),
+          level: 2,
+          kind: "concept",
+          link: file.path,
+          dependsOn: ["area:learning"]
+        });
+      }
+    }
+
+    // --- 5. RESOURCES (06-Resources/) ---
+    let resourceNotes = allFiles.filter(f => {
+      let norm = f.path.replace(/\\/g, "/");
+      return norm.startsWith("06-Resources/") && !f.basename.startsWith("_") && !norm.includes("/scripts/");
+    });
+
+    if (resourceNotes.length > 0) {
+      if (!nodes.find(n => n.id === "area:learning")) {
+        nodes.push({ id: "area:learning", title: "Learning", group: "learning", status: "active", level: 1, kind: "area", link: "04-Learning/_Learning MOC.md", dependsOn: [] });
+      }
+      for (let file of resourceNotes) {
+        nodes.push({
+          id: "resource:" + file.basename,
+          title: cleanName(file),
+          group: "learning",
+          status: "active",
+          level: 2,
+          kind: "concept",
+          link: file.path,
+          dependsOn: ["area:learning"]
+        });
+      }
+    }
+
+    // --- 6. PERSONAL (05-Personal/) ---
+    let personalNotes = allFiles.filter(f => {
+      let norm = f.path.replace(/\\/g, "/");
+      return norm.startsWith("05-Personal/") && !f.basename.startsWith("_");
+    });
+
+    if (personalNotes.length > 0) {
+      nodes.push({ id: "area:personal", title: "Personal", group: "personal", status: "active", level: 1, kind: "area", link: "05-Personal/_Personal MOC.md", dependsOn: [] });
+      for (let file of personalNotes) {
+        nodes.push({
+          id: "personal:" + file.basename,
+          title: cleanName(file),
+          group: "personal",
+          status: getStatus(file),
+          level: 2,
+          kind: "concept",
+          link: file.path,
+          dependsOn: ["area:personal"]
+        });
+      }
+    }
+
+    // --- 7. INBOX (00-Inbox/) ---
+    let inboxNotes = allFiles.filter(f => {
+      let norm = f.path.replace(/\\/g, "/");
+      return norm.startsWith("00-Inbox/") && !f.basename.startsWith("_");
+    });
+
+    if (inboxNotes.length > 0) {
+      nodes.push({ id: "area:system", title: "Inbox", group: "system", status: "active", level: 1, kind: "area", link: "00-Inbox/_Inbox MOC.md", dependsOn: [] });
+      for (let file of inboxNotes) {
+        nodes.push({
+          id: "inbox:" + file.basename,
+          title: cleanName(file),
+          group: "system",
+          status: "active",
+          level: 2,
+          kind: "concept",
+          link: file.path,
+          dependsOn: ["area:system"]
+        });
+      }
+    }
+
   } catch (err) {
-    console.error("Tech tree scan error:", err);
+    console.error("Tech tree dynamic scan error:", err);
   }
 
   return { groups, nodes, warnings: [] };
