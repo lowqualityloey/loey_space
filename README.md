@@ -1,6 +1,6 @@
 # 🧠 loey_space — Obsidian Vault Architecture & Knowledge System
 
-A clean, highly automated personal knowledge management (PKM) vault built in **Obsidian**, powered by **QuickAdd**, **Templater**, **Dataview**, **Gemini AI Automation**, custom typography, and security policies.
+A clean, highly automated personal knowledge management (PKM) vault and second brain built in **Obsidian**, powered by **HomePulse Dashboard**, **QuickAdd**, **Templater**, **Dataview**, **Gemini AI Automation**, custom dark typography, and strict security rules.
 
 ---
 
@@ -14,96 +14,84 @@ loey_space/
 │   ├── _Daily MOC.md        # Daily notes navigation & monthly habit overview
 │   └── _Tasks MOC.md        # Task command center, in-progress items, completion history & analytics
 ├── 02-Projects/             # Active development projects & build specifications (_Projects MOC.md)
+│   ├── spotify project/     # Spotify app project notes & Kanban
+│   └── weather-dashboard/   # Weather dashboard project notes & Kanban
 ├── 03-Dev/                  # Code snippets, technical patterns, debugging notes (_Dev MOC.md)
 ├── 04-Learning/             # Courses, tutorials, & study notes (_Learning MOC.md)
-├── 05-Personal/             # Personal goals, life & gym logs (_Personal MOC.md)
+├── 05-Personal/             # Personal goals, life & fitness logs (_Personal MOC.md)
 ├── 06-Resources/            # Technical documentation, API specs, & system scripts
 │   ├── APIs/                # API specs & integration documentation (_APIs MOC.md)
 │   ├── ai-enrich-action.js  # Universal Multi-Domain AI Enricher (Daily / Concept / Dev)
 │   └── Second Brain Guide.md# System usage, folder guidelines & workflow rules
 ├── 07-Reviews/              # Weekly & Monthly retrospectives (_Reviews MOC.md)
 ├── 08-Concepts/             # Evergreen technical & domain concepts (_Concepts MOC.md)
-├── 99-Attachments/         # Monthly subfolders (YYYY-MM/) for screenshots and media
-├── 99-Templates/           # Master Templater & QuickAdd note blueprints
-├── .obsidian/               # Vault configuration, enabled plugins, & snippets/fonts.css
+├── 99-Attachments/          # Monthly subfolders (YYYY-MM/) for screenshots and media
+├── 99-Templates/            # Master Templater & QuickAdd note blueprints
+├── .obsidian/               # Vault configuration, custom HomePulse plugin, snippets & themes
+│   ├── plugins/homepulse/   # Custom HomePulse dashboard plugin (Habit sync, Execution Pulse, Widgets)
+│   └── snippets/            # CSS snippets (dashboard-cards.css, fonts.css)
 ├── .secrets/                # [GIT-IGNORED] Private human-readable sensitive notes
-└── .env                    # [GIT-IGNORED] Real API keys and machine credentials
+└── .env                     # [GIT-IGNORED] Real API keys and machine credentials
 ```
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Key Features & Architecture
 
-1. **Open in Obsidian**: Click **Open folder as vault** in Obsidian and select `loey_space`.
-2. **Environment File Setup**:
-   Ensure `.env` exists in the vault root with your API keys:
-   ```env
-   GEMINI_API_KEY=your_gemini_api_key_here
-   ```
-3. **Core Community Plugins**:
-   Ensure the following plugins are enabled in `.obsidian/community-plugins.json`:
-   - `dataview` — Dynamic task lists, tables, and MOC queries.
-   - `quickadd` — Commander macros & 1-click note creation.
-   - `templater-obsidian` — Template variable expansion & date calculation.
-   - `obsidian-tasks-plugin` — Task metadata indexing.
-   - `cmdr` / `obsidian-kanban` / `obsidian-style-settings` / `colored-tags`.
+### ⚡ 1. HomePulse Command Center
+The vault features **HomePulse**, a custom high-performance dashboard plugin configured with an `#0C0D13` ultra-dark theme:
+- 🔄 **Real-Time 2-Way Habit Sync**: Toggling habit checkboxes in the HomePulse **Habits** widget immediately updates `- [ ]` / `- [x]` in today's active daily note (`01-Daily/YYYY-MM-DD*.md`) and `99-Templates/Daily.md`.
+- ⚡ **Execution Pulse**: Live analytics tracking habit completion rates, focus minutes, 7-day note rhythm, and task completion ratios.
+- 📊 **Knowledge Profile**: Dynamic real-time vault metrics displaying total **Notes**, **Areas**, **Projects**, and **Tags**.
+- 🛠️ **System Quick Actions**: 1-click shortcuts for timestamped daily note creation (`⏳ Create Timestamped Daily Note`), quick capture, project creation, and dev snippets.
+- 📌 **Open Tasks Widget**: Live task feed mirroring `01-Daily/_Tasks MOC.md` (`01-Daily` and `02-Projects` active tasks), automatically excluding routine habits.
 
 ---
 
-## 🏠 Main Dashboard & Navigation
+### 🤖 2. Multi-Domain AI Enricher (`✨` / `Ctrl + Shift + A`)
 
-* **Central Command Hub (`Home.md`)**: Reorganized for fast daily use. Features quick navigation to all MOCs, `🔄 Currently In Progress` items, `📌 Priority To-Dos`, active projects, recent dev snippets, and inbox status.
-* **Tasks Hub (`_Tasks MOC.md`)**: Consolidates active tasks across daily notes and projects, tracks `[/]` In Progress items, provides recent completion history, and excludes habit checkboxes.
-* **1-Click Creation Buttons**: Use the sidebar buttons to create Daily, Concept, Dev, Project, or Learning notes instantly.
+Powered by Google Gemini (`gemini-flash-latest`), the universal AI Enricher macro ([`06-Resources/ai-enrich-action.js`](file:///C:/Users/jonel/OneDrive%20-%20雪玲团队/Documents/loey_space/06-Resources/ai-enrich-action.js)) enriches notes based on location and context:
 
----
-
-## 🤖 Multi-Domain AI Enricher (`✨` / `Ctrl + Shift + A`)
-
-The vault features a single, intelligent **AI Enricher macro** ([`06-Resources/ai-enrich-action.js`](file:///C:/Users/jonel/OneDrive%20-%20雪玲团队/Documents/loey_space/06-Resources/ai-enrich-action.js)) powered by Google Gemini (`gemini-flash-latest` with fallback models):
-
-### 1. 📅 Daily Notes Mode (`01-Daily/...`)
-- Parses mood, energy, sleep hours, tasks, dev progress, leisure, notes, and small wins.
+#### 📅 Daily Notes Mode (`01-Daily/...`)
+- Parses mood, energy, sleep hours, tasks, dev progress, leisure, and wins.
 - Generates a **1–2 paragraph concise narrative summary** and **1-paragraph AI reflection**.
-- Excludes template prompt noise and enforces a **strict ban on corporate buzzwords** (`operational baseline`, `steady execution`).
+- Enforces a **strict ban on corporate buzzwords** (`operational baseline`, `steady execution`).
 - Generates a grounded quote callout (`> [!QUOTE] 💡 Daily Spark`) with author attribution.
-- Carries unfinished tasks directly into yesterday's `Tomorrow Setup`.
 
-### 2. 💡 Concept Notes Mode (`08-Concepts/...`)
-- **Domain-Adaptive Classifier**: Automatically detects the topic domain:
-  - **Tech / Programming**: Generates technical definitions, real-world utility, and runnable JavaScript code snippets.
-  - **Media / Entertainment** (e.g., *House of the Dragon*): Generates real story premises, themes, and faction lore (no fake code blocks!).
+#### 💡 Concept Notes Mode (`08-Concepts/...`)
+- **Domain-Adaptive Classifier**: Automatically detects topic domain:
+  - **Tech / Programming**: Generates technical definitions, utility, and runnable code snippets.
+  - **Media / Entertainment**: Generates real story premises, themes, and lore (no fake code blocks!).
   - **Wellness / Personal**: Generates core principles and practical exercises.
 - **Wikilink Grounding**: Only links to existing vault notes (`[[Note Title]]`) to prevent broken link clutter.
 
-### 3. 💻 Dev Notes Mode (`03-Dev/...`)
-- Analyzes code snippets and note titles to populate `language`, `tags`, `Context`, `Code Explanation`, and `Related` reference links (mixing existing vault notes + new reference concept links).
+#### 💻 Dev Notes Mode (`03-Dev/...`)
+- Analyzes code snippets and titles to populate `language`, `tags`, `Context`, `Code Explanation`, and `Related` reference links.
 
 ---
 
-## 📋 Task System Rules & Conventions
+### 📋 3. Task System Rules & Conventions
 
-- **Daily Notes as Source of Truth**: Write tasks inside your daily notes (`01-Daily`). No duplicate task notes required.
-- **Task States**:
+- **Daily Notes & Projects as Source of Truth**: Tasks are written directly inside daily notes (`01-Daily`) or project notes (`02-Projects`).
+- **Task Statuses**:
   - `- [ ] task` => **Active To-Do**
   - `- [/] task` => **In Progress** (Immediate focus anchor)
   - `- [x] task` => **Completed**
-- **Habit Isolation**: Routine habit checkboxes under `## 🔁 Habits` are strictly excluded from task dashboards.
+- **Habit Isolation**: Routine habit checkboxes under `## 🔁 Habits` are strictly isolated from task command centers.
 
 ---
 
-## 🎨 Typography & Visual Styling
+## 🎨 Design & Aesthetics
 
-- **Custom Font Overrides**: Loaded via [`.obsidian/snippets/fonts.css`](file:///C:/Users/jonel/OneDrive%20-%20雪玲团队/Documents/loey_space/.obsidian/snippets/fonts.css) importing Google Fonts:
-  - Body / UI: `Inter`, `Plus Jakarta Sans`, `Outfit`
-  - Code / Snippets: `JetBrains Mono`
-- **High Specificity Overrides**: Forced CSS specificity overrides Isinglass theme serif defaults for high-contrast reading.
-- **Info Callout Tables**: Daily templates use non-overlapping Markdown Info Callouts (`> [!INFO] 💡 Daily Properties Reference`).
+- **Ultra-Dark Mode**: Theme styling centered around `#0C0D13` with glassmorphic borders and responsive card grids ([`.obsidian/snippets/dashboard-cards.css`](file:///C:/Users/jonel/OneDrive%20-%20雪玲团队/Documents/loey_space/.obsidian/snippets/dashboard-cards.css)).
+- **Typography**: Custom font hierarchy via [`.obsidian/snippets/fonts.css`](file:///C:/Users/jonel/OneDrive%20-%20雪玲团队/Documents/loey_space/.obsidian/snippets/fonts.css):
+  - **Body / UI**: `Inter`, `Plus Jakarta Sans`, `Outfit`
+  - **Code / Monospace**: `JetBrains Mono`
 
 ---
 
 ## 🔒 Security & Git Safety
 
-- **No Hardcoded Credentials**: API keys and tokens must stay in `.env` (git-ignored).
-- **Private Data Folder**: Use `.secrets/` for private human notes (passwords, private logs) — strictly excluded from Git.
-- **Security Policy**: Refer to [[06-Resources/Vault Security Policy|Vault Security Policy]] for full guidelines.
+- **No Hardcoded Credentials**: API keys and tokens strictly reside in `.env` (git-ignored).
+- **Private Vault Data**: `.secrets/` contains private human notes and is excluded from Git tracking.
+- **Security Policy**: Refer to [[06-Resources/Vault Security Policy|Vault Security Policy]] for full operational guidelines.
