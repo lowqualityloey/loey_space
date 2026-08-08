@@ -142,3 +142,9 @@ Position your cursor inside any active note and press `Ctrl + Shift + A` (or run
 * **No Hardcoded API Keys**: All machine credentials and API tokens strictly reside in `.env` (git-ignored).
 * **Private Notes Directory**: The `.secrets/` directory is strictly excluded from Git tracking for storing sensitive personal documents.
 * **Vault Security Policy**: Read the official [Vault Security Policy](https://github.com/lowqualityloey/loey_space/blob/main/06-Resources/Vault%20Security%20Policy.md) for complete guidelines.
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for complete details.
