@@ -1,6 +1,6 @@
 ---
 created: <% tp.date.now("YYYY-MM-DD") %>
-updated: <% tp.date.now("YYYY-MM-DD") %>
+updated: 2026-08-09
 type: daily
 area: personal
 mood: 
@@ -22,11 +22,13 @@ tags:
 > [!QUOTE] 💡 Daily Spark
 > 
 
-## 🎯 Today's Focus
-Define your focus for today...
+### 🎯 Today's Focus
+>*Define your focus for today...*
+- 
 
-## ✅ Tasks
-Things I need or want to get done today.
+---
+### ✅ Tasks
+>*Things I need or want to get done today.*
 <%*
 let titleDate = window.moment(tp.file.title.substring(0, 10), "YYYY-MM-DD");
 if (!titleDate.isValid()) {
@@ -84,40 +86,46 @@ if (carried.length > 0) {
 }
 -%>
 
-## 🔁 Habits
-Daily basics (keep it flexible, not perfect).
-- [ ] exercise
-- [ ] meditate
-- [ ] coding
-- [ ] clean
-- [ ] hydrate
-- [ ] sleep
+---
+### 🔁 Habits
+> *Daily basics (keep it flexible, not perfect).*
+- [ ] water
+- [ ] prioritised
+- [ ] move
+- [ ] read
+- [ ] tidy
+- [ ] disconnect
 
+---
 
-## 💻 Work / Study / Dev
-Progress from today across coding, study, or problem-solving.
+## 🌇 End of the Day...
+
+### Wins
+> *Something positive from today, even if small.*
 - 
 
-## 🎮 Leisure / Fun
-What I played, watched, or enjoyed today.
+### Blockers
+> _What got in my way? Distractions, low energy, unclear priorities, external delays?_
 - 
 
-## 🧠 Notes / Thoughts
-Anything on my mind — ideas, reflections, random thoughts.
+### Reflection
+> _What did I learn? What could I have done better? What surprised me today?_
 - 
 
-## ⚡ Small Wins
-Something positive from today, even if small.
-- 
+---
 
 ## 🤖 AI Daily Summary
 
 ### Summary
+>_What did I do today? Key activities, progress, and outcomes._
 - 
 
 ### AI Reflection
+>_What patterns do I notice? What could I improve? Any insights or blind spots?_
 - 
 
-## 🌙 Tomorrow Setup
-What I want to carry or prepare for tomorrow.
+### **Suggested Next Step**
+>_Based on today, what's the smartest move for tomorrow?_
 - 
+
+---

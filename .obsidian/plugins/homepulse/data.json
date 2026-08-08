@@ -327,7 +327,7 @@
         "placeholder": "define your primary goal..."
       },
       "state": {
-        "text": "I want to start to finishing my weather dashboard app"
+        "text": ""
       }
     },
     "knowledge-profile-jqr4hgc": {
@@ -358,12 +358,12 @@
       },
       "state": {
         "habits": [
-          "exercise",
-          "meditate",
-          "coding",
-          "clean",
-          "hydrate",
-          "sleep"
+          "water",
+          "prioritise",
+          "move",
+          "read",
+          "tidy",
+          "disconnect"
         ],
         "completions": {}
       }
@@ -408,8 +408,8 @@
       "config": {
         "title": "open tasks",
         "projectFolders": [
-          "02-Projects",
-          "01-Daily"
+          "01-Daily/",
+          "02-Projects/"
         ],
         "projectTags": [],
         "projectNamePrefixes": [],
