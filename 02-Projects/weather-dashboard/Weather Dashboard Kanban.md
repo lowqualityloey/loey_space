@@ -1,8 +1,8 @@
 ---
 
 kanban-plugin: board
+updated: 2026-08-08
 
-updated: 2026-08-06
 ---
 
 ## Backlog
@@ -30,8 +30,12 @@ updated: 2026-08-06
 
 ## Done
 
-- [x] Install UI component primitives (Button, Card, Input, Label, Badge, Switch, Collapsible)
-- [x] Build OpenWeather API service, data mappers, and TypeScript types
+- [x] Build OpenWeather API service, data mappers, and TypeScript types ✅ 2026-08-08
+- [x] Install UI component primitives (Button, Card, Input, Label, Badge, Switch, Collapsible) ✅ 2026-08-08
+
+
+## Archive
+
 
 
 

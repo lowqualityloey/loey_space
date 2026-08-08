@@ -1,0 +1,9 @@
+{
+  "id": "obsidian-activity-history",
+  "name": "Activity History",
+  "version": "1.0.0",
+  "minAppVersion": "0.15.0",
+  "description": "Contribution heatmap renderer for Activity History codeblocks.",
+  "author": "Antigravity",
+  "isDesktopOnly": false
+}

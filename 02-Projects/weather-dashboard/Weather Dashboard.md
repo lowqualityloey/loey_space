@@ -5,6 +5,7 @@ priority: high
 tags:
   - type/project
   - area/dev
+updated: 2026-08-08
 ---
 
 # Weather Dashboard
@@ -61,9 +62,7 @@ tags:
 - None documented
 
 ## Next Actions
-- [ ] Implement theme toggle functionality
-- [ ] Add collapsible accordion for hourly forecast
-- [ ] Connect city search to Geocoding API
+
 
 ## Progress Log
 - 2026-08-02: Kanban and project note aligned with repository roadmap.

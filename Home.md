@@ -4,7 +4,7 @@ status: active
 area: general
 tags:
   - type/dashboard
-updated: 2026-08-06
+updated: 2026-08-08
 ---
 
 # 🏠 Central Command Hub
@@ -15,23 +15,23 @@ updated: 2026-08-06
 
 ## ⚡ Quick Navigation
 
-| Area              | Hub Link                                       | Purpose                                        |
-| :---------------- | :--------------------------------------------- | :--------------------------------------------- |
-| **📅 Daily Logs** | [[01-Daily/_Daily MOC\|Daily MOC]]             | Daily journal, habits & reflections            |
-| **📋 Tasks Hub**  | [[01-Daily/_Tasks MOC\|Tasks MOC]]             | Active tasks, in-progress & completion history |
-| **🚀 Projects**   | [[02-Projects/_Projects MOC\|Projects MOC]]    | Active development & project builds            |
-| **💻 Dev Notes**  | [[03-Dev/_Dev MOC\|Dev MOC]]                   | Code snippets & technical patterns             |
-| **💡 Concepts**   | [[08-Concepts/_Concepts MOC\|Concepts MOC]]    | Evergreen knowledge & technical concepts       |
-| **📖 Learning**   | [[04-Learning/_Learning MOC\|Learning MOC]]    | Courses & study notes                          |
-| **📚 Resources**  | [[06-Resources/_Resources MOC\|Resources MOC]] | Reference links & cheatsheets                  |
-| **📥 Inbox**      | [[00-Inbox/_Inbox MOC\|Inbox MOC]]             | Quick capture & inbox                          |
-| **🧹 Triage**     | [[00-Inbox/_Triage MOC\|Triage MOC]]           | Stale notes & overdue reviews                  |
+| Area          | Hub Link                                       | Purpose                                        |
+| :------------ | :--------------------------------------------- | :--------------------------------------------- |
+| 📅 Daily Logs | [[01-Daily/_Daily MOC\|Daily MOC]]             | Daily journal, habits & reflections            |
+| 📋 Tasks Hub  | [[01-Daily/_Tasks MOC\|Tasks MOC]]             | Active tasks, in-progress & completion history |
+| 📊 Tasks Kanban | [[Tasks/Tasks Kanban\|Tasks Kanban]]         | Visual kanban board for all tasks              |
+| 🚀 Projects   | [[02-Projects/_Projects MOC\|Projects MOC]]    | Active development & project builds            |
+| 💻 Dev Notes  | [[03-Dev/_Dev MOC\|Dev MOC]]                   | Code snippets & technical patterns             |
+| 💡 Concepts   | [[08-Concepts/_Concepts MOC\|Concepts MOC]]    | Evergreen knowledge & technical concepts       |
+| 📖 Learning   | [[04-Learning/_Learning MOC\|Learning MOC]]    | Courses & study notes                          |
+| 📚 Resources  | [[06-Resources/_Resources MOC\|Resources MOC]] | Reference links & cheatsheets                  |
+| 📥 Inbox      | [[00-Inbox/_Inbox MOC\|Inbox MOC]]             | Quick capture & inbox                          |
+| 🧹 Triage     | [[00-Inbox/_Triage MOC\|Triage MOC]]           | Stale notes & overdue reviews                  |
 
 ---
-
 ## 📌 Daily Focus & Active Tasks
 
-### 🔄 Currently In Progress (`[/]`)
+### 🔄 Currently In Progress
 ```dataviewjs
 const pages = dv.pages('"01-Daily" or "02-Projects"');
 let tasks = [];
@@ -44,7 +44,7 @@ for (let p of pages) {
 
     if (t.status === "/") {
       const fileName = p.file.name;
-      const formattedText = `${t.text} (${dv.fileLink(p.file.path, false, fileName)})`;
+      const formattedText = `${t.text} ${dv.fileLink(p.file.path, false, fileName)}`;
       tasks.push(Object.assign({}, t, { text: formattedText }));
     }
   }
@@ -53,7 +53,7 @@ if (tasks.length > 0) dv.taskList(tasks, false);
 else dv.paragraph("No tasks currently in progress.");
 ```
 
-### 📋 Priority To-Dos (`[ ]`)
+### 📋 Priority To-Dos
 ```dataviewjs
 const pages = dv.pages('"01-Daily" or "02-Projects"');
 let tasks = [];
@@ -66,7 +66,7 @@ for (let p of pages) {
 
     if (t.status === " ") {
       const fileName = p.file.name;
-      const formattedText = `${t.text} (${dv.fileLink(p.file.path, false, fileName)})`;
+      const formattedText = `${t.text} ${dv.fileLink(p.file.path, false, fileName)}`;
       tasks.push(Object.assign({}, t, { text: formattedText }));
     }
   }
@@ -74,9 +74,7 @@ for (let p of pages) {
 if (tasks.length > 0) dv.taskList(tasks.slice(0, 10), false);
 else dv.paragraph("No active open tasks.");
 ```
-
 ---
-
 ## 🚀 Active Projects & Recent Work
 
 ### Active Projects
@@ -96,9 +94,7 @@ WHERE !contains(file.name, "MOC")
 SORT file.mtime DESC
 LIMIT 5
 ```
-
 ---
-
 ## 📅 Daily Logs Overview
 
 ```dataview
@@ -110,7 +106,6 @@ LIMIT 5
 ```
 
 ---
-
 ## 📥 Inbox Triage
 
 ```dataviewjs

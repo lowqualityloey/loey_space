@@ -1,0 +1,526 @@
+{
+  "schemaVersion": 2,
+  "initialized": true,
+  "settings": {
+    "openOnStartup": true,
+    "lockHomepage": true,
+    "language": "en",
+    "themePreset": "petal",
+    "accentColor": "#89fbd9",
+    "profileName": "loey_space",
+    "profileSignature": "Semantic Second Brain Dashboard",
+    "obsidianStartDate": "2026-08-08",
+    "techTreeAreaRoot": "08-Concepts",
+    "techTreeActiveProjectRoot": "02-Projects"
+  },
+  "layout": {
+    "columns": 5,
+    "widgets": [
+      {
+        "id": "focus-main",
+        "type": "focus",
+        "x": 0,
+        "y": 0,
+        "sizePreset": "W1H1",
+        "w": 1,
+        "h": 1
+      },
+      {
+        "id": "knowledge-profile-jqr4hgc",
+        "type": "knowledge-profile",
+        "x": 1,
+        "y": 0,
+        "sizePreset": "W2H1",
+        "w": 2,
+        "h": 1
+      },
+      {
+        "id": "music-player-b5317ac",
+        "type": "music-player",
+        "x": 3,
+        "y": 0,
+        "sizePreset": "W2H1",
+        "w": 2,
+        "h": 1
+      },
+      {
+        "id": "habits-b0sr8rf",
+        "type": "habits",
+        "x": 0,
+        "y": 1,
+        "sizePreset": "W2H2",
+        "w": 2,
+        "h": 2
+      },
+      {
+        "id": "pomodoro-64kmxai",
+        "type": "pomodoro",
+        "x": 2,
+        "y": 1,
+        "sizePreset": "W1H2",
+        "w": 1,
+        "h": 2
+      },
+      {
+        "id": "recent-notes-rsoxrsi",
+        "type": "recent-notes",
+        "x": 3,
+        "y": 1,
+        "sizePreset": "W1H2",
+        "w": 1,
+        "h": 2
+      },
+      {
+        "id": "calendar-1hcbws7",
+        "type": "calendar",
+        "x": 4,
+        "y": 1,
+        "sizePreset": "W1H2",
+        "w": 1,
+        "h": 2
+      },
+      {
+        "id": "stats-main",
+        "type": "stats-overview",
+        "x": 0,
+        "y": 3,
+        "sizePreset": "W3H2",
+        "w": 3,
+        "h": 2
+      },
+      {
+        "id": "tasks-lt2bqf1",
+        "type": "tasks",
+        "x": 3,
+        "y": 3,
+        "sizePreset": "W1H4",
+        "w": 1,
+        "h": 4
+      },
+      {
+        "id": "bookmarks-b1qil66",
+        "type": "bookmarks",
+        "x": 4,
+        "y": 3,
+        "sizePreset": "W1H2",
+        "w": 1,
+        "h": 2
+      },
+      {
+        "id": "tech-tree-96vjutd",
+        "type": "tech-tree",
+        "x": 0,
+        "y": 5,
+        "sizePreset": "W2H4",
+        "w": 2,
+        "h": 4
+      },
+      {
+        "id": "projects-3fn9vd3",
+        "type": "projects",
+        "x": 2,
+        "y": 5,
+        "sizePreset": "W1H2",
+        "w": 1,
+        "h": 2
+      },
+      {
+        "id": "quick-actions-0h6rh95",
+        "type": "quick-actions",
+        "x": 4,
+        "y": 5,
+        "sizePreset": "W1H2",
+        "w": 1,
+        "h": 2
+      },
+      {
+        "id": "activity-main",
+        "type": "activity-history",
+        "x": 2,
+        "y": 7,
+        "sizePreset": "W3H2",
+        "w": 3,
+        "h": 2
+      }
+    ]
+  },
+  "layoutPresets": [
+    {
+      "id": "public-default",
+      "name": "Public default",
+      "isBuiltIn": true,
+      "updatedAt": 0,
+      "layout": {
+        "columns": 5,
+        "widgets": [
+          {
+            "id": "focus-main",
+            "type": "focus",
+            "x": 0,
+            "y": 0,
+            "sizePreset": "W1H1",
+            "w": 1,
+            "h": 1
+          },
+          {
+            "id": "knowledge-main",
+            "type": "knowledge-profile",
+            "x": 1,
+            "y": 0,
+            "sizePreset": "W2H1",
+            "w": 2,
+            "h": 1
+          },
+          {
+            "id": "music-player-b5317ac",
+            "type": "music-player",
+            "x": 3,
+            "y": 0,
+            "sizePreset": "W2H1",
+            "w": 2,
+            "h": 1
+          },
+          {
+            "id": "habits-b0sr8rf",
+            "type": "habits",
+            "x": 0,
+            "y": 1,
+            "sizePreset": "W2H2",
+            "w": 2,
+            "h": 2
+          },
+          {
+            "id": "pomodoro-64kmxai",
+            "type": "pomodoro",
+            "x": 2,
+            "y": 1,
+            "sizePreset": "W1H2",
+            "w": 1,
+            "h": 2
+          },
+          {
+            "id": "tasks-lt2bqf1",
+            "type": "tasks",
+            "x": 3,
+            "y": 1,
+            "sizePreset": "W1H4",
+            "w": 1,
+            "h": 4
+          },
+          {
+            "id": "calendar-1hcbws7",
+            "type": "calendar",
+            "x": 4,
+            "y": 1,
+            "sizePreset": "W1H2",
+            "w": 1,
+            "h": 2
+          },
+          {
+            "id": "stats-main",
+            "type": "stats-overview",
+            "x": 0,
+            "y": 3,
+            "sizePreset": "W3H2",
+            "w": 3,
+            "h": 2
+          },
+          {
+            "id": "bookmarks-b1qil66",
+            "type": "bookmarks",
+            "x": 4,
+            "y": 3,
+            "sizePreset": "W1H2",
+            "w": 1,
+            "h": 2
+          },
+          {
+            "id": "tech-tree-main",
+            "type": "tech-tree",
+            "x": 0,
+            "y": 5,
+            "sizePreset": "W2H4",
+            "w": 2,
+            "h": 4
+          },
+          {
+            "id": "projects-3fn9vd3",
+            "type": "projects",
+            "x": 2,
+            "y": 5,
+            "sizePreset": "W1H2",
+            "w": 1,
+            "h": 2
+          },
+          {
+            "id": "recent-notes-xmng40z",
+            "type": "recent-notes",
+            "x": 3,
+            "y": 5,
+            "sizePreset": "W1H2",
+            "w": 1,
+            "h": 2
+          },
+          {
+            "id": "quick-actions-0h6rh95",
+            "type": "quick-actions",
+            "x": 4,
+            "y": 5,
+            "sizePreset": "W1H2",
+            "w": 1,
+            "h": 2
+          },
+          {
+            "id": "activity-main",
+            "type": "activity-history",
+            "x": 2,
+            "y": 7,
+            "sizePreset": "W3H2",
+            "w": 3,
+            "h": 2
+          }
+        ]
+      }
+    }
+  ],
+  "defaultLayoutPresetId": "public-default",
+  "timeLogs": [
+    {
+      "id": "timelog-msjf1ko5-whols6",
+      "startTime": 1786133840549,
+      "endTime": 1786135640549,
+      "duration": 30,
+      "source": "manual",
+      "targetType": "quick",
+      "targetId": "implement",
+      "createdAt": 1786135640549
+    },
+    {
+      "id": "timelog-msjenmc8-mvpef6",
+      "startTime": 1786133189528,
+      "endTime": 1786134989528,
+      "duration": 30,
+      "source": "manual",
+      "targetType": "quick",
+      "targetId": "doing something",
+      "createdAt": 1786134989528
+    },
+    {
+      "id": "timelog-msjemwnf-1527tx",
+      "startTime": 1786133156235,
+      "endTime": 1786134956235,
+      "duration": 30,
+      "source": "manual",
+      "targetType": "project",
+      "targetId": "Weather Dashboard",
+      "createdAt": 1786134956235,
+      "projectId": "Weather Dashboard",
+      "projectTitle": "Weather Dashboard"
+    }
+  ],
+  "widgets": {
+    "focus-main": {
+      "config": {
+        "title": "today's focus",
+        "placeholder": "define your primary goal..."
+      },
+      "state": {
+        "text": ""
+      }
+    },
+    "knowledge-profile-jqr4hgc": {
+      "config": {
+        "title": "knowledge profile",
+        "projectNamePrefixes": [
+          "Project_"
+        ],
+        "projectFolders": [
+          "02-Projects/"
+        ],
+        "projectTags": []
+      },
+      "state": {}
+    },
+    "music-player-b5317ac": {
+      "config": {
+        "title": "YouTube Music",
+        "serviceName": "Music",
+        "loginUrl": "https://music.youtube.com/",
+        "playUrl": "https://music.youtube.com/explore"
+      },
+      "state": {}
+    },
+    "habits-b0sr8rf": {
+      "config": {
+        "title": "habits"
+      },
+      "state": {
+        "habits": [
+          "exercise",
+          "meditate",
+          "coding",
+          "clean",
+          "hydrate",
+          "sleep"
+        ],
+        "completions": {}
+      }
+    },
+    "pomodoro-64kmxai": {
+      "config": {
+        "title": "pomodoro",
+        "workMinutes": 25,
+        "breakMinutes": 5,
+        "projectFolders": [
+          "02-Projects"
+        ],
+        "projectTags": [
+          "type/project"
+        ],
+        "projectNamePrefixes": [],
+        "areaFolders": [
+          "03-Dev",
+          "04-Learning",
+          "08-Concepts"
+        ],
+        "areaTags": [],
+        "areaNamePrefixes": [],
+        "taskFile": "00-Inbox/quick-capture-dump.md"
+      },
+      "state": {
+        "status": "idle",
+        "remainingSeconds": 1500,
+        "phaseStartedAt": 0,
+        "todayCountDate": "2026-08-08",
+        "todayCount": 0,
+        "recentTargets": [
+          {
+            "type": "task",
+            "id": "quick-capture-dump",
+            "title": "quick-capture-dump"
+          }
+        ]
+      }
+    },
+    "recent-notes-rsoxrsi": {
+      "config": {
+        "title": "recently updated",
+        "limit": 6
+      },
+      "state": {}
+    },
+    "calendar-1hcbws7": {
+      "config": {
+        "title": "calendar"
+      },
+      "state": {}
+    },
+    "stats-main": {
+      "config": {
+        "title": "execution pulse"
+      },
+      "state": {}
+    },
+    "tasks-lt2bqf1": {
+      "config": {
+        "title": "open tasks",
+        "projectFolders": [
+          "02-Projects",
+          "01-Daily"
+        ],
+        "projectTags": [],
+        "projectNamePrefixes": [],
+        "limit": 12
+      },
+      "state": {}
+    },
+    "bookmarks-b1qil66": {
+      "config": {
+        "title": "bookmarks",
+        "variant": "grid",
+        "useFavicons": true,
+        "items": []
+      },
+      "state": {}
+    },
+    "tech-tree-96vjutd": {
+      "config": {
+        "title": "tech tree",
+        "areaRoot": "08-Concepts",
+        "projectFolders": [
+          "02-Projects",
+          "03-Dev",
+          "04-Learning",
+          "08-Concepts"
+        ],
+        "projectTags": [],
+        "projectNamePrefixes": []
+      },
+      "state": {}
+    },
+    "projects-3fn9vd3": {
+      "config": {
+        "title": "projects",
+        "projectFolders": [
+          "02-Projects"
+        ],
+        "projectTags": [
+          "type/project"
+        ],
+        "projectNamePrefixes": [],
+        "limit": 10
+      },
+      "state": {}
+    },
+    "quick-actions-0h6rh95": {
+      "config": {
+        "title": "system",
+        "variant": "grid",
+        "sectionTitle": "",
+        "secondaryTitle": "",
+        "secondaryItems": [],
+        "items": [
+          {
+            "label": "inbox",
+            "type": "command",
+            "value": "quickadd:choice:e4f0a1b2-1111-4000-8000-000000000001"
+          },
+          {
+            "label": "daily note",
+            "type": "daily-note",
+            "value": ""
+          },
+          {
+            "label": "project",
+            "type": "command",
+            "value": "quickadd:choice:e4f0a1b2-2222-4000-8000-000000000002"
+          },
+          {
+            "label": "snippet",
+            "type": "command",
+            "value": "quickadd:choice:e4f0a1b2-6666-4000-8000-000000000006"
+          },
+          {
+            "label": "learning",
+            "type": "command",
+            "value": "quickadd:choice:e4f0a1b2-3333-4000-8000-000000000003"
+          },
+          {
+            "label": "personal",
+            "type": "command",
+            "value": "quickadd:choice:e4f0a1b2-7777-4000-8000-000000000007"
+          }
+        ]
+      },
+      "state": {}
+    },
+    "activity-main": {
+      "config": {
+        "title": "activity history",
+        "sourcePath": "/",
+        "year": ""
+      },
+      "state": {}
+    }
+  }
+}

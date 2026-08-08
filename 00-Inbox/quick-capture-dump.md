@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-03
+updated: 2026-08-08
 ---
 # 📥 Quick Capture Dump
 
@@ -7,4 +7,3 @@ updated: 2026-08-03
 
 ## Captured Notes
 - i have to do laundry (captured: 2026-08-06 23:02)
-- test (captured: 2026-08-04 04:09)

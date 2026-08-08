@@ -26,27 +26,13 @@ kanban-plugin: board
 
 ## Backlog
 
-- [ ] 
-
-
 ## To Do
-
-- [ ] 
-
 
 ## In Progress
 
-- [ ] 
-
-
 ## Review / Test
 
-
-
 ## Done
-
-
-
 
 %% kanban:settings
 \`\`\`
@@ -81,7 +67,6 @@ kanban-plugin: board
 - 
 
 ## Features
-- [ ] 
 
 ## API / Data
 - 
@@ -101,7 +86,6 @@ kanban-plugin: board
 - None
 
 ## Next Actions
-- [ ] 
 
 ## Progress Log
 - <% tp.date.now("YYYY-MM-DD") %>: Project created.

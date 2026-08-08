@@ -1,109 +1,238 @@
 /* ==========================================================================
-   ✨ LOEY_SPACE DASHBOARD & CARD AESTHETICS (dashboard-cards.css)
+   ✨ 100% UNIFIED SINGLE COLOR (#0C0D13), TASK SPACING & READABILITY (dashboard-cards.css)
    ========================================================================== */
 
-/* 1. Dataview Card View Grid Styling */
-.cards table.dataview {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 16px;
-  background: none;
-  border: none;
+/* 1. Global Divider & Border Removal */
+:root {
+  --divider-color: transparent !important;
+  --background-modifier-border: transparent !important;
+  --background-modifier-border-hover: transparent !important;
+  --background-modifier-border-focus: transparent !important;
+  --tab-outline-color: transparent !important;
+  --workspace-background-translucent: transparent !important;
+  --line-height-normal: 1.65 !important;
 }
 
-.cards table.dataview thead {
-  display: none;
+.workspace-leaf,
+.workspace-split,
+.workspace-leaf-resize-handle,
+.workspace-divider {
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
 }
 
-.cards table.dataview tbody {
-  display: contents;
+/* 2. WINDOW CONTROLS TOP RIGHT PIN */
+.titlebar-button-container.mod-right {
+  position: absolute !important;
+  top: 0 !important;
+  right: 0 !important;
+  height: 40px !important;
+  display: flex !important;
+  align-items: center !important;
+  z-index: 99999 !important;
+  background: transparent !important;
 }
 
-.cards table.dataview tr {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  background: var(--background-secondary-alt, rgba(30, 32, 40, 0.65));
-  border: 1px solid var(--background-modifier-border, rgba(255, 255, 255, 0.08));
-  border-radius: 12px;
-  padding: 16px;
-  backdrop-filter: blur(10px);
-  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+.titlebar-button-container.mod-right .titlebar-button {
+  padding: 8px 12px !important;
+  transition: background 0.15s ease !important;
 }
 
-.cards table.dataview tr:hover {
-  transform: translateY(-3px);
-  border-color: var(--interactive-accent, #7c3aed);
-  box-shadow: 0 8px 24px rgba(124, 58, 237, 0.18);
+.titlebar-button-container.mod-right .titlebar-button:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
 }
 
-.cards table.dataview td {
-  border: none;
-  padding: 4px 0;
-  font-size: 0.9em;
+.titlebar-button-container.mod-right .titlebar-button.mod-close:hover {
+  background: #e11d48 !important;
+  color: #ffffff !important;
 }
 
-.cards table.dataview td:first-child {
-  font-weight: 600;
-  font-size: 1.05em;
-  margin-bottom: 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  padding-bottom: 8px;
+.titlebar-button-container.mod-left {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  height: 40px !important;
+  z-index: 9999 !important;
 }
 
-/* 2. Glassmorphism Callouts & Quotes */
-.callout {
-  border-radius: 10px;
-  border-left-width: 4px;
-  backdrop-filter: blur(8px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+/* 3. Main Center Editor Tab Container */
+.workspace-split.mod-root .workspace-tab-header-container {
+  background: transparent !important;
+  border-bottom: none !important;
+  padding: 4px 6px 0 6px !important;
+  margin: 0 !important;
 }
 
-.callout:hover {
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+.workspace-tab-header::before,
+.workspace-tab-header::after,
+.workspace-tab-header-inner::before,
+.workspace-tab-header-inner::after {
+  display: none !important;
+  background: transparent !important;
 }
 
-/* 3. Smooth Dashboard Table Headers & Hover States */
-.markdown-rendered table {
-  border-radius: 10px;
-  overflow: hidden;
-  border-collapse: separate;
-  border-spacing: 0;
-  border: 1px solid var(--background-modifier-border, rgba(255, 255, 255, 0.08));
+.workspace-split.mod-root .workspace-tab-header {
+  background: transparent !important;
+  border: none !important;
+  border-top-left-radius: 8px !important;
+  border-top-right-radius: 8px !important;
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  margin: 0 2px !important;
+  padding: 6px 14px !important;
+  color: var(--text-muted, #94a3b8) !important;
+  transition: background 0.15s ease !important;
 }
 
-.markdown-rendered th {
-  background: var(--background-secondary, rgba(25, 27, 34, 0.8));
-  font-size: 0.85em;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+.workspace-split.mod-root .workspace-tab-header:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: var(--text-normal, #f8fafc) !important;
 }
 
-.markdown-rendered td {
-  transition: background 0.15s ease;
+/* 4. FORCE SINGLE COLOR (#0C0D13) ACROSS ACTIVE TAB, NAV BAR, NOTE & ALL CHILD CONTAINERS */
+.workspace-split.mod-root .workspace-tab-header.is-active,
+.workspace-split.mod-root .workspace-tab-header.is-active .workspace-tab-header-inner,
+.view-header,
+.view-header-title-container,
+.view-header-nav-buttons,
+.view-actions,
+.workspace-split.mod-root .workspace-leaf-content,
+.workspace-split.mod-root .workspace-leaf-content[data-type="markdown"] .view-content,
+.markdown-source-view,
+.markdown-preview-view {
+  background-color: #0C0D13 !important;
+  background: #0C0D13 !important;
+  box-shadow: none !important;
+  border: none !important;
 }
 
-.markdown-rendered tr:hover td {
-  background: var(--background-secondary-alt, rgba(255, 255, 255, 0.03));
+.workspace-split.mod-root .workspace-tab-header.is-active {
+  color: var(--text-normal, #f8fafc) !important;
+  border-top-left-radius: 8px !important;
+  border-top-right-radius: 8px !important;
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
 }
 
-/* 4. Active Focus Task Highlighting */
-.task-list-item-checkbox {
-  border-radius: 4px;
-  transition: transform 0.15s ease, background-color 0.15s ease;
+.workspace-split.mod-root .workspace-leaf {
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+  border-bottom-left-radius: 12px !important;
+  border-bottom-right-radius: 12px !important;
+  margin: 0 !important;
+  border: none !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35) !important;
+  overflow: hidden !important;
 }
 
-.task-list-item-checkbox:hover {
-  transform: scale(1.15);
+/* 5. Right & Left Sidebar Tab Headers */
+.workspace-split.mod-right-split .workspace-tab-header-container {
+  background: transparent !important;
+  border-bottom: none !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  padding: 4px 8px !important;
+  margin-right: 120px !important;
 }
 
-/* 5. Custom Pills for Tags & Statuses */
-.tag {
-  border-radius: 12px;
-  padding: 2px 10px;
-  font-size: 0.78em;
-  font-weight: 500;
-  letter-spacing: 0.02em;
+.workspace-split.mod-left-split .workspace-tab-header-container {
+  background: transparent !important;
+  border-bottom: none !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  padding: 4px 8px !important;
+}
+
+.workspace-split.mod-right-split .workspace-tab-header,
+.workspace-split.mod-left-split .workspace-tab-header {
+  background: transparent !important;
+  border-radius: 8px !important;
+  padding: 5px 8px !important;
+  margin: 0 !important;
+  color: var(--text-muted, #94a3b8) !important;
+  transition: background 0.15s ease, color 0.15s ease !important;
+}
+
+.workspace-split.mod-right-split .workspace-tab-header:hover,
+.workspace-split.mod-left-split .workspace-tab-header:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #f8fafc !important;
+}
+
+.workspace-split.mod-right-split .workspace-tab-header.is-active,
+.workspace-split.mod-left-split .workspace-tab-header.is-active {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #f8fafc !important;
+  border-radius: 8px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* 6. Floating Graph View Pane */
+.workspace-leaf[data-type="graph"],
+.workspace-leaf[data-type="localgraph"],
+.workspace-leaf[data-type="graph"] .workspace-leaf-content,
+.workspace-leaf[data-type="localgraph"] .workspace-leaf-content,
+.graph-view-container {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.graph-controls {
+  background: rgba(24, 26, 34, 0.88) !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(20px) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4) !important;
+  padding: 8px !important;
+}
+
+/* 7. Sidebars Backdrop */
+.workspace-split.mod-left-split,
+.workspace-split.mod-right-split,
+.workspace-ribbon,
+.workspace-tabs .workspace-tab-container {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* 8. Pill Links */
+.markdown-rendered a.internal-link {
+  white-space: nowrap !important;
+  display: inline-block !important;
+  color: #a78bfa !important;
+  text-decoration: none !important;
+  font-weight: 500 !important;
+  padding: 3px 10px !important;
+  border-radius: 8px !important;
+  background: rgba(167, 139, 250, 0.12) !important;
+  border: 1px solid rgba(167, 139, 250, 0.2) !important;
+  transition: background 0.15s ease !important;
+}
+
+.markdown-rendered a.internal-link:hover {
+  background: rgba(167, 139, 250, 0.28) !important;
+  color: #ddd6fe !important;
+}
+
+/* 9. TASK LIST SPACING & FONT READABILITY */
+.task-list-item {
+  margin-top: 6px !important;
+  margin-bottom: 6px !important;
+  line-height: 1.65 !important;
+}
+
+.markdown-rendered ul > li,
+.markdown-rendered ol > li {
+  margin-top: 5px !important;
+  margin-bottom: 5px !important;
+  line-height: 1.65 !important;
+}
+
+.markdown-rendered p {
+  line-height: 1.65 !important;
+  margin-bottom: 0.9em !important;
 }

@@ -1,7 +1,8 @@
 {
   "cssTheme": "Isinglass",
-  "accentColor": "",
-  "theme": "obsidian",
+  "accentColor": "#4cae8d",
+  "theme": "system",
+  "translucency": true,
   "interfaceFontFamily": "Outfit, Inter, sans-serif",
   "textFontFamily": "Inter, Plus Jakarta Sans, sans-serif",
   "monospaceFontFamily": "JetBrains Mono, monospace",

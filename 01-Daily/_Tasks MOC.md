@@ -17,7 +17,7 @@ Central dashboard for tracking active tasks, in-progress items, and completed ta
 > [!INFO] 💡 How Task Tracking Works
 > - **Source of Truth**: Tasks stay inside your **Daily Notes (`01-Daily`)** and **Projects (`02-Projects`)**.
 > - **Habit Exclusion**: Routine checkboxes under `## 🔁 Habits` are strictly excluded.
-> - **Source Links**: Each task is reformatted with a direct link to its source note (e.g., `task name ([[note_name]])`).
+> - **Source Links**: Each task is reformatted with a direct link to its source note (e.g., `task name [[note_name]]`).
 
 ---
 
@@ -35,7 +35,7 @@ for (let p of pages) {
 
     if (t.status === "/") {
       const fileName = p.file.name;
-      const formattedText = `${t.text} (${dv.fileLink(p.file.path, false, fileName)})`;
+      const formattedText = `${t.text} ${dv.fileLink(p.file.path, false, fileName)}`;
       tasks.push(Object.assign({}, t, { text: formattedText }));
     }
   }
@@ -60,7 +60,7 @@ for (let p of pages) {
 
     if (t.status === " ") {
       const fileName = p.file.name;
-      const formattedText = `${t.text} (${dv.fileLink(p.file.path, false, fileName)})`;
+      const formattedText = `${t.text} ${dv.fileLink(p.file.path, false, fileName)}`;
       tasks.push(Object.assign({}, t, { text: formattedText }));
     }
   }
@@ -85,7 +85,18 @@ for (let p of pages) {
 
     if (t.completed || t.status === "x") {
       const fileName = p.file.name;
-      const formattedText = `${t.text} (${dv.fileLink(p.file.path, false, fileName)})`;
+      let rawText = t.text;
+
+      // Reformat ISO completion date ✅ 2026-08-08 -> ✅ 08 Aug 2026, 3:00 PM
+      rawText = rawText.replace(/✅\s*(\d{4}-\d{2}-\d{2})(?:\s+(\d{2}:\d{2}))?/g, (match, dateStr, timeStr) => {
+        const m = window.moment(dateStr + (timeStr ? " " + timeStr : ""), timeStr ? "YYYY-MM-DD HH:mm" : "YYYY-MM-DD");
+        if (m.isValid()) {
+          return "✅ " + m.format("DD MMM YYYY, h:mm A");
+        }
+        return match;
+      });
+
+      const formattedText = `${rawText} ${dv.fileLink(p.file.path, false, fileName)}`;
       tasks.push(Object.assign({}, t, { text: formattedText }));
     }
   }

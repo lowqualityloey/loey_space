@@ -1,0 +1,9 @@
+{
+  "id": "homepulse",
+  "name": "HomePulse",
+  "version": "1.0.2",
+  "minAppVersion": "1.5.0",
+  "description": "A component-based personal homepage dashboard with grid layout, drag editing, and workflow widgets.",
+  "author": "Yuki",
+  "isDesktopOnly": false
+}
