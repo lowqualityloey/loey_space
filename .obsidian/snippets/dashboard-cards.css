@@ -236,3 +236,88 @@
   line-height: 1.65 !important;
   margin-bottom: 0.9em !important;
 }
+
+
+/* ==========================================================================
+   📌 KANBAN BOARD BEAUTIFICATION (Sleek Modern Dark Glass & Theme Harmony)
+   ========================================================================== */
+
+.kanban-plugin,
+.kanban-plugin__board {
+  background: #0C0D13 !important;
+  padding: 12px !important;
+  gap: 16px !important;
+}
+
+.kanban-plugin__list-header,
+.kanban-plugin__list-header-title,
+.kanban-plugin__list-title,
+.kanban-plugin__list-title-wrapper {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #f8fafc !important;
+  font-weight: 600 !important;
+  font-size: 1.05rem !important;
+}
+
+.kanban-plugin__list {
+  background: rgba(24, 27, 38, 0.75) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 12px !important;
+  padding: 12px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25) !important;
+}
+
+/* REMOVE BLACK BACKGROUND BOXES BEHIND CARDS & CARD TEXT */
+.kanban-plugin__item-wrapper,
+.kanban-plugin__item-content,
+.kanban-plugin__item-title,
+.kanban-plugin__item-markdown,
+.kanban-plugin__item-markdown p,
+.kanban-plugin__item-markdown span,
+.kanban-plugin__item-markdown div {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #f1f5f9 !important;
+  box-shadow: none !important;
+}
+
+.kanban-plugin__item {
+  background: rgba(30, 34, 48, 0.75) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 8px !important;
+  margin-bottom: 10px !important;
+  padding: 10px 14px !important;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.kanban-plugin__item:hover {
+  background: rgba(42, 48, 68, 0.9) !important;
+  border-color: rgba(137, 251, 217, 0.4) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35) !important;
+}
+
+.kanban-plugin__item-markdown p {
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 1.5 !important;
+  font-size: 0.95rem !important;
+}
+
+.kanban-plugin__new-item-button,
+.kanban-plugin__new-list-button {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px dashed rgba(255, 255, 255, 0.12) !important;
+  border-radius: 8px !important;
+  color: #94a3b8 !important;
+  font-weight: 500 !important;
+  transition: all 0.15s ease !important;
+}
+
+.kanban-plugin__new-item-button:hover,
+.kanban-plugin__new-list-button:hover {
+  background: rgba(137, 251, 217, 0.1) !important;
+  color: #89fbd9 !important;
+  border-color: rgba(137, 251, 217, 0.35) !important;
+}
