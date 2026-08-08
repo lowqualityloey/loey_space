@@ -286,6 +286,18 @@
   "defaultLayoutPresetId": "public-default",
   "timeLogs": [
     {
+      "id": "timelog-msk5jqxa-fiqvwn",
+      "startTime": 1786178658477,
+      "endTime": 1786180158477,
+      "duration": 25,
+      "source": "pomodoro",
+      "targetType": "task",
+      "targetId": "quick-capture-dump",
+      "createdAt": 1786180158478,
+      "activityType": "work",
+      "taskId": "quick-capture-dump"
+    },
+    {
       "id": "timelog-msjf1ko5-whols6",
       "startTime": 1786133840549,
       "endTime": 1786135640549,
@@ -388,11 +400,16 @@
         "taskFile": "00-Inbox/quick-capture-dump.md"
       },
       "state": {
-        "status": "idle",
-        "remainingSeconds": 1500,
-        "phaseStartedAt": 0,
+        "status": "running",
+        "remainingSeconds": 1462,
+        "phaseStartedAt": 1786180385954,
         "todayCountDate": "2026-08-08",
-        "todayCount": 0,
+        "todayCount": 1,
+        "activeTarget": {
+          "type": "task",
+          "id": "quick-capture-dump",
+          "title": "quick-capture-dump"
+        },
         "recentTargets": [
           {
             "type": "task",
@@ -402,10 +419,16 @@
         ]
       }
     },
-    "recent-notes-rsoxrsi": {
+    "tasks-lt2bqf1": {
       "config": {
-        "title": "recently updated",
-        "limit": 6
+        "title": "open tasks",
+        "projectFolders": [
+          "02-Projects",
+          "01-Daily"
+        ],
+        "projectTags": [],
+        "projectNamePrefixes": [],
+        "limit": 12
       },
       "state": {}
     },
@@ -418,19 +441,6 @@
     "stats-main": {
       "config": {
         "title": "execution pulse"
-      },
-      "state": {}
-    },
-    "tasks-lt2bqf1": {
-      "config": {
-        "title": "open tasks",
-        "projectFolders": [
-          "02-Projects",
-          "01-Daily"
-        ],
-        "projectTags": [],
-        "projectNamePrefixes": [],
-        "limit": 12
       },
       "state": {}
     },
@@ -469,6 +479,13 @@
         ],
         "projectNamePrefixes": [],
         "limit": 10
+      },
+      "state": {}
+    },
+    "recent-notes-rsoxrsi": {
+      "config": {
+        "title": "recently updated",
+        "limit": 6
       },
       "state": {}
     },
