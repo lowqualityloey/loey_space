@@ -27,7 +27,7 @@ This policy defines the security standards for storing credentials, API keys, pr
 | Storage Location | Target Data Type | Git Status | Description |
 | :--- | :--- | :--- | :--- |
 | **`.secrets/`** | Private human-readable notes (passwords, bank info, private logs) | 🚫 **Ignored** | Vault-local directory at root. Completely excluded from Git commits. |
-| **`.env`** | Machine-readable credentials (API keys, tokens, DB connections) | 🚫 **Ignored** | Environment file loaded by integration scripts like [[06-Resources/ai-enrich-action.js\|ai-enrich-action.js]]. |
+| **`.env`** | Machine-readable credentials (API keys, tokens, DB connections) | 🚫 **Ignored** | Environment file loaded by integration scripts like [[06-Resources/scripts/ai-enrich-action.js\|ai-enrich-action.js]]. |
 | **Normal Vault Folders** | Knowledge notes, projects, dev docs, learning | ✅ **Tracked** | Safe for public/private Git repo backup. MUST NOT contain secrets. |
 
 ---
@@ -96,7 +96,7 @@ loey_space/
 
 - [ ] Check `git status` to verify `.secrets/` and `.env` are not listed under untracked files.
 - [ ] Ensure `.env.example` contains only dummy placeholder values.
-- [ ] Confirm no hardcoded API keys exist in `06-Resources/ai-enrich-action.js` or `99-Templates/`.
+- [ ] Confirm no hardcoded API keys exist in `06-Resources/scripts/ai-enrich-action.js` or `99-Templates/`.
 - [ ] Perform periodic [[Secrets management]] audit before pushing major repository releases.
 
 ---

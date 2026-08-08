@@ -14,7 +14,7 @@
             "name": "Run AI Enrich UserScript",
             "type": "UserScript",
             "id": "e4f0a1b2-dddd-4000-8000-000000000033",
-            "path": "06-Resources/ai-enrich-action.js",
+            "path": "06-Resources/scripts/ai-enrich-action.js",
             "settings": {}
           }
         ]
@@ -356,7 +356,7 @@
           "name": "Run AI Enrich UserScript",
           "type": "UserScript",
           "id": "e4f0a1b2-dddd-4000-8000-000000000033",
-          "path": "06-Resources/ai-enrich-action.js",
+          "path": "06-Resources/scripts/ai-enrich-action.js",
           "settings": {}
         }
       ]

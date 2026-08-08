@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Configuration
-const VAULT_PATH = path.join(__dirname, '..');
+const VAULT_PATH = path.resolve(__dirname, '../../');
 const ENRICHED_NOTES_FILE = path.join(__dirname, '.enriched-timestamps.json');
 
 // Load existing timestamps

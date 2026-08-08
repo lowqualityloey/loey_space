@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const NOTION_TOKEN = process.env.NOTION_TOKEN || process.env.NOTION_API_KEY || '';
-const VAULT_PATH = path.join(__dirname, '..');
+const VAULT_PATH = path.resolve(__dirname, '../../');
 
 const DATABASES = [
   { id: 'ba03415d-78cb-4d12-be86-c67be44f5fcf', name: 'Daily Notes', folder: '01-Daily', type: 'daily', area: 'general' }

@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const workspaceRoot = __dirname;
-const templatesPath = path.join(workspaceRoot, '..', '99-Templates');
+const templatesPath = path.resolve(__dirname, '../../99-Templates');
 
 // Expected required properties for each template type
 const expectedProperties = {

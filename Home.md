@@ -4,7 +4,7 @@ status: active
 area: general
 tags:
   - type/dashboard
-updated: 2026-08-08
+updated: 2026-08-09
 ---
 
 # 🏠 Central Command Hub
@@ -15,18 +15,18 @@ updated: 2026-08-08
 
 ## ⚡ Quick Navigation
 
-| Area          | Hub Link                                       | Purpose                                        |
-| :------------ | :--------------------------------------------- | :--------------------------------------------- |
-| 📅 Daily Logs | [[01-Daily/_Daily MOC\|Daily MOC]]             | Daily journal, habits & reflections            |
-| 📋 Tasks Hub  | [[01-Daily/_Tasks MOC\|Tasks MOC]]             | Active tasks, in-progress & completion history |
-| 📊 Tasks Kanban | [[Tasks/Tasks Kanban\|Tasks Kanban]]         | Visual kanban board for all tasks              |
-| 🚀 Projects   | [[02-Projects/_Projects MOC\|Projects MOC]]    | Active development & project builds            |
-| 💻 Dev Notes  | [[03-Dev/_Dev MOC\|Dev MOC]]                   | Code snippets & technical patterns             |
-| 💡 Concepts   | [[08-Concepts/_Concepts MOC\|Concepts MOC]]    | Evergreen knowledge & technical concepts       |
-| 📖 Learning   | [[04-Learning/_Learning MOC\|Learning MOC]]    | Courses & study notes                          |
-| 📚 Resources  | [[06-Resources/_Resources MOC\|Resources MOC]] | Reference links & cheatsheets                  |
-| 📥 Inbox      | [[00-Inbox/_Inbox MOC\|Inbox MOC]]             | Quick capture & inbox                          |
-| 🧹 Triage     | [[00-Inbox/_Triage MOC\|Triage MOC]]           | Stale notes & overdue reviews                  |
+| Area            | Hub Link                                       | Purpose                                        |
+| :-------------- | :--------------------------------------------- | :--------------------------------------------- |
+| 📅 Daily Logs   | [[01-Daily/_Daily MOC\|Daily MOC]]             | Daily journal, habits & reflections            |
+| 📋 Tasks Hub    | [[01-Daily/_Tasks MOC\|Tasks MOC]]             | Active tasks, in-progress & completion history |
+| 📊 Tasks Kanban | [[Tasks/Tasks Kanban\|Tasks Kanban]]           | Visual kanban board for all tasks              |
+| 🚀 Projects     | [[02-Projects/_Projects MOC\|Projects MOC]]    | Active development & project builds            |
+| 💻 Dev Notes    | [[03-Dev/_Dev MOC\|Dev MOC]]                   | Code snippets & technical patterns             |
+| 💡 Concepts     | [[08-Concepts/_Concepts MOC\|Concepts MOC]]    | Evergreen knowledge & technical concepts       |
+| 📖 Learning     | [[04-Learning/_Learning MOC\|Learning MOC]]    | Courses & study notes                          |
+| 📚 Resources    | [[06-Resources/_Resources MOC\|Resources MOC]] | Reference links & cheatsheets                  |
+| 📥 Inbox        | [[00-Inbox/_Inbox MOC\|Inbox MOC]]             | Quick capture & inbox                          |
+| 🧹 Triage       | [[00-Inbox/_Triage MOC\|Triage MOC]]           | Stale notes & overdue reviews                  |
 
 ---
 ## 📌 Daily Focus & Active Tasks
