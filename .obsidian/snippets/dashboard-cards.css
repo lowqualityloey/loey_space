@@ -270,3 +270,42 @@
   background-color: transparent !important;
   box-shadow: none !important;
 }
+
+/* ==========================================================================
+   📅 HOMEPULSE CALENDAR WIDGET LAYOUT FIX (Fit 6-Row Months & Prevent Date Crop)
+   ========================================================================== */
+
+.yh-widget-calendar .yh-card-body {
+  padding-top: 2px !important;
+  overflow: visible !important;
+}
+
+.yh-calendar-nav {
+  margin-bottom: 4px !important;
+}
+
+.yh-calendar-grid {
+  gap: 1px !important;
+  margin-bottom: 1px !important;
+}
+
+.yh-calendar-cell {
+  padding: 1px 1px !important;
+  grid-template-rows: 1fr auto !important;
+  min-height: 22px !important;
+}
+
+.yh-calendar-day {
+  font-size: 0.72rem !important;
+  line-height: 1.1 !important;
+}
+
+.yh-calendar-dots {
+  min-height: 3px !important;
+  gap: 1px !important;
+}
+
+.yh-calendar-dot {
+  width: 2.5px !important;
+  height: 2.5px !important;
+}
