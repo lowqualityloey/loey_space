@@ -2,6 +2,7 @@
 created: 2026-08-02
 updated: 2026-08-02
 type: resource
+url: https://openweathermap.org/api
 category: api
 area: dev
 tags:

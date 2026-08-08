@@ -3,6 +3,7 @@ type: moc
 tags:
   - type/moc
   - area/resources
+updated: 2026-08-09
 ---
 
 # 📚 Resources MOC
@@ -15,10 +16,17 @@ tags:
 
 ---
 
-## 🔗 Bookmarks & Reference Links
+## 🔖 Web Bookmarks
+* [github.com](https://github.com/lowqualityloey/loey_space)
+* [openweathermap.org](https://openweathermap.org/api/one-call-4?collection=one_call_api)
+## 📂 Resource Index & Documentation Catalog
+
 ```dataview
-TABLE source_type AS "Medium", category AS "Category", url AS "URL"
+TABLE 
+  type AS "Type", 
+  choice(category, category, area) AS "Category", 
+  choice(updated, updated, file.mtime) AS "Last Updated"
 FROM "06-Resources"
-WHERE file.name != "_Resources MOC" AND file.name != "Second Brain Guide" AND file.name != "Vault Security Policy"
-SORT file.name ASC
+WHERE file.name != "_Resources MOC" AND !contains(file.name, "MOC")
+SORT updated DESC, file.mtime DESC
 ```

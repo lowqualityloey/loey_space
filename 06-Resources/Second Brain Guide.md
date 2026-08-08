@@ -1,7 +1,7 @@
 ---
 created: 2026-08-02
-updated: 2026-08-06
-type: resource
+updated: 2026-08-09
+type: guide
 status: active
 area: general
 source_type: documentation
