@@ -12,6 +12,7 @@
   "knownTags": {
     "area": 6,
     "priority": 17,
+    "source": 19,
     "status": 18,
     "tool": 16,
     "topic": 15,
@@ -30,6 +31,7 @@
     "area/system": 11,
     "area/tasks": 12,
     "priority/medium": 1,
+    "source/mobile": 1,
     "status/active": 1,
     "status/completed": 2,
     "status/in-progress": 3,
@@ -41,6 +43,7 @@
     "topic/guide": 2,
     "topic/habits": 8,
     "topic/metadata": 3,
+    "topic/mobile": 10,
     "topic/quickadd": 5,
     "topic/reviews": 9,
     "topic/taxonomy": 4,
@@ -57,6 +60,7 @@
     "type/resource": 7,
     "type/review": 9,
     "type/snippet": 4,
+    "type/task": 23,
     "type/template": 21
   },
   "tagColors": {},
