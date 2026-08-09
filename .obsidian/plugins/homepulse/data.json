@@ -365,7 +365,10 @@
           "tidy",
           "disconnect"
         ],
-        "completions": {}
+        "completions": {
+          "read|2026-08-09": true,
+          "prioritise|2026-08-09": true
+        }
       }
     },
     "pomodoro-64kmxai": {
@@ -393,7 +396,7 @@
         "status": "idle",
         "remainingSeconds": 1500,
         "phaseStartedAt": 0,
-        "todayCountDate": "2026-08-09",
+        "todayCountDate": "2026-08-10",
         "todayCount": 0,
         "recentTargets": [
           {

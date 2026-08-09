@@ -1,6 +1,6 @@
 ---
 created: 2026-08-02
-updated: 2026-08-06
+updated: 2026-08-09
 type: resource
 status: active
 area: dev
@@ -18,7 +18,7 @@ Canonical security specification for secret handling, private data storage, and 
 
 ## 1. Purpose
 
-This policy defines the security standards for storing credentials, API keys, private notes, and sensitive personal information in this vault. Because this vault is backed up to a private remote repository via [[Git]], strict separation between **tracked knowledge notes** and **un-tracked private secrets** is mandatory to prevent accidental credential exposure.
+This policy defines the security standards for storing credentials, [[API]] keys, private notes, and sensitive personal information in this vault. Because this vault is backed up to a private remote repository via [[Git]], strict separation between **tracked knowledge notes** and **un-tracked private secrets** is mandatory to prevent accidental credential exposure.
 
 ---
 

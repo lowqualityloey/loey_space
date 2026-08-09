@@ -1,6 +1,6 @@
 ---
 created: <% tp.date.now("YYYY-MM-DD") %>
-updated: <% tp.date.now("YYYY-MM-DD") %>
+updated: 2026-08-10
 last_reviewed: <% tp.date.now("YYYY-MM-DD") %>
 review_cycle: 90d
 type: concept
@@ -24,15 +24,6 @@ What does this concept mean in one or two sentences?
 - 
 - 
 - 
-## Questions
-- 
-
-## Next steps
-- 
-## 🔗 Related References
-- [[ ]]
-- [[ ]]
-- [[ ]]
 
 ## Related notes (Auto-backlinks)
 ```dataview

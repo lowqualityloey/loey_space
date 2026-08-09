@@ -89,9 +89,9 @@ if (carried.length > 0) {
 ### 🔁 Habits
 > _Daily rituals I'm building. Track consistency, not perfection._
 - [ ] water
-- [ ] prioritised
+- [x] prioritised
 - [ ] move
-- [ ] read
+- [x] read
 - [ ] tidy
 - [ ] disconnect
 

@@ -1,6 +1,6 @@
 ---
 created: 2026-08-06
-updated: 2026-08-06
+updated: 2026-08-09
 type: guide
 area: system
 tags:
@@ -18,7 +18,7 @@ status: active
 ## Core Principles
 
 1. **Namespaced Tags**: Use `namespace/value` format for all tags
-2. **Standardized Properties**: Consistent YAML frontmatter across all note types
+2. **Standardized Properties**: Consistent [[YAML]] frontmatter across all note types
 3. **Hierarchical Organization**: Clear relationships between categories
 4. **Minimal Required Fields**: Only essential properties for each note type
 5. **Automation Ready**: Structure supports automated workflows and queries
