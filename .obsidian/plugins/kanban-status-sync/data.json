@@ -1,0 +1,18 @@
+{
+  "autoSync": true,
+  "manageCompletionDate": true,
+  "notifyOnChange": false,
+  "laneState": {
+    "02-Projects/weather-dashboard/Weather Dashboard Kanban.md": {
+      "persist saved cities using localstorage": "backlog",
+      "improve mobile responsiveness and accessibility": "backlog",
+      "deploy application to cloudflare pages": "backlog",
+      "add collapsible accordion for hourly forecast": "to do",
+      "connect city search to geocoding api": "to do",
+      "implement theme toggle functionality": "to do",
+      "build static dashboard layout with mock data": "in progress",
+      "build openweather api service, data mappers, and typescript types": "done",
+      "install ui component primitives (button, card, input, label, badge, switch, collapsible)": "done"
+    }
+  }
+}

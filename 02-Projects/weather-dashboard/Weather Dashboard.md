@@ -1,6 +1,6 @@
 ---
 type: project
-status: in progress
+status: in-progress
 priority: high
 tags:
   - type/project

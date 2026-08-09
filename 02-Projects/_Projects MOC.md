@@ -13,7 +13,14 @@ tags:
 
 ## 🟢 Active Projects
 ```dataviewjs
-const projects = dv.pages('"02-Projects"').where(p => p.type === "project" && (p.status === "in-progress" || p.status === "active"));
+// Status is matched loosely: "in progress", "in-progress", "active" and "doing"
+// all count as active, so a space instead of a hyphen no longer hides a project.
+const ACTIVE_STATUSES = ["in progress", "active", "doing", "wip"];
+const normalize = (value) => String(value || "").toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+
+const projects = dv.pages('"02-Projects"')
+    .where(p => p.type === "project" && ACTIVE_STATUSES.includes(normalize(p.status)));
+
 const rows = [];
 
 const priorityWeight = { "critical": 4, "high": 3, "medium": 2, "low": 1, "none": 0 };
@@ -22,13 +29,19 @@ projects.forEach(p => {
     const folder = p.file.folder;
     let totalTasks = 0;
     let completedTasks = 0;
-    
-    // Aggregate tasks from all notes within the project's specific folder
+
+    // Aggregate tasks from all notes within the project's specific folder.
+    // Backlog (not committed) and Archive (historical) are excluded so progress
+    // reflects the work actually in flight, matching _Tasks MOC's scope.
     const folderPages = dv.pages(`"${folder}"`);
     folderPages.forEach(page => {
         if (page.file.tasks && page.file.tasks.length > 0) {
-            totalTasks += page.file.tasks.length;
-            completedTasks += page.file.tasks.where(t => t.completed).length;
+            const counted = page.file.tasks.where(t => {
+                const sec = (t.header && t.header.subpath) ? t.header.subpath.toLowerCase() : "";
+                return !sec.includes("backlog") && !sec.includes("archive");
+            });
+            totalTasks += counted.length;
+            completedTasks += counted.where(t => t.completed).length;
         }
     });
 

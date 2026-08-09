@@ -1,6 +1,6 @@
 ---
 created: <% tp.date.now("YYYY-MM-DD") %>
-updated: 2026-08-09
+updated: 2026-08-10
 type: daily
 area: personal
 mood: 
@@ -62,10 +62,12 @@ if (prevFile) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    if (/^##\s+.*(Tomorrow Setup|Tasks)/i.test(line)) {
+    // Accepts ## or ### headings — the Tasks heading is "### ✅ Tasks", so an
+    // h2-only pattern silently carried nothing forward.
+    if (/^#{2,3}\s+.*(Tomorrow Setup|Tasks)/i.test(line)) {
       inTargetSection = true;
       continue;
-    } else if (/^##\s+/.test(line)) {
+    } else if (/^#{2,3}\s+/.test(line)) {
       inTargetSection = false;
     }
 
@@ -76,6 +78,37 @@ if (prevFile) {
       }
     }
   }
+
+  // Mark the carried tasks in the previous note as forwarded ([>]) so the same
+  // task is never open in two notes at once. Without this, every carry-over
+  // duplicates the task in the Open Tasks widget, _Tasks MOC and the analytics.
+  // The old note still records that the work moved on instead of vanishing.
+  if (carried.length > 0) {
+    const updatedLines = [];
+    let inForwardSection = false;
+    let didForward = false;
+
+    for (const line of lines) {
+      if (/^#{2,3}\s+.*(Tomorrow Setup|Tasks)/i.test(line)) {
+        inForwardSection = true;
+        updatedLines.push(line);
+        continue;
+      } else if (/^#{2,3}\s+/.test(line)) {
+        inForwardSection = false;
+      }
+
+      // Only real tasks are forwarded; the empty "- [ ]" placeholder is left alone.
+      if (inForwardSection && /^\s*- \[ \]\s+\S/.test(line)) {
+        updatedLines.push(line.replace(/^(\s*-\s*)\[ \]/, "$1[>]"));
+        didForward = true;
+        continue;
+      }
+
+      updatedLines.push(line);
+    }
+
+    if (didForward) await app.vault.modify(prevFile, updatedLines.join("\n"));
+  }
 }
 
 if (carried.length > 0) {
@@ -85,15 +118,54 @@ if (carried.length > 0) {
 }
 -%>
 
+#### 🎯 In Progress from Projects
+>_Live from your project boards. 
+
+```dataviewjs
+// Shows project cards that are in progress, plus any completed on this note's
+// date so a task you tick stays visible as done. Tasks are pushed unmodified so
+// their checkboxes still write back to the Kanban card.
+const noteDate = String(dv.current() && dv.current().file ? dv.current().file.name : "").slice(0, 10);
+const tasks = [];
+
+for (const page of dv.pages('"02-Projects"')) {
+  if (!page.file.tasks) continue;
+  for (const t of page.file.tasks) {
+    if (!t.text || !t.text.trim()) continue;
+
+    const section = (t.header && t.header.subpath) ? t.header.subpath.toLowerCase() : "";
+    if (section.includes("backlog") || section.includes("archive")) continue;
+
+    const inProgress = t.status === "/";
+    const finishedToday = (t.completed || t.status === "x") && noteDate && t.text.includes("✅ " + noteDate);
+
+    if (inProgress || finishedToday) tasks.push(t);
+  }
+}
+
+// Class hook for the CSS snippet that renders [/] as an empty checkbox here.
+dv.container.addClass("project-task-mirror");
+
+if (tasks.length > 0) dv.taskList(tasks, false);
+else dv.paragraph("No project tasks in progress.");
+```
+
 ---
 ### 🔁 Habits
 > _Daily rituals I'm building. Track consistency, not perfection._
 - [ ] water
-- [x] prioritised
+- [ ] prioritised
 - [ ] move
-- [x] read
+- [ ] read
 - [ ] tidy
 - [ ] disconnect
+
+## 📝 Daily Log
+> _A running timestamp of what happened today._
+- 
+### 💡 Ideas & Fleeting Notes
+> _Spark: What random idea popped into my head today? _
+- 
 
 ---
 
@@ -127,4 +199,7 @@ if (carried.length > 0) {
 >_Based on today, what's the smartest move for tomorrow?_
 - 
 
+
 ---
+##### 🔗 Connected Notes
+- [[ ]]

@@ -245,7 +245,13 @@ All data is automatically pulled from daily notes — no manual tracking require
   * `- [x] task` => **Completed** (Logged in task analytics)
 * **Habit Isolation**: Routine checkboxes under `## 🔁 Habits` are strictly isolated from task command centers.
 * **Kanban Filtering**: Tasks under `## Backlog` and `## Archive` in project kanbans are excluded from the Open Tasks widget and `_Tasks MOC.md`.
-* **Lane-Driven Status**: Card markers are set automatically from the lane a card sits in (`To Do` -> `[ ]`, `In Progress` / `Review / Test` -> `[/]`, `Done` -> `[x]` + `✅ date`). The board is the authority — hand-edited markers are corrected on the next save. Cancelled/forwarded markers (`[-]`, `[>]`, `[<]`) are preserved.
+* **Lane-Driven Status**: Card markers are set automatically from the lane a card sits in (`To Do` -> `[ ]`, `In Progress` / `Review / Test` -> `[/]`, `Done` -> `[x]` + `✅ date`). Cancelled/forwarded markers (`[-]`, `[>]`, `[<]`) are preserved.
+* **Tick Anywhere to Complete**: Ticking a project card from the board, `_Tasks MOC.md`, or the daily note's project query moves that card to the **Done** lane with today's date.
+* **Project Tasks in Daily Notes**: Daily notes show in-progress project work through a live Dataview query (`#### 🎯 In Progress from Projects`), not copied text — so nothing is double-counted in the Open Tasks widget and nothing leaks into the next day's carry-over. A CSS snippet (`project-tasks.css`) draws these `[/]` cards as empty checkboxes inside daily notes, so they read as ordinary open tasks you can tick; cards completed that day stay listed, checked.
+* **Project Status Matching**: `_Projects MOC.md` accepts `in progress`, `in-progress`, `active`, `doing` and `wip` as active, so a space instead of a hyphen no longer hides a project. Progress bars count committed work only — Backlog and Archive are excluded.
+* **Daily Carry-Over**: Unfinished `- [ ]` tasks under `### ✅ Tasks` roll forward into tomorrow's daily note. Completed and in-progress items do not.
+* **Forwarded, Not Duplicated**: When tasks carry forward, the previous note marks its copies `- [>]` (forwarded, shown as a faint `→`). Each task is therefore open in exactly one note, so it is counted once in the Open Tasks widget, `_Tasks MOC.md`, and the analytics.
+* **Today-Scoped Dashboards**: `_Tasks MOC.md` counts daily tasks from the current daily note only; project board tasks are always included. Completed totals stay all-time.
 
 ---
 

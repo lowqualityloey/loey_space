@@ -11,6 +11,12 @@
   --tab-outline-color: transparent !important;
   --workspace-background-translucent: transparent !important;
   --line-height-normal: 1.65 !important;
+
+  /* Width kept clear for the pinned window controls (minimize / maximize / close).
+     Because those controls are absolutely positioned over the tab bar, anything
+     in the tab bar's right edge would otherwise sit underneath them and swallow
+     the click. Roughly 3 buttons x 40px — raise it if you add titlebar buttons. */
+  --hp-window-controls-width: 120px;
 }
 
 .workspace-leaf,
@@ -56,11 +62,14 @@
   z-index: 9999 !important;
 }
 
-/* 3. Main Center Editor Tab Container */
+/* 3. Main Center Editor Tab Container
+      The right padding reserves room for the pinned window controls above, so
+      tab-bar buttons (new tab, split, pop-out, Commander buttons) stay clickable
+      instead of hiding behind minimize / maximize / close. */
 .workspace-split.mod-root .workspace-tab-header-container {
   background: transparent !important;
   border-bottom: none !important;
-  padding: 4px 6px 0 6px !important;
+  padding: 4px calc(var(--hp-window-controls-width) + 6px) 0 6px !important;
   margin: 0 !important;
 }
 
@@ -134,7 +143,8 @@
   align-items: center !important;
   gap: 4px !important;
   padding: 4px 8px !important;
-  margin-right: 120px !important;
+  /* Same clearance as the main tab bar — tune --hp-window-controls-width once. */
+  margin-right: var(--hp-window-controls-width) !important;
 }
 
 .workspace-split.mod-left-split .workspace-tab-header-container {

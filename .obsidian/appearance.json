@@ -8,6 +8,7 @@
   "monospaceFontFamily": "JetBrains Mono, monospace",
   "enabledCssSnippets": [
     "fonts",
-    "dashboard-cards"
+    "dashboard-cards",
+    "project-tasks"
   ]
 }

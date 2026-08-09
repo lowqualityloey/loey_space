@@ -1,0 +1,87 @@
+/* ==========================================================================
+   Project task mirror — daily notes
+   --------------------------------------------------------------------------
+   The "In Progress from Projects" list in daily notes shows Kanban cards whose
+   real status is [/] (in progress). On the board that marker is meaningful, but
+   inside the daily note it should read as an ordinary open task you can tick.
+
+   Scoped to .project-task-mirror, which the dataviewjs block adds to its own
+   container, so [/] styling everywhere else (_Tasks MOC, project boards) is
+   untouched.
+   ========================================================================== */
+
+.project-task-mirror .task-list-item[data-task="/"] > input.task-list-item-checkbox,
+.project-task-mirror .task-list-item[data-task="/"] > p > input.task-list-item-checkbox {
+  /* Render as an empty box: no marker, plain border. */
+  --checkbox-marker-color: transparent;
+  background-color: transparent;
+  border-color: var(--checkbox-border-color, var(--text-faint));
+  box-shadow: none;
+}
+
+/* Themes draw the in-progress glyph with either pseudo-element; clear both. */
+.project-task-mirror .task-list-item[data-task="/"] > input.task-list-item-checkbox::before,
+.project-task-mirror .task-list-item[data-task="/"] > input.task-list-item-checkbox::after,
+.project-task-mirror .task-list-item[data-task="/"] > p > input.task-list-item-checkbox::before,
+.project-task-mirror .task-list-item[data-task="/"] > p > input.task-list-item-checkbox::after {
+  content: none;
+  display: none;
+  background-color: transparent;
+}
+
+/* Some themes dim or italicise in-progress text; keep it reading as normal. */
+.project-task-mirror .task-list-item[data-task="/"] {
+  color: var(--text-normal);
+  font-style: normal;
+  text-decoration: none;
+  opacity: 1;
+}
+
+/* Completed project tasks stay visible for the day, styled like any done task. */
+.project-task-mirror .task-list-item[data-task="x"] {
+  opacity: 0.75;
+}
+
+/* Dataview adds its own list padding; align with the note's task list. */
+.project-task-mirror ul.contains-task-list {
+  padding-inline-start: 1.5em;
+  margin-block: 0.25em;
+}
+
+/* ==========================================================================
+   Forwarded tasks ([>]) — carried into a later daily note
+   --------------------------------------------------------------------------
+   When a daily note is created, unfinished tasks move into it and the previous
+   note marks its copies as forwarded. That keeps each task open in exactly one
+   note, so the Open Tasks widget, _Tasks MOC and the analytics never count it
+   twice. These lines are history: visible, but clearly no longer actionable.
+   ========================================================================== */
+
+li.task-list-item[data-task=">"] {
+  opacity: 0.5;
+  font-style: italic;
+}
+
+/* A small arrow reads better than an empty box for "moved to a later day". */
+li.task-list-item[data-task=">"] > input.task-list-item-checkbox,
+li.task-list-item[data-task=">"] > p > input.task-list-item-checkbox {
+  position: relative;
+  border-color: transparent;
+  background-color: transparent;
+  box-shadow: none;
+}
+
+li.task-list-item[data-task=">"] > input.task-list-item-checkbox::after,
+li.task-list-item[data-task=">"] > p > input.task-list-item-checkbox::after {
+  content: "→";
+  display: block;
+  position: absolute;
+  inset: 0;
+  color: var(--text-faint);
+  font-size: 0.95em;
+  line-height: 1;
+  text-align: center;
+  background-color: transparent;
+  -webkit-mask-image: none;
+  mask-image: none;
+}

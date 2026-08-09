@@ -81,6 +81,19 @@ The vault features 1-click QuickAdd actions and a universal **Multi-Domain AI En
 
 ## 🤖 3. Multi-Domain AI Enricher Engine (`ai-enrich-action.js`)
 
+> [!INFO] 📅 What the Daily enricher reads and writes
+> **Reads**: `mood` / `energy` / `sleep_hours`, 🎯 Today's Focus, ✅ Tasks (completed, open, and `[>]` forwarded counted separately), 🔁 Habits (as *n* of 6), 📝 Daily Log, 💡 Ideas & Fleeting Notes, and the human-written Wins / Blockers / Reflection. Fenced blocks — including the project query — are ignored, never scraped as user data.
+>
+> **Writes** into 🤖 AI Daily Summary:
+> - **Summary** — one casual "vibe" sentence naming the real things logged (the food, the fight, the crying), then up to 2 bullets on what moved forward, then 1 bullet on how you coped — only when coping is actually in the log.
+> - **AI Reflection** — labelled `**Pattern:**` (the repeated behaviour across tasks, log and habits, including why some habits get ticked and others don't), `**Friction:**` (your Blockers, or the biggest untracked gap between timestamps), `**Insight:**` (one non-obvious connection).
+> - **Suggested Next Step** — one small tactical move phrased *"Try [action] because [reason]"*. Never therapeutic.
+> - **🔗 Connected Notes** — yesterday's note always first, then only notes actually named in your tasks, log or ideas. A logged URL can become a suggested title such as `[[Semantic Commit Messages]]`.
+>
+> **Voice contract**: conversational and sharp, like texting a smart friend — under 150 words, using your own wording. Clinical phrasing is banned ("emotional distress", "interpersonal conflict", "significant impact", "well-being"); the script warns in the console if any slips through. Every bad day gets its coping mechanism named rather than only its friction.
+>
+> **Link guard**: a suggested link survives only if it is yesterday's note, an existing note whose name you actually wrote, or a title whose words appear in what you wrote. That is what stops `[[API]]` or `[[Tasks Kanban]]` being invented out of an error message. If `sleep_hours` is under 6, the next step must acknowledge the sleep debt.
+
 Pressing **`Ctrl + Shift + A`** or clicking **`✨`** automatically detects the active note category:
 
 1. **📅 Daily Notes (`01-Daily/...`)**:
@@ -120,13 +133,60 @@ Card markers are maintained by the **Kanban Status Sync** plugin (`.obsidian/plu
 | `Done`, `Complete`, `Shipped` | `- [x]` + `✅ YYYY-MM-DD` |
 | `Archive` | left untouched |
 
-Behaviour worth knowing:
+Two rules decide what happens, in this order:
 
-1. **The board is the authority.** Editing a marker by hand without moving the card gets corrected on the next board save.
-2. **Moving out of Done reverses cleanly** — both the `[x]` and the `✅` date are removed, so no card claims to be finished while sitting in To Do.
-3. **Meaningful markers survive**: `[-]` cancelled, `[>]` forwarded, `[<]` scheduled, `[?]`, `[!]` are never overwritten by a lane rule.
-4. **Only top-level cards are managed.** Indented subtasks inside a card, and any lane not listed above, are left alone.
-5. **Lane names match loosely** — `## 🔄 In Progress`, `## Review/Test` and `## **Done**` all resolve correctly.
+1. **Lane change wins.** Drag a card and its marker follows the new lane.
+2. **Otherwise, a tick means done.** If a card stays in its lane but becomes `[x]`, that's a completion — the card **moves to the Done lane** and gets today's date.
+
+Rule 2 is what lets you tick a project task from anywhere: the board, `_Tasks MOC`, or the project query in your daily note. The decision uses a stored snapshot of where each card sat on the previous sync, not the `✅` date, because the Tasks plugin may add that date itself when a checkbox is toggled.
+
+Other behaviour worth knowing:
+
+- **Moving out of Done reverses cleanly** — both the `[x]` and the `✅` date are removed, so no card claims to be finished while sitting in To Do.
+- **Meaningful markers survive**: `[-]` cancelled, `[>]` forwarded, `[<]` scheduled, `[?]`, `[!]` are never overwritten.
+- **Only top-level cards are managed.** Indented subtasks inside a card, and any lane not listed above, are left alone.
+- **Lane names match loosely** — `## 🔄 In Progress`, `## Review/Test` and `## **Done**` all resolve correctly.
+- **A card the plugin has not seen before** falls back to rule 1, so pasting in a pre-ticked card won't teleport it to Done.
+
+### 🎯 Project tasks inside the daily note
+
+`99-Templates/Daily.md` carries a live Dataview block under `## ✅ Tasks`:
+
+`99-Templates/Daily.md` carries a `dataviewjs` block under `## ✅ Tasks` that lists:
+
+1. project cards currently **in progress** (`[/]`), and
+2. project cards **completed on that note's own date**, so a task you tick stays visible as done rather than vanishing.
+
+It **queries** the boards rather than copying tasks, which is the whole point:
+
+- **No duplication.** Each project task exists once on disk, so the Open Tasks widget, `_Tasks MOC` and the analytics counters each see it exactly once. The daily note contributes only the tasks you actually typed in it.
+- **Nothing to carry over.** The carry-over only copies literal `- [ ]` lines, and a query block has none — so project work never accumulates as stale copies in tomorrow's note. The board keeps that state.
+- **The checkbox is live.** Ticking it writes `[x]` to the Kanban card, rule 2 above moves that card to Done, and the task then appears under **Recently Completed** in `_Tasks MOC`.
+- **Backlog and Archive are excluded**, matching the scope of every other task dashboard.
+
+The block calls `dv.container.addClass("project-task-mirror")`, and the `project-tasks.css` snippet uses that hook to render `[/]` as an **empty checkbox inside daily notes only**. On the board and in `_Tasks MOC` the in-progress marker still looks like in-progress; in the daily note it reads as an ordinary open task you can tick. Nothing about the underlying status changes — only how it is drawn.
+
+> [!NOTE] Existing daily notes need the block added by hand
+> Template edits only affect newly created notes. The block was added to `01-Daily/2026-08-09.md` as well; copy it into any other note where you want the view.
+
+### 🔄 Carry-over forwards, it does not copy
+
+When a new daily note is created, unfinished `- [ ]` tasks move into it **and the previous note marks its copies as forwarded** (`- [>]`):
+
+```text
+2026-08-09    - [>] test task 1      ← history: this moved on
+2026-08-10    - [ ] test task 1      ← the one live copy
+```
+
+This matters because every task dashboard reads *all* of `01-Daily`. Without forwarding, one carried task is open in two notes at once and gets counted twice — in `_Tasks MOC`, in the Open Tasks widget, and in the analytics totals. HomePulse's task indexer matches only `[ ]`, `[/]` and `[x]`, so `[>]` is invisible to it; `project-tasks.css` renders it as a faint `→`.
+
+As a second layer, the **Currently In Progress**, **Active To-Dos** and **Task Completion Analytics** blocks in `_Tasks MOC` only count daily tasks from the *current* daily note (today, or the most recent day before today). Project tasks are never date-scoped — a board card stays open until the card itself moves. Completed totals remain all-time, since that is the history.
+
+> [!TIP] Carry-over depends on the heading level
+> The Templater carry-over matches `/^#{2,3}\s+.*(Tomorrow Setup|Tasks)/i`. It was previously `^##\s+`, which never matched the actual `### ✅ Tasks` heading, so nothing rolled forward. If you rename or re-level that heading, update this pattern too. The `####` project-query heading is deliberately below the matched levels so it does not close the section.
+
+> [!WARNING] Dataview checkboxes break if the task text is rewritten
+> `_Tasks MOC` pushes task objects unchanged and calls `dv.taskList(tasks, true)` to group them by file. Appending a file link to `t.text` — the previous approach — produces checkboxes that look clickable but silently fail to update the source note. Keep task text untouched in any query whose checkboxes you want to work. The **Recently Completed** list is exempt: it reformats dates for display only, so its boxes are read-only by design.
 
 > [!WARNING] Don't enable Kanban's own lane completion setting
 > Leave **"Mark items in this lane as complete"** switched off in the Kanban plugin's lane settings. Both features write the same checkbox and will fight over it.

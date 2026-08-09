@@ -3,9 +3,17 @@
 /*
  * Kanban Status Sync
  * ------------------
- * Keeps the checkbox marker of every Kanban card in step with the lane it sits in.
- * The board becomes the authority on status, so `_Tasks MOC` can tell an active
- * to-do from work in progress without you editing markers by hand.
+ * Keeps every Kanban card's checkbox in step with the lane it sits in, and
+ * treats a card you tick anywhere (board, _Tasks MOC, a daily-note query) as
+ * finished by moving it to the Done lane.
+ *
+ * Two rules, in this order:
+ *   1. If a card changed lane, the lane wins and the marker follows it.
+ *   2. If a card stayed put but became [x], that's a completion -> move to Done.
+ *
+ * Rule order is decided from a snapshot of where each card was on the previous
+ * sync, not from the presence of a ✅ date, because the Tasks plugin may stamp
+ * that date itself when a checkbox is toggled.
  *
  * Edit LANE_MARKERS below to match your own column names.
  */
@@ -45,13 +53,14 @@ const LANE_MARKERS = {
 // rewriting it would churn old completion dates.
 const UNMANAGED_LANES = ["archive", "archived"];
 
-// Markers carrying meaning the lane cannot express, so they are left alone:
+// Markers carrying meaning a lane cannot express, so they are left alone:
 // cancelled, forwarded, scheduled, question, important.
 const PRESERVED_MARKERS = ["-", ">", "<", "?", "!"];
 
 // Only top-level cards are managed. Indented lines are subtasks inside a card.
 const CARD_PATTERN = /^- \[([^\]])\]\s*(.*)$/;
-const COMPLETION_DATE = /\s*✅\s*\d{4}-\d{2}-\d{2}/g;
+const COMPLETION_DATE = /\s*✅\s*\d{4}-\d{2}-\d{2}(?:\s+\d{2}:\d{2})?/g;
+const HAS_COMPLETION_DATE = /✅\s*\d{4}-\d{2}-\d{2}/;
 
 /* ==========================================================================
    PURE HELPERS (no Obsidian dependency — safe to unit test)
@@ -95,6 +104,17 @@ function isKanbanBoard(content) {
   return !!frontmatter && /^kanban-plugin:/m.test(frontmatter[1]);
 }
 
+// Identity for tracking a card across syncs. Ignores the marker, completion
+// date and block id so ticking or dating a card does not look like a new card.
+function cardKey(text) {
+  return String(text)
+    .replace(COMPLETION_DATE, " ")
+    .replace(/\s\^[A-Za-z0-9-]+\s*$/, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
 // Keeps a trailing block id (^abc123) at the end of the line, where Obsidian
 // expects it, instead of burying it behind the completion date.
 function withCompletionDate(body, today) {
@@ -107,92 +127,207 @@ function withCompletionDate(body, today) {
 }
 
 /**
- * Rewrites card markers to match their lane.
- * Returns { text, changed, changes } and never mutates the input.
+ * Splits a board into preamble / lanes / trailer so cards can be moved between
+ * lanes without disturbing frontmatter or the %% kanban:settings %% block.
  */
-function normalizeBoardText(content, options) {
+function parseBoard(content) {
+  const lines = String(content).split("\n");
+  const preamble = [];
+  const lanes = [];
+  const trailer = [];
+
+  let i = 0;
+
+  // Frontmatter
+  if (lines.length && lines[0].trim() === "---") {
+    preamble.push(lines[0]);
+    for (i = 1; i < lines.length; i++) {
+      preamble.push(lines[i]);
+      if (lines[i].trim() === "---") { i++; break; }
+    }
+  }
+
+  let current = null;
+  let inTrailer = false;
+  let inFence = false;
+
+  for (; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    if (inTrailer) { trailer.push(line); continue; }
+
+    // The %% block holds Kanban's own settings and ends the card area.
+    if (!inFence && trimmed.startsWith("%%")) {
+      inTrailer = true;
+      trailer.push(line);
+      continue;
+    }
+
+    if (trimmed.startsWith("```")) inFence = !inFence;
+
+    if (!inFence) {
+      const heading = trimmed.match(/^#{1,6}\s+(.*)$/);
+      if (heading) {
+        current = { name: heading[1].trim(), heading: line, body: [] };
+        lanes.push(current);
+        continue;
+      }
+    }
+
+    if (current) current.body.push(line);
+    else preamble.push(line);
+  }
+
+  return { preamble: preamble, lanes: lanes, trailer: trailer };
+}
+
+function serializeBoard(board) {
+  let out = board.preamble.slice();
+  for (const lane of board.lanes) {
+    out.push(lane.heading);
+    out = out.concat(lane.body);
+  }
+  return out.concat(board.trailer).join("\n");
+}
+
+// Places a card after the last existing card in a lane, keeping the blank-line
+// padding the Kanban plugin writes around lanes.
+function insertCard(body, line) {
+  let last = -1;
+  for (let i = 0; i < body.length; i++) {
+    if (CARD_PATTERN.test(body[i])) last = i;
+  }
+  if (last >= 0) {
+    body.splice(last + 1, 0, line);
+    return;
+  }
+  const at = body.length && body[0].trim() === "" ? 1 : 0;
+  body.splice(at, 0, line);
+}
+
+/**
+ * Applies both rules to a board.
+ *
+ * options.previousLanes — { cardKey: laneKey } from the last sync. Without it,
+ * every card falls back to "lane wins", which is the safe default on first run.
+ *
+ * Returns { text, changed, changes, laneState } and never mutates the input.
+ */
+function syncBoard(content, options) {
   const opts = options || {};
   const markers = opts.markers || LANE_MARKERS;
   const unmanaged = (opts.unmanaged || UNMANAGED_LANES).map(laneKey);
   const manageDate = opts.manageCompletionDate !== false;
   const today = opts.today || formatDate(new Date());
+  const previous = opts.previousLanes || null;
 
-  const lines = String(content).split("\n");
+  const board = parseBoard(content);
+  const laneInfo = board.lanes.map((lane) => {
+    const key = laneKey(lane.name);
+    return {
+      lane: lane,
+      key: key,
+      desired: unmanaged.indexOf(key) !== -1 ? undefined : resolveMarker(lane.name, markers)
+    };
+  });
+
+  const doneLane = laneInfo.filter((info) => info.desired === "x")[0] || null;
   const changes = [];
+  const laneState = {};
+  const moves = [];
 
-  let lane = "";
-  let desired;
-  let inFrontmatter = false;
-  let inComment = false;
-  let inFence = false;
+  for (let li = 0; li < laneInfo.length; li++) {
+    const info = laneInfo[li];
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const trimmed = line.trim();
+    for (let bi = 0; bi < info.lane.body.length; bi++) {
+      const line = info.lane.body[bi];
+      const card = line.match(CARD_PATTERN);
+      if (!card) continue;
 
-    // Frontmatter
-    if (i === 0 && trimmed === "---") { inFrontmatter = true; continue; }
-    if (inFrontmatter) {
-      if (trimmed === "---") inFrontmatter = false;
-      continue;
-    }
+      const marker = card[1];
+      const body = card[2];
+      const key = cardKey(body);
 
-    // %% ... %% blocks (this is where Kanban stores board settings)
-    if (trimmed.startsWith("%%")) {
-      if ((trimmed.match(/%%/g) || []).length === 1) inComment = !inComment;
-      continue;
-    }
-    if (inComment) continue;
-
-    // Fenced code
-    if (trimmed.startsWith("```")) { inFence = !inFence; continue; }
-    if (inFence) continue;
-
-    // Lane heading
-    const heading = trimmed.match(/^#{1,6}\s+(.*)$/);
-    if (heading) {
-      lane = heading[1].trim();
-      desired = unmanaged.indexOf(laneKey(lane)) !== -1 ? undefined : resolveMarker(lane, markers);
-      continue;
-    }
-
-    // Unknown or unmanaged lane: leave every card alone.
-    if (desired === undefined) continue;
-
-    const card = line.match(CARD_PATTERN);
-    if (!card) continue;
-
-    const current = card[1];
-    if (PRESERVED_MARKERS.indexOf(current) !== -1) continue;
-
-    let body = card[2];
-    let updated = current !== desired;
-
-    if (manageDate) {
-      const hasDate = /✅\s*\d{4}-\d{2}-\d{2}/.test(body);
-      if (desired === "x" && !hasDate) {
-        body = withCompletionDate(body, today);
-        updated = true;
-      } else if (desired !== "x" && hasDate) {
-        body = body.replace(COMPLETION_DATE, "").replace(/\s+$/, "");
-        updated = true;
+      // Unmanaged lane or a marker that carries its own meaning: track only.
+      if (info.desired === undefined || PRESERVED_MARKERS.indexOf(marker) !== -1) {
+        laneState[key] = info.key;
+        continue;
       }
-    }
 
-    if (updated) {
-      lines[i] = `- [${desired}] ${body}`.replace(/\s+$/, "");
-      changes.push({ line: i + 1, lane: lane, from: current, to: desired });
+      const knownBefore = previous && Object.prototype.hasOwnProperty.call(previous, key);
+      const laneChanged = knownBefore && previous[key] !== info.key;
+      const completedHere = marker === "x" && info.desired !== "x" && knownBefore && !laneChanged;
+
+      if (completedHere) {
+        let text = body;
+        if (manageDate && !HAS_COMPLETION_DATE.test(text)) text = withCompletionDate(text, today);
+        const nextLine = `- [x] ${text}`.replace(/\s+$/, "");
+
+        if (doneLane) {
+          moves.push({ from: li, index: bi, line: nextLine });
+          changes.push({ action: "moved", card: cardKey(body), from: info.lane.name, to: doneLane.lane.name });
+          laneState[key] = doneLane.key;
+        } else {
+          // No done lane on this board: honour the tick where it is.
+          if (nextLine !== line) {
+            info.lane.body[bi] = nextLine;
+            changes.push({ action: "completed-in-place", card: cardKey(body), lane: info.lane.name });
+          }
+          laneState[key] = info.key;
+        }
+        continue;
+      }
+
+      // Rule 1 — the lane decides.
+      let text = body;
+      let updated = marker !== info.desired;
+
+      if (manageDate) {
+        const hasDate = HAS_COMPLETION_DATE.test(text);
+        if (info.desired === "x" && !hasDate) {
+          text = withCompletionDate(text, today);
+          updated = true;
+        } else if (info.desired !== "x" && hasDate) {
+          text = text.replace(COMPLETION_DATE, "").replace(/\s+$/, "");
+          updated = true;
+        }
+      }
+
+      if (updated) {
+        info.lane.body[bi] = `- [${info.desired}] ${text}`.replace(/\s+$/, "");
+        changes.push({ action: "marker", card: cardKey(body), lane: info.lane.name, from: marker, to: info.desired });
+      }
+
+      laneState[key] = info.key;
     }
   }
 
-  const text = lines.join("\n");
-  return { text: text, changed: text !== content, changes: changes };
+  // Remove moved cards from the deepest index first so earlier indexes stay valid.
+  if (moves.length && doneLane) {
+    const ordered = moves.slice().sort((a, b) => b.index - a.index);
+    for (const move of ordered) {
+      laneInfo[move.from].lane.body.splice(move.index, 1);
+    }
+    for (const move of moves) {
+      insertCard(doneLane.lane.body, move.line);
+    }
+  }
+
+  const text = serializeBoard(board);
+  return { text: text, changed: text !== content, changes: changes, laneState: laneState };
+}
+
+// Lane-wins only. Kept as the simple entry point (and used by tests).
+function normalizeBoardText(content, options) {
+  return syncBoard(content, Object.assign({}, options, { previousLanes: null }));
 }
 
 /* ==========================================================================
    PLUGIN
    ========================================================================== */
 
+const SETTING_KEYS = ["autoSync", "manageCompletionDate", "notifyOnChange"];
 const DEFAULT_SETTINGS = {
   autoSync: true,
   manageCompletionDate: true,
@@ -201,17 +336,40 @@ const DEFAULT_SETTINGS = {
 
 class KanbanStatusSyncPlugin extends obsidian.Plugin {
   async onload() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const data = (await this.loadData()) || {};
 
-    // Paths this plugin is currently writing, so its own writes are ignored.
+    this.settings = Object.assign({}, DEFAULT_SETTINGS);
+    SETTING_KEYS.forEach((key) => {
+      if (typeof data[key] === "boolean") this.settings[key] = data[key];
+    });
+
+    // { boardPath: { cardKey: laneKey } } — where each card sat last time.
+    this.laneState = (data.laneState && typeof data.laneState === "object") ? data.laneState : {};
+
     this.writing = new Set();
     this.timers = new Map();
+    this.saveTimer = null;
 
     this.registerEvent(this.app.vault.on("modify", (file) => {
       if (!this.settings.autoSync) return;
       if (!file || typeof file.path !== "string" || !file.path.endsWith(".md")) return;
       if (this.writing.has(file.path)) return;
       this.scheduleSync(file);
+    }));
+
+    this.registerEvent(this.app.vault.on("rename", (file, oldPath) => {
+      if (this.laneState[oldPath]) {
+        this.laneState[file.path] = this.laneState[oldPath];
+        delete this.laneState[oldPath];
+        this.queueSave();
+      }
+    }));
+
+    this.registerEvent(this.app.vault.on("delete", (file) => {
+      if (this.laneState[file.path]) {
+        delete this.laneState[file.path];
+        this.queueSave();
+      }
     }));
 
     this.addCommand({
@@ -233,18 +391,27 @@ class KanbanStatusSyncPlugin extends obsidian.Plugin {
       callback: async () => { await this.syncAllBoards(); }
     });
 
-    this.addSettingTab(new KanbanStatusSyncSettingTab(this.app, this));
-
     console.log("Kanban Status Sync: loaded");
+    this.addSettingTab(new KanbanStatusSyncSettingTab(this.app, this));
   }
 
   onunload() {
     this.timers.forEach((timer) => window.clearTimeout(timer));
     this.timers.clear();
+    if (this.saveTimer) window.clearTimeout(this.saveTimer);
   }
 
-  async saveSettings() {
-    await this.saveData(this.settings);
+  async saveAll() {
+    await this.saveData(Object.assign({}, this.settings, { laneState: this.laneState }));
+  }
+
+  // Lane snapshots change on most syncs; batch the writes.
+  queueSave() {
+    if (this.saveTimer) window.clearTimeout(this.saveTimer);
+    this.saveTimer = window.setTimeout(() => {
+      this.saveTimer = null;
+      this.saveAll();
+    }, 1500);
   }
 
   // Dragging a card fires several modify events; coalesce them per file.
@@ -268,9 +435,10 @@ class KanbanStatusSyncPlugin extends obsidian.Plugin {
     const transform = (data) => {
       if (!isKanbanBoard(data)) return data;
       isBoard = true;
-      result = normalizeBoardText(data, {
+      result = syncBoard(data, {
         manageCompletionDate: this.settings.manageCompletionDate,
-        today: formatDate(new Date())
+        today: formatDate(new Date()),
+        previousLanes: this.laneState[file.path] || null
       });
       return result.changed ? result.text : data;
     };
@@ -295,10 +463,21 @@ class KanbanStatusSyncPlugin extends obsidian.Plugin {
     // Released after a beat so the resulting modify event is ignored too.
     window.setTimeout(() => this.writing.delete(file.path), 800);
 
+    if (result) {
+      this.laneState[file.path] = result.laneState;
+      this.queueSave();
+    }
+
     if (result && result.changed) {
-      console.log(`Kanban Status Sync: ${result.changes.length} card(s) updated in ${file.path}`, result.changes);
+      const moved = result.changes.filter((c) => c.action === "moved");
+      console.log(`Kanban Status Sync: ${result.changes.length} change(s) in ${file.path}`, result.changes);
+
       if (opts.notify || this.settings.notifyOnChange) {
-        new obsidian.Notice(`✅ ${result.changes.length} card status${result.changes.length === 1 ? "" : "es"} synced in ${file.basename}`);
+        const parts = [];
+        if (moved.length) parts.push(`${moved.length} card${moved.length === 1 ? "" : "s"} moved to ${moved[0].to}`);
+        const markerCount = result.changes.length - moved.length;
+        if (markerCount) parts.push(`${markerCount} status${markerCount === 1 ? "" : "es"} synced`);
+        new obsidian.Notice(`✅ ${parts.join(", ")} in ${file.basename}`);
       }
     } else if (opts.notify) {
       new obsidian.Notice(isBoard ? "Card statuses already match their lanes." : "This note is not a Kanban board.");
@@ -310,20 +489,20 @@ class KanbanStatusSyncPlugin extends obsidian.Plugin {
   async syncAllBoards() {
     const files = this.app.vault.getMarkdownFiles();
     let boards = 0;
-    let cards = 0;
+    let changes = 0;
 
     for (const file of files) {
       const result = await this.syncFile(file, { notify: false });
       if (result && result.changed) {
         boards++;
-        cards += result.changes.length;
+        changes += result.changes.length;
       }
     }
 
     new obsidian.Notice(
       boards === 0
         ? "All Kanban card statuses already match their lanes."
-        : `✅ Synced ${cards} card status${cards === 1 ? "" : "es"} across ${boards} board${boards === 1 ? "" : "s"}.`
+        : `✅ ${changes} change${changes === 1 ? "" : "s"} across ${boards} board${boards === 1 ? "" : "s"}.`
     );
   }
 }
@@ -340,12 +519,12 @@ class KanbanStatusSyncSettingTab extends obsidian.PluginSettingTab {
 
     new obsidian.Setting(containerEl)
       .setName("Sync automatically")
-      .setDesc("Update card markers whenever a board changes. Turn this off to sync only via the commands.")
+      .setDesc("Update cards whenever a board changes. Turn this off to sync only via the commands.")
       .addToggle((toggle) => toggle
         .setValue(this.plugin.settings.autoSync)
         .onChange(async (value) => {
           this.plugin.settings.autoSync = value;
-          await this.plugin.saveSettings();
+          await this.plugin.saveAll();
         }));
 
     new obsidian.Setting(containerEl)
@@ -355,17 +534,17 @@ class KanbanStatusSyncSettingTab extends obsidian.PluginSettingTab {
         .setValue(this.plugin.settings.manageCompletionDate)
         .onChange(async (value) => {
           this.plugin.settings.manageCompletionDate = value;
-          await this.plugin.saveSettings();
+          await this.plugin.saveAll();
         }));
 
     new obsidian.Setting(containerEl)
       .setName("Notify on every change")
-      .setDesc("Show a notice each time markers are corrected. Useful while testing, noisy day to day.")
+      .setDesc("Show a notice each time cards are updated. Useful while testing, noisy day to day.")
       .addToggle((toggle) => toggle
         .setValue(this.plugin.settings.notifyOnChange)
         .onChange(async (value) => {
           this.plugin.settings.notifyOnChange = value;
-          await this.plugin.saveSettings();
+          await this.plugin.saveAll();
         }));
 
     new obsidian.Setting(containerEl)
@@ -384,21 +563,25 @@ class KanbanStatusSyncSettingTab extends obsidian.PluginSettingTab {
     head.createEl("th", { text: "Lane" }).style.textAlign = "left";
     head.createEl("th", { text: "Marker" }).style.textAlign = "left";
 
-    const shown = [
+    [
       ["Backlog, To Do, Next, Planned", "[ ]"],
       ["In Progress, Doing, WIP", "[/]"],
       ["Review / Test, QA, Testing", "[/]"],
       ["Done, Complete, Shipped", "[x] + ✅ date"],
       ["Archive", "left untouched"]
-    ];
-    shown.forEach(([lane, marker]) => {
+    ].forEach(([lane, marker]) => {
       const row = table.createEl("tr");
       row.createEl("td", { text: lane });
       row.createEl("td").createEl("code", { text: marker });
     });
 
+    containerEl.createEl("h3", { text: "Ticking a card" });
     containerEl.createEl("p", {
-      text: "Cancelled or forwarded markers ([-], [>], [<], [?], [!]) are never overwritten, and lanes not listed above are ignored. Edit LANE_MARKERS at the top of main.js to add your own column names."
+      text: "Tick a card anywhere — on the board, in _Tasks MOC, or in a daily-note query — and it moves to the Done lane with today's date. Dragging a card out of Done clears both the tick and the date. Cancelled or forwarded markers ([-], [>], [<], [?], [!]) are never overwritten, and lanes not listed above are ignored."
+    }).style.fontSize = "var(--font-ui-smaller)";
+
+    containerEl.createEl("p", {
+      text: "Edit LANE_MARKERS at the top of main.js to add your own column names."
     }).style.fontSize = "var(--font-ui-smaller)";
   }
 }
@@ -406,9 +589,13 @@ class KanbanStatusSyncSettingTab extends obsidian.PluginSettingTab {
 module.exports = KanbanStatusSyncPlugin;
 
 // Exposed for testing.
+module.exports.syncBoard = syncBoard;
 module.exports.normalizeBoardText = normalizeBoardText;
+module.exports.parseBoard = parseBoard;
+module.exports.serializeBoard = serializeBoard;
 module.exports.isKanbanBoard = isKanbanBoard;
 module.exports.laneKey = laneKey;
+module.exports.cardKey = cardKey;
 module.exports.resolveMarker = resolveMarker;
 module.exports.formatDate = formatDate;
 module.exports.LANE_MARKERS = LANE_MARKERS;

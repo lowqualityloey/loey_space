@@ -16,12 +16,12 @@ updated: 2026-08-10
 
 - [ ] Add collapsible accordion for hourly forecast
 - [ ] Connect city search to Geocoding API
+- [ ] Implement theme toggle functionality
 
 
 ## In Progress
 
 - [/] Build static dashboard layout with mock data
-- [/] Implement theme toggle functionality
 
 
 ## Review / Test
