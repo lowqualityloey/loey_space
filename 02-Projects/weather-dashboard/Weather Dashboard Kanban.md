@@ -21,7 +21,7 @@ updated: 2026-08-09
 
 ## In Progress
 
-- [/] Build static dashboard layout with mock data 
+- [/] Build static dashboard layout with mock data
 
 
 ## Review / Test

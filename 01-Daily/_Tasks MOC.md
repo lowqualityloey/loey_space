@@ -10,12 +10,13 @@ updated: 2026-08-06
 
 # 📋 Tasks MOC & History Dashboard
 
-Central dashboard for tracking active tasks, in-progress items, and completed task history across your daily notes and projects.
+Central dashboard for active tasks, in-progress items, and completed task history across your daily notes and project Kanban boards.
 
 ---
 
 > [!INFO] 💡 How Task Tracking Works
 > - **Source of Truth**: Tasks stay inside your **Daily Notes (`01-Daily`)** and **Projects (`02-Projects`)**.
+> - **Kanban Scope**: Only the **To Do**, **In Progress**, and **Review / Test** columns feed this dashboard. **Backlog** (not committed yet) and **Archive** (already finished) are excluded.
 > - **Habit Exclusion**: Routine checkboxes under `## 🔁 Habits` are strictly excluded.
 > - **Source Links**: Each task is reformatted with a direct link to its source note (e.g., `task name [[note_name]]`).
 

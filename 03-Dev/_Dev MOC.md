@@ -7,7 +7,7 @@ tags:
 
 # 💻 Dev MOC
 
-> Code snippets, patterns, debugging tips, and architecture notes.
+> Technical work and code-related knowledge — snippets, patterns, debugging tips, and architecture decisions. ✨ AI-enrichable with `Ctrl + Shift + A`.
 
 ## 🛠️ Code Snippets
 ```dataview

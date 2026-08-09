@@ -8,7 +8,7 @@ updated: 2026-08-09
 
 # 📚 Resources MOC
 
-> Bookmarks, cheatsheets, external documentation links, policies, and reference material.
+> Reference material **and** working automation — cheatsheets, guides, policies, bookmarks, API specs in `APIs/`, and live scripts in `scripts/`. Things you *refer to* or *run*, not things you're *working on*.
 
 ## 🛡️ System Guides & Security Policies
 * [[06-Resources/Second Brain Guide|🧠 Second Brain Guide]] — System usage, routines, & architecture

@@ -9,7 +9,7 @@ tags:
 
 # 🚀 Projects MOC
 
-> Dashboard of active development, planning, and completed projects.
+> Outcomes with deadlines or defined endpoints. One subfolder per project, each with a project note and a Kanban board. Finished cards move to the board's own `## Archive` column — the retrospective goes to `07-Reviews/`.
 
 ## 🟢 Active Projects
 ```dataviewjs

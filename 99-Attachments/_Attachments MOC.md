@@ -8,7 +8,7 @@ tags:
 
 # 📁 Attachments & Media Dashboard
 
-Central hub for tracking images, screenshots, PDFs, and binary attachments in your second brain.
+Media and binary assets — images, screenshots, PDFs, audio, and exports, filed into monthly `YYYY-MM/` subfolders. Keeps assets out of your note flow.
 
 ---
 

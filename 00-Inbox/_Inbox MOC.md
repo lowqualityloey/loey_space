@@ -7,7 +7,7 @@ updated: 2026-08-02
 
 # 📥 Inbox Dashboard
 
-> Quick capture notes to be processed and filed into Projects, Dev, Learning, Personal, or Resources.
+> Capture everything here before sorting. Process each item with `99-Templates/Triage.md`, then file it into Projects, Dev, Learning, Personal, Concepts, or Resources. **Rule: empty this weekly.**
 
 ## 📌 Unprocessed Notes
 

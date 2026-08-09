@@ -7,7 +7,7 @@ tags:
 
 # 🏋️ Personal MOC
 
-> Life notes, gym & fitness, goals, and personal reflections.
+> Private life administration — health and fitness logs, finances, goals, and personal reflections. Truly sensitive material belongs in `.secrets/`, never here.
 
 ## 📌 Notes & Reflections
 ```dataview

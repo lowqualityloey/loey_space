@@ -9,7 +9,7 @@ tags:
 
 # 🧹 Triage & Maintenance MOC
 
-> Dashboard for surfacing neglected notes, untouched ideas, and overdue reviews to keep the vault clean.
+> Surfaces neglected inbox items, stale `in-progress` notes, and concepts past their 90-day `review_cycle` — so nothing rots quietly in the vault.
 
 ## 📥 Neglected Inbox Items
 Notes sitting in the inbox for more than 7 days. Time to classify or delete them!

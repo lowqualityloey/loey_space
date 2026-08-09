@@ -7,7 +7,7 @@ tags:
 
 # 💡 Concepts MOC
 
-Map of Content for evergreen concept notes, hubs, and mental models.
+Permanent notes — atomic ideas, principles, and mental models, each self-contained and linked to others. Notes carry `last_reviewed` and `review_cycle: 90d`, surfaced by [[_Triage MOC]] when a review falls due. ✨ AI-enrichable with `Ctrl + Shift + A`.
 
 ```dataview
 TABLE summary AS "Summary", updated AS "Updated"

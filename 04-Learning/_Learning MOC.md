@@ -7,7 +7,7 @@ tags:
 
 # 📖 Learning MOC
 
-> Course notes, tutorials, React concepts, and interview prep.
+> Knowledge acquisition in progress — course notes, tutorials, study topics, and interview prep. Once something is learned, move the idea to `08-Concepts/` or the reference to `06-Resources/`.
 
 ## 🎯 Active Learning
 ```dataview

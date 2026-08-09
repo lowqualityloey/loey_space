@@ -7,7 +7,7 @@ tags:
 
 # 📅 Daily Notes MOC
 
-Central dashboard for tracking daily logs, habits, wellness, and reflections.
+Time-stamped chronological notes — and the source of truth for tasks and habits. Tracks `mood`, `energy`, `sleep_hours`, habit consistency, wellness, and AI-generated daily summaries.
 
 ---
 

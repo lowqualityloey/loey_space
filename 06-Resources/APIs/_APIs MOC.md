@@ -8,7 +8,7 @@ tags:
 
 # 🔌 API & Integration Documentation MOC
 
-Central catalog of API documentation, technical specs, rate limits, and setup guides.
+Central catalog of API documentation, technical specs, rate limits, and setup guides — a `06-Resources/` subfolder for anything you integrate against.
 
 > ⚠️ **Security Notice**: Actual API keys and credentials are **NEVER** stored in these notes. Refer to `.env` (for scripts) or `.secrets/` (for human-readable private credentials). See [[Vault Security Policy]].
 

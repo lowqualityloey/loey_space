@@ -35,22 +35,30 @@ flowchart LR
 
 ## 🗂️ 1. Current Vault Folder Architecture
 
-| Folder | Purpose | Key Contents & Notes |
+| Folder | Purpose | What Goes Here |
 | :--- | :--- | :--- |
-| **`Home.md`** | Central command dashboard | Quick navigation to all MOCs, active in-progress items, priority to-dos, active projects, and inbox status |
-| **`00-Inbox/`** | Fast triage & raw capture | `_Inbox MOC.md`, `quick-capture-dump.md` |
-| **`01-Daily/`** | Daily logs & habit tracking | `YYYY-MM-DD.md`, `_Daily MOC.md`, `_Tasks MOC.md` |
-| **`02-Projects/`** | Active development builds | Subfolder per project (`Project Note` + `Kanban`), `_Projects MOC.md` |
-| **`03-Dev/`** | Code snippets & tech patterns | Dev notes, debugging guides, `_Dev MOC.md` |
-| **`04-Learning/`** | Courses, tutorials, & topics | Study topics, React notes, `_Learning MOC.md` |
-| **`05-Personal/`** | Life notes, fitness, & goals | Reflections, gym logs, `_Personal MOC.md` |
-| **`06-Resources/`** | Reference docs & scripts | `APIs/` subfolder, `ai-enrich-action.js`, `Second Brain Guide.md`, `Vault Security Policy.md` |
-| **`07-Reviews/`** | Periodic review archives | Weekly (`YYYY-[W]WW.md`) & Monthly (`YYYY-MM.md`) reviews, `_Reviews MOC.md` |
-| **`08-Concepts/`** | Evergreen concepts & hubs | Concept notes (`YYYY-MM-DD_HHmm {{VALUE}}`), `_Concepts MOC.md` |
-| **`99-Attachments/`** | Media storage | Monthly subfolders (`YYYY-MM/`), `_Attachments MOC.md` |
-| **`99-Templates/`** | Note structure blueprints | `Daily.md`, `Project.md`, `Dev.md`, `Learning.md`, `Personal.md`, `Resource.md`, `Concept.md`, `API.md` |
-| **`.secrets/`** | **Git-ignored** private notes | Bank details, private logs, credential notes |
-| **`.env`** | **Git-ignored** script keys | `GEMINI_API_KEY`, `OPENAI_API_KEY` |
+| **🏠 `Home.md`** | Vault dashboard and entry point (a file, not a folder) | HomePulse dashboard, navigation to every MOC, active in-progress items, priority to-dos, active projects, inbox status |
+| **📥 `00-Inbox/`** | Capture everything before sorting | Fleeting thoughts, quick captures, mobile captures, links to process later. Triage with `99-Templates/Triage.md`. Holds `_Inbox MOC.md` + `_Triage MOC.md`. **Rule: empty this weekly** |
+| **📅 `01-Daily/`** | Time-stamped chronological notes — and the source of truth for tasks and habits | `YYYY-MM-DD.md` with `mood` / `energy` / `sleep_hours`, habit checkboxes, tasks, AI summary. Plus `_Daily MOC.md`, `_Tasks MOC.md`, `Habit Analytics Dashboard.md`. ✨ *AI-enrichable* |
+| **🚀 `02-Projects/`** | Outcomes with deadlines or defined endpoints | One subfolder per project (project note + Kanban board), `_Projects MOC.md`. Active projects only — finished cards move to the board's own `## Archive` column, and the retrospective goes to `07-Reviews/` |
+| **💻 `03-Dev/`** | Technical work and code-related knowledge | Dev logs, debugging notes, architecture decisions, snippets, `_Dev MOC.md`. ✨ *AI-enrichable* |
+| **📖 `04-Learning/`** | Knowledge acquisition in progress | Courses, books, tutorials, study notes, `_Learning MOC.md`. Move finished learning into `08-Concepts/` (ideas) or `06-Resources/` (reference) |
+| **👤 `05-Personal/`** | Private life administration | Health and fitness logs, finances, goals, personal journaling, `_Personal MOC.md`. Truly sensitive material belongs in `.secrets/`, not here |
+| **📚 `06-Resources/`** | Reference material **and** working automation | Cheatsheets, manuals, how-tos, policies, `APIs/` specs, and `scripts/` (`ai-enrich-action.js`, weekly summary). Things you *refer to* or *run* — not things you're *working on* |
+| **📊 `07-Reviews/`** | Periodic reflection — your looking-backward lens | Weekly (`YYYY-[W]WW.md`) and monthly (`YYYY-MM.md`) reviews, post-mortems, AI-generated summaries, `_Reviews MOC.md` |
+| **💡 `08-Concepts/`** | Permanent notes — your distilled knowledge | Atomic ideas, principles, mental models (`YYYY-MM-DD_HHmm {{VALUE}}`), `_Concepts MOC.md`. Each note self-contained and linked. Carries `last_reviewed` + `review_cycle: 90d`. ✨ *AI-enrichable*. *The core of your Zettelkasten* |
+| **📎 `99-Attachments/`** | Media and binary assets | Images, screenshots, PDFs, audio, exports — filed into monthly `YYYY-MM/` subfolders, plus `_Attachments MOC.md`. Keeps assets out of your note flow |
+| **📋 `99-Templates/`** | Reusable note blueprints | `Daily.md`, `Concept.md`, `Dev.md`, `Project.md`, `Learning.md`, `Personal.md`, `Resource.md`, `API.md`, `Triage.md`, mobile capture templates. *Blueprints only — never edit these as notes* |
+| **⚙️ `.obsidian/`** | Vault configuration and custom code | HomePulse plugin (`plugins/homepulse/`), CSS snippets, themes, hotkeys, plugin settings |
+| **🪝 `.kiro/`** | Kiro IDE automation | Hooks for `.env` validation, Git safety, and inbox triage suggestions |
+| **🔒 `.secrets/`** | **Git-ignored** private notes | Bank details, private logs, credential context. Never committed |
+| **🔑 `.env`** | **Git-ignored** machine credentials | `GEMINI_API_KEY`, `OPENAI_API_KEY`. Read by the AI enricher — share `.env.example` instead |
+| **📄 `README.md`** | Vault documentation | Setup guide, conventions, plugin list — for future you or a fresh clone |
+| **⚖️ `LICENSE`** | Usage terms for the public repo | Leave as-is unless you change how others may reuse this vault |
+
+> [!NOTE] 🗺️ Two conventions that hold this together
+> - **MOC naming**: every folder has a `_*.md` MOC dashboard (13 in total). The leading underscore is what keeps MOCs out of Dataview results and AI link suggestions — don't rename them.
+> - **AI enrichment scope**: `Ctrl + Shift + A` only works in `01-Daily`, `03-Dev`, and `08-Concepts`. Anywhere else it declines. If you want a note enriched, that's where it belongs.
 
 ---
 

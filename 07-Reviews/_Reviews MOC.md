@@ -7,7 +7,7 @@ tags:
 
 # 📊 Reviews MOC
 
-> Archive of weekly and monthly reviews.
+> Periodic reflection — weekly (`YYYY-[W]WW.md`) and monthly (`YYYY-MM.md`) reviews, post-mortems, and AI-generated summaries. Your looking-backward lens.
 
 ## 📅 Past Weekly Reviews
 ```dataview
