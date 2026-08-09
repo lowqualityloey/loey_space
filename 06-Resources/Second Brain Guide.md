@@ -108,6 +108,31 @@ Pressing **`Ctrl + Shift + A`** or clicking **`✨`** automatically detects the 
 - **Habit Isolation**: Routine checkboxes under `## 🔁 Habits` are strictly excluded from task dashboards.
 - **Source Link Attribution**: Every task displays its parent note link (e.g. `task text ([[2026-08-06_1010]])`).
 
+### 🔁 Kanban Status Sync (automatic)
+
+Card markers are maintained by the **Kanban Status Sync** plugin (`.obsidian/plugins/kanban-status-sync/`), so you never set a status by hand — **drag the card and the checkbox follows**. This is what lets `_Tasks MOC` tell an active to-do apart from work in progress.
+
+| Lane | Marker applied |
+| :--- | :--- |
+| `Backlog`, `To Do`, `Next`, `Planned` | `- [ ]` |
+| `In Progress`, `Doing`, `WIP` | `- [/]` |
+| `Review / Test`, `QA`, `Testing` | `- [/]` |
+| `Done`, `Complete`, `Shipped` | `- [x]` + `✅ YYYY-MM-DD` |
+| `Archive` | left untouched |
+
+Behaviour worth knowing:
+
+1. **The board is the authority.** Editing a marker by hand without moving the card gets corrected on the next board save.
+2. **Moving out of Done reverses cleanly** — both the `[x]` and the `✅` date are removed, so no card claims to be finished while sitting in To Do.
+3. **Meaningful markers survive**: `[-]` cancelled, `[>]` forwarded, `[<]` scheduled, `[?]`, `[!]` are never overwritten by a lane rule.
+4. **Only top-level cards are managed.** Indented subtasks inside a card, and any lane not listed above, are left alone.
+5. **Lane names match loosely** — `## 🔄 In Progress`, `## Review/Test` and `## **Done**` all resolve correctly.
+
+> [!WARNING] Don't enable Kanban's own lane completion setting
+> Leave **"Mark items in this lane as complete"** switched off in the Kanban plugin's lane settings. Both features write the same checkbox and will fight over it.
+
+Manual controls (`Ctrl + P`): **Sync card statuses in current board** and **Sync card statuses in all boards**. To change or add column names, edit the `LANE_MARKERS` object at the top of `main.js`.
+
 ---
 
 ## 🔒 5. Vault Security Policy

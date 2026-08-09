@@ -17,6 +17,7 @@ Central dashboard for active tasks, in-progress items, and completed task histor
 > [!INFO] 💡 How Task Tracking Works
 > - **Source of Truth**: Tasks stay inside your **Daily Notes (`01-Daily`)** and **Projects (`02-Projects`)**.
 > - **Kanban Scope**: Only the **To Do**, **In Progress**, and **Review / Test** columns feed this dashboard. **Backlog** (not committed yet) and **Archive** (already finished) are excluded.
+> - **Lane-Driven Status**: Card markers are set automatically from the lane — `To Do` → `[ ]`, `In Progress` / `Review / Test` → `[/]`, `Done` → `[x]` + `✅ date`. Drag the card; don't edit the checkbox by hand.
 > - **Habit Exclusion**: Routine checkboxes under `## 🔁 Habits` are strictly excluded.
 > - **Source Links**: Each task is reformatted with a direct link to its source note (e.g., `task name [[note_name]]`).
 

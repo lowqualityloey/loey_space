@@ -1,7 +1,7 @@
 ---
 
 kanban-plugin: board
-updated: 2026-08-09
+updated: 2026-08-10
 
 ---
 
@@ -14,7 +14,6 @@ updated: 2026-08-09
 
 ## To Do
 
-- [ ] Implement theme toggle functionality
 - [ ] Add collapsible accordion for hourly forecast
 - [ ] Connect city search to Geocoding API
 
@@ -22,6 +21,7 @@ updated: 2026-08-09
 ## In Progress
 
 - [/] Build static dashboard layout with mock data
+- [/] Implement theme toggle functionality
 
 
 ## Review / Test

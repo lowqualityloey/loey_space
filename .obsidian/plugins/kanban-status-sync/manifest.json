@@ -1,0 +1,9 @@
+{
+  "id": "kanban-status-sync",
+  "name": "Kanban Status Sync",
+  "version": "1.0.0",
+  "minAppVersion": "1.4.0",
+  "description": "Keeps Kanban card checkboxes in sync with their lane — To Do becomes [ ], In Progress becomes [/], Done becomes [x] with a completion date.",
+  "author": "loey_space",
+  "isDesktopOnly": false
+}

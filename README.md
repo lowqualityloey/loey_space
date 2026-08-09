@@ -1,3 +1,6 @@
+---
+updated: 2026-08-10
+---
 # 🧠 `loey_space` — Personal Knowledge Management & Second Brain Architecture
 
 [![Obsidian](https://img.shields.io/badge/Obsidian-v1.5+-purple.svg?style=flat-square&logo=obsidian)](https://obsidian.md)
@@ -35,6 +38,7 @@
 | **Habit Analytics Dashboard** | 30-day rolling metrics, streak tracking, day-of-week patterns, and improvement recommendations |
 | **Smart Task Management** | Tasks live in daily notes and project kanbans, aggregated in real-time via `_Tasks MOC.md` with status indicators (`[ ]`, `[/]`, `[x]`) |
 | **Project Kanban Integration** | Each project gets a visual kanban board; tasks from To Do/In Progress/Review flow into the central task hub (Backlog excluded) |
+| **Kanban Status Sync** | Drag a card between lanes and its checkbox follows automatically — To Do `[ ]`, In Progress `[/]`, Done `[x]` with a completion date |
 | **Mobile Quick Capture** | 4 mobile-optimized commands for instant capture on the go — process later on desktop |
 | **Inbox Auto-Classification** | Quick captures tagged with type/area/priority suggestions based on content analysis |
 | **Dynamic Tech Tree** | Auto-generated capability map scanning projects, concepts, and resources across the vault |
@@ -94,6 +98,7 @@ loey_space/
 │   └── Triage.md                # Inbox processing & classification template
 ├── .obsidian/                   # Vault configuration, custom plugins, snippets & themes
 │   ├── plugins/homepulse/       # Custom HomePulse dashboard plugin
+│   ├── plugins/kanban-status-sync/  # Syncs kanban card checkboxes to their lane
 │   └── snippets/                # CSS snippets (dashboard-cards.css, fonts.css)
 ├── .kiro/                       # Kiro IDE hooks (env validation, git safety, triage suggestions)
 ├── .secrets/                    # [GIT-IGNORED] Private human-readable sensitive notes
@@ -156,6 +161,7 @@ Go to **Obsidian Settings -> Community Plugins** and ensure the following plugin
 * **Templater** — Dynamic date calculation & variable expansion.
 * **Dataview** — Real-time indexer queries for MOCs & task tracking.
 * **Kanban** — Visual board view for project workflows.
+* **Kanban Status Sync** — Keeps card checkboxes in step with their lane (bundled in this vault, not from the store).
 * **Calendar** — Visual daily note navigator.
 * **Activity History** — Contribution heatmap for the dashboard.
 
@@ -239,6 +245,7 @@ All data is automatically pulled from daily notes — no manual tracking require
   * `- [x] task` => **Completed** (Logged in task analytics)
 * **Habit Isolation**: Routine checkboxes under `## 🔁 Habits` are strictly isolated from task command centers.
 * **Kanban Filtering**: Tasks under `## Backlog` and `## Archive` in project kanbans are excluded from the Open Tasks widget and `_Tasks MOC.md`.
+* **Lane-Driven Status**: Card markers are set automatically from the lane a card sits in (`To Do` -> `[ ]`, `In Progress` / `Review / Test` -> `[/]`, `Done` -> `[x]` + `✅ date`). The board is the authority — hand-edited markers are corrected on the next save. Cancelled/forwarded markers (`[-]`, `[>]`, `[<]`) are preserved.
 
 ---
 
