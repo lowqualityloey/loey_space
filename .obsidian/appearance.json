@@ -9,6 +9,7 @@
   "enabledCssSnippets": [
     "fonts",
     "dashboard-cards",
-    "project-tasks"
+    "project-tasks",
+    "homepulse-mobile"
   ]
 }

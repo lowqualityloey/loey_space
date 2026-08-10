@@ -1,0 +1,295 @@
+/* ==========================================================================
+   HomePulse — mobile responsiveness (homepulse-mobile.css)
+   --------------------------------------------------------------------------
+   WHY THIS EXISTS
+   The plugin lays its dashboard out with:
+       .yh-grid { grid-template-columns: repeat(var(--yh-columns, 5), ...);
+                  grid-auto-rows: 132px; }
+   Both of those are fixed regardless of screen size:
+     • the column count comes from a SETTING, not the viewport, so a phone
+       still tries to draw 5 columns in ~400px;
+     • the row height is a hard 132px (118px under its 520px query), so when
+       content stacks it overflows the card instead of growing it — that is the
+       overlapping numbers in Execution Pulse.
+   The plugin's own 520px rules also lose to its widget size classes: a
+   three-class selector (widget name + size class + child) outranks the
+   single-class mobile rule, and media queries add no specificity. Widget
+   placement is written inline by JS too. Both are why !important is used below.
+
+   Lives in a vault snippet rather than the plugin's styles.css so a plugin
+   update cannot wipe it.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. ONE COLUMN, HEIGHT THAT FOLLOWS CONTENT
+   The single most important fix: full-width cards that grow to fit.
+   -------------------------------------------------------------------------- */
+
+body.is-mobile .yh-grid {
+  grid-template-columns: 1fr !important;
+  grid-auto-rows: minmax(132px, auto) !important;
+  gap: 12px !important;
+}
+
+/* Widget placement is written inline by the plugin (gridColumn / gridRow),
+   so it can only be overridden with !important. */
+body.is-mobile .yh-grid > * {
+  grid-column: 1 / -1 !important;
+  grid-row: auto !important;
+  height: auto !important;
+  min-height: 132px;
+  min-width: 0;
+}
+
+/* Nothing should be able to push the dashboard sideways. */
+body.is-mobile .homepulse-view {
+  overflow-x: hidden;
+}
+
+/* --------------------------------------------------------------------------
+   2. EXECUTION PULSE
+   Four metrics side by side is unreadable on a phone; 2x2 fits, and the
+   visualisations need a real height reserved so they stop colliding with
+   the big numbers.
+   -------------------------------------------------------------------------- */
+
+body.is-mobile .yh-pulse-trends {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  grid-template-rows: auto !important;
+  height: auto !important;
+  gap: 14px 10px !important;
+}
+
+body.is-mobile .yh-pulse-metric {
+  min-width: 0;
+  min-height: 76px;
+  overflow: hidden; /* clips the decorative habit-tree art at narrow widths */
+}
+
+body.is-mobile .yh-pulse-metric-num {
+  font-size: 1.2rem;
+}
+
+body.is-mobile .yh-pulse-metric-head {
+  gap: 5px;
+  font-size: 0.52rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Keep label and value on their own line rather than overlapping the chart. */
+body.is-mobile .yh-pulse-metric-value {
+  min-height: 26px;
+  flex-wrap: wrap;
+}
+
+body.is-mobile .yh-pulse-metric-viz {
+  min-height: 30px;
+  gap: 5px;
+}
+
+body.is-mobile .yh-pulse-sparkline,
+body.is-mobile .yh-pulse-spark-wrap,
+body.is-mobile .yh-pulse-task-matrix,
+body.is-mobile .yh-pulse-focus-rails {
+  min-height: 24px;
+  max-width: 100%;
+}
+
+/* The habit "tree" is decorative and drawn at a fixed size — keep it inside. */
+body.is-mobile .yh-pulse-habit-crown,
+body.is-mobile .yh-pulse-habit-trunk,
+body.is-mobile .yh-pulse-habit-root {
+  max-width: 100%;
+}
+
+/* --------------------------------------------------------------------------
+   3. KNOWLEDGE PROFILE
+   Same problem as Execution Pulse: four stats forced into four columns.
+   The plugin's size-class rules outrank its own mobile query, hence !important.
+   -------------------------------------------------------------------------- */
+
+body.is-mobile .yh-knowledge-profile {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  grid-template-rows: auto !important;
+  height: auto !important;
+  gap: 10px !important;
+}
+
+body.is-mobile .yh-knowledge-stat {
+  min-width: 0;
+  min-height: 54px;
+}
+
+body.is-mobile .yh-knowledge-stat-body {
+  min-width: 0;
+}
+
+body.is-mobile .yh-knowledge-stat-value {
+  font-size: 1.05rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+body.is-mobile .yh-knowledge-stat-label {
+  overflow: hidden;
+  font-size: 0.48rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.is-mobile .yh-knowledge-journey,
+body.is-mobile .yh-knowledge-stats,
+body.is-mobile .yh-knowledge-recent {
+  min-width: 0;
+}
+
+/* --------------------------------------------------------------------------
+   4. CALENDAR
+   The weekday labels are plain children of the grid, so they inherit
+   left alignment while the date cells are centred — that is the misalignment.
+   Cells also need a tappable height.
+   -------------------------------------------------------------------------- */
+
+body.is-mobile .yh-calendar-grid {
+  gap: 2px !important;
+}
+
+/* Centre the Mo/Tu/We… labels over their columns. */
+body.is-mobile .yh-calendar-head,
+body.is-mobile .yh-calendar-head > * {
+  text-align: center;
+  font-size: 0.6rem;
+}
+
+body.is-mobile .yh-calendar-cell {
+  min-height: 34px; /* comfortable tap target */
+  padding: 4px 2px;
+  font-size: 0.72rem;
+}
+
+body.is-mobile .yh-calendar-day {
+  font-size: 0.72rem;
+}
+
+/* Activity dots were being clipped by the 5px track at small sizes. */
+body.is-mobile .yh-calendar-dots {
+  min-height: 5px;
+}
+
+body.is-mobile .yh-calendar-title {
+  font-size: 0.78rem;
+}
+
+body.is-mobile .yh-calendar-nav {
+  margin-bottom: 6px;
+}
+
+body.is-mobile .yh-calendar-nav button {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+}
+
+/* --------------------------------------------------------------------------
+   5. SHARED MOBILE ERGONOMICS
+   -------------------------------------------------------------------------- */
+
+/* Header and toolbar stack instead of overflowing. */
+body.is-mobile .yh-header,
+body.is-mobile .yh-toolbar {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+body.is-mobile .yh-toolbar-actions {
+  flex-wrap: wrap;
+}
+
+/* Minimum 32px touch targets for the small icon buttons. */
+body.is-mobile .yh-icon-btn,
+body.is-mobile .yh-action-btn,
+body.is-mobile .yh-card-controls button,
+body.is-mobile .yh-habit-footer button,
+body.is-mobile .yh-pomo-controls button {
+  min-width: 32px;
+  min-height: 32px;
+}
+
+/* Create Note / quick-action tiles wrap into rows that fit the screen. */
+body.is-mobile .yh-action-mini-grid,
+body.is-mobile .yh-target-grid,
+body.is-mobile .yh-modal-grid {
+  grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)) !important;
+}
+
+/* Overview groups and time-flow read as a single column. */
+body.is-mobile .yh-overview-groups,
+body.is-mobile .yh-time-flow-grid {
+  grid-template-columns: 1fr !important;
+}
+
+/* Habit widgets: let the label column shrink instead of overflowing. */
+body.is-mobile .yh-habit-forest {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+body.is-mobile .yh-habit-today-list,
+body.is-mobile .yh-habit-today-name {
+  min-width: 0;
+}
+
+body.is-mobile .yh-habit-heatmap-svg,
+body.is-mobile .yh-heatmap-axis {
+  max-width: 100%;
+}
+
+/* The tech tree is genuinely wide — give it its own scroll rather than
+   letting it stretch the whole dashboard. */
+body.is-mobile .yh-tech-tree {
+  overflow-x: auto;
+  min-width: 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Long note titles in list widgets truncate instead of forcing width. */
+body.is-mobile .yh-task-status-icon + *,
+body.is-mobile .yh-project-status,
+body.is-mobile .yh-activity-status {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* --------------------------------------------------------------------------
+   6. NARROW DESKTOP PANES
+   Same treatment when HomePulse sits in a slim split on desktop.
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 700px) {
+  .yh-grid {
+    grid-template-columns: 1fr !important;
+    grid-auto-rows: minmax(132px, auto) !important;
+  }
+
+  .yh-grid > * {
+    grid-column: 1 / -1 !important;
+    grid-row: auto !important;
+    height: auto !important;
+  }
+
+  .yh-pulse-trends,
+  .yh-knowledge-profile {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-rows: auto !important;
+    height: auto !important;
+  }
+
+  .yh-calendar-head,
+  .yh-calendar-head > * {
+    text-align: center;
+  }
+}

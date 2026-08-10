@@ -99,7 +99,7 @@ loey_space/
 ├── .obsidian/                   # Vault configuration, custom plugins, snippets & themes
 │   ├── plugins/homepulse/       # Custom HomePulse dashboard plugin
 │   ├── plugins/kanban-status-sync/  # Syncs kanban card checkboxes to their lane
-│   └── snippets/                # CSS snippets (dashboard-cards.css, fonts.css)
+│   └── snippets/                # CSS snippets (dashboard-cards, fonts, project-tasks, homepulse-mobile)
 ├── .kiro/                       # Kiro IDE hooks (env validation, git safety, triage suggestions)
 ├── .secrets/                    # [GIT-IGNORED] Private human-readable sensitive notes
 └── .env                         # [GIT-IGNORED] Real API keys and machine credentials
@@ -258,6 +258,7 @@ All data is automatically pulled from daily notes — no manual tracking require
 ## 🎨 Styling & Aesthetics
 
 * **Ultra-Dark Palette**: Designed around a high-contrast `#0C0D13` background, sleek card containers, and glassmorphic borders (`.obsidian/snippets/dashboard-cards.css`).
+* **Mobile HomePulse**: `homepulse-mobile.css` overrides the dashboard's fixed 5-column grid and 132px row height on phones, so cards go full width and grow to fit. Execution Pulse and Knowledge Profile drop to 2×2, the calendar's weekday labels centre over their columns, and tap targets are raised to 32px.
 * **Typography System**: Custom Google Fonts hierarchy (`.obsidian/snippets/fonts.css`):
   * **Body / UI**: `Inter`, `Plus Jakarta Sans`, `Outfit`
   * **Code / Monospace**: `JetBrains Mono`
