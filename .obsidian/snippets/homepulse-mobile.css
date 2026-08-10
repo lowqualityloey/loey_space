@@ -1,295 +1,697 @@
 /* ==========================================================================
-   HomePulse — mobile responsiveness (homepulse-mobile.css)
-   --------------------------------------------------------------------------
-   WHY THIS EXISTS
-   The plugin lays its dashboard out with:
-       .yh-grid { grid-template-columns: repeat(var(--yh-columns, 5), ...);
-                  grid-auto-rows: 132px; }
-   Both of those are fixed regardless of screen size:
-     • the column count comes from a SETTING, not the viewport, so a phone
-       still tries to draw 5 columns in ~400px;
-     • the row height is a hard 132px (118px under its 520px query), so when
-       content stacks it overflows the card instead of growing it — that is the
-       overlapping numbers in Execution Pulse.
-   The plugin's own 520px rules also lose to its widget size classes: a
-   three-class selector (widget name + size class + child) outranks the
-   single-class mobile rule, and media queries add no specificity. Widget
-   placement is written inline by JS too. Both are why !important is used below.
-
-   Lives in a vault snippet rather than the plugin's styles.css so a plugin
-   update cannot wipe it.
+   HomePulse — Complete Mobile & Responsive UX/UI Architecture
    ========================================================================== */
 
 /* --------------------------------------------------------------------------
-   1. ONE COLUMN, HEIGHT THAT FOLLOWS CONTENT
-   The single most important fix: full-width cards that grow to fit.
+   1. UNCONSTRAINED FLEX/GRID CONTAINER & AUTO-EXPANDING CARDS
+   Forces all cards on mobile to expand to fit their natural content height,
+   stripping out fixed row-spans, aspect-ratios, and scrollbars.
    -------------------------------------------------------------------------- */
 
-body.is-mobile .yh-grid {
-  grid-template-columns: 1fr !important;
-  grid-auto-rows: minmax(132px, auto) !important;
-  gap: 12px !important;
-}
-
-/* Widget placement is written inline by the plugin (gridColumn / gridRow),
-   so it can only be overridden with !important. */
-body.is-mobile .yh-grid > * {
-  grid-column: 1 / -1 !important;
-  grid-row: auto !important;
-  height: auto !important;
-  min-height: 132px;
-  min-width: 0;
-}
-
-/* Nothing should be able to push the dashboard sideways. */
-body.is-mobile .homepulse-view {
-  overflow-x: hidden;
-}
-
-/* --------------------------------------------------------------------------
-   2. EXECUTION PULSE
-   Four metrics side by side is unreadable on a phone; 2x2 fits, and the
-   visualisations need a real height reserved so they stop colliding with
-   the big numbers.
-   -------------------------------------------------------------------------- */
-
-body.is-mobile .yh-pulse-trends {
-  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  grid-template-rows: auto !important;
-  height: auto !important;
-  gap: 14px 10px !important;
-}
-
-body.is-mobile .yh-pulse-metric {
-  min-width: 0;
-  min-height: 76px;
-  overflow: hidden; /* clips the decorative habit-tree art at narrow widths */
-}
-
-body.is-mobile .yh-pulse-metric-num {
-  font-size: 1.2rem;
-}
-
-body.is-mobile .yh-pulse-metric-head {
-  gap: 5px;
-  font-size: 0.52rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Keep label and value on their own line rather than overlapping the chart. */
-body.is-mobile .yh-pulse-metric-value {
-  min-height: 26px;
-  flex-wrap: wrap;
-}
-
-body.is-mobile .yh-pulse-metric-viz {
-  min-height: 30px;
-  gap: 5px;
-}
-
-body.is-mobile .yh-pulse-sparkline,
-body.is-mobile .yh-pulse-spark-wrap,
-body.is-mobile .yh-pulse-task-matrix,
-body.is-mobile .yh-pulse-focus-rails {
-  min-height: 24px;
-  max-width: 100%;
-}
-
-/* The habit "tree" is decorative and drawn at a fixed size — keep it inside. */
-body.is-mobile .yh-pulse-habit-crown,
-body.is-mobile .yh-pulse-habit-trunk,
-body.is-mobile .yh-pulse-habit-root {
-  max-width: 100%;
-}
-
-/* --------------------------------------------------------------------------
-   3. KNOWLEDGE PROFILE
-   Same problem as Execution Pulse: four stats forced into four columns.
-   The plugin's size-class rules outrank its own mobile query, hence !important.
-   -------------------------------------------------------------------------- */
-
-body.is-mobile .yh-knowledge-profile {
-  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  grid-template-rows: auto !important;
-  height: auto !important;
-  gap: 10px !important;
-}
-
-body.is-mobile .yh-knowledge-stat {
-  min-width: 0;
-  min-height: 54px;
-}
-
-body.is-mobile .yh-knowledge-stat-body {
-  min-width: 0;
-}
-
-body.is-mobile .yh-knowledge-stat-value {
-  font-size: 1.05rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-body.is-mobile .yh-knowledge-stat-label {
-  overflow: hidden;
-  font-size: 0.48rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-body.is-mobile .yh-knowledge-journey,
-body.is-mobile .yh-knowledge-stats,
-body.is-mobile .yh-knowledge-recent {
-  min-width: 0;
-}
-
-/* --------------------------------------------------------------------------
-   4. CALENDAR
-   The weekday labels are plain children of the grid, so they inherit
-   left alignment while the date cells are centred — that is the misalignment.
-   Cells also need a tappable height.
-   -------------------------------------------------------------------------- */
-
-body.is-mobile .yh-calendar-grid {
-  gap: 2px !important;
-}
-
-/* Centre the Mo/Tu/We… labels over their columns. */
-body.is-mobile .yh-calendar-head,
-body.is-mobile .yh-calendar-head > * {
-  text-align: center;
-  font-size: 0.6rem;
-}
-
-body.is-mobile .yh-calendar-cell {
-  min-height: 34px; /* comfortable tap target */
-  padding: 4px 2px;
-  font-size: 0.72rem;
-}
-
-body.is-mobile .yh-calendar-day {
-  font-size: 0.72rem;
-}
-
-/* Activity dots were being clipped by the 5px track at small sizes. */
-body.is-mobile .yh-calendar-dots {
-  min-height: 5px;
-}
-
-body.is-mobile .yh-calendar-title {
-  font-size: 0.78rem;
-}
-
-body.is-mobile .yh-calendar-nav {
-  margin-bottom: 6px;
-}
-
-body.is-mobile .yh-calendar-nav button {
-  width: 32px;
-  min-width: 32px;
-  height: 32px;
-}
-
-/* --------------------------------------------------------------------------
-   5. SHARED MOBILE ERGONOMICS
-   -------------------------------------------------------------------------- */
-
-/* Header and toolbar stack instead of overflowing. */
-body.is-mobile .yh-header,
-body.is-mobile .yh-toolbar {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 8px;
-}
-
-body.is-mobile .yh-toolbar-actions {
-  flex-wrap: wrap;
-}
-
-/* Minimum 32px touch targets for the small icon buttons. */
-body.is-mobile .yh-icon-btn,
-body.is-mobile .yh-action-btn,
-body.is-mobile .yh-card-controls button,
-body.is-mobile .yh-habit-footer button,
-body.is-mobile .yh-pomo-controls button {
-  min-width: 32px;
-  min-height: 32px;
-}
-
-/* Create Note / quick-action tiles wrap into rows that fit the screen. */
-body.is-mobile .yh-action-mini-grid,
-body.is-mobile .yh-target-grid,
-body.is-mobile .yh-modal-grid {
-  grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)) !important;
-}
-
-/* Overview groups and time-flow read as a single column. */
-body.is-mobile .yh-overview-groups,
-body.is-mobile .yh-time-flow-grid {
-  grid-template-columns: 1fr !important;
-}
-
-/* Habit widgets: let the label column shrink instead of overflowing. */
-body.is-mobile .yh-habit-forest {
-  grid-template-columns: minmax(0, 1fr) !important;
-}
-
-body.is-mobile .yh-habit-today-list,
-body.is-mobile .yh-habit-today-name {
-  min-width: 0;
-}
-
-body.is-mobile .yh-habit-heatmap-svg,
-body.is-mobile .yh-heatmap-axis {
-  max-width: 100%;
-}
-
-/* The tech tree is genuinely wide — give it its own scroll rather than
-   letting it stretch the whole dashboard. */
-body.is-mobile .yh-tech-tree {
-  overflow-x: auto;
-  min-width: 0;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* Long note titles in list widgets truncate instead of forcing width. */
-body.is-mobile .yh-task-status-icon + *,
-body.is-mobile .yh-project-status,
-body.is-mobile .yh-activity-status {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* --------------------------------------------------------------------------
-   6. NARROW DESKTOP PANES
-   Same treatment when HomePulse sits in a slim split on desktop.
-   -------------------------------------------------------------------------- */
-
-@media (max-width: 700px) {
+body.is-mobile .yh-grid,
+body.is-phone .yh-grid,
+body.is-tablet .yh-grid,
+.homepulse-view .yh-grid,
+@media (max-width: 768px) {
   .yh-grid {
-    grid-template-columns: 1fr !important;
-    grid-auto-rows: minmax(132px, auto) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
+    height: auto !important;
+    grid-auto-rows: auto !important;
   }
 
-  .yh-grid > * {
+  /* Target every single card regardless of size preset or widget type */
+  .yh-grid > *,
+  .yh-card,
+  div[class*="yh-widget-"],
+  div[class*="yh-size-"],
+  div[class*="yh-row-span-"] {
     grid-column: 1 / -1 !important;
     grid-row: auto !important;
     height: auto !important;
+    min-height: fit-content !important;
+    max-height: none !important;
+    aspect-ratio: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    flex: none !important;
   }
 
-  .yh-pulse-trends,
+  .yh-card-body,
+  div[class*="yh-widget-"] .yh-card-body {
+    height: auto !important;
+    min-height: fit-content !important;
+    max-height: none !important;
+    overflow: visible !important;
+    overflow-y: visible !important;
+    overflow-x: visible !important;
+    flex: none !important;
+  }
+
+  .homepulse-view {
+    overflow-x: hidden;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   2. KNOWLEDGE PROFILE — 100% Visible 2x2 Grid (No Scrollbar, No Clipping)
+   -------------------------------------------------------------------------- */
+
+body.is-mobile .yh-widget-knowledge-profile,
+body.is-phone .yh-widget-knowledge-profile,
+body.is-mobile .yh-knowledge-profile,
+body.is-phone .yh-knowledge-profile,
+@media (max-width: 768px) {
+  .yh-widget-knowledge-profile,
+  .yh-widget-knowledge-profile .yh-card-body,
   .yh-knowledge-profile {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    grid-template-rows: auto !important;
+    overflow: visible !important;
+    overflow-y: visible !important;
+    overflow-x: visible !important;
+    max-height: none !important;
     height: auto !important;
   }
 
-  .yh-calendar-head,
-  .yh-calendar-head > * {
-    text-align: center;
+  .yh-knowledge-profile {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 2px 0 !important;
+  }
+
+  .yh-knowledge-stat {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    min-height: 64px !important;
+    height: auto !important;
+    padding: 12px 10px !important;
+    min-width: 0 !important;
+    overflow: visible !important;
+    box-sizing: border-box !important;
+    border: 1px solid rgba(180, 190, 254, 0.12) !important;
+    border-radius: 8px !important;
+    background: rgba(24, 25, 32, 0.6) !important;
+  }
+
+  .yh-knowledge-stat-icon {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 6px !important;
+    background: rgba(180, 190, 254, 0.08) !important;
+    color: var(--yh-accent, #f5c2e7) !important;
+  }
+
+  .yh-knowledge-stat-body {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    min-width: 0 !important;
+  }
+
+  .yh-knowledge-stat-value {
+    font-size: 1.35rem !important;
+    font-weight: 700 !important;
+    line-height: 1.1 !important;
+    color: var(--komo-text, #cdd6f4) !important;
+  }
+
+  .yh-knowledge-stat-label {
+    font-size: 0.62rem !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    color: var(--komo-sub, #a6adc8) !important;
+    margin-top: 2px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
   }
 }
+
+/* --------------------------------------------------------------------------
+   3. CALENDAR WIDGET — Full Month View (All 31 Days Visible)
+   -------------------------------------------------------------------------- */
+
+body.is-mobile .yh-widget-calendar,
+body.is-phone .yh-widget-calendar,
+@media (max-width: 768px) {
+  .yh-widget-calendar,
+  .yh-widget-calendar .yh-card-body {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    overflow-y: visible !important;
+  }
+
+  .yh-calendar-nav {
+    margin-bottom: 8px !important;
+  }
+
+  .yh-calendar-head {
+    display: grid !important;
+    grid-template-columns: repeat(7, 1fr) !important;
+    width: 100% !important;
+    margin-bottom: 6px !important;
+    text-align: center !important;
+  }
+
+  .yh-calendar-head > * {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+    font-size: 0.65rem !important;
+    font-weight: 600 !important;
+    color: var(--komo-muted, #7f849c) !important;
+    padding: 2px 0 !important;
+  }
+
+  .yh-calendar-grid {
+    display: grid !important;
+    grid-template-columns: repeat(7, 1fr) !important;
+    gap: 3px !important;
+    width: 100% !important;
+    height: auto !important;
+  }
+
+  .yh-calendar-cell {
+    min-height: 36px !important;
+    height: 36px !important;
+    padding: 3px 1px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+    box-sizing: border-box !important;
+    border-radius: 4px !important;
+  }
+
+  .yh-calendar-day {
+    font-size: 0.76rem !important;
+    line-height: 1 !important;
+  }
+
+  .yh-calendar-dots {
+    display: flex !important;
+    justify-content: center !important;
+    gap: 2px !important;
+    min-height: 4px !important;
+    margin-top: 2px !important;
+  }
+
+  .yh-calendar-dot {
+    width: 3px !important;
+    height: 3px !important;
+  }
+
+  .yh-calendar-nav button {
+    width: 36px !important;
+    min-width: 36px !important;
+    height: 36px !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   4. EXECUTION PULSE — Clean 2x2 Grid with Spacious Unclipped Subtext
+   -------------------------------------------------------------------------- */
+
+body.is-mobile .yh-pulse-trends,
+body.is-phone .yh-pulse-trends,
+@media (max-width: 768px) {
+  .yh-widget-stats-overview,
+  .yh-widget-stats-overview .yh-card-body {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .yh-pulse-trends {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+    height: auto !important;
+    width: 100% !important;
+  }
+
+  .yh-pulse-metric {
+    min-height: 155px !important;
+    height: auto !important;
+    padding: 12px 10px 10px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    position: relative !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    border-radius: 8px !important;
+    background: rgba(24, 25, 32, 0.6) !important;
+    border: 1px solid rgba(180, 190, 254, 0.12) !important;
+  }
+
+  .yh-pulse-metric-head {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    font-size: 0.6rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.06em !important;
+    text-transform: uppercase !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .yh-pulse-metric-value {
+    min-height: 26px !important;
+    display: flex !important;
+    align-items: baseline !important;
+    flex-wrap: wrap !important;
+    gap: 4px !important;
+    margin: 4px 0 !important;
+  }
+
+  .yh-pulse-metric-num {
+    font-size: 1.4rem !important;
+    font-weight: 750 !important;
+    line-height: 1 !important;
+  }
+
+  .yh-pulse-metric-viz {
+    min-height: 44px !important;
+    margin: 4px 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    position: relative !important;
+    flex: 1 1 auto !important;
+  }
+
+  /* Scale habit tree down so leaves do not float into adjacent cards or overlap text */
+  .yh-pulse-habit-tree {
+    position: relative !important;
+    width: 60px !important;
+    height: 36px !important;
+    margin: 0 auto !important;
+    transform: scale(0.65) !important;
+    transform-origin: center center !important;
+  }
+
+  .yh-pulse-focus-rails {
+    min-height: 28px !important;
+    gap: 4px !important;
+    margin-top: 2px !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  .yh-pulse-task-matrix {
+    gap: 4px !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    margin-top: 2px !important;
+  }
+
+  .yh-pulse-task-cell {
+    height: 10px !important;
+  }
+
+  .yh-pulse-sparkline,
+  .yh-pulse-spark-wrap {
+    min-height: 28px !important;
+    height: 28px !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  .yh-pulse-metric-sub {
+    font-size: 0.58rem !important;
+    line-height: 1.25 !important;
+    color: var(--komo-muted, #7f849c) !important;
+    margin-top: 6px !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   5. HABITS WIDGET — No Internal Scrollbars
+   -------------------------------------------------------------------------- */
+
+body.is-mobile .yh-widget-habits,
+body.is-phone .yh-widget-habits,
+@media (max-width: 768px) {
+  .yh-widget-habits,
+  .yh-widget-habits .yh-card-body,
+  .yh-habit-today {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    overflow-y: visible !important;
+  }
+
+  .yh-habit-forest {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    width: 100% !important;
+  }
+
+  .yh-habit-today-row {
+    min-height: 40px !important;
+    padding: 6px 10px !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   6. TECH TREE — Horizontal Tree Preservation (Perfect Connecting Lines)
+   -------------------------------------------------------------------------- */
+
+body.is-mobile .yh-tech-board,
+body.is-phone .yh-tech-board,
+@media (max-width: 768px) {
+  .yh-widget-tech-tree,
+  .yh-widget-tech-tree .yh-card-body {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .yh-tech-board {
+    width: 100% !important;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding: 4px 4px 12px 4px !important;
+    box-sizing: border-box !important;
+  }
+
+  .yh-tech-tree {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
+    min-width: max-content !important;
+    width: max-content !important;
+  }
+
+  .yh-tech-lane {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    position: relative !important;
+    min-width: max-content !important;
+    width: auto !important;
+  }
+
+  .yh-tech-subtree {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    position: relative !important;
+    min-width: max-content !important;
+  }
+
+  .yh-tech-group {
+    display: inline-flex !important;
+    align-items: center !important;
+    width: 120px !important;
+    min-width: 120px !important;
+    box-sizing: border-box !important;
+  }
+
+  .yh-tech-children {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+    margin-left: 24px !important;
+    padding-left: 24px !important;
+    position: relative !important;
+    border-left: none !important;
+  }
+
+  .yh-tech-children::before {
+    content: "" !important;
+    position: absolute !important;
+    top: 16px !important;
+    bottom: 16px !important;
+    left: 0 !important;
+    border-left: 1px solid rgba(180, 190, 254, 0.42) !important;
+  }
+
+  .yh-tech-children::after,
+  .yh-tech-subtree::before {
+    content: "" !important;
+    position: absolute !important;
+    top: 50% !important;
+    border-top: 1px solid rgba(180, 190, 254, 0.42) !important;
+  }
+
+  .yh-tech-children::after {
+    left: -24px !important;
+    width: 24px !important;
+  }
+
+  .yh-tech-subtree::before {
+    left: -24px !important;
+    width: 24px !important;
+  }
+
+  .yh-tech-node {
+    width: 170px !important;
+    min-width: 170px !important;
+    max-width: 200px !important;
+    box-sizing: border-box !important;
+  }
+
+  .yh-tech-node-title {
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+    font-size: 0.74rem !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   7. CREATE NOTE / QUICK ACTIONS — Balanced 3-Column Mini Grid
+   -------------------------------------------------------------------------- */
+
+body.is-mobile .yh-action-grid,
+body.is-phone .yh-action-grid,
+body.is-mobile .yh-action-mini-grid,
+body.is-phone .yh-action-mini-grid,
+@media (max-width: 768px) {
+  .yh-action-grid,
+  .yh-action-mini-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    width: 100% !important;
+  }
+
+  .yh-action-btn {
+    min-height: 50px !important;
+    padding: 8px 4px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 0.74rem !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .yh-action-grid,
+  .yh-action-mini-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   8. OPEN TASKS / PROJECTS / RECENT NOTES LISTS — Full Content Display
+   -------------------------------------------------------------------------- */
+
+body.is-mobile .yh-task-list,
+body.is-phone .yh-task-list,
+body.is-mobile .yh-project-list,
+body.is-phone .yh-project-list,
+body.is-mobile .yh-recent-notes-list,
+body.is-phone .yh-recent-notes-list,
+@media (max-width: 768px) {
+  .yh-widget-tasks .yh-card-body,
+  .yh-widget-projects .yh-card-body,
+  .yh-widget-recent-notes .yh-card-body {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .yh-task-list,
+  .yh-project-list,
+  .yh-recent-notes-list,
+  .yh-time-flow-list {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .yh-task-row,
+  .yh-project-row,
+  .yh-recent-notes-row {
+    min-height: 46px !important;
+    padding: 8px 10px !important;
+    align-items: center !important;
+    height: auto !important;
+  }
+
+  .yh-task-text,
+  .yh-list-title {
+    white-space: normal !important;
+    word-break: break-word !important;
+    line-height: 1.35 !important;
+    font-size: 0.78rem !important;
+    overflow: visible !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   9. POMODORO & FOCUS WIDGET
+   -------------------------------------------------------------------------- */
+
+body.is-mobile .yh-pomo,
+body.is-phone .yh-pomo,
+@media (max-width: 768px) {
+  .yh-widget-focus .yh-card-body,
+  .yh-widget-pomodoro .yh-card-body {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .yh-pomo {
+    padding: 14px 10px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .yh-pomo-timer {
+    font-size: 2.2rem !important;
+  }
+
+  .yh-pomo-controls button {
+    min-width: 44px !important;
+    min-height: 44px !important;
+  }
+
+  .yh-focus-input,
+  .yh-focus-display {
+    min-height: 44px !important;
+    font-size: 0.9rem !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   10. ACTIVITY HISTORY HEATMAP — Touch Scroll
+   -------------------------------------------------------------------------- */
+
+body.is-mobile .yh-activity-wrap,
+body.is-phone .yh-activity-wrap,
+@media (max-width: 768px) {
+  .yh-widget-activity-history .yh-card-body {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .yh-activity-wrap {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding-bottom: 8px !important;
+    width: 100% !important;
+  }
+
+  .yh-activity-wrap svg {
+    min-width: 560px !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   11. BOOKMARKS & TIME FLOW WIDGETS
+   -------------------------------------------------------------------------- */
+
+body.is-mobile .yh-bookmarks-grid,
+body.is-phone .yh-bookmarks-grid,
+@media (max-width: 768px) {
+  .yh-bookmarks-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+}
+
+body.is-mobile .yh-time-flow-grid,
+body.is-phone .yh-time-flow-grid,
+@media (max-width: 768px) {
+  .yh-time-flow-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   12. HEADER & TOOLBAR ERGONOMICS
+   -------------------------------------------------------------------------- */
+
+body.is-mobile .yh-header,
+body.is-phone .yh-header,
+@media (max-width: 768px) {
+  .yh-header {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    padding: 12px 14px !important;
+  }
+
+  .yh-header-right {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 4px !important;
+  }
+
+  .yh-brand-title {
+    font-size: 1.25rem !important;
+  }
+
+  .yh-icon-btn,
+  .yh-action-btn,
+  .yh-card-controls button,
+  .yh-habit-footer button,
+  .yh-pomo-controls button {
+    min-width: 36px !important;
+    min-height: 36px !important;
+  }
+}
+
+
+

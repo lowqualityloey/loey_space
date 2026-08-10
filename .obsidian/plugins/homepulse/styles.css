@@ -3319,7 +3319,7 @@
   }
 
   .yh-grid {
-    grid-auto-rows: 118px;
+    grid-auto-rows: minmax(min-content, auto);
     grid-auto-flow: row;
   }
 
@@ -3329,39 +3329,39 @@
 
   .yh-pulse-trends,
   .yh-knowledge-profile {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .yh-tech-board {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .yh-tech-tree {
-    min-width: 0;
-    gap: 14px;
+    display: flex;
+    flex-direction: row;
+    min-width: max-content;
+    gap: 16px;
   }
 
-  .yh-tech-lane,
+  .yh-tech-lane {
+    display: flex;
+    flex-direction: column;
+    width: 260px;
+    min-width: 260px;
+    flex-shrink: 0;
+  }
+
   .yh-tech-subtree {
-    display: block;
+    display: flex;
+    flex-direction: column;
   }
 
   .yh-tech-group,
   .yh-tech-node,
   .yh-tech-node.is-area {
-    width: min(100%, 300px);
-  }
-
-  .yh-tech-children {
-    display: flex;
-    margin: 6px 0 0 16px;
-    padding-left: 18px;
-  }
-
-  .yh-tech-children::after {
-    display: none;
-  }
-
-  .yh-tech-subtree::before {
-    top: 16px;
-    left: -18px;
-    width: 18px;
+    width: 100%;
   }
 
   .yh-habit-forest { grid-template-columns: 1fr; }
