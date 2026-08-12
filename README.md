@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-10
+updated: 2026-08-13
 ---
 # 🧠 `loey_space` — Personal Knowledge Management & Second Brain Architecture
 
@@ -179,7 +179,8 @@ Use QuickAdd ribbon buttons or command palette (`Ctrl + P` -> `QuickAdd: Run...`
 * `⏳ Create Daily Note` — Generates today's daily log (`01-Daily/YYYY-MM-DD.md`) with habits, energy tracking, and task lists.
 * `💡 Create Concept Note` — Creates a structured evergreen note in `08-Concepts/`.
 * `💻 Create Dev Note` — Creates a technical code pattern in `03-Dev/`.
-* `📥 Quick Capture to Inbox` — Appends a quick note to the inbox dump.
+* `📥 Quick Capture to Inbox` — Appends a quick note to the inbox dump (timestamped).
+* `🧹 Archive & Clear Quick Capture Dump` — Archives processed entries to `00-Inbox/Archives/` and resets the dump note.
 * `🚀 Create Project Note` — Scaffolds a new project with folder and kanban.
 * `🔄 Sync GitHub Project Kanban` — Bi-directionally syncs the active project board with GitHub Projects v2 (via left ribbon button `lucide-github` or QuickAdd).
 

@@ -1,6 +1,26 @@
 {
   "choices": [
     {
+      "id": "e4f0a1b2-clr0-4000-8000-000000000300",
+      "name": "🧹 Archive & Clear Quick Capture Dump",
+      "type": "Macro",
+      "command": true,
+      "macroId": "e4f0a1b2-clr0-4000-8000-000000000022",
+      "macro": {
+        "id": "e4f0a1b2-clr0-4000-8000-000000000022",
+        "name": "🧹 Archive & Clear Quick Capture Dump",
+        "commands": [
+          {
+            "name": "Run Clear Capture Dump UserScript",
+            "type": "UserScript",
+            "id": "e4f0a1b2-clr0-4000-8000-000000000033",
+            "path": "06-Resources/scripts/clear-capture-dump.js",
+            "settings": {}
+          }
+        ]
+      }
+    },
+    {
       "id": "e4f0a1b2-gh00-4000-8000-000000000200",
       "name": "🔄 Sync GitHub Project Kanban",
       "type": "Macro",
@@ -52,7 +72,7 @@
       "createFileIfItDNEPath": "00-Inbox/quick-capture-dump.md",
       "format": {
         "enabled": true,
-        "format": "- {{VALUE}} (captured: {{DATE:YYYY-MM-DD HH:mm}})"
+        "format": "### 📅 {{DATE:YYYY-MM-DD HH:mm}}\n- {{VALUE}}"
       },
       "insertAfter": {
         "enabled": true,
@@ -508,6 +528,19 @@
           "type": "UserScript",
           "id": "e4f0a1b2-dddd-4000-8000-000000000033",
           "path": "06-Resources/scripts/ai-enrich-action.js",
+          "settings": {}
+        }
+      ]
+    },
+    {
+      "id": "e4f0a1b2-clr0-4000-8000-000000000022",
+      "name": "🧹 Archive & Clear Quick Capture Dump",
+      "commands": [
+        {
+          "name": "Run Clear Capture Dump UserScript",
+          "type": "UserScript",
+          "id": "e4f0a1b2-clr0-4000-8000-000000000033",
+          "path": "06-Resources/scripts/clear-capture-dump.js",
           "settings": {}
         }
       ]
