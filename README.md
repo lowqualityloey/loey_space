@@ -96,8 +96,7 @@ loey_space/
 │   ├── Daily.md                 # Daily note template (habits, tasks, reflections)
 │   ├── Mobile Capture.md        # Mobile quick capture template
 │   ├── Mobile Task.md           # Mobile task capture template
-│   ├── Mobile Idea.md           # Mobile idea capture template
-│   └── Triage.md                # Inbox processing & classification template
+│   └── Mobile Idea.md           # Mobile idea capture template
 ├── .obsidian/                   # Vault configuration, custom plugins, snippets & themes
 │   ├── plugins/homepulse/       # Custom HomePulse dashboard plugin
 │   ├── plugins/kanban-status-sync/  # Syncs kanban card checkboxes to their lane

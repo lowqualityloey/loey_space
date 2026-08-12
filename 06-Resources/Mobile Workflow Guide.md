@@ -84,7 +84,7 @@ Total time: **< 10 seconds**
 1. Open `00-Inbox/quick-capture-dump.md`
 2. Review items marked with `📱`
 3. Triage each: move to project, create full note, or delete
-4. Faster route: tag each line with a destination token (`#do`, `#dev`, `#concept`, `#learn`, `#ref`, `#personal`, `#project`, `#bin`) and run **Triage Sweep** — it files them all in one pass. Reserve `99-Templates/Triage.md` for the rare item that genuinely needs a written assessment.
+4. Tag each line with a destination token (`#do`, `#dev`, `#concept`, `#learn`, `#ref`, `#personal`, `#project`, `#bin`) and run **Triage Sweep** — it files them all in one pass.
 
 ---
 
@@ -118,5 +118,5 @@ SORT file.ctime DESC
 ## 🔗 Related
 
 - [[00-Inbox/_Inbox MOC|📥 Inbox MOC]]
-- [[99-Templates/Triage|🧹 Triage Template]]
+- [[00-Inbox/_Triage MOC|🧹 Triage & Maintenance MOC]]
 - [[06-Resources/Second Brain Guide|🧠 Second Brain Guide]]

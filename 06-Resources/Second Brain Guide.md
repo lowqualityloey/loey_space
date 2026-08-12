@@ -48,7 +48,7 @@ flowchart LR
 | **📊 `07-Reviews/`** | Periodic reflection — your looking-backward lens | Weekly (`YYYY-[W]WW.md`) and monthly (`YYYY-MM.md`) reviews, post-mortems, AI-generated summaries, `_Reviews MOC.md` |
 | **💡 `08-Concepts/`** | Permanent notes — your distilled knowledge | Atomic ideas, principles, mental models (`YYYY-MM-DD_HHmm {{VALUE}}`), `_Concepts MOC.md`. Each note self-contained and linked. Carries `last_reviewed` + `review_cycle: 90d`. ✨ *AI-enrichable*. *The core of your Zettelkasten* |
 | **📎 `99-Attachments/`** | Media and binary assets | Images, screenshots, PDFs, audio, exports — filed into monthly `YYYY-MM/` subfolders, plus `_Attachments MOC.md`. Keeps assets out of your note flow |
-| **📋 `99-Templates/`** | Reusable note blueprints | `Daily.md`, `Concept.md`, `Dev.md`, `Project.md`, `Learning.md`, `Personal.md`, `Resource.md`, `API.md`, `Triage.md`, mobile capture templates. *Blueprints only — never edit these as notes* |
+| **📋 `99-Templates/`** | Reusable note blueprints | `Daily.md`, `Concept.md`, `Dev.md`, `Project.md`, `Learning.md`, `Personal.md`, `Resource.md`, `API.md`, mobile capture templates. *Blueprints only — never edit these as notes* |
 | **⚙️ `.obsidian/`** | Vault configuration and custom code | HomePulse plugin (`plugins/homepulse/`), CSS snippets, themes, hotkeys, plugin settings |
 | **🪝 `.kiro/`** | Kiro IDE automation | Hooks for `.env` validation, Git safety, and inbox triage suggestions |
 | **🔒 `.secrets/`** | **Git-ignored** private notes | Bank details, private logs, credential context. Never committed |
@@ -115,8 +115,10 @@ Behaviour worth knowing:
 - **Name collisions get a numeric suffix** rather than overwriting an existing note.
 - **Every created note records its origin**: `source: quick-capture` plus the original `captured:` date.
 
-> [!TIP] Why this replaced the old form
-> `99-Templates/Triage.md` asks for ~40 checkboxes per item — more work than the thing being triaged, which is why the inbox had accumulated items and zero triage notes. It also created a *new* note in `00-Inbox` with `status: in-progress`, so triaging something made the inbox longer and added to the stale-notes queue. Keep `Triage.md` for the rare item that deserves a written assessment; use tokens for the other 95%.
+> [!TIP] Why the old triage form was removed
+> `99-Templates/Triage.md` asked for ~40 checkboxes per item — more work than the thing being triaged, which is why the inbox accumulated items and zero triage notes were ever created. It also produced a *new* note in `00-Inbox` carrying `status: in-progress`, so triaging something made the inbox longer and added to the stale-notes queue. It has been deleted.
+>
+> If an item genuinely needs thinking through, it isn't inbox triage any more — it's a real note. Sweep it to its destination (`#concept`, `#dev`, `#project`) and think there: those templates already have Summary, Why it matters, Context and Next steps sections.
 
 ---
 

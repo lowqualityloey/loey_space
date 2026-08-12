@@ -182,7 +182,7 @@ If auto-detection missed the mark, update classifications:
 
 ### Workflow Integration
 - **QuickAdd Ready**: Designed for 1-click capture via QuickAdd macros
-- **Triage Compatible**: Works with existing `Triage.md` template
+- **Triage Compatible**: Works with token triage — tag the capture and run **Triage Sweep** (`triage-sweep.js`)
 - **MOC Auto-linking**: Can be extended to auto-link to relevant MOCs
 
 ### Performance

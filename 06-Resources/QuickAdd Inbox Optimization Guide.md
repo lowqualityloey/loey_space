@@ -140,7 +140,7 @@ The **Enhanced Quick Capture** template uses keyword analysis to suggest:
 ## 🔗 Integration with Existing Workflow
 
 ### Works with Existing Templates
-- **Triage Sweep**: Primary processing route — tag a capture line with a destination token and sweep. `Triage.md` is now reserved for items that genuinely need a written assessment
+- **Triage Sweep**: The processing route — tag a capture line with a destination token (`#do`, `#dev`, `#concept`, `#learn`, `#ref`, `#personal`, `#project`, `#bin`) and run the sweep. The old `Triage.md` form has been removed; items needing real thought get swept to their destination note and developed there
 - **Daily notes**: Capture content can reference daily contexts
 - **Projects**: Auto-links to project tags when detected
 
@@ -269,7 +269,7 @@ Track these metrics to measure optimization success:
 ## 🔗 Related Resources
 
 - [[99-Templates/Enhanced Quick Capture.md|📥 Enhanced Quick Capture Template]]
-- [[99-Templates/Triage.md|🧹 Triage Template]]
+- [[00-Inbox/_Triage MOC|🧹 Triage & Maintenance MOC]]
 - [[System Improvements.md|🚀 System Improvements Project]]
 - [[Second Brain Guide.md|🧠 Second Brain Workflow Guide]]
 
