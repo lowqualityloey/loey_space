@@ -132,10 +132,6 @@ GEMINI_API_KEY=your_google_gemini_api_key_here
 # Optional - Weather Dashboard project
 VITE_OPENWEATHER_API_KEY=your_openweather_api_key_here
 
-# Optional - Notion sync
-NOTION_API_KEY=secret_your_notion_api_key_here
-NOTION_DATABASE_ID=your_database_id_here
-
 # Optional - OpenAI fallback
 OPENAI_API_KEY=sk-your_openai_api_key_here
 ```
