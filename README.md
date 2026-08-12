@@ -38,6 +38,7 @@ updated: 2026-08-10
 | **Habit Analytics Dashboard** | 30-day rolling metrics, streak tracking, day-of-week patterns, and improvement recommendations |
 | **Smart Task Management** | Tasks live in daily notes and project kanbans, aggregated in real-time via `_Tasks MOC.md` with status indicators (`[ ]`, `[/]`, `[x]`) |
 | **Project Kanban Integration** | Each project gets a visual kanban board; tasks from To Do/In Progress/Review flow into the central task hub (Backlog excluded) |
+| **GitHub Project Sync** | Bi-directional 2-way sync between Obsidian Kanbans and GitHub Projects v2 (`github_project_number`) via QuickAdd & `gh` CLI |
 | **Kanban Status Sync** | Drag a card between lanes and its checkbox follows automatically — To Do `[ ]`, In Progress `[/]`, Done `[x]` with a completion date |
 | **Mobile Quick Capture** | 4 mobile-optimized commands for instant capture on the go — process later on desktop |
 | **Inbox Auto-Classification** | Quick captures tagged with type/area/priority suggestions based on content analysis |
@@ -184,6 +185,7 @@ Use QuickAdd ribbon buttons or command palette (`Ctrl + P` -> `QuickAdd: Run...`
 * `💻 Create Dev Note` — Creates a technical code pattern in `03-Dev/`.
 * `📥 Quick Capture to Inbox` — Appends a quick note to the inbox dump.
 * `🚀 Create Project Note` — Scaffolds a new project with folder and kanban.
+* `🔄 Sync GitHub Project Kanban` — Bi-directionally syncs the active project board with GitHub Projects v2 (via left ribbon button `lucide-github` or QuickAdd).
 
 ### Multi-Domain AI Enricher (`Ctrl + Shift + A`)
 Position your cursor inside any active note and press `Ctrl + Shift + A` (or run `QuickAdd: AI Enrich Note`):
@@ -251,6 +253,7 @@ All data is automatically pulled from daily notes — no manual tracking require
 * **Project Status Matching**: `_Projects MOC.md` accepts `in progress`, `in-progress`, `active`, `doing` and `wip` as active, so a space instead of a hyphen no longer hides a project. Progress bars count committed work only — Backlog and Archive are excluded.
 * **Daily Carry-Over**: Unfinished `- [ ]` tasks under `### ✅ Tasks` roll forward into tomorrow's daily note. Completed and in-progress items do not.
 * **Forwarded, Not Duplicated**: When tasks carry forward, the previous note marks its copies `- [>]` (forwarded, shown as a faint `→`). Each task is therefore open in exactly one note, so it is counted once in the Open Tasks widget, `_Tasks MOC.md`, and the analytics.
+* **GitHub Project v2 Sync**: Project Kanbans with `github_project_number` frontmatter sync cards, status columns, and priority tags (`#priority/p0` Red 🔴, `#priority/p1` Yellow 🟡, `#priority/p2` Blue 🔵, `#priority/p3` Green 🟢) bi-directionally with GitHub Projects v2.
 * **Today-Scoped Dashboards**: `_Tasks MOC.md` counts daily tasks from the current daily note only; project board tasks are always included. Completed totals stay all-time.
 
 ---

@@ -127,14 +127,21 @@ Lifecycle and workflow states
 | `status/review-needed` | Needs review | Requires peer/self-review |
 
 ### 5. Priority Taxonomy (`priority/*`)
-Urgency and importance levels
+Urgency and importance levels (aligned with Obsidian Kanban CSS & GitHub Projects v2)
 
-| Tag | Description | When to Use |
-|-----|-------------|-------------|
-| `priority/low` | Low urgency | Nice to have, background |
-| `priority/medium` | Normal priority | Regular work items |
-| `priority/high` | High urgency | Important, time-sensitive |
-| `priority/critical` | Critical priority | Blockers, urgent issues |
+| Tag / Code | Level | Description | Color Standard |
+| :--- | :--- | :--- | :--- |
+| `priority/p0` / `priority/critical` | Critical | Blockers, urgent P0 issues | 🔴 Red (`#ef4444`) |
+| `priority/p1` / `priority/high` | High | High urgency, key deliverables | 🟡 Yellow (`#f59e0b`) |
+| `priority/p2` / `priority/medium` | Medium | Normal priority work items | 🔵 Blue (`#3b82f6`) |
+| `priority/p3` / `priority/low` | Low | Background, nice-to-have items | 🟢 Emerald Green (`#10b981`) |
+
+> [!TIP] 🎨 GitHub Projects v2 Color Alignment
+> Set single-select option colors on [`https://github.com/users/lowqualityloey/projects/2/settings/fields/Priority`](https://github.com/users/lowqualityloey/projects/2/settings/fields/Priority):
+> - **P0** → **Red** 🔴
+> - **P1** → **Yellow** 🟡
+> - **P2** → **Blue** 🔵
+> - **P3** → **Green** 🟢
 
 ---
 
@@ -151,6 +158,8 @@ type: project
 status: planning
 priority: medium
 area: dev
+github_project_number: 2           # GitHub Project v2 number for auto-sync
+github_owner: lowqualityloey        # GitHub owner login
 tags:
   - type/project
   - area/dev
