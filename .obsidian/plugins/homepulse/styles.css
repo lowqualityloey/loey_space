@@ -2930,6 +2930,10 @@
   border-left: 1px solid rgba(180, 190, 254, 0.42);
 }
 
+.yh-tech-children:has(> .yh-tech-subtree:only-child)::before {
+  display: none !important;
+}
+
 .yh-tech-children::after,
 .yh-tech-subtree::before {
   content: "";

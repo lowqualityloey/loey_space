@@ -597,6 +597,19 @@
           "settings": {}
         }
       ]
+    },
+    {
+      "id": "e4f0a1b2-swp0-4000-8000-000000000022",
+      "name": "🧹 Triage Sweep",
+      "commands": [
+        {
+          "name": "Run Triage Sweep UserScript",
+          "type": "UserScript",
+          "id": "e4f0a1b2-swp0-4000-8000-000000000033",
+          "path": "06-Resources/scripts/triage-sweep.js",
+          "settings": {}
+        }
+      ]
     }
   ]
 }
