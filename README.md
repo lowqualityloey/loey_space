@@ -14,6 +14,7 @@ updated: 2026-08-13
 
 ## 📚 Table of Contents
 
+- [🖼️ Screenshots](#️-screenshots)
 - [✨ Main Features](#-main-features)
 - [⚡ HomePulse Command Center](#-homepulse-command-center)
 - [🗂️ Vault Directory Architecture](#️-vault-directory-architecture)
@@ -24,6 +25,28 @@ updated: 2026-08-13
 - [📋 Task System Rules \& Conventions](#-task-system-rules--conventions)
 - [🎨 Styling \& Aesthetics](#-styling--aesthetics)
 - [🔒 Security \& Git Safety](#-security--git-safety)
+
+---
+
+## 🖼️ Screenshots
+
+### ⚡ HomePulse Command Center
+
+![HomePulse dashboard showing habit tracking widgets, open tasks pulled from daily notes and project boards, a pomodoro focus timer, execution pulse metrics, calendar heatmap, and the auto-generated tech tree — all on the ultra-dark #0C0D13 theme](99-Attachments/2026-08/obsidian-homepulse-dashboard.png)
+
+The custom [HomePulse](#-homepulse-command-center) plugin: habits sync two ways with today's daily note, open tasks aggregate from daily notes and project kanbans, and Execution Pulse tracks focus minutes, note rhythm and completion ratios live.
+
+### 📅 Daily Note
+
+![A daily note showing mood, energy and sleep frontmatter, today's focus, a task list with carried-forward items, habit checkboxes, a timestamped daily log, and the AI Daily Summary section with Pattern, Friction and Insight bullets](99-Attachments/2026-08/obsidian-dailynote.png)
+
+One note per day carrying `mood` / `energy` / `sleep_hours`, habits, a timestamped log, and an [AI Daily Summary](#multi-domain-ai-enricher-ctrl--shift--a) generated from what was actually logged. Unfinished tasks roll forward automatically; the previous day marks its copies `[>]` so nothing is counted twice.
+
+### 🚀 Project Kanban
+
+![A project kanban board with Backlog, To Do, In Progress, Review/Test, Done and Archive lanes, showing task cards with checkbox states matching their lane](99-Attachments/2026-08/obsidian-project-kanban.png)
+
+Each project gets a board. Card checkboxes follow their lane automatically — `To Do` is `[ ]`, `In Progress` is `[/]`, `Done` is `[x]` with a completion date — and ticking a card anywhere moves it to Done. Backlog and Archive stay out of the task dashboards.
 
 ---
 
