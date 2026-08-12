@@ -1,0 +1,108 @@
+/* ==========================================================================
+   Kanban & Note Priority Tag Badges
+   --------------------------------------------------------------------------
+   Provides color-coded pill styling for priority tags (#priority/p0, #priority/p1,
+   #priority/p2, #priority/p3) and status tags (#status/blocked) across Kanban
+   boards and standard markdown notes.
+   ========================================================================== */
+
+/* Base Pill Styling for Priority Tags */
+a.tag[href*="priority/"],
+a.tag[href*="status/"],
+a.tag[href="#p0"],
+a.tag[href="#p1"],
+a.tag[href="#p2"],
+a.tag[href="#p3"] {
+  display: inline-flex;
+  align-items: center;
+  font-weight: 600;
+  font-size: 0.8em;
+  line-height: 1.2;
+  padding: 2px 7px;
+  border-radius: 6px;
+  text-decoration: none !important;
+  transition: all 0.15s ease-in-out;
+}
+
+/* --------------------------------------------------------------------------
+   P0 / Critical Priority (Red)
+   -------------------------------------------------------------------------- */
+a.tag[href*="priority/p0"],
+a.tag[href*="priority/critical"],
+a.tag[href="#p0"] {
+  background-color: rgba(239, 68, 68, 0.15) !important;
+  color: #ef4444 !important;
+  border: 1px solid rgba(239, 68, 68, 0.35) !important;
+}
+a.tag[href*="priority/p0"]:hover,
+a.tag[href*="priority/critical"]:hover,
+a.tag[href="#p0"]:hover {
+  background-color: rgba(239, 68, 68, 0.25) !important;
+}
+
+/* --------------------------------------------------------------------------
+   P1 / High Priority (Orange / Amber)
+   -------------------------------------------------------------------------- */
+a.tag[href*="priority/p1"],
+a.tag[href*="priority/high"],
+a.tag[href="#p1"] {
+  background-color: rgba(245, 158, 11, 0.15) !important;
+  color: #f59e0b !important;
+  border: 1px solid rgba(245, 158, 11, 0.35) !important;
+}
+a.tag[href*="priority/p1"]:hover,
+a.tag[href*="priority/high"]:hover,
+a.tag[href="#p1"]:hover {
+  background-color: rgba(245, 158, 11, 0.25) !important;
+}
+
+/* --------------------------------------------------------------------------
+   P2 / Medium Priority (Blue)
+   -------------------------------------------------------------------------- */
+a.tag[href*="priority/p2"],
+a.tag[href*="priority/medium"],
+a.tag[href="#p2"] {
+  background-color: rgba(59, 130, 246, 0.15) !important;
+  color: #3b82f6 !important;
+  border: 1px solid rgba(59, 130, 246, 0.35) !important;
+}
+a.tag[href*="priority/p2"]:hover,
+a.tag[href*="priority/medium"]:hover,
+a.tag[href="#p2"]:hover {
+  background-color: rgba(59, 130, 246, 0.25) !important;
+}
+
+/* --------------------------------------------------------------------------
+   P3 / Low Priority (Emerald Green)
+   -------------------------------------------------------------------------- */
+a.tag[href*="priority/p3"],
+a.tag[href*="priority/low"],
+a.tag[href="#p3"] {
+  background-color: rgba(16, 185, 129, 0.15) !important;
+  color: #10b981 !important;
+  border: 1px solid rgba(16, 185, 129, 0.35) !important;
+}
+a.tag[href*="priority/p3"]:hover,
+a.tag[href*="priority/low"]:hover,
+a.tag[href="#p3"]:hover {
+  background-color: rgba(16, 185, 129, 0.25) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Status / Blocked (Pink / Magenta)
+   -------------------------------------------------------------------------- */
+a.tag[href*="status/blocked"] {
+  background-color: rgba(236, 72, 153, 0.15) !important;
+  color: #ec4899 !important;
+  border: 1px solid rgba(236, 72, 153, 0.35) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Completed / Done Card Tag Dimming
+   -------------------------------------------------------------------------- */
+.task-list-item[data-task="x"] a.tag,
+.kanban-plugin__item.is-checked a.tag,
+.kanban-plugin__item-title.is-checked a.tag {
+  opacity: 0.45 !important;
+  filter: grayscale(35%) !important;
+}

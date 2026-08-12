@@ -1,6 +1,21 @@
 {
   "TagColors": {
-    "ColorPicker": [],
+    "ColorPicker": [
+      {
+        "tag_name": "bayolet",
+        "color": {
+          "r": 144,
+          "g": 80,
+          "b": 242
+        },
+        "background_color": {
+          "r": 178,
+          "g": 140,
+          "b": 222
+        },
+        "luminance_offset": 0.15
+      }
+    ],
     "EnableMultipleTags": true,
     "EnableSeparateBackground": true,
     "EnableBackgroundOpacity": false,
@@ -30,9 +45,9 @@
   },
   "Kanban": {
     "Enable": true,
-    "EnableCards": false,
-    "EnableLists": false,
-    "HideHashtags": false,
+    "EnableCards": true,
+    "EnableLists": true,
+    "HideHashtags": true,
     "EnableBackgroundOpacity": false,
     "Values": {
       "BackgroundOpacity": 0.45,
@@ -43,7 +58,7 @@
     }
   },
   "Canvas": {
-    "Enable": false,
+    "Enable": true,
     "EnableBackgroundOpacity": false,
     "Values": {
       "BackgroundOpacity": 0.45,

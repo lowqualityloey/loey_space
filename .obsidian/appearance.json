@@ -10,6 +10,7 @@
     "fonts",
     "dashboard-cards",
     "project-tasks",
-    "homepulse-mobile"
+    "homepulse-mobile",
+    "kanban-tags"
   ]
 }

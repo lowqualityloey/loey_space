@@ -4,15 +4,27 @@
   "notifyOnChange": false,
   "laneState": {
     "02-Projects/weather-dashboard/Weather Dashboard Kanban.md": {
-      "persist saved cities using localstorage": "backlog",
-      "improve mobile responsiveness and accessibility": "backlog",
-      "deploy application to cloudflare pages": "backlog",
-      "add collapsible accordion for hourly forecast": "to do",
-      "connect city search to geocoding api": "to do",
-      "implement theme toggle functionality": "to do",
-      "build static dashboard layout with mock data": "in progress",
-      "build openweather api service, data mappers, and typescript types": "done",
-      "install ui component primitives (button, card, input, label, badge, switch, collapsible)": "done"
+      "add search input debouncing (`usedebounce`) #priority/p2": "backlog",
+      "add browser geolocation weather detection #priority/p2": "backlog",
+      "implement api response caching with ttl #priority/p3": "backlog",
+      "accessibility audit (aria live regions & screen reader announcements) #priority/p3": "backlog",
+      "set up github actions ci/cd deployment pipeline to cloudflare pages #priority/p3": "backlog",
+      "configure pwa support (`vite-plugin-pwa`) and csp security headers #priority/p3": "backlog",
+      "connect searchbar & city search to geocoding api and weather data pipeline #priority/p0": "to do",
+      "add loading, error, and empty state ui handling #priority/p0": "to do",
+      "add collapsible accordion for hourly forecast (`forecastday`) #priority/p1": "to do",
+      "add mobile navigation drawer (`sheet`) for saved cities #priority/p1": "to do",
+      "persist saved cities using `localstorage` (`uselocalstorage`) #priority/p1": "to do",
+      "implement dark mode theme toggle (`themeprovider` & `usetheme`) #priority/p1": "to do",
+      "fix font loading (switch google fonts import to `@fontsource-variable/geist`) #priority/p1": "to do",
+      "add environment runtime validation for `vite_openweather_api_key` #priority/p1": "to do",
+      "implement state management (`weathercontext` & `useweather` hook) #priority/p0": "in progress",
+      "build out component ui stubs (`currentweather`, `forecastlist`, `forecastday`) #priority/p0": "in progress",
+      "set up vitest & react testing library test suite #priority/p2": "review / test",
+      "unit test `weathermapper` utilities and `useweather` hook #priority/p2": "review / test",
+      "build openweather api service, data mappers, and typescript types #priority/p0": "done",
+      "install ui component primitives (button, card, input, label, badge, switch, collapsible) #priority/p1": "done",
+      "perform senior frontend code review & architecture assessment #priority/p0": "done"
     }
   }
 }
