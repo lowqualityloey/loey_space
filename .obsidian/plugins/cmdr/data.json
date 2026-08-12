@@ -6,6 +6,12 @@
   "fileMenu": [],
   "leftRibbon": [
     {
+      "id": "quickadd:choice:e4f0a1b2-gh00-4000-8000-000000000200",
+      "icon": "lucide-github",
+      "name": "QuickAdd: 🔄 Sync GitHub Project Kanban",
+      "mode": "any"
+    },
+    {
       "id": "quickadd:choice:e4f0a1b2-ffff-4000-8000-000000000100",
       "icon": "lucide-sparkles",
       "name": "QuickAdd: ✨ AI Enrich Daily Note Macro",

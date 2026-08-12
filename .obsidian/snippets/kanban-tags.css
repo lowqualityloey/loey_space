@@ -41,7 +41,7 @@ a.tag[href="#p0"]:hover {
 }
 
 /* --------------------------------------------------------------------------
-   P1 / High Priority (Orange / Amber)
+   P1 / High Priority (Yellow / Amber)
    -------------------------------------------------------------------------- */
 a.tag[href*="priority/p1"],
 a.tag[href*="priority/high"],

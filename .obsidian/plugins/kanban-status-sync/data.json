@@ -4,6 +4,8 @@
   "notifyOnChange": false,
   "laneState": {
     "02-Projects/weather-dashboard/Weather Dashboard Kanban.md": {
+      "set up vitest & react testing library test suite #priority/p2": "backlog",
+      "unit test `weathermapper` utilities and `useweather` hook #priority/p2": "backlog",
       "add search input debouncing (`usedebounce`) #priority/p2": "backlog",
       "add browser geolocation weather detection #priority/p2": "backlog",
       "implement api response caching with ttl #priority/p3": "backlog",
@@ -20,8 +22,6 @@
       "add environment runtime validation for `vite_openweather_api_key` #priority/p1": "to do",
       "implement state management (`weathercontext` & `useweather` hook) #priority/p0": "in progress",
       "build out component ui stubs (`currentweather`, `forecastlist`, `forecastday`) #priority/p0": "in progress",
-      "set up vitest & react testing library test suite #priority/p2": "review / test",
-      "unit test `weathermapper` utilities and `useweather` hook #priority/p2": "review / test",
       "build openweather api service, data mappers, and typescript types #priority/p0": "done",
       "install ui component primitives (button, card, input, label, badge, switch, collapsible) #priority/p1": "done",
       "perform senior frontend code review & architecture assessment #priority/p0": "done"

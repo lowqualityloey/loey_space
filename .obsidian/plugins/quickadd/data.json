@@ -1,6 +1,26 @@
 {
   "choices": [
     {
+      "id": "e4f0a1b2-gh00-4000-8000-000000000200",
+      "name": "🔄 Sync GitHub Project Kanban",
+      "type": "Macro",
+      "command": true,
+      "macroId": "e4f0a1b2-gh00-4000-8000-000000000022",
+      "macro": {
+        "id": "e4f0a1b2-gh00-4000-8000-000000000022",
+        "name": "🔄 Sync GitHub Project Kanban",
+        "commands": [
+          {
+            "name": "Run Sync GitHub Kanban UserScript",
+            "type": "UserScript",
+            "id": "e4f0a1b2-gh00-4000-8000-000000000033",
+            "path": "06-Resources/scripts/sync-github-kanban.js",
+            "settings": {}
+          }
+        ]
+      }
+    },
+    {
       "id": "e4f0a1b2-ffff-4000-8000-000000000100",
       "name": "✨ AI Enrich Daily Note Macro",
       "type": "Macro",
@@ -466,6 +486,19 @@
     "pinAiModelRefs": true
   },
   "macros": [
+    {
+      "id": "e4f0a1b2-gh00-4000-8000-000000000022",
+      "name": "🔄 Sync GitHub Project Kanban",
+      "commands": [
+        {
+          "name": "Run Sync GitHub Kanban UserScript",
+          "type": "UserScript",
+          "id": "e4f0a1b2-gh00-4000-8000-000000000033",
+          "path": "06-Resources/scripts/sync-github-kanban.js",
+          "settings": {}
+        }
+      ]
+    },
     {
       "id": "e4f0a1b2-cccc-4000-8000-000000000022",
       "name": "✨ AI Enrich Daily Note Macro",
