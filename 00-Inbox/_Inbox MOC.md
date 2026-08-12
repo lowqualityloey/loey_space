@@ -19,4 +19,5 @@ SORT file.ctime DESC
 ```
 
 ## 📝 Quick Notes Dump
-- 
+
+![[quick-capture-dump]]
