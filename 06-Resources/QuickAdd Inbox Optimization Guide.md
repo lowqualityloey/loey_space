@@ -140,7 +140,7 @@ The **Enhanced Quick Capture** template uses keyword analysis to suggest:
 ## 🔗 Integration with Existing Workflow
 
 ### Works with Existing Templates
-- **Triage.md**: Still used for final processing
+- **Triage Sweep**: Primary processing route — tag a capture line with a destination token and sweep. `Triage.md` is now reserved for items that genuinely need a written assessment
 - **Daily notes**: Capture content can reference daily contexts
 - **Projects**: Auto-links to project tags when detected
 

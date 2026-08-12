@@ -232,7 +232,8 @@
           "05-Personal"
         ],
         "chooseWhenCreatingNote": false,
-        "createInSameFolderAsActiveFile": false
+        "createInSameFolderAsActiveFile": false,
+        "chooseFromSubfolders": false
       },
       "append": false,
       "openFileInNewTab": {
@@ -240,7 +241,16 @@
         "direction": "tab",
         "focus": true
       },
-      "openFile": true
+      "openFile": true,
+      "fileExistsBehavior": {
+        "kind": "prompt"
+      },
+      "fileOpening": {
+        "location": "tab",
+        "direction": "vertical",
+        "mode": "default",
+        "focus": true
+      }
     },
     {
       "id": "e4f0a1b2-8888-4000-8000-000000000008",
@@ -426,7 +436,13 @@
         "enabled": true,
         "after": "### ✅ Tasks",
         "createIfNotFound": true,
-        "createIfNotFoundLocation": "bottom"
+        "createIfNotFoundLocation": "bottom",
+        "inline": false,
+        "replaceExisting": false,
+        "promptHeading": false,
+        "insertAtEnd": false,
+        "considerSubsections": false,
+        "blankLineAfterMatchMode": "auto"
       },
       "openInNewTab": {
         "enabled": false,
@@ -436,7 +452,41 @@
       "openingPosition": "first",
       "prepend": false,
       "task": true,
-      "openFile": false
+      "openFile": false,
+      "insertBefore": {
+        "enabled": false,
+        "before": "",
+        "createIfNotFound": false,
+        "createIfNotFoundLocation": "top"
+      },
+      "activeFileWritePosition": "cursor",
+      "createFileIfItDoesntExist": {
+        "enabled": false,
+        "createWithTemplate": false,
+        "template": ""
+      },
+      "captureToCanvasNodeId": ""
+    },
+    {
+      "id": "29683228-7506-46e6-8315-89ec53fc15e4",
+      "name": "🧹 Triage Sweep",
+      "type": "Macro",
+      "command": true,
+      "runOnStartup": false,
+      "macro": {
+        "name": "🧹 Triage Sweep",
+        "id": "d941bb42-85e5-4e00-b554-0b06e99f70da",
+        "commands": [
+          {
+            "name": "triage-sweep",
+            "type": "UserScript",
+            "id": "1dda182b-b9ae-4aab-b95f-b76d834b10f7",
+            "path": "06-Resources/scripts/triage-sweep.js",
+            "settings": {}
+          }
+        ]
+      },
+      "icon": "lucide-trash"
     }
   ],
   "inputPrompt": "single-line",

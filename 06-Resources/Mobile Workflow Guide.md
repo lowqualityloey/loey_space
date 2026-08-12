@@ -84,7 +84,7 @@ Total time: **< 10 seconds**
 1. Open `00-Inbox/quick-capture-dump.md`
 2. Review items marked with `📱`
 3. Triage each: move to project, create full note, or delete
-4. Use `99-Templates/Triage.md` for complex items
+4. Faster route: tag each line with a destination token (`#do`, `#dev`, `#concept`, `#learn`, `#ref`, `#personal`, `#project`, `#bin`) and run **Triage Sweep** — it files them all in one pass. Reserve `99-Templates/Triage.md` for the rare item that genuinely needs a written assessment.
 
 ---
 

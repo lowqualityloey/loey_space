@@ -42,6 +42,7 @@ updated: 2026-08-13
 | **Kanban Status Sync** | Drag a card between lanes and its checkbox follows automatically — To Do `[ ]`, In Progress `[/]`, Done `[x]` with a completion date |
 | **Mobile Quick Capture** | 4 mobile-optimized commands for instant capture on the go — process later on desktop |
 | **Inbox Auto-Classification** | Quick captures tagged with type/area/priority suggestions based on content analysis |
+| **Token Triage Sweep** | Tag a capture line `#do` / `#dev` / `#concept` / `#learn` / `#ref` / `#personal` / `#project` / `#bin`, then file the whole inbox in one pass — swept lines are logged, never silently deleted |
 | **Dynamic Tech Tree** | Auto-generated capability map scanning projects, concepts, and resources across the vault |
 | **Execution Pulse** | Live productivity analytics — habit %, focus minutes, note rhythm, task completion ratios |
 | **PARA/MOC Architecture** | Clean folder separation with Maps of Content for navigation — scales without friction |
@@ -84,7 +85,7 @@ loey_space/
 ├── 05-Personal/                 # Personal goals, life & fitness logs
 ├── 06-Resources/                # Technical documentation, API specs, & system scripts
 │   ├── APIs/                    # API specs & integration documentation
-│   ├── scripts/                 # Automation scripts (AI enricher, weekly summary, etc.)
+│   ├── scripts/                 # Automation (AI enricher, triage-sweep, inbox-status, weekly summary)
 │   ├── Mobile Workflow Guide.md # Mobile capture setup & usage
 │   ├── Second Brain Guide.md    # System usage, folder guidelines & workflow rules
 │   └── Vault Security Policy.md # Secret management & Git safety rules
@@ -189,6 +190,21 @@ Position your cursor inside any active note and press `Ctrl + Shift + A` (or run
 1. **Daily Notes (`01-Daily/`)**: Generates a narrative summary, AI reflection, inspirational quote, and suggested next step.
 2. **Concept Notes (`08-Concepts/`)**: Detects topic domain and generates technical explanations, examples, and related concept links.
 3. **Dev Notes (`03-Dev/`)**: Analyzes code snippets and updates tags, context, explanation, and wikilink references.
+
+### Inbox Triage (token sweep)
+
+Triage is a decision, not a form. Append a token to any line in `00-Inbox/quick-capture-dump.md`:
+
+```markdown
+- i have to do laundry #do
+- https://app.lofi.town/ #ref
+- semantic commit messages #concept
+- lemme test #bin
+```
+
+Then run `QuickAdd: 🧹 Triage Sweep` once. `#do` becomes a task in today's daily note; `#dev` / `#concept` / `#learn` / `#ref` / `#personal` become real notes with the right frontmatter; `#project` scaffolds a project folder plus Kanban board; `#bin` is dropped. Untagged lines stay put, and swept lines are logged (struck through, with their destination) in a `## ✅ Triaged` section rather than deleted.
+
+At session start, Kiro reports the current state — e.g. *"Inbox: 9 items, oldest 7 days. None tagged yet."* — instead of nagging on every message.
 
 ### Weekly AI Summary
 Run `QuickAdd: 📊 Weekly AI Summary` (or bind to `Ctrl+Shift+W`):

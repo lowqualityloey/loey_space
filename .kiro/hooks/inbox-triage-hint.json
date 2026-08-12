@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Inbox Triage Hint",
+      "trigger": "PostFileCreate",
+      "description": "When a loose note is created in 00-Inbox, suggest a destination token in one line. Fires only for that folder, never on unrelated messages.",
+      "matcher": "00-Inbox[\\\\/][^_][^\\\\/]*\\.md$",
+      "action": {
+        "type": "agent",
+        "prompt": "A note was just created in 00-Inbox. In ONE short line, suggest where it belongs using the triage token vocabulary: #do (actionable today), #dev, #concept, #learn, #ref, #personal, #project, or #bin. Name the token and the destination folder only. Do not create a triage note, do not list the tag taxonomy, and do not explain the system. If the note clearly already belongs somewhere, say which folder to move it to instead."
+      }
+    }
+  ]
+}

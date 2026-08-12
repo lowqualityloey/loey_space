@@ -38,7 +38,7 @@ flowchart LR
 | Folder | Purpose | What Goes Here |
 | :--- | :--- | :--- |
 | **🏠 `Home.md`** | Vault dashboard and entry point (a file, not a folder) | HomePulse dashboard, navigation to every MOC, active in-progress items, priority to-dos, active projects, inbox status |
-| **📥 `00-Inbox/`** | Capture everything before sorting | Fleeting thoughts, quick captures, mobile captures, links to process later. Triage with `99-Templates/Triage.md`. Holds `_Inbox MOC.md` + `_Triage MOC.md`. **Rule: empty this weekly** |
+| **📥 `00-Inbox/`** | Capture everything before sorting | Fleeting thoughts, quick captures, mobile captures, links to process later. Triage by tagging each line with a destination token, then running **Triage Sweep**. Holds `_Inbox MOC.md` + `_Triage MOC.md`. **Rule: empty this weekly** |
 | **📅 `01-Daily/`** | Time-stamped chronological notes — and the source of truth for tasks and habits | `YYYY-MM-DD.md` with `mood` / `energy` / `sleep_hours`, habit checkboxes, tasks, AI summary. Plus `_Daily MOC.md`, `_Tasks MOC.md`, `Habit Analytics Dashboard.md`. ✨ *AI-enrichable* |
 | **🚀 `02-Projects/`** | Outcomes with deadlines or defined endpoints | One subfolder per project (project note + Kanban board), `_Projects MOC.md`. Active projects only — finished cards move to the board's own `## Archive` column, and the retrospective goes to `07-Reviews/` |
 | **💻 `03-Dev/`** | Technical work and code-related knowledge | Dev logs, debugging notes, architecture decisions, snippets, `_Dev MOC.md`. ✨ *AI-enrichable* |
@@ -71,13 +71,52 @@ The vault features 1-click QuickAdd actions and a universal **Multi-Domain AI En
 | **`✨` / `Ctrl+Shift+A`** | **AI Enrich Note** | Script Macro | Active Note | Multi-domain AI summary, reflection, code explanation, or concept lore |
 | **`🐙` / `Cmdr Ribbon`** | **Sync GitHub Project Kanban** | Script Macro | Active Kanban | Bi-directional sync with GitHub Projects v2 (`github_project_number`) |
 | 📥 | **Quick Capture to Inbox** | Capture | `00-Inbox/` | `quick-capture-dump.md` (Timestamped `### 📅 YYYY-MM-DD HH:mm`) |
-| 🧹 | **Archive & Clear Quick Capture Dump** | Script Macro | `00-Inbox/` | `clear-capture-dump.js` (Archives dump to `00-Inbox/Archives/`) |
+| 🧹 | **Triage Sweep** | Script Macro | `00-Inbox/` → destinations | `triage-sweep.js` (files every tagged capture line in one pass) |
+| 🗃️ | **Archive & Clear Quick Capture Dump** | Script Macro | `00-Inbox/` | `clear-capture-dump.js` (Archives dump to `00-Inbox/Archives/`) |
 | 📅 | **Append to Today's Daily Note** | Capture | `01-Daily/` | `YYYY-MM-DD.md` |
 | ⏰ | **Create Timestamped Daily Note** | Template | `01-Daily/` | `YYYY-MM-DD_HHmm {{VALUE}}` |
 | 🚀 | **Create Project Note** | Template | `02-Projects/{{VALUE}}/` | `02-Projects/{{VALUE}}/{{VALUE}}.md` |
 | 💻 | **Create Dev Note** | Template | `03-Dev/` | `YYYY-MM-DD_HHmm {{VALUE}}` |
 | 💡 | **Create Concept Note** | Template | `08-Concepts/` | `YYYY-MM-DD_HHmm {{VALUE}}` |
 | 🔌 | **New API Note** | Template | `06-Resources/APIs/` | `YYYY-MM-DD_HHmm {{VALUE}}` |
+
+---
+
+### 🧹 Triage: tag the line, then sweep
+
+Triage is a **decision**, not a document. Every capture resolves to one of eight verdicts, and the verdict is a token you append to the line in `quick-capture-dump.md`:
+
+| Token | Destination | Frontmatter applied |
+| :--- | :--- | :--- |
+| `#do` | today's daily note, under `### ✅ Tasks` | — (becomes `- [ ]`) |
+| `#dev` | `03-Dev/` | `type: snippet`, `area: dev` |
+| `#concept` | `08-Concepts/` | `type: concept`, `review_cycle: 90d` |
+| `#learn` | `04-Learning/` | `type: learning`, `review_cycle: 30d` |
+| `#ref` | `06-Resources/` | `type: resource`, URL captured |
+| `#personal` | `05-Personal/` | `type: personal` |
+| `#project` | `02-Projects/<Name>/` | `type: project` + a Kanban board |
+| `#bin` | dropped | — (logged, not filed) |
+
+Then run **Triage Sweep** once. It files everything in a single pass:
+
+```text
+- i have to do laundry #do          ->  01-Daily/2026-08-13.md  (as a task)
+- https://app.lofi.town/ #ref       ->  06-Resources/app.lofi.town.md
+- semantic commit messages #concept ->  08-Concepts/semantic commit messages.md
+- lemme test #bin                   ->  dropped
+```
+
+Behaviour worth knowing:
+
+- **Untagged lines are never touched.** Tag only what you've decided on; the rest waits.
+- **Nothing is silently deleted.** Swept lines move to a `## ✅ Triaged` log at the bottom of the dump, struck through, with the destination link and the token used. Set `ARCHIVE_SWEPT_LINES = false` at the top of `triage-sweep.js` to hard-delete instead.
+- **Titles are derived, not demanded.** A bare link becomes a readable title (`boot.dev lessons`); a line with words keeps its own wording. Capture timestamps and tokens are stripped out.
+- **`#do` respects the daily note's structure** — it inserts inside the Tasks section only, reusing the empty `- [ ]` placeholder if one exists, and never disturbs the project query block or Habits below it.
+- **Name collisions get a numeric suffix** rather than overwriting an existing note.
+- **Every created note records its origin**: `source: quick-capture` plus the original `captured:` date.
+
+> [!TIP] Why this replaced the old form
+> `99-Templates/Triage.md` asks for ~40 checkboxes per item — more work than the thing being triaged, which is why the inbox had accumulated items and zero triage notes. It also created a *new* note in `00-Inbox` with `status: in-progress`, so triaging something made the inbox longer and added to the stale-notes queue. Keep `Triage.md` for the rare item that deserves a written assessment; use tokens for the other 95%.
 
 ---
 
