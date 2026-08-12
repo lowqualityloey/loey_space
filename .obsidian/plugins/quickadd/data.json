@@ -63,32 +63,22 @@
     {
       "id": "e4f0a1b2-1111-4000-8000-000000000001",
       "name": "📥 Quick Capture to Inbox",
-      "type": "Capture",
+      "type": "Macro",
       "command": true,
-      "append": false,
-      "captureTo": "00-Inbox/quick-capture-dump.md",
-      "captureToCanvas": false,
-      "createFileIfItDNE": true,
-      "createFileIfItDNEPath": "00-Inbox/quick-capture-dump.md",
-      "format": {
-        "enabled": true,
-        "format": "### 📅 {{DATE:YYYY-MM-DD HH:mm}}\n- {{VALUE}}"
-      },
-      "insertAfter": {
-        "enabled": true,
-        "after": "## Captured Notes",
-        "createIfNotFound": true,
-        "createIfNotFoundLocation": "bottom"
-      },
-      "openInNewTab": {
-        "enabled": true,
-        "direction": "tab",
-        "focus": true
-      },
-      "openingPosition": "first",
-      "prepend": false,
-      "task": false,
-      "openFile": true
+      "macroId": "e4f0a1b2-qc00-4000-8000-000000000022",
+      "macro": {
+        "id": "e4f0a1b2-qc00-4000-8000-000000000022",
+        "name": "📥 Quick Capture to Inbox",
+        "commands": [
+          {
+            "name": "Run Quick Capture UserScript",
+            "type": "UserScript",
+            "id": "e4f0a1b2-qc00-4000-8000-000000000033",
+            "path": "06-Resources/scripts/quick-capture-action.js",
+            "settings": {}
+          }
+        ]
+      }
     },
     {
       "id": "e4f0a1b2-5555-4000-8000-000000000005",
@@ -541,6 +531,19 @@
           "type": "UserScript",
           "id": "e4f0a1b2-clr0-4000-8000-000000000033",
           "path": "06-Resources/scripts/clear-capture-dump.js",
+          "settings": {}
+        }
+      ]
+    },
+    {
+      "id": "e4f0a1b2-qc00-4000-8000-000000000022",
+      "name": "📥 Quick Capture to Inbox",
+      "commands": [
+        {
+          "name": "Run Quick Capture UserScript",
+          "type": "UserScript",
+          "id": "e4f0a1b2-qc00-4000-8000-000000000033",
+          "path": "06-Resources/scripts/quick-capture-action.js",
           "settings": {}
         }
       ]
