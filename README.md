@@ -28,6 +28,7 @@ updated: 2026-08-13
 - [🎨 Styling \& Aesthetics](#-styling--aesthetics)
 - [🔒 Security \& Git Safety](#-security--git-safety)
 - [🧯 Troubleshooting](#-troubleshooting)
+- [🤝 Contributing](#-contributing)
 
 ---
 
@@ -345,8 +346,36 @@ All data is automatically pulled from daily notes — no manual tracking require
 * **No Hardcoded API Keys**: All machine credentials and API tokens strictly reside in `.env` (git-ignored).
 * **Private Notes Directory**: The `.secrets/` directory is strictly excluded from Git tracking for storing sensitive personal documents.
 * **Session Validation**: Kiro IDE hooks check `.env` presence on startup and warn if API keys are missing.
-* **Git Guards**: Pre-commit hooks prevent accidental staging of `.env`, `.secrets/`, or files containing API key patterns.
 * **Vault Security Policy**: Read the official [Vault Security Policy](06-Resources/Vault%20Security%20Policy.md) for complete guidelines.
+
+### 🪝 Enabling the pre-commit guard
+
+A commit-blocking hook ships in [`.githooks/pre-commit`](.githooks/pre-commit), but Git does not use it until you point at it. **Run this once per clone:**
+
+```bash
+git config core.hooksPath .githooks
+```
+
+On a fresh clone, also mark it executable so it survives on other machines:
+
+```bash
+git update-index --chmod=+x .githooks/pre-commit
+```
+
+It refuses a commit when the staged changes include:
+
+| Check | Blocks |
+| :--- | :--- |
+| **Paths** | `.env`, `.env.*`, `.secrets/`, `00-Private/`, `*_secret*`, `*_private*` |
+| **Content** | Google/Gemini (`AIza…`), OpenAI (`sk-…`), GitHub tokens, AWS key IDs, PEM private keys, and `*_API_KEY=` with a real-looking value |
+| **Advisory** | Warns if sensitive files are *already* tracked from earlier commits |
+
+Placeholders such as `your_google_gemini_api_key_here` are allowed, so `.env.example` and the docs quoting it still commit cleanly. Only **added lines** are scanned, and any match is redacted in the output rather than echoed back. Deliberate override: `git commit --no-verify`.
+
+> [!WARNING]
+> The hook is a local guard, not a net. It cannot help a machine that hasn't run the `core.hooksPath` command, and it runs before the push — so also switch on **GitHub secret scanning + push protection** (repo Settings → Code security). That blocks server-side, and unlike a CI workflow it acts *before* the commit becomes public.
+>
+> If a key ever does reach a public commit, **rotate it**. Rewriting history does not un-leak it.
 
 ---
 
@@ -368,6 +397,14 @@ All data is automatically pulled from daily notes — no manual tracking require
 * **Updating plugins** — safe for store plugins (Dataview, Templater, QuickAdd, Kanban, Calendar, Activity History). Never for `homepulse` or `kanban-status-sync`, which are local builds with no store equivalent.
 * **Restyling the dashboard** — HomePulse's own `styles.css` is regenerated on rebuild, so put overrides in `.obsidian/snippets/` instead. That's what `homepulse-mobile.css` and `dashboard-cards.css` do.
 * **After editing `.kiro/hooks/`** — reload the app; hooks are read once at session start.
+
+---
+
+## 🤝 Contributing
+
+The **system** is open to contributions; the **journal** isn't. PRs are welcome for the Kanban Status Sync plugin, the automation scripts, CSS snippets, the pre-commit hook, templates and docs. The numbered content folders are personal notes and are closed to PRs — though issues are welcome about anything.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full scope, plus how to test any script under plain Node by mocking `app.vault` — no Obsidian install and no risk to real notes.
 
 ---
 

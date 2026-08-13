@@ -1,0 +1,156 @@
+#!/usr/bin/env bash
+#
+# pre-commit — stops secrets entering Git history.
+#
+# Why a hook and not CI: a GitHub Action runs *after* the push, by which point a
+# leaked key is already public and must be rotated. This blocks the commit on
+# your machine, before anything leaves it.
+#
+# Activate once per clone:
+#     git config core.hooksPath .githooks
+#
+# Checks, in order:
+#   1. Forbidden paths   — .env, .secrets/, 00-Private/, *_secret*, *_private*
+#   2. Added-line content — API-key shapes (Google, OpenAI, GitHub, AWS, PEM)
+#   3. Advisory          — sensitive files already tracked from earlier commits
+#
+# Placeholders such as "your_key_here" are allowed, so .env.example and the
+# docs that quote it still commit cleanly.
+#
+# Deliberate override (you own the consequences):  git commit --no-verify
+
+set -uo pipefail
+
+RED=''; YELLOW=''; DIM=''; RESET=''
+if [ -t 2 ]; then
+  RED=$'\033[31m'; YELLOW=$'\033[33m'; DIM=$'\033[2m'; RESET=$'\033[0m'
+fi
+
+fail=0
+problems=()
+
+# ---------------------------------------------------------------------------
+# Staged files (added/copied/modified), NUL-separated so paths with spaces
+# survive — this vault is full of them ("Second Brain Guide.md").
+# ---------------------------------------------------------------------------
+mapfile -d '' -t staged < <(git diff --cached --name-only --diff-filter=ACM -z 2>/dev/null)
+if [ "${#staged[@]}" -eq 0 ]; then
+  exit 0
+fi
+
+# ---------------------------------------------------------------------------
+# 1. Forbidden paths
+# ---------------------------------------------------------------------------
+for file in "${staged[@]}"; do
+  [ -n "$file" ] || continue
+
+  case "$file" in
+    .env.example|*/.env.example)
+      continue
+      ;;
+    .env|*/.env|.env.*|*/.env.*)
+      problems+=("${file} — environment file (keys belong here, not in Git)")
+      fail=1
+      ;;
+    .secrets/*|*/.secrets/*)
+      problems+=("${file} — private notes directory")
+      fail=1
+      ;;
+    00-Private/*|*/00-Private/*)
+      problems+=("${file} — private folder")
+      fail=1
+      ;;
+    *_secret*|*_private*)
+      problems+=("${file} — filename marked secret/private")
+      fail=1
+      ;;
+  esac
+done
+
+# ---------------------------------------------------------------------------
+# 2. Content of ADDED lines only
+#    Scanning just the additions avoids re-flagging text that already exists,
+#    and keeps the check fast on a vault this size.
+# ---------------------------------------------------------------------------
+
+# Shapes that indicate a real credential.
+patterns=(
+  'AIza[0-9A-Za-z_-]{35}'                                   # Google / Gemini
+  'sk-[A-Za-z0-9]{32,}'                                     # OpenAI
+  'sk-proj-[A-Za-z0-9_-]{20,}'                              # OpenAI project key
+  'gh[pousr]_[A-Za-z0-9]{30,}'                              # GitHub token
+  'github_pat_[A-Za-z0-9_]{50,}'                            # GitHub fine-grained PAT
+  'AKIA[0-9A-Z]{16}'                                        # AWS access key id
+  '-----BEGIN [A-Z ]*PRIVATE KEY-----'                      # PEM private key
+  '(GEMINI|OPENAI|OPENWEATHER|VITE_OPENWEATHER|ANTHROPIC)_API_KEY[[:space:]]*=[[:space:]]*[A-Za-z0-9_-]{16,}'
+)
+
+# Obvious non-secrets: docs, examples, and the enricher's own regex literals.
+allowlist='your_|_here|example|placeholder|dummy|sample|redacted|xxxx|<your|\[A-Za-z0-9|\[\^|\\s\*'
+
+for file in "${staged[@]}"; do
+  [ -n "$file" ] || continue
+  case "$file" in
+    .env.example|*/.env.example) continue ;;
+    .githooks/*) continue ;;   # this file documents the patterns it looks for
+  esac
+
+  # Added lines only, minus the +++ header.
+  added=$(git diff --cached -U0 -- "$file" 2>/dev/null | grep -E '^\+' | grep -Ev '^\+\+\+') || true
+  [ -n "$added" ] || continue
+
+  for pattern in "${patterns[@]}"; do
+    # -e is required: the PEM pattern starts with "-----" and grep would
+    # otherwise parse it as command-line flags and silently match nothing.
+    hits=$(printf '%s\n' "$added" | grep -Ein -e "$pattern" | grep -Eiv -e "$allowlist") || true
+    if [ -n "$hits" ]; then
+      while IFS= read -r hit; do
+        [ -n "$hit" ] || continue
+        # Show a trimmed, masked excerpt rather than echoing the secret.
+        excerpt=$(printf '%s' "$hit" | cut -c1-60 | sed -E 's/[A-Za-z0-9_-]{12,}/[REDACTED]/g')
+        problems+=("${file} — looks like a credential: ${excerpt}")
+      done <<< "$hits"
+      fail=1
+    fi
+  done
+done
+
+# ---------------------------------------------------------------------------
+# 3. Advisory: already-tracked sensitive files (from before this hook existed)
+# ---------------------------------------------------------------------------
+tracked_bad=$(git ls-files -- '.env' '.secrets/*' '00-Private/*' 2>/dev/null | grep -v '\.env\.example$') || true
+
+# ---------------------------------------------------------------------------
+# Report
+# ---------------------------------------------------------------------------
+if [ "$fail" -ne 0 ]; then
+  {
+    echo ""
+    echo "${RED}✖ Commit blocked — possible secrets staged${RESET}"
+    echo ""
+    for problem in "${problems[@]}"; do
+      echo "  • ${problem}"
+    done
+    echo ""
+    echo "${YELLOW}How to fix${RESET}"
+    echo "  1. Unstage it:            git restore --staged <file>"
+    echo "  2. Keep keys in .env      (git-ignored) and commit .env.example instead"
+    echo "  3. Already pushed once?   Rotate the key — history rewrites do not un-leak it"
+    echo ""
+    echo "${DIM}Intentional? git commit --no-verify${RESET}"
+    echo ""
+  } >&2
+  exit 1
+fi
+
+if [ -n "$tracked_bad" ]; then
+  {
+    echo ""
+    echo "${YELLOW}⚠ Sensitive files are already tracked from earlier commits:${RESET}"
+    printf '  • %s\n' $tracked_bad
+    echo "  Consider: git rm --cached <file>  — and rotate anything that was pushed."
+    echo ""
+  } >&2
+fi
+
+exit 0
