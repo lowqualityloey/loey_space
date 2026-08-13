@@ -30,16 +30,32 @@ $RECYCLE.BIN/
 # History audit found 8 daily notes had been committed and later deleted —
 # deletion does not remove them from history, so these rules make the boundary
 # structural instead of relying on never typing `git add -A`.
-# MOC dashboards and analytics stay tracked: they are part of the system.
+# MOCs and already-tracked showcase files stay tracked; everything else is isolated.
+
 01-Daily/*
 !01-Daily/_*.md
 !01-Daily/Habit Analytics Dashboard.md
+
+02-Projects/*
+!02-Projects/_*.md
+!02-Projects/weather-dashboard/
+
+03-Dev/*
+!03-Dev/_*.md
+
+04-Learning/*
+!04-Learning/_*.md
 
 05-Personal/*
 !05-Personal/_*.md
 
 07-Reviews/*
 !07-Reviews/_*.md
+
+99-Attachments/*
+!99-Attachments/_*.md
+!99-Attachments/2026-08/obsidian-*.png
+!99-Attachments/2026-08/file-20260803003355764.png
 
 # Quick captures are a live feed of raw thoughts — dashboards only.
 00-Inbox/*
