@@ -25,3 +25,27 @@ $RECYCLE.BIN/
 
 # Logs & temp
 *.log
+
+# 📓 PERSONAL CONTENT (the system is shareable, the journal is not)
+# History audit found 8 daily notes had been committed and later deleted —
+# deletion does not remove them from history, so these rules make the boundary
+# structural instead of relying on never typing `git add -A`.
+# MOC dashboards and analytics stay tracked: they are part of the system.
+01-Daily/*
+!01-Daily/_*.md
+!01-Daily/Habit Analytics Dashboard.md
+
+05-Personal/*
+!05-Personal/_*.md
+
+07-Reviews/*
+!07-Reviews/_*.md
+
+# Quick captures are a live feed of raw thoughts — dashboards only.
+00-Inbox/*
+!00-Inbox/_*.md
+
+# The example env file MUST ship — README's setup step is `cp .env.example .env`.
+# Without this negation the `*.env.*` rule above silently swallows it, and a
+# fresh clone arrives with no template to copy.
+!.env.example
