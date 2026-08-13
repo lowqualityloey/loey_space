@@ -14,10 +14,12 @@ updated: 2026-08-13
 
 ## 📚 Table of Contents
 
+- [⚡ Quickstart](#-quickstart)
 - [🖼️ Screenshots](#️-screenshots)
 - [✨ Main Features](#-main-features)
 - [⚡ HomePulse Command Center](#-homepulse-command-center)
 - [🗂️ Vault Directory Architecture](#️-vault-directory-architecture)
+- [📖 Documentation](#-documentation)
 - [🛠️ Installation \& Setup Guide](#️-installation--setup-guide)
 - [💡 Daily Workflows \& Keyboard Shortcuts](#-daily-workflows--keyboard-shortcuts)
 - [📱 Mobile Workflow](#-mobile-workflow)
@@ -25,6 +27,27 @@ updated: 2026-08-13
 - [📋 Task System Rules \& Conventions](#-task-system-rules--conventions)
 - [🎨 Styling \& Aesthetics](#-styling--aesthetics)
 - [🔒 Security \& Git Safety](#-security--git-safety)
+- [🧯 Troubleshooting](#-troubleshooting)
+
+---
+
+## ⚡ Quickstart
+
+Five minutes from clone to a working dashboard:
+
+1. **Clone and open** — `git clone https://github.com/lowqualityloey/loey_space.git`, then in Obsidian choose **Open folder as vault**.
+2. **Leave Restricted Mode** — Settings → Community plugins → **Turn on community plugins**. Nothing loads until you do.
+3. **Turn auto-updates off** — Settings → Community plugins → **Auto-update plugins: OFF**. Two plugins here are local custom builds and an update replaces them.
+4. **Add an API key** *(optional)* — `cp .env.example .env`, then paste a key from [Google AI Studio](https://aistudio.google.com/app/apikey) into `GEMINI_API_KEY`. Everything except AI enrichment works without one.
+5. **Start today** — `Ctrl + P` → **HomePulse: Open Dashboard View**, then `Ctrl + P` → **QuickAdd: Create Daily Note**.
+
+That's it. Habit tracking, task dashboards and the MOC queries all come alive as soon as a daily note exists.
+
+> [!IMPORTANT]
+> **Two things that will bite a fresh clone:**
+>
+> 1. **`homepulse` and `kanban-status-sync` are bundled custom builds** in `.obsidian/plugins/`. Do not install or update them from the Community Store — HomePulse would be replaced by stock code, and Kanban Status Sync isn't published there at all. Keep **Auto-update plugins: OFF**.
+> 2. **Secrets live only in `.env`**, which is git-ignored. Copy `.env.example`, never commit real keys, and read the [Vault Security Policy](06-Resources/Vault%20Security%20Policy.md).
 
 ---
 
@@ -128,6 +151,20 @@ loey_space/
 ├── .secrets/                    # [GIT-IGNORED] Private human-readable sensitive notes
 └── .env                         # [GIT-IGNORED] Real API keys and machine credentials
 ```
+
+---
+
+## 📖 Documentation
+
+Full reference lives **inside the vault** rather than a separate `docs/` tree, so every guide stays searchable, linkable and enrichable in Obsidian:
+
+| Guide | Covers |
+| :--- | :--- |
+| [Second Brain Guide](06-Resources/Second%20Brain%20Guide.md) | Folder architecture, QuickAdd flows, the AI enricher contract, triage tokens, task rules, daily routine |
+| [Mobile Workflow Guide](06-Resources/Mobile%20Workflow%20Guide.md) | Mobile toolbar setup and the capture-fast / triage-later loop |
+| [Vault Security Policy](06-Resources/Vault%20Security%20Policy.md) | Secret management and Git safety rules |
+| [QuickAdd Inbox Optimization Guide](06-Resources/QuickAdd%20Inbox%20Optimization%20Guide.md) | Capture templates and inbox processing |
+| [Weekly AI Summary Guide](06-Resources/Weekly%20AI%20Summary%20Guide.md) | Weekly review generation and its data requirements |
 
 ---
 
@@ -310,6 +347,27 @@ All data is automatically pulled from daily notes — no manual tracking require
 * **Session Validation**: Kiro IDE hooks check `.env` presence on startup and warn if API keys are missing.
 * **Git Guards**: Pre-commit hooks prevent accidental staging of `.env`, `.secrets/`, or files containing API key patterns.
 * **Vault Security Policy**: Read the official [Vault Security Policy](06-Resources/Vault%20Security%20Policy.md) for complete guidelines.
+
+---
+
+## 🧯 Troubleshooting
+
+| Symptom | Cause and fix |
+| :--- | :--- |
+| `⚠️ GEMINI_API_KEY missing in .env!` | No key configured. Run `cp .env.example .env` and paste a key from [Google AI Studio](https://aistudio.google.com/app/apikey). |
+| AI summary reads flat, with a notice about quota | Gemini refused with HTTP 429 and the offline fallback wrote the text. The notice names which limit: a **per-minute** limit clears in about a minute; a **daily** limit does not, and resets at midnight Pacific. Re-run `Ctrl + Shift + A` afterwards to replace it. |
+| A bundled plugin or CSS change has no effect | Obsidian loads plugins, snippets and hooks at startup. Run `Ctrl + P` → **Reload app without saving**. |
+| `🧹 Triage Sweep` missing from the palette | Register it once: Settings → QuickAdd → Manage Macros → new macro → **Add User Script** → `triage-sweep.js`, then add it as a Macro choice. |
+| Sweep says *"no daily note for &lt;date&gt;"* | `#do` files into **today's** note, which must already exist. Run **QuickAdd: Create Daily Note** first. |
+| HomePulse lost its custom behaviour | It was updated from the Community Store. Restore `.obsidian/plugins/homepulse/` from Git history and set **Auto-update plugins: OFF**. |
+| Habit toggles don't reach the daily note | Sync needs today's note at `01-Daily/YYYY-MM-DD.md` with a `## 🔁 Habits` section, and Dataview enabled. |
+| Dashboard cramped or overlapping on mobile | Enable the `homepulse-mobile` snippet: Settings → Appearance → CSS snippets. |
+
+### 🔧 Maintenance
+
+* **Updating plugins** — safe for store plugins (Dataview, Templater, QuickAdd, Kanban, Calendar, Activity History). Never for `homepulse` or `kanban-status-sync`, which are local builds with no store equivalent.
+* **Restyling the dashboard** — HomePulse's own `styles.css` is regenerated on rebuild, so put overrides in `.obsidian/snippets/` instead. That's what `homepulse-mobile.css` and `dashboard-cards.css` do.
+* **After editing `.kiro/hooks/`** — reload the app; hooks are read once at session start.
 
 ---
 
