@@ -161,6 +161,7 @@ Full reference lives **inside the vault** rather than a separate `docs/` tree, s
 
 | Guide | Covers |
 | :--- | :--- |
+| [CONTRIBUTING](06-Resources/CONTRIBUTING.md) | Open/closed scope, testing without Obsidian, PR workflow, security rules |
 | [Second Brain Guide](06-Resources/Second%20Brain%20Guide.md) | Folder architecture, QuickAdd flows, the AI enricher contract, triage tokens, task rules, daily routine |
 | [Mobile Workflow Guide](06-Resources/Mobile%20Workflow%20Guide.md) | Mobile toolbar setup and the capture-fast / triage-later loop |
 | [Vault Security Policy](06-Resources/Vault%20Security%20Policy.md) | Secret management and Git safety rules |
@@ -404,7 +405,7 @@ Placeholders such as `your_google_gemini_api_key_here` are allowed, so `.env.exa
 
 The **system** is open to contributions; the **journal** isn't. PRs are welcome for the Kanban Status Sync plugin, the automation scripts, CSS snippets, the pre-commit hook, templates and docs. The numbered content folders are personal notes and are closed to PRs — though issues are welcome about anything.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the full scope, plus how to test any script under plain Node by mocking `app.vault` — no Obsidian install and no risk to real notes.
+See [CONTRIBUTING.md](06-Resources/CONTRIBUTING.md) for the full scope, plus how to test any script under plain Node by mocking `app.vault` — no Obsidian install and no risk to real notes.
 
 ---
 
