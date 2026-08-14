@@ -1,10 +1,11 @@
 /**
- * QuickAdd UserScript: Universal Dynamic GitHub Project Kanban Sync (Push & Pull)
+ * QuickAdd UserScript: True 2-Way Bi-Directional GitHub Project Kanban Sync
  * --------------------------------------------------------------------------
- * Dynamic Schema Auto-Discovery Engine for Obsidian Kanban <-> GitHub Projects v2.
- * Works for current and future projects with zero hardcoded IDs.
+ * Dynamic Schema Auto-Discovery Engine with Full Pull & Push Reconciliation.
+ * - PULLS changes made on GitHub Web UI (status moves, priority changes, new issues) into Obsidian Kanban.
+ * - PUSHES local Obsidian Kanban changes (new cards, status moves, priority tags) to GitHub Projects v2.
  * 
- * Frontmatter Requirements for Target Kanban Note:
+ * Target Kanban Note Frontmatter:
  *   github_project_number: 2
  *   github_owner: lowqualityloey
  */
@@ -21,7 +22,7 @@ module.exports = async (params) => {
     let owner = null;
     let targetFile = activeFile;
 
-    // 1. Check active file frontmatter
+    // 1. Resolve Target Note & Frontmatter
     if (activeFile) {
       const cache = app.metadataCache.getFileCache(activeFile);
       if (cache?.frontmatter?.github_project_number) {
@@ -30,7 +31,6 @@ module.exports = async (params) => {
       }
     }
 
-    // 2. Fallback to Weather Dashboard Kanban if no active note frontmatter
     if (!projectNumber) {
       const defaultPath = '02-Projects/weather-dashboard/Weather Dashboard Kanban.md';
       targetFile = app.vault.getAbstractFileByPath(defaultPath);
@@ -50,9 +50,9 @@ module.exports = async (params) => {
       return;
     }
 
-    new Notice(`🔄 Dynamic Syncing "${targetFile.basename}" with GitHub Project #${projectNumber}...`, 4000);
+    new Notice(`🔄 2-Way Syncing "${targetFile.basename}" with GitHub Project #${projectNumber}...`, 4000);
 
-    // 3. Dynamic Runtime Project & Schema Discovery
+    // 2. Dynamic Project & Schema Discovery
     let projectId = null;
     try {
       const projViewJson = execSync(`gh project view ${projectNumber} --owner ${owner} --format json`, { encoding: 'utf8', timeout: 10000 });
@@ -71,11 +71,13 @@ module.exports = async (params) => {
       return;
     }
 
-    // 4. Dynamic Field Schema Discovery (Status & Priority fields)
+    // 3. Dynamic Field Schema Discovery (Status & Priority fields)
     let statusFieldId = null;
-    let statusOptionsMap = {}; // name -> optionId
+    let statusOptionsMap = {}; // name.toLowerCase() -> optionId
+    let statusIdToNameMap = {}; // optionId -> name
     let priorityFieldId = null;
-    let priorityOptionsMap = {}; // name -> optionId
+    let priorityOptionsMap = {}; // name.toLowerCase() -> optionId
+    let priorityIdToNameMap = {}; // optionId -> name
 
     try {
       const fieldsJson = execSync(`gh project field-list ${projectNumber} --owner ${owner} --format json`, { encoding: 'utf8', timeout: 10000 });
@@ -88,11 +90,13 @@ module.exports = async (params) => {
           statusFieldId = field.id;
           for (const opt of field.options) {
             statusOptionsMap[opt.name.toLowerCase()] = opt.id;
+            statusIdToNameMap[opt.id] = opt.name;
           }
         } else if (nameLower === 'priority' && field.options) {
           priorityFieldId = field.id;
           for (const opt of field.options) {
             priorityOptionsMap[opt.name.toLowerCase()] = opt.id;
+            priorityIdToNameMap[opt.id] = opt.name;
           }
         }
       }
@@ -100,8 +104,35 @@ module.exports = async (params) => {
       console.warn('Field discovery warning:', fieldErr);
     }
 
-    // Helper to resolve status option ID
+    // Status mapping helpers
+    const statusToSectionMap = {
+      'backlog': 'Backlog',
+      'ready': 'To Do',
+      'to do': 'To Do',
+      'in progress': 'In Progress',
+      'in-progress': 'In Progress',
+      'in review': 'Review / Test',
+      'done': 'Done'
+    };
+
+    const sectionToStatusMap = {
+      'Backlog': 'Backlog',
+      'To Do': 'Ready',
+      'In Progress': 'In progress',
+      'Review / Test': 'In review',
+      'Done': 'Done'
+    };
+
+    const sectionToCheckboxMap = {
+      'Backlog': '- [ ]',
+      'To Do': '- [ ]',
+      'In Progress': '- [/]',
+      'Review / Test': '- [/]',
+      'Done': '- [x]'
+    };
+
     const resolveStatusOption = (statusStr) => {
+      if (!statusStr) return statusOptionsMap['backlog'] || null;
       const s = statusStr.toLowerCase();
       if (statusOptionsMap[s]) return statusOptionsMap[s];
       if (s === 'ready' && statusOptionsMap['to do']) return statusOptionsMap['to do'];
@@ -110,7 +141,6 @@ module.exports = async (params) => {
       return statusOptionsMap['backlog'] || null;
     };
 
-    // Helper to resolve priority option ID
     const resolvePriorityOption = (priStr) => {
       if (!priStr) return null;
       const p = priStr.toLowerCase();
@@ -122,121 +152,237 @@ module.exports = async (params) => {
       return null;
     };
 
-    // 5. Read Obsidian Kanban tasks & sections
-    const content = await app.vault.read(targetFile);
-    const lines = content.split('\n');
-
-    const tasksToSync = [];
-    let currentSection = 'Backlog';
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (trimmed.startsWith('## ')) {
-        currentSection = trimmed.replace('## ', '').trim();
-      } else if (trimmed.startsWith('- [ ]') || trimmed.startsWith('- [/]') || trimmed.startsWith('- [x]')) {
-        let rawTitle = trimmed.replace(/^-\s*\[[ x/\]]*\]\s*/, '');
-        
-        let priority = null;
-        if (rawTitle.includes('#priority/p0') || rawTitle.includes('#p0')) priority = 'P0';
-        else if (rawTitle.includes('#priority/p1') || rawTitle.includes('#p1')) priority = 'P1';
-        else if (rawTitle.includes('#priority/p2') || rawTitle.includes('#p2')) priority = 'P2';
-        else if (rawTitle.includes('#priority/p3') || rawTitle.includes('#p3')) priority = 'P3';
-
-        let cleanTitle = rawTitle
-          .replace(/#priority\/p[0-3]/g, '')
-          .replace(/#p[0-3]/g, '')
-          .replace(/✅\s*\d{4}-\d{2}-\d{2}/g, '')
-          .replace(/`[^`]+`/g, (match) => match.replace(/`/g, ''))
-          .trim();
-
-        cleanTitle = cleanTitle.replace(/^\]\s*/, '').trim();
-
-        let status = 'Backlog';
-        if (currentSection === 'In Progress' || trimmed.startsWith('- [/]')) status = 'In progress';
-        else if (currentSection === 'Review / Test') status = 'In review';
-        else if (currentSection === 'Done' || trimmed.startsWith('- [x]')) status = 'Done';
-        else if (currentSection === 'To Do') status = 'Ready';
-        else status = 'Backlog';
-
-        if (cleanTitle) {
-          tasksToSync.push({
-            title: cleanTitle,
-            status,
-            priority
-          });
-        }
-      }
-    }
-
-    // 6. Fetch existing GitHub items
-    let existingItems = [];
+    // 4. Fetch GitHub Items (PULL Source)
+    let githubItems = [];
     try {
       const ghJson = execSync(`gh project item-list ${projectNumber} --owner ${owner} --format json`, {
         encoding: 'utf8',
         timeout: 10000,
       });
       const parsed = JSON.parse(ghJson);
-      existingItems = parsed.items || parsed || [];
+      githubItems = parsed.items || parsed || [];
     } catch (e) {
       console.warn('Item fetch warning:', e);
     }
 
-    const existingMap = new Map();
-    for (const item of existingItems) {
-      const normTitle = (item.title || '').replace(/^\]\s*/, '').toLowerCase().trim();
-      existingMap.set(normTitle, item);
+    const githubMap = new Map(); // normTitle -> githubItem
+    for (const item of githubItems) {
+      const rawTitle = (item.title || '').replace(/^\]\s*/, '').trim();
+      const normTitle = rawTitle.toLowerCase();
+      
+      let itemStatus = item.status || 'Backlog';
+      let itemPriority = item.priority || null;
+
+      githubMap.set(normTitle, {
+        id: item.id,
+        rawTitle,
+        status: itemStatus,
+        priority: itemPriority
+      });
     }
 
-    let syncedCount = 0;
+    // 5. Read & Parse Local Obsidian Kanban File
+    const content = await app.vault.read(targetFile);
+    const lines = content.split('\n');
 
-    // 7. Dynamic Sync to GitHub Project
-    for (const task of tasksToSync) {
-      const normTitle = task.title.toLowerCase().trim();
-      let item = existingMap.get(normTitle);
+    const sections = {
+      'Backlog': [],
+      'To Do': [],
+      'In Progress': [],
+      'Review / Test': [],
+      'Done': [],
+      'Archive': []
+    };
 
-      if (!item) {
+    let currentSection = 'Backlog';
+    let frontmatterLines = [];
+    let isFrontmatter = false;
+    let frontmatterDone = false;
+    let sectionOrder = ['Backlog', 'To Do', 'In Progress', 'Review / Test', 'Done', 'Archive'];
+
+    const localItemsMap = new Map(); // normTitle -> { title, priority, section, checkbox, completionDate }
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmed = line.trim();
+
+      if (i === 0 && trimmed === '---') {
+        isFrontmatter = true;
+        frontmatterLines.push(line);
+        continue;
+      }
+      if (isFrontmatter) {
+        frontmatterLines.push(line);
+        if (trimmed === '---') {
+          isFrontmatter = false;
+          frontmatterDone = true;
+        }
+        continue;
+      }
+
+      if (trimmed.startsWith('## ')) {
+        const secName = trimmed.replace('## ', '').trim();
+        if (sections[secName] !== undefined) {
+          currentSection = secName;
+        } else {
+          sections[secName] = [];
+          sectionOrder.push(secName);
+          currentSection = secName;
+        }
+        continue;
+      }
+
+      if (trimmed.startsWith('- [ ]') || trimmed.startsWith('- [/]') || trimmed.startsWith('- [x]')) {
+        const checkbox = trimmed.slice(0, 5);
+        let rawTaskText = trimmed.slice(5).trim();
+
+        // Extract priority tag
+        let priority = null;
+        if (rawTaskText.includes('#priority/p0') || rawTaskText.includes('#p0')) priority = 'P0';
+        else if (rawTaskText.includes('#priority/p1') || rawTaskText.includes('#p1')) priority = 'P1';
+        else if (rawTaskText.includes('#priority/p2') || rawTaskText.includes('#p2')) priority = 'P2';
+        else if (rawTaskText.includes('#priority/p3') || rawTaskText.includes('#p3')) priority = 'P3';
+
+        // Extract completion date if Done
+        let completionDate = null;
+        const dateMatch = rawTaskText.match(/✅\s*(\d{4}-\d{2}-\d{2})/);
+        if (dateMatch) {
+          completionDate = dateMatch[1];
+        }
+
+        // Clean title
+        let cleanTitle = rawTaskText
+          .replace(/#priority\/p[0-3]/g, '')
+          .replace(/#p[0-3]/g, '')
+          .replace(/✅\s*\d{4}-\d{2}-\d{2}/g, '')
+          .replace(/`[^`]+`/g, (match) => match.replace(/`/g, ''))
+          .trim();
+        cleanTitle = cleanTitle.replace(/^\]\s*/, '').trim();
+
+        if (cleanTitle) {
+          const normTitle = cleanTitle.toLowerCase();
+          localItemsMap.set(normTitle, {
+            title: cleanTitle,
+            priority,
+            section: currentSection,
+            checkbox,
+            completionDate
+          });
+        }
+      }
+    }
+
+    // 6. True 2-Way Bi-Directional Reconciliation
+    let pulledCount = 0;
+    let pushedCount = 0;
+    const nowStr = new Date().toISOString().slice(0, 10);
+
+    const reconciledMap = new Map(); // normTitle -> { title, priority, section, checkbox, completionDate }
+
+    // Phase A: Reconcile GitHub Items (PULL & Update)
+    for (const [normTitle, ghItem] of githubMap.entries()) {
+      const localItem = localItemsMap.get(normTitle);
+
+      let targetSection = statusToSectionMap[ghItem.status.toLowerCase()] || 'Backlog';
+      let targetPriority = ghItem.priority || (localItem ? localItem.priority : 'P2');
+
+      // If local item exists, check if GitHub was updated
+      if (localItem) {
+        if (statusToSectionMap[ghItem.status.toLowerCase()] && statusToSectionMap[ghItem.status.toLowerCase()] !== localItem.section) {
+          pulledCount++;
+        }
+        if (ghItem.priority && ghItem.priority !== localItem.priority) {
+          targetPriority = ghItem.priority;
+          pulledCount++;
+        } else if (!ghItem.priority && localItem.priority) {
+          targetPriority = localItem.priority;
+          const priorityOptId = resolvePriorityOption(targetPriority);
+          if (priorityFieldId && priorityOptId) {
+            try {
+              execSync(`gh project item-edit --id "${ghItem.id}" --project-id "${projectId}" --field-id "${priorityFieldId}" --single-select-option-id "${priorityOptId}"`, { encoding: 'utf8', timeout: 5000 });
+              pushedCount++;
+            } catch (err) { console.warn('Priority push err:', err); }
+          }
+        }
+      } else {
+        pulledCount++;
+      }
+
+      let checkbox = sectionToCheckboxMap[targetSection] || '- [ ]';
+      let completionDate = localItem ? localItem.completionDate : null;
+      if (targetSection === 'Done' && !completionDate) {
+        completionDate = nowStr;
+      }
+
+      reconciledMap.set(normTitle, {
+        title: ghItem.rawTitle,
+        priority: targetPriority,
+        section: targetSection,
+        checkbox,
+        completionDate
+      });
+    }
+
+    // Phase B: Reconcile Local Obsidian Items NOT on GitHub (PUSH NEW)
+    for (const [normTitle, localItem] of localItemsMap.entries()) {
+      if (!githubMap.has(normTitle)) {
         try {
-          const createCmd = `gh project item-create ${projectNumber} --owner ${owner} --title "${task.title.replace(/"/g, '\\"')}" --format json`;
+          const createCmd = `gh project item-create ${projectNumber} --owner ${owner} --title "${localItem.title.replace(/"/g, '\\"')}" --format json`;
           const createRes = execSync(createCmd, { encoding: 'utf8', timeout: 10000 });
-          item = JSON.parse(createRes);
+          const newItem = JSON.parse(createRes);
+
+          if (newItem && newItem.id) {
+            const ghStatusName = sectionToStatusMap[localItem.section] || 'Backlog';
+            const statusOptId = resolveStatusOption(ghStatusName);
+            if (statusFieldId && statusOptId) {
+              execSync(`gh project item-edit --id "${newItem.id}" --project-id "${projectId}" --field-id "${statusFieldId}" --single-select-option-id "${statusOptId}"`, { encoding: 'utf8', timeout: 5000 });
+            }
+            if (priorityFieldId && localItem.priority) {
+              const priorityOptId = resolvePriorityOption(localItem.priority);
+              if (priorityOptId) {
+                execSync(`gh project item-edit --id "${newItem.id}" --project-id "${projectId}" --field-id "${priorityFieldId}" --single-select-option-id "${priorityOptId}"`, { encoding: 'utf8', timeout: 5000 });
+              }
+            }
+            pushedCount++;
+          }
         } catch (createErr) {
-          console.error(`Failed to create item "${task.title}":`, createErr);
-        }
-      }
-
-      if (item && item.id && projectId) {
-        // Set Status
-        if (statusFieldId) {
-          const statusOptId = resolveStatusOption(task.status);
-          if (statusOptId) {
-            try {
-              execSync(`gh project item-edit --id "${item.id}" --project-id "${projectId}" --field-id "${statusFieldId}" --single-select-option-id "${statusOptId}"`, { encoding: 'utf8', timeout: 5000 });
-            } catch (err) {
-              console.warn('Status edit warning:', err);
-            }
-          }
+          console.error(`Failed to push local item "${localItem.title}":`, createErr);
         }
 
-        // Set Priority
-        if (priorityFieldId && task.priority) {
-          const priorityOptId = resolvePriorityOption(task.priority);
-          if (priorityOptId) {
-            try {
-              execSync(`gh project item-edit --id "${item.id}" --project-id "${projectId}" --field-id "${priorityFieldId}" --single-select-option-id "${priorityOptId}"`, { encoding: 'utf8', timeout: 5000 });
-            } catch (err) {
-              console.warn('Priority edit warning:', err);
-            }
-          }
-        }
-
-        syncedCount++;
+        reconciledMap.set(normTitle, localItem);
       }
     }
 
-    new Notice(`🎉 Dynamic Sync Complete! Synced ${syncedCount} items with GitHub Project #${projectNumber}.`, 6000);
+    // 7. Group Reconciled Tasks into Kanban Sections
+    for (const item of reconciledMap.values()) {
+      const sec = sections[item.section] ? item.section : 'Backlog';
+      sections[sec].push(item);
+    }
+
+    // 8. Re-build Obsidian Kanban Note Content
+    let newContent = '';
+    if (frontmatterLines.length > 0) {
+      newContent += frontmatterLines.join('\n') + '\n\n';
+    }
+
+    for (const secName of sectionOrder) {
+      newContent += `## ${secName}\n`;
+      const items = sections[secName] || [];
+      for (const item of items) {
+        let priTag = item.priority ? ` #priority/${item.priority.toLowerCase()}` : '';
+        let dateTag = (secName === 'Done' && item.completionDate) ? ` ✅ ${item.completionDate}` : '';
+        newContent += `${item.checkbox} ${item.title}${priTag}${dateTag}\n`;
+      }
+      newContent += '\n';
+    }
+
+    // 9. Write Reconciled Content back to Obsidian Note
+    await app.vault.modify(targetFile, newContent.trim() + '\n');
+
+    new Notice(`🎉 2-Way Sync Complete! Updated ${pulledCount} from GitHub, Pushed ${pushedCount} to GitHub.`, 7000);
 
   } catch (error) {
-    console.error('GitHub Dynamic Sync Error:', error);
-    new Notice(`❌ GitHub Sync Error: ${error.message}`, 6000);
+    console.error('GitHub 2-Way Sync Error:', error);
+    new Notice(`❌ GitHub Sync Error: ${error.message}`, 7000);
   }
 };
