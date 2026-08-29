@@ -298,6 +298,15 @@ Start any prompt in your AI agent interface with `"hey loey"` to trigger fast wo
 4. **`habit-trend-analyzer`**: Correlates multi-day mood/energy/sleep metrics and generates weekly retrospective rollups.
 5. **`dev-snippet-indexer`**: Formats reusable technical patterns into `03-Dev/` with language syntax tags and MOC links.
 
+### ⚙️ Supported Agents & Recommended Models
+
+The assistant interface is tool-agnostic:
+- **Agentic Coding Assistants** *(Antigravity, Kiro, Cursor, Windsurf, Claude Code)*: Automatically load [`AGENTS.md`](file:///c:/Users/jonel/Documents/loey_space/AGENTS.md) and all 5 skills with **zero setup**.
+- **In-Obsidian Native AI**: Uses `GEMINI_API_KEY` from [`.env`](file:///c:/Users/jonel/Documents/loey_space/.env) via [`06-Resources/scripts/`](file:///c:/Users/jonel/Documents/loey_space/06-Resources/scripts).
+- **Recommended Models**:
+  - `gemini-2.5-flash` / `gemini-2.5-flash-lite`, `gpt-4o-mini`, or `claude-3-5-haiku` for fast daily triage & checks.
+  - `gemini-2.5-pro` or `claude-3-7-sonnet` for deep concept synthesis and project planning.
+
 ---
 
 ## 📚 Related Resources & Navigation

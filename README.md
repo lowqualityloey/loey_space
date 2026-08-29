@@ -122,6 +122,22 @@ Prefix any prompt with **`"hey loey"`** in your AI interface to trigger fast, co
 4. **`habit-trend-analyzer`**: Correlates multi-day mood/energy/sleep metrics and generates weekly retrospective rollups.
 5. **`dev-snippet-indexer`**: Formats reusable technical patterns into `03-Dev/` with language syntax tags and MOC links.
 
+### ⚙️ Supported Agents & Recommended Models
+
+The Loey Space AI Assistant is tool-agnostic and works natively with any modern AI coding or agentic interface:
+
+| Environment | Supported Tools | Setup / How It Runs |
+| :--- | :--- | :--- |
+| **Agentic Coding Assistants** *(Recommended)* | Google Antigravity, Kiro, Cursor, Windsurf, Claude Code | **Zero setup**. Opening the vault automatically loads [`AGENTS.md`](AGENTS.md) and all 5 skills in [`.agents/skills/`](.agents/skills/). |
+| **In-Obsidian Native AI** | QuickAdd Macros (`Ctrl+Shift+A`, `🧹 Triage Sweep`, `📊 Weekly AI`) | Runs directly inside Obsidian using `GEMINI_API_KEY` from `.env` via [`06-Resources/scripts/`](06-Resources/scripts/). |
+| **In-Obsidian Chat Plugins** *(Optional)* | Obsidian Copilot, Smart Connections, BMO Chatbot | Point the plugin to `AGENTS.md` as custom system instructions. |
+
+#### 🧠 Recommended Models:
+* **⚡ Daily Routines & Triage (`status`, `morning`, `evening`, `sweep`)**: 
+  - `gemini-2.5-flash` / `gemini-2.5-flash-lite`, `gpt-4o-mini`, or `claude-3-5-haiku` *(fast, sub-second latency, near-zero cost)*.
+* **💡 Deep Knowledge Distillation & Project Planning (`distill`, `kanban-project-planner`)**: 
+  - `gemini-2.5-pro` or `claude-3-7-sonnet` *(deep reasoning for Zettelkasten concept linking and code architecture)*.
+
 ---
 
 ## ⚡ HomePulse Command Center
