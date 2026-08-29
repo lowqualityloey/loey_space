@@ -8,6 +8,7 @@ source: mobile
 priority: medium
 tags:
   - type/task
+  - area/inbox
   - source/mobile
   - status/active
 ---

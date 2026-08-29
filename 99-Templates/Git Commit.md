@@ -1,7 +1,13 @@
 ---
-type: template
+created: <% tp.date.now("YYYY-MM-DD") %>
+updated: <% tp.date.now("YYYY-MM-DD") %>
+type: snippet
+status: active
+area: dev
 tags:
-  - type/template
+  - type/snippet
+  - area/dev
+  - status/active
 ---
 
 # Type: [Short description]

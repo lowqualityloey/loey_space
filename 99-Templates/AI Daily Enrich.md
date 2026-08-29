@@ -1,3 +1,14 @@
+---
+created: <% tp.date.now("YYYY-MM-DD") %>
+updated: <% tp.date.now("YYYY-MM-DD") %>
+type: template
+status: active
+area: dev
+tags:
+  - type/template
+  - area/dev
+  - status/active
+---
 <%*
 const file = app.workspace.getActiveFile();
 if (!file || !file.path.startsWith("01-Daily")) {

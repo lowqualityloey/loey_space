@@ -1,7 +1,8 @@
 ---
 created: <% tp.date.now("YYYY-MM-DD", 0, tp.file.title, "YYYY-MM-DD") %>
-updated: 2026-08-10
+updated: <% tp.date.now("YYYY-MM-DD") %>
 type: daily
+status: active
 area: personal
 mood: 
 energy: 
@@ -9,6 +10,7 @@ sleep_hours:
 tags:
   - type/daily
   - area/personal
+  - status/active
 ---
 # <% tp.date.now("dddd, MMMM D, YYYY", 0, tp.file.title, "YYYY-MM-DD") %>
 
