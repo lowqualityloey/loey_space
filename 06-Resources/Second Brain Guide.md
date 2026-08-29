@@ -242,11 +242,26 @@ Card markers are automatically maintained by the **Kanban Status Sync** plugin (
 - Shows project cards **completed on today's date**.
 - Rendered with `project-tasks.css` so in-progress cards look like checkable tasks in the daily view without duplicating data on disk.
 
-> [!NOTE]- 🛠️ Task Engine Internals & Settings Guard (Click to expand)
-> - **Carry-over forwards (`- [>]`)**: Unfinished `- [ ]` tasks move into tomorrow's note, marking yesterday's copy as `- [>]`. This prevents double-counting on dashboards.
-> - **Heading regex**: Templater matches `/^#{2,3}\s+.*(Tomorrow Setup|Tasks)/i`.
-> - **Dataview task immutability**: Checkbox clicking breaks if query scripts reformat `t.text`. Keep task text untouched in active query lists.
-> - **Kanban settings**: Keep **"Mark items in this lane as complete"** *disabled* in Kanban lane settings so the custom sync plugin operates without conflict.
+---
+
+### 🐙 2-Way GitHub Projects v2 Sync Setup
+
+To connect an Obsidian project board to GitHub Projects:
+
+1. **Authenticate GitHub CLI**:
+   ```bash
+   gh auth login
+   gh auth refresh -s project
+   ```
+2. **Add Frontmatter**:
+   ```yaml
+   ---
+   kanban-plugin: board
+   github_project_number: 1
+   github_owner: your-username
+   ---
+   ```
+3. **Sync**: Press `Ctrl + P` $\rightarrow$ `QuickAdd: Sync GitHub Project Kanban` (or click the GitHub ribbon icon). Remote changes pull into Obsidian, and local cards push to GitHub.
 
 ---
 

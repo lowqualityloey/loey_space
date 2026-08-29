@@ -12,5 +12,6 @@
     "project-tasks",
     "homepulse-mobile",
     "kanban-tags"
-  ]
+  ],
+  "baseFontSize": 14
 }

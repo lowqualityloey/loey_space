@@ -287,6 +287,35 @@ Go to **Obsidian Settings -> Community Plugins** and ensure the following plugin
 ### Step 4: Launch HomePulse Dashboard
 * Click the **HomePulse** icon on the ribbon action bar or press `Ctrl + P` and execute **HomePulse: Open Dashboard View**.
 
+### Step 5: (Optional) 2-Way GitHub Project Sync Setup
+If you want to synchronize your Obsidian Kanban boards bi-directionally with **GitHub Projects v2**:
+
+1. **Install & Authenticate GitHub CLI (`gh`)**:
+   ```bash
+   # Windows: winget install GitHub.cli | macOS: brew install gh
+   gh auth login
+   gh auth refresh -s project
+   ```
+   *(The `project` scope is required to read/write GitHub Projects v2 boards).*
+
+2. **Create a GitHub Project**:
+   - Go to GitHub $\rightarrow$ **Projects** $\rightarrow$ **New Project** (Board layout).
+   - Note your **Project Number** from the URL (e.g. `github.com/users/<owner>/projects/<number>`).
+   - Ensure columns match: `Backlog`, `To Do`, `In Progress`, `Review / Test`, `Done`.
+
+3. **Add Frontmatter to your Project Kanban Note**:
+   ```yaml
+   ---
+   kanban-plugin: board
+   github_project_number: 1
+   github_owner: your-github-username
+   ---
+   ```
+
+4. **Run 2-Way Sync**:
+   - Open your Kanban board and press `Ctrl + P` $\rightarrow$ **`QuickAdd: Sync GitHub Project Kanban`** (or click the GitHub 🐙 ribbon icon).
+   - Remote web edits pull into Obsidian, and local markdown cards push to GitHub draft items automatically.
+
 ---
 
 ## 💡 Daily Workflows & Keyboard Shortcuts
