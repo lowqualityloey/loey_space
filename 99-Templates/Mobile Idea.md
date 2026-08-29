@@ -7,6 +7,8 @@ area: inbox
 source: mobile
 tags:
   - type/concept
+  - area/inbox
+  - status/active
   - source/mobile
 ---
 
