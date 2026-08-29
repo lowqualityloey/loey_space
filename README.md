@@ -30,6 +30,8 @@ updated: 2026-08-29
 - [🔒 Security \& Git Safety](#-security--git-safety)
 - [🧯 Troubleshooting](#-troubleshooting)
 - [🤝 Contributing](#-contributing)
+- [🙏 Credits \& Acknowledgements](#-credits--acknowledgements)
+- [📄 License](#-license)
 
 ---
 
@@ -142,7 +144,7 @@ The Loey Space AI Assistant is tool-agnostic and works natively with any modern 
 
 ## ⚡ HomePulse Command Center
 
-The heart of `loey_space` is **HomePulse** (`.obsidian/plugins/homepulse`), a high-performance native dashboard plugin:
+The heart of `loey_space` is **HomePulse** (`.obsidian/plugins/homepulse`), a high-performance native dashboard plugin built upon and extended from [jukkau/HomePulse](https://github.com/jukkau/HomePulse):
 
 * **🔄 2-Way Real-Time Habit Sync**: Toggling habit checkboxes inside the **Habits** widget instantly updates `- [ ]` / `- [x]` in today's active daily note (`01-Daily/YYYY-MM-DD.md`) and `99-Templates/Daily.md`.
 * **⚡ Execution Pulse**: Live productivity analytics tracking daily habit completion percentage, focus/pomodoro minutes, 7-day note creation rhythm, and task completion ratios.
@@ -490,6 +492,15 @@ See [CONTRIBUTING.md](06-Resources/CONTRIBUTING.md) for the full scope, plus how
 
 ---
 
+## 🙏 Credits & Acknowledgements
+
+* **[HomePulse](https://github.com/jukkau/HomePulse)** by [@jukkau](https://github.com/jukkau) — The foundational dashboard plugin architecture powering the real-time command center interface in this vault.
+* **[Obsidian Kanban](https://github.com/mgmeyers/obsidian-kanban)** by [@mgmeyers](https://github.com/mgmeyers) — Visual markdown Kanban boards and card management.
+* **[Dataview](https://github.com/blacksmithgu/obsidian-dataview)** by [@blacksmithgu](https://github.com/blacksmithgu) & **[QuickAdd](https://github.com/chhoumann/quickadd)** by [@chhoumann](https://github.com/chhoumann) — Core query and automation engines.
+
+---
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for complete details.
+
