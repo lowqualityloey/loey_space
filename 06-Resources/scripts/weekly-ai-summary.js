@@ -116,6 +116,10 @@ JSON FORMAT:
       } else {
         failureReason = parseGeminiError(res.status, res.text, model);
         console.warn(`Weekly Summary model ${model} HTTP ${res.status}:`, failureReason.message);
+        if (failureReason.kind === "auth" || failureReason.kind === "badRequest") {
+          console.warn(`Weekly Summary: aborting model fallback — ${failureReason.kind} affects all models`);
+          break;
+        }
       }
     } catch (e) {
       failureReason = { status: 0, kind: "network", message: e && e.message ? e.message : String(e), model };
