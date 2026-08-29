@@ -17,6 +17,7 @@ updated: 2026-08-29
 - [⚡ Quickstart](#-quickstart)
 - [🖼️ Screenshots](#️-screenshots)
 - [✨ Main Features](#-main-features)
+- [🤖 AI Assistant & "Hey Loey" Dispatcher](#-ai-assistant--hey-loey-dispatcher)
 - [⚡ HomePulse Command Center](#-homepulse-command-center)
 - [🗂️ Vault Directory Architecture](#️-vault-directory-architecture)
 - [📖 Documentation](#-documentation)
@@ -78,6 +79,7 @@ Each project gets a board. Card checkboxes follow their lane automatically — `
 
 | Feature | Description |
 | :--- | :--- |
+| **Loey Space AI Assistant** | Conversational Second Brain Chief of Staff & Digital Librarian triggered via `"hey loey"` (`AGENTS.md`) |
 | **HomePulse Dashboard** | Custom native plugin with real-time widgets — habits, tasks, pomodoro, focus, projects, tech tree, activity heatmap, all in one view |
 | **2-Way Habit Sync** | Toggle habits in the dashboard and they instantly update in today's daily note (and vice versa) |
 | **Multi-Domain AI Enrichment** | One shortcut (`Ctrl+Shift+A`) analyzes any note — generates summaries for daily notes, explanations for concepts, code breakdowns for dev notes, study quizzes & concept extraction for learning notes |
@@ -94,6 +96,31 @@ Each project gets a board. Card checkboxes follow their lane automatically — `
 | **Execution Pulse** | Live productivity analytics — habit %, focus minutes, note rhythm, task completion ratios |
 | **PARA/MOC Architecture** | Clean folder separation with Maps of Content for navigation — scales without friction |
 | **Ultra-Dark Command Center** | Glassmorphic `#0C0D13` theme with JetBrains Mono, Inter, and custom CSS snippets |
+
+---
+
+## 🤖 AI Assistant & "Hey Loey" Dispatcher
+
+`loey_space` features a built-in AI Assistant & Chief of Staff powered by [`AGENTS.md`](AGENTS.md). 
+
+Prefix any prompt with **`"hey loey"`** in your AI interface to trigger fast, context-aware workflows:
+
+| Trigger | Action & Workflow |
+| :--- | :--- |
+| **`hey loey status`** (or `hey loey`) | **Pulse Check**: Counts inbox items, checks daily note/habits, and lists active project tasks |
+| **`hey loey morning`** | **Morning Setup**: Initializes today's note, surfaces 3 priority tasks from active Kanbans (`shelf`) |
+| **`hey loey evening`** | **Evening Wind-down**: Walks through habit checks, logs wins/blockers, prepares for AI summary |
+| **`hey loey sweep`** | **Inbox Triage**: Analyzes `quick-capture-dump.md`, tags tokens, and runs triage sweep |
+| **`hey loey distill`** | **Concept Extraction**: Distills raw notes/dev logs into atomic concepts in `08-Concepts/` (90d review) |
+| **`hey loey weekly`** | **Weekly Review**: Aggregates 7-day habits and project progress into `07-Reviews/YYYY-[W]WW.md` |
+| **`hey loey health`** | **Vault Audit**: Validates frontmatter, detects broken wikilinks, and verifies secret exclusion |
+
+### 🛠️ Specialized Vault Skills (`.agents/skills/`)
+1. **`vault-concept-distiller`**: Synthesizes articles/snippets into atomic `08-Concepts/` notes with 90-day review cycles.
+2. **`kanban-project-planner`**: Decomposes project goals into priority-tagged cards (`#priority/p0-p3`) and syncs with GitHub Projects v2.
+3. **`vault-hygiene-auditor`**: Validates frontmatter tags, scans for dead links, and audits Git secret exclusion.
+4. **`habit-trend-analyzer`**: Correlates multi-day mood/energy/sleep metrics and generates weekly retrospective rollups.
+5. **`dev-snippet-indexer`**: Formats reusable technical patterns into `03-Dev/` with language syntax tags and MOC links.
 
 ---
 
@@ -117,6 +144,7 @@ The heart of `loey_space` is **HomePulse** (`.obsidian/plugins/homepulse`), a hi
 ```text
 loey_space/
 ├── Home.md                      # Central Command Dashboard (Navigation, Active Tasks, Projects, Inbox)
+├── AGENTS.md                    # AI Agent Persona, 'Hey Loey' Dispatcher & Routine Rules
 ├── 00-Inbox/                    # Quick capture dump & triage
 │   ├── _Inbox MOC.md            # Unprocessed notes dashboard
 │   └── _Triage MOC.md           # Stale notes & overdue reviews
@@ -169,6 +197,7 @@ Full reference lives **inside the vault** rather than a separate `docs/` tree, s
 
 | Guide | Covers |
 | :--- | :--- |
+| [AGENTS](AGENTS.md) | Master AI Agent persona, "Hey Loey" command dispatcher, daily/weekly maintenance routines |
 | [CONTRIBUTING](06-Resources/CONTRIBUTING.md) | Open/closed scope, testing without Obsidian, PR workflow, security rules |
 | [Second Brain Guide](06-Resources/Second%20Brain%20Guide.md) | Folder architecture, QuickAdd flows, the AI enricher contract, triage tokens, task rules, daily routine |
 | [Mobile Workflow Guide](06-Resources/Mobile%20Workflow%20Guide.md) | Mobile toolbar setup and the capture-fast / triage-later loop |

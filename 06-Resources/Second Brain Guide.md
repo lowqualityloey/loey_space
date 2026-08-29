@@ -273,9 +273,37 @@ Refer to [[06-Resources/Vault Security Policy|Vault Security Policy]] for comple
 
 ---
 
+## 🤖 8. AI Assistant Workflow ("Hey Loey") & Maintenance Rhythms
+
+For conversational management of the vault, the assistant acts as a digital Chief of Staff guided by [[AGENTS.md|AGENTS.md]].
+
+### 🎙️ The `"Hey Loey"` Command Catalog
+
+Start any prompt in your AI agent interface with `"hey loey"` to trigger fast workflows:
+
+| Trigger Command | Workflow Executed |
+| :--- | :--- |
+| **`hey loey status`** | **Vault Pulse Check**: Summarizes inbox dump status, daily note/habit completeness, and active project tasks. |
+| **`hey loey morning`** | **Morning Setup**: Ensures today's note exists and surfaces 3 high-priority tasks from active project Kanbans. |
+| **`hey loey evening`** | **Evening Reflection**: Checks off completed habits, logs brief wins/blockers, and formats for `Ctrl+Shift+A` AI summary. |
+| **`hey loey sweep`** | **Inbox Triage**: Analyzes `quick-capture-dump.md`, appends routing tokens, and runs triage sweep. |
+| **`hey loey distill`** | **Concept Extraction**: Converts raw notes and dev logs into atomic evergreen concepts in `08-Concepts/` with 90d review cycles. |
+| **`hey loey weekly`** | **Weekly Retrospective**: Aggregates 7-day habit trends and project progress into `07-Reviews/YYYY-[W]WW.md`. |
+| **`hey loey health`** | **Hygiene Audit**: Runs template validation, checks for broken links, and verifies Git secret exclusion. |
+
+### 🛠️ Specialized Vault Skills (`.agents/skills/`)
+1. **`vault-concept-distiller`**: Synthesizes articles/snippets into atomic `08-Concepts/` notes with 90-day review cycles.
+2. **`kanban-project-planner`**: Decomposes project goals into priority-tagged cards (`#priority/p0-p3`) and syncs with GitHub Projects v2.
+3. **`vault-hygiene-auditor`**: Validates frontmatter tags, scans for dead links, and audits Git secret exclusion.
+4. **`habit-trend-analyzer`**: Correlates multi-day mood/energy/sleep metrics and generates weekly retrospective rollups.
+5. **`dev-snippet-indexer`**: Formats reusable technical patterns into `03-Dev/` with language syntax tags and MOC links.
+
+---
+
 ## 📚 Related Resources & Navigation
 
 - 🏠 **[[Home|Central Command Hub (Home.md)]]**
+- 🤖 **[[AGENTS|Loey Space AI Assistant Spec (AGENTS.md)]]**
 - 🧹 **[[00-Inbox/_Triage MOC|Triage & Maintenance MOC]]**
 - 🏷️ **[[06-Resources/Tagging & Properties|Tagging & Properties System]]**
 - 📱 **[[06-Resources/Mobile Workflow Guide|Mobile Workflow Guide]]**
