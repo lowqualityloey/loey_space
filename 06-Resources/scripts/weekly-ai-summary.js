@@ -1,6 +1,5 @@
 module.exports = async function weeklyAISummary(params) {
   const app = (params && params.app) ? params.app : (window.app || app);
-  const file = app.workspace.getActiveFile();
   
   new Notice("🤖 Generating weekly AI summary...");
 
@@ -81,9 +80,10 @@ JSON FORMAT:
 }
 `;
 
-  // 5. Call Gemini API
+  // 5. Call Gemini API with model fallback and error classification
+  const modelsToTry = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"];
   let responseText = "";
-  const modelsToTry = ["gemini-2.0-flash-lite"];
+  let failureReason = null;
 
   for (const model of modelsToTry) {
     try {
@@ -92,25 +92,44 @@ JSON FORMAT:
         url,
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        throw: false,
         body: JSON.stringify({
           system_instruction: { parts: [{ text: systemPrompt }] },
           contents: [{ parts: [{ text: userPrompt }] }],
-          generationConfig: { responseMimeType: "application/json" }
+          generationConfig: {
+            responseMimeType: "application/json",
+            temperature: 0.5
+          }
         })
       });
 
-      const json = JSON.parse(res.text);
-      if (json.candidates && json.candidates[0] && json.candidates[0].content) {
-        responseText = json.candidates[0].content.parts[0].text.trim();
-        if (responseText) break;
+      if (res.status === 200) {
+        const json = JSON.parse(res.text);
+        if (json.candidates && json.candidates[0] && json.candidates[0].content) {
+          responseText = json.candidates[0].content.parts[0].text.trim();
+          if (responseText) {
+            console.log(`Weekly AISummary generated using model: ${model}`);
+            failureReason = null;
+            break;
+          }
+        }
+      } else {
+        failureReason = parseGeminiError(res.status, res.text, model);
+        console.warn(`Weekly Summary model ${model} HTTP ${res.status}:`, failureReason.message);
+        if (failureReason.kind === "auth" || failureReason.kind === "badRequest") {
+          console.warn(`Weekly Summary: aborting model fallback — ${failureReason.kind} affects all models`);
+          break;
+        }
       }
     } catch (e) {
-      console.warn(`Weekly Summary model ${model} warning:`, e.message);
+      failureReason = { status: 0, kind: "network", message: e && e.message ? e.message : String(e), model };
+      console.warn(`Weekly Summary model ${model} warning:`, failureReason.message);
     }
   }
 
   if (!responseText) {
-    new Notice("⚠️ Failed to generate weekly AI summary.");
+    const errorMsg = formatGeminiFailure(failureReason);
+    new Notice(`⚠️ Failed to generate weekly AI summary: ${errorMsg}`);
     return;
   }
 
@@ -279,7 +298,7 @@ SORT updated DESC
     
     // Open the weekly review
     const newFile = app.vault.getAbstractFileByPath(fullPath);
-    if (newFile) {
+    if (newFile && app.workspace && typeof app.workspace.getLeaf === "function") {
       app.workspace.getLeaf().openFile(newFile);
     }
 
@@ -288,6 +307,69 @@ SORT updated DESC
     new Notice("⚠️ Failed to parse weekly AI response.");
   }
 };
+
+/* Helper function to classify Gemini error responses */
+function parseGeminiError(status, bodyText, model) {
+  let message = "";
+  let retrySeconds = 0;
+  let quotaId = "";
+
+  try {
+    const body = JSON.parse(bodyText);
+    const error = body.error || {};
+    message = error.message || "";
+    const details = Array.isArray(error.details) ? error.details : [];
+
+    for (const detail of details) {
+      const type = String(detail["@type"] || "");
+      if (type.includes("RetryInfo") && detail.retryDelay) {
+        const seconds = String(detail.retryDelay).match(/([\d.]+)\s*s/);
+        if (seconds) retrySeconds = Math.ceil(parseFloat(seconds[1]));
+      }
+      if (type.includes("QuotaFailure") && Array.isArray(detail.violations) && detail.violations.length) {
+        quotaId = detail.violations[0].quotaId || "";
+      }
+    }
+  } catch (e) {
+    message = String(bodyText || "").slice(0, 200);
+  }
+
+  let kind = "unknown";
+  if (status === 429) {
+    if (/PerDay/i.test(quotaId)) kind = "quotaPerDay";
+    else if (/PerMinute/i.test(quotaId)) kind = "quotaPerMinute";
+    else kind = retrySeconds > 120 ? "quotaPerDay" : "quotaPerMinute";
+  } else if (status === 404) kind = "modelMissing";
+  else if (status === 400) kind = "badRequest";
+  else if (status === 401 || status === 403) kind = "auth";
+  else if (status >= 500) kind = "serverError";
+
+  return { status, kind, message, retrySeconds, model };
+}
+
+/* Helper function to format Gemini error message */
+function formatGeminiFailure(failure) {
+  if (!failure) return "the request failed";
+
+  switch (failure.kind) {
+    case "quotaPerMinute":
+      return failure.retrySeconds
+        ? `per-minute rate limit hit — retry in about ${failure.retrySeconds}s`
+        : "per-minute rate limit hit — wait a minute and run again";
+    case "quotaPerDay":
+      return "daily free-tier quota used up — resets at midnight Pacific time";
+    case "auth":
+      return `API key rejected (HTTP ${failure.status}) — check GEMINI_API_KEY in .env`;
+    case "badRequest":
+      return `request rejected (400): ${failure.message || "invalid request"}`;
+    case "modelMissing":
+      return "none of the configured models are available for this key (404)";
+    case "network":
+      return `network error: ${failure.message}`;
+    default:
+      return failure.message || "the request failed";
+  }
+}
 
 // Helper function to extract data from daily notes
 function extractDailyData(content, noteDate) {
@@ -462,4 +544,4 @@ function getWeekRange(date) {
   };
   
   return `${formatDate(monday)} to ${formatDate(sunday)}`;
-}
+};
