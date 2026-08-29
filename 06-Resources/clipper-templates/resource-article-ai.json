@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "0.1.0",
+  "name": "Resource Article (AI Enriched)",
+  "behavior": "create",
+  "noteNameFormat": "{{title}}",
+  "path": "06-Resources/Articles",
+  "properties": [
+    {
+      "name": "type",
+      "value": "resource",
+      "type": "text"
+    },
+    {
+      "name": "status",
+      "value": "active",
+      "type": "text"
+    },
+    {
+      "name": "area",
+      "value": "resources",
+      "type": "text"
+    },
+    {
+      "name": "created",
+      "value": "{{date}}",
+      "type": "date"
+    },
+    {
+      "name": "updated",
+      "value": "{{date}}",
+      "type": "date"
+    },
+    {
+      "name": "source",
+      "value": "{{url}}",
+      "type": "text"
+    },
+    {
+      "name": "author",
+      "value": "{{author}}",
+      "type": "text"
+    },
+    {
+      "name": "published",
+      "value": "{{published}}",
+      "type": "date"
+    },
+    {
+      "name": "description",
+      "value": "{{description}}",
+      "type": "text"
+    },
+    {
+      "name": "tags",
+      "value": "type/resource, area/resources, status/active",
+      "type": "multitext"
+    }
+  ],
+  "noteContentFormat": "# {{title}}\n\n**Resource URL**: {{url}}\n**Author / Source**: {{author}}\n**Published Date**: {{published}}\n\n## 🤖 AI Summary & Key Takeaways\n{{\"Provide a concise 3-bullet summary of the core arguments, insights, and key takeaways.\"}}\n\n## Overview\n> {{description}}\n\n{% if highlights %}\n## ✍️ Key Highlights & Notes\n{{highlights}}\n{% endif %}\n\n## 📖 Content\n{{content}}\n\n## 🔗 Related References\n- [[ ]]\n"
+}

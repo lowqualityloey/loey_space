@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "0.1.0",
+  "name": "YouTube Video",
+  "behavior": "create",
+  "noteNameFormat": "{{title}}",
+  "path": "06-Resources/Articles",
+  "triggers": [
+    "https://www.youtube.com/watch*",
+    "https://youtu.be/*"
+  ],
+  "properties": [
+    {
+      "name": "type",
+      "value": "resource",
+      "type": "text"
+    },
+    {
+      "name": "status",
+      "value": "active",
+      "type": "text"
+    },
+    {
+      "name": "area",
+      "value": "resources",
+      "type": "text"
+    },
+    {
+      "name": "created",
+      "value": "{{date}}",
+      "type": "date"
+    },
+    {
+      "name": "updated",
+      "value": "{{date}}",
+      "type": "date"
+    },
+    {
+      "name": "source",
+      "value": "{{url}}",
+      "type": "text"
+    },
+    {
+      "name": "channel",
+      "value": "{{author}}",
+      "type": "text"
+    },
+    {
+      "name": "tags",
+      "value": "type/resource, area/resources, status/active",
+      "type": "multitext"
+    }
+  ],
+  "noteContentFormat": "# {{title}}\n\n**Channel**: {{author}}\n**Video URL**: {{url}}\n\n## Video\n![](https://www.youtube.com/watch?v={{schema:identifier}})\n\n## Summary & Notes\n> {{description}}\n\n{% if highlights %}\n## ✍️ Key Highlights\n{{highlights}}\n{% endif %}\n\n## 🔗 Related References\n- [[ ]]\n"
+}

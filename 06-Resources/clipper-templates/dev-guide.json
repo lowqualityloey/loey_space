@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "0.1.0",
+  "name": "Dev Guide & Architecture (AI Pro)",
+  "behavior": "create",
+  "noteNameFormat": "{{title}}",
+  "path": "03-Dev",
+  "triggers": [
+    "https://dev.to/*",
+    "https://*.hashnode.dev/*",
+    "https://blog.logrocket.com/*",
+    "https://www.freecodecamp.org/news/*",
+    "https://martinfowler.com/*",
+    "https://*.substack.com/*",
+    "https://news.ycombinator.com/*"
+  ],
+  "properties": [
+    {
+      "name": "type",
+      "value": "dev",
+      "type": "text"
+    },
+    {
+      "name": "status",
+      "value": "active",
+      "type": "text"
+    },
+    {
+      "name": "area",
+      "value": "dev",
+      "type": "text"
+    },
+    {
+      "name": "created",
+      "value": "{{date}}",
+      "type": "date"
+    },
+    {
+      "name": "updated",
+      "value": "{{date}}",
+      "type": "date"
+    },
+    {
+      "name": "source",
+      "value": "{{url}}",
+      "type": "text"
+    },
+    {
+      "name": "author",
+      "value": "{{author}}",
+      "type": "text"
+    },
+    {
+      "name": "tags",
+      "value": "type/dev, area/dev, status/active",
+      "type": "multitext"
+    }
+  ],
+  "noteContentFormat": "# {{title}}\n\n**Source**: {{url}}\n**Author / Publication**: {{author}}\n\n## 🏛️ Executive Summary & Architecture\n> {{\"Provide a 2-sentence executive summary of the architectural approach, technical paradigm, or engineering tradeoff discussed in this text.\"}}\n\n## 🔑 Core Technical Insights\n{{\"List 3-4 key technical takeaways, design decisions, or architectural principles in bullet format.\"}}\n\n{% if highlights %}\n## ✍️ My Highlights\n{{highlights}}\n{% endif %}\n\n## 🔗 Related Architecture & System Concepts\n{{\"Suggest 3-5 high-level engineering and architecture topics as Obsidian wikilinks (e.g., - [[Microservices vs Monolith]], - [[Database Sharding]], - [[Zero Trust Architecture]], - [[CI/CD Automation]]).\nFormat strictly as markdown list: - [[Concept Name]]\"}}\n\n---\n\n## 📖 Full Article Content\n{{content}}\n"
+}

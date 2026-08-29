@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "0.1.0",
+  "name": "Dev Snippet (AI Pro)",
+  "behavior": "create",
+  "noteNameFormat": "{{title}}",
+  "path": "03-Dev",
+  "triggers": [
+    "https://stackoverflow.com/questions/*",
+    "https://developer.mozilla.org/*",
+    "https://gist.github.com/*",
+    "https://regex101.com/*",
+    "https://www.npmjs.com/package/*",
+    "https://github.com/*/*/blob/*",
+    "https://github.com/*/*/issues/*"
+  ],
+  "properties": [
+    {
+      "name": "type",
+      "value": "snippet",
+      "type": "text"
+    },
+    {
+      "name": "status",
+      "value": "active",
+      "type": "text"
+    },
+    {
+      "name": "area",
+      "value": "dev",
+      "type": "text"
+    },
+    {
+      "name": "language",
+      "value": "{{\"Detect the primary programming language or technology in exactly one lowercase word (e.g., typescript, javascript, python, powershell, rust, react, tailwind, docker, bash, sql, html, css). Output ONLY the word.\"}}",
+      "type": "text"
+    },
+    {
+      "name": "created",
+      "value": "{{date}}",
+      "type": "date"
+    },
+    {
+      "name": "updated",
+      "value": "{{date}}",
+      "type": "date"
+    },
+    {
+      "name": "source",
+      "value": "{{url}}",
+      "type": "text"
+    },
+    {
+      "name": "tags",
+      "value": "type/snippet, area/dev, status/active",
+      "type": "multitext"
+    }
+  ],
+  "noteContentFormat": "# {{title}}\n\n**Source**: {{url}}\n**Language / Tool**: `{{language}}`\n\n## 💡 Problem & Use Case\n> {{\"Explain what problem this snippet solves or when to use it in 1-2 punchy sentences.\"}}\n\n## 💻 Implementation & Code\n{{\"Extract and output only the cleanest, production-ready code snippet or solution block with proper markdown code fencing (e.g. ```typescript ... ```).\"}}\n\n## ⚙️ How It Works & Edge Cases\n{{\"Explain the implementation in 2-3 concise bullet points. Highlight key parameters, gotchas, or performance considerations.\"}}\n\n{% if highlights %}\n## ✍️ My Highlights\n{{highlights}}\n{% endif %}\n\n## 🔗 Related Patterns & Concepts\n{{\"Suggest 3-4 related technical concepts or patterns as Obsidian wikilinks (e.g., - [[TypeScript Generics]], - [[Debounce vs Throttle]], - [[React Custom Hooks]], - [[Error Boundary]]).\nFormat strictly as markdown list: - [[Concept Name]]\"}}\n\n---\n\n## 📖 Full Reference & Context\n{{content}}\n"
+}

@@ -17,11 +17,11 @@
     "migrated": 6,
     "emojiStyle": "native",
     "recentlyUsedIcons": [
+      "LiHome",
+      "LiInfo",
+      "ℹ",
       "LiTableOfContents",
-      "LiNotebook",
-      "📚",
-      "LiBook",
-      "LiCheckSmall"
+      "LiNotebook"
     ],
     "recentlyUsedIconsSize": 5,
     "rules": [],
@@ -51,5 +51,7 @@
   "08-Concepts": "LiLightbulb",
   "99-Attachments": "LiUpload",
   "05-Personal": "LiDumbbell",
-  "00-Inbox/quick-capture-dump.md": "LiTableOfContents"
+  "00-Inbox/quick-capture-dump.md": "LiTableOfContents",
+  "README.md": "LiInfo",
+  "Home.md": "LiHome"
 }

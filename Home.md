@@ -18,7 +18,7 @@ updated: 2026-08-11
 | Area            | Hub Link                                       | Purpose                                        |
 | :-------------- | :--------------------------------------------- | :--------------------------------------------- |
 | 📅 Daily Logs   | [[01-Daily/_Daily MOC\|Daily MOC]]             | Daily journal, habits & reflections            |
-| 📋 Tasks Hub    | [[01-Daily/_Tasks MOC\|Tasks MOC]]             | Active tasks, in-progress & completion history |
+| 📋 Tasks Hub    | [[01-Daily/_Tasks MOC\|Tasks MOC]] · [[01-Daily/Tasks Kanban\|Kanban]] | Active tasks, in-progress & drag-and-drop board |
 | 🚀 Projects     | [[02-Projects/_Projects MOC\|Projects MOC]]    | Active development & project builds            |
 | 💻 Dev Notes    | [[03-Dev/_Dev MOC\|Dev MOC]]                   | Code snippets & technical patterns             |
 | 💡 Concepts     | [[08-Concepts/_Concepts MOC\|Concepts MOC]]    | Evergreen knowledge & technical concepts       |
@@ -35,7 +35,7 @@ updated: 2026-08-11
 const pages = dv.pages('"01-Daily" or "02-Projects"');
 let tasks = [];
 for (let p of pages) {
-  if (!p.file.tasks) continue;
+  if (!p.file.tasks || p.file.name === "Tasks Kanban") continue;
   for (let t of p.file.tasks) {
     if (!t.text || t.text.trim() === "") continue;
     const sec = (t.header && t.header.subpath) ? t.header.subpath.toLowerCase() : "";
@@ -57,7 +57,7 @@ else dv.paragraph("No tasks currently in progress.");
 const pages = dv.pages('"01-Daily" or "02-Projects"');
 let tasks = [];
 for (let p of pages) {
-  if (!p.file.tasks) continue;
+  if (!p.file.tasks || p.file.name === "Tasks Kanban") continue;
   for (let t of p.file.tasks) {
     if (!t.text || t.text.trim() === "") continue;
     const sec = (t.header && t.header.subpath) ? t.header.subpath.toLowerCase() : "";

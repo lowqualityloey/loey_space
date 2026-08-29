@@ -53,7 +53,7 @@ function validateTemplate(templateName, content) {
       const propMatch = line.match(/^(\w+):\s*(.*)$/);
       if (propMatch) {
         const [_, key, value] = propMatch;
-        props[key] = value.trim();
+        props[key] = value.trim() || true;
         if (key === 'tags') {
           inTags = true;
         }

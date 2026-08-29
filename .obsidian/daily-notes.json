@@ -1,3 +1,5 @@
 {
-  "folder": "01-Daily"
+  "format": "YYYY-MM/YYYY-MM-DD",
+  "folder": "01-Daily",
+  "template": "99-Templates/Daily"
 }

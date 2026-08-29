@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "0.1.0",
+  "name": "GitHub Repository",
+  "behavior": "create",
+  "noteNameFormat": "{{selector:strong[itemprop=\"name\"] > a|default:title}}",
+  "path": "06-Resources/Articles",
+  "triggers": [
+    "https://github.com/*/*"
+  ],
+  "properties": [
+    {
+      "name": "type",
+      "value": "resource",
+      "type": "text"
+    },
+    {
+      "name": "status",
+      "value": "active",
+      "type": "text"
+    },
+    {
+      "name": "area",
+      "value": "resources",
+      "type": "text"
+    },
+    {
+      "name": "created",
+      "value": "{{date}}",
+      "type": "date"
+    },
+    {
+      "name": "updated",
+      "value": "{{date}}",
+      "type": "date"
+    },
+    {
+      "name": "source",
+      "value": "{{url}}",
+      "type": "text"
+    },
+    {
+      "name": "author",
+      "value": "{{author}}",
+      "type": "text"
+    },
+    {
+      "name": "tags",
+      "value": "type/resource, area/resources, status/active, topic/git",
+      "type": "multitext"
+    }
+  ],
+  "noteContentFormat": "# {{selector:strong[itemprop=\"name\"] > a|default:title}}\n\n**Repository**: {{url}}\n**Description**: {{description}}\n\n## Overview\n{{content}}\n\n## 🔗 Related References\n- [[ ]]\n"
+}

@@ -31,9 +31,13 @@ const LANE_MARKERS = {
   "todo": " ",
   "next": " ",
   "planned": " ",
+  "active to-dos": " ",
+  "active to dos": " ",
+  "active todos": " ",
 
   // Started
   "in progress": "/",
+  "currently in progress": "/",
   "doing": "/",
   "wip": "/",
   "review / test": "/",
@@ -46,6 +50,9 @@ const LANE_MARKERS = {
   "done": "x",
   "complete": "x",
   "completed": "x",
+  "recently completed tasks": "x",
+  "recently completed": "x",
+  "completed tasks": "x",
   "shipped": "x"
 };
 
@@ -105,10 +112,11 @@ function isKanbanBoard(content) {
 }
 
 // Identity for tracking a card across syncs. Ignores the marker, completion
-// date and block id so ticking or dating a card does not look like a new card.
+// date, wiki links, and block id so ticking or dating a card does not look like a new card.
 function cardKey(text) {
   return String(text)
     .replace(COMPLETION_DATE, " ")
+    .replace(/\[\[.*?\]\]/g, " ")
     .replace(/\s\^[A-Za-z0-9-]+\s*$/, " ")
     .replace(/\s+/g, " ")
     .trim()
@@ -257,6 +265,9 @@ function syncBoard(content, options) {
 
       const knownBefore = previous && Object.prototype.hasOwnProperty.call(previous, key);
       const laneChanged = knownBefore && previous[key] !== info.key;
+      if (laneChanged) {
+        changes.push({ action: "moved", card: cardKey(body), from: previous[key], to: info.lane.name, marker: info.desired });
+      }
       const completedHere = marker === "x" && info.desired !== "x" && knownBefore && !laneChanged;
 
       if (completedHere) {
@@ -416,8 +427,7 @@ class KanbanStatusSyncPlugin extends obsidian.Plugin {
 
   // Dragging a card fires several modify events; coalesce them per file.
   scheduleSync(file) {
-    const existing = this.timers.get(file.path);
-    if (existing) window.clearTimeout(existing);
+    if (this.timers.has(file.path)) window.clearTimeout(this.timers.get(file.path));
 
     const timer = window.setTimeout(() => {
       this.timers.delete(file.path);
@@ -468,7 +478,11 @@ class KanbanStatusSyncPlugin extends obsidian.Plugin {
       this.queueSave();
     }
 
-    if (result && result.changed) {
+    if (isBoard) {
+      await this.propagateBoard(file);
+    }
+
+    if (result && (result.changed || result.changes.length)) {
       const moved = result.changes.filter((c) => c.action === "moved");
       console.log(`Kanban Status Sync: ${result.changes.length} change(s) in ${file.path}`, result.changes);
 
@@ -484,6 +498,89 @@ class KanbanStatusSyncPlugin extends obsidian.Plugin {
     }
 
     return result;
+  }
+
+  async propagateBoard(sourceFile) {
+    let sourceContent = "";
+    try {
+      sourceContent = await this.app.vault.read(sourceFile);
+    } catch (e) {
+      return;
+    }
+    if (!isKanbanBoard(sourceContent)) return;
+
+    const sourceBoard = parseBoard(sourceContent);
+    const allFiles = this.app.vault.getMarkdownFiles();
+    const targetFiles = allFiles.filter((f) => f.path !== sourceFile.path && !f.name.startsWith("_"));
+
+    for (const tFile of targetFiles) {
+      if (this.writing.has(tFile.path)) continue;
+
+      let targetContent = "";
+      try {
+        targetContent = await this.app.vault.read(tFile);
+      } catch (e) {
+        continue;
+      }
+      if (!isKanbanBoard(targetContent)) continue;
+
+      const targetBoard = parseBoard(targetContent);
+      let targetChanged = false;
+
+      for (const sLane of sourceBoard.lanes) {
+        const desiredMarker = resolveMarker(sLane.name, LANE_MARKERS);
+        if (!desiredMarker) continue;
+
+        for (const line of sLane.body) {
+          const match = line.match(CARD_PATTERN);
+          if (!match) continue;
+          const body = match[2];
+          const key = cardKey(body);
+
+          for (const tLane of targetBoard.lanes) {
+            for (let bi = 0; bi < tLane.body.length; bi++) {
+              const tLine = tLane.body[bi];
+              const tMatch = tLine.match(CARD_PATTERN);
+              if (!tMatch) continue;
+              const tKey = cardKey(tMatch[2]);
+              if (tKey === key) {
+                const currentMarker = resolveMarker(tLane.name, LANE_MARKERS);
+                if (currentMarker !== desiredMarker) {
+                  const destLane = findBestMatchingLane(targetBoard.lanes, desiredMarker);
+                  if (destLane && destLane !== tLane) {
+                    tLane.body.splice(bi, 1);
+                    let newBody = tMatch[2];
+                    if (desiredMarker === "x" && this.settings.manageCompletionDate) {
+                      if (!HAS_COMPLETION_DATE.test(newBody)) {
+                        newBody = withCompletionDate(newBody, formatDate(new Date()));
+                      }
+                    } else if (desiredMarker !== "x") {
+                      newBody = newBody.replace(COMPLETION_DATE, "").replace(/\s+$/, "");
+                    }
+                    const newLine = `- [${desiredMarker}] ${newBody}`;
+                    insertCard(destLane.body, newLine);
+                    targetChanged = true;
+                    console.log(`Kanban Status Sync: cross-synced "${key}" to ${destLane.name} in ${tFile.basename}`);
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      if (targetChanged) {
+        const nextText = serializeBoard(targetBoard);
+        this.writing.add(tFile.path);
+        try {
+          await this.app.vault.modify(tFile, nextText);
+        } catch (err) {
+          console.error(`Kanban Status Sync: failed to write ${tFile.path}`, err);
+        } finally {
+          window.setTimeout(() => this.writing.delete(tFile.path), 800);
+        }
+      }
+    }
   }
 
   async syncAllBoards() {

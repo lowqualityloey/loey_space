@@ -1,8 +1,0 @@
-{
-  "version": "v1",
-  "hooks": [{
-    "name": "Capture Triage Helper",
-    "trigger": "UserPromptSubmit",
-    "action": { "type": "agent", "prompt": "After quick capture to Inbox, suggest triaging it by creating a triage note in 99-Templates/Triage.md and moving to appropriate folder" }
-  }]
-}

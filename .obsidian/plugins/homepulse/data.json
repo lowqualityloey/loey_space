@@ -367,7 +367,14 @@
         ],
         "completions": {
           "read|2026-08-09": true,
-          "prioritise|2026-08-09": true
+          "prioritise|2026-08-09": true,
+          "prioritise|2026-08-18": true,
+          "read|2026-08-18": true,
+          "water|2026-08-18": true,
+          "tidy|2026-08-20": true,
+          "disconnect|2026-08-20": true,
+          "read|2026-08-20": true,
+          "prioritise|2026-08-20": true
         }
       }
     },
@@ -396,7 +403,7 @@
         "status": "idle",
         "remainingSeconds": 1500,
         "phaseStartedAt": 0,
-        "todayCountDate": "2026-08-13",
+        "todayCountDate": "2026-08-29",
         "todayCount": 0,
         "recentTargets": [
           {

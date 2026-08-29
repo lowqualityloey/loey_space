@@ -1,8 +1,0 @@
-{
-  "version": "v1",
-  "hooks": [{
-    "name": "Weekly Review Auto-Generate",
-    "trigger": "SessionStart",
-    "action": { "type": "agent", "prompt": "Check if today is Monday. If so, suggest creating a weekly review note using 99-Templates/Weekly Review.md template." }
-  }]
-}

@@ -1,11 +1,11 @@
 ---
 type: project
-status: in-progress
+status: completed
 priority: high
 tags:
   - type/project
   - area/dev
-updated: 2026-08-08
+updated: 2026-08-24
 ---
 
 # Weather Dashboard
@@ -14,7 +14,7 @@ updated: 2026-08-08
 - A responsive weather dashboard built with React and TypeScript to search locations, view current and forecast weather, save favourite cities, and switch themes.
 
 ## Status
-- In progress
+- Done
 
 ## Tech Stack
 - [[React]] 19, TypeScript 6, Vite 8
@@ -56,13 +56,19 @@ updated: 2026-08-08
 - Format/Lint: `yarn format`, `yarn lint`
 
 ## Current Focus
-- Build static dashboard layout with mock data
+- Build out component UI stubs (`CurrentWeather`, `ForecastList`, `ForecastDay`) and connect state management (`WeatherContext` & `useWeather` hook).
 
 ## Bugs / Blockers
-- None documented
+- Component stubs returning `null`; data pipeline currently disconnected; missing state management layer and runtime API key validation.
 
 ## Next Actions
-
+1. Connect `SearchBar` to `openWeather.ts` API via `WeatherContext`.
+2. Build UI presentation components from stubs.
+3. Implement `localStorage` persistence and dark mode toggle.
+4. Add loading/error UI states and screen reader accessibility support.
 
 ## Progress Log
 - 2026-08-02: Kanban and project note aligned with repository roadmap.
+- 2026-08-11: Senior Frontend Code Review completed; technical debt register and refactoring roadmap established.
+- 2026-08-13: Updated Kanban board and project focus to reflect P0 data wiring and stub completion.
+

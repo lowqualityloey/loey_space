@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-13
+updated: 2026-08-29
 ---
 # 🧠 `loey_space` — Personal Knowledge Management & Second Brain Architecture
 
@@ -80,7 +80,7 @@ Each project gets a board. Card checkboxes follow their lane automatically — `
 | :--- | :--- |
 | **HomePulse Dashboard** | Custom native plugin with real-time widgets — habits, tasks, pomodoro, focus, projects, tech tree, activity heatmap, all in one view |
 | **2-Way Habit Sync** | Toggle habits in the dashboard and they instantly update in today's daily note (and vice versa) |
-| **Multi-Domain AI Enrichment** | One shortcut (`Ctrl+Shift+A`) analyzes any note — generates summaries for daily notes, explanations for concepts, code breakdowns for dev notes |
+| **Multi-Domain AI Enrichment** | One shortcut (`Ctrl+Shift+A`) analyzes any note — generates summaries for daily notes, explanations for concepts, code breakdowns for dev notes, study quizzes & concept extraction for learning notes |
 | **Weekly AI Summaries** | Automated 7-day analysis of mood, energy, tasks, and habits with actionable recommendations |
 | **Habit Analytics Dashboard** | 30-day rolling metrics, streak tracking, day-of-week patterns, and improvement recommendations |
 | **Smart Task Management** | Tasks live in daily notes and project kanbans, aggregated in real-time via `_Tasks MOC.md` with status indicators (`[ ]`, `[/]`, `[x]`) |
@@ -123,7 +123,7 @@ loey_space/
 ├── 01-Daily/                    # Daily logs, habits, energy/sleep tracking, AI reflections
 │   ├── _Daily MOC.md            # Daily notes navigation & monthly overview
 │   ├── _Tasks MOC.md            # Task command center, in-progress, completion history & analytics
-│   └── Habit Analytics Dashboard.md  # 30-day habit metrics, streaks, trends
+│   └── Tasks Kanban.md          # Visual drag-and-drop daily task board
 ├── 02-Projects/                 # Active development projects & build specifications
 │   ├── _Projects MOC.md         # Project dashboard with progress bars
 │   └── weather-dashboard/       # Example project (notes + Kanban board)
@@ -132,12 +132,20 @@ loey_space/
 ├── 05-Personal/                 # Personal goals, life & fitness logs
 ├── 06-Resources/                # Technical documentation, API specs, & system scripts
 │   ├── APIs/                    # API specs & integration documentation
-│   ├── scripts/                 # Automation (AI enricher, triage-sweep, inbox-status, weekly summary)
+│   ├── Articles/                # Clipped web articles, blogs & media
+│   ├── clipper-templates/       # Obsidian Web Clipper JSON presets (articles, dev, snippets, AI)
+│   ├── scripts/                 # Automation (ai-enrich-action, triage-sweep, sync-github-kanban, weekly-ai-summary)
+│   ├── CONTRIBUTING.md          # Open/closed scope, Node testing, PR guidelines
 │   ├── Mobile Workflow Guide.md # Mobile capture setup & usage
-│   ├── Second Brain Guide.md    # System usage, folder guidelines & workflow rules
-│   └── Vault Security Policy.md # Secret management & Git safety rules
+│   ├── QuickAdd Inbox Optimization Guide.md # Inbox blueprints & capture optimization
+│   ├── Second Brain Guide.md    # System usage, folder guidelines, maintenance & workflow rules
+│   ├── Tagging & Properties.md  # Standard frontmatter properties & tag taxonomy
+│   ├── Vault Security Policy.md # Secret management & Git safety rules
+│   └── Weekly AI Summary Guide.md # Weekly rollup workflow & data requirements
 ├── 07-Reviews/                  # Weekly & Monthly retrospectives (AI-generated)
-├── 08-Concepts/                 # Evergreen technical & domain concepts
+│   ├── _Reviews MOC.md          # Reviews & retrospectives navigation
+│   └── Habit Analytics Dashboard.md  # 30-day habit metrics, streaks, trends
+├── 08-Concepts/                 # Evergreen technical & domain concepts (90-day review cycle)
 ├── 99-Attachments/              # Monthly subfolders (YYYY-MM/) for screenshots and media
 ├── 99-Templates/                # Master Templater & QuickAdd note blueprints
 │   ├── Daily.md                 # Daily note template (habits, tasks, reflections)
@@ -148,7 +156,7 @@ loey_space/
 │   ├── plugins/homepulse/       # Custom HomePulse dashboard plugin
 │   ├── plugins/kanban-status-sync/  # Syncs kanban card checkboxes to their lane
 │   └── snippets/                # CSS snippets (dashboard-cards, fonts, project-tasks, homepulse-mobile)
-├── .kiro/                       # Kiro IDE hooks (env validation, git safety, triage suggestions)
+├── .githooks/                   # Git pre-commit secret leak guard
 ├── .secrets/                    # [GIT-IGNORED] Private human-readable sensitive notes
 └── .env                         # [GIT-IGNORED] Real API keys and machine credentials
 ```
@@ -210,7 +218,7 @@ OPENAI_API_KEY=sk-your_openai_api_key_here
 > **If `.env` is missing or `GEMINI_API_KEY` is not set:**
 > - AI Daily Summary (`Ctrl+Shift+A`) will show an error notice
 > - Weekly AI Summary generation will fail
-> - Concept and Dev note enrichment will not work
+> - Concept, Dev, and Learning note enrichment will not work
 > - All other vault features (tasks, habits, navigation, dataview queries) work normally without an API key
 
 ### Step 3: Enable Core Community Plugins
@@ -248,9 +256,10 @@ Use QuickAdd ribbon buttons or command palette (`Ctrl + P` -> `QuickAdd: Run...`
 
 ### Multi-Domain AI Enricher (`Ctrl + Shift + A`)
 Position your cursor inside any active note and press `Ctrl + Shift + A` (or run `QuickAdd: AI Enrich Note`):
-1. **Daily Notes (`01-Daily/`)**: Generates a narrative summary, AI reflection, inspirational quote, and suggested next step.
-2. **Concept Notes (`08-Concepts/`)**: Detects topic domain and generates technical explanations, examples, and related concept links.
-3. **Dev Notes (`03-Dev/`)**: Analyzes code snippets and updates tags, context, explanation, and wikilink references.
+1. **Daily Notes (`01-Daily/`)**: Generates a narrative summary, AI reflection, inspirational quote, and suggested next step. Unfinished tasks carry into Tomorrow Setup.
+2. **Concept Notes (`08-Concepts/`)**: Detects topic domain and generates technical explanations, real-world utility, runnable code snippets, or media lore.
+3. **Dev Notes (`03-Dev/`)**: Analyzes code snippets and updates language, tags, context, explanation, and wikilink references.
+4. **Learning Notes (`04-Learning/`)**: Extracts evergreen concepts, reusable patterns, study objectives, and active-recall self-quiz flashcards.
 
 ### Inbox Triage (token sweep)
 
@@ -265,13 +274,30 @@ Triage is a decision, not a form. Append a token to any line in `00-Inbox/quick-
 
 Then run `QuickAdd: 🧹 Triage Sweep` once. `#do` becomes a task in today's daily note; `#dev` / `#concept` / `#learn` / `#ref` / `#personal` become real notes with the right frontmatter; `#project` scaffolds a project folder plus Kanban board; `#bin` is dropped. Untagged lines stay put, and swept lines are logged (struck through, with their destination) in a `## ✅ Triaged` section rather than deleted.
 
-At session start, Kiro reports the current state — e.g. *"Inbox: 9 items, oldest 7 days. None tagged yet."* — instead of nagging on every message.
+Run `06-Resources/scripts/inbox-status.ps1` or check `_Inbox MOC.md` anytime to view pending capture counts and tagged items.
 
 ### Weekly AI Summary
 Run `QuickAdd: 📊 Weekly AI Summary` (or bind to `Ctrl+Shift+W`):
 - Aggregates 7 days of daily notes (mood, energy, tasks, habits, wins, blockers)
 - Generates executive summary, patterns, and recommendations via Gemini AI
 - Creates a structured review note in `07-Reviews/YYYY-W[week].md`
+
+### 🌐 Obsidian Web Clipper Integration
+
+The vault ships with 8 pre-configured **Web Clipper presets** (`06-Resources/clipper-templates/`):
+
+| Preset | Target Folder | Description |
+| :--- | :--- | :--- |
+| `inbox-quick-clip.json` | `00-Inbox/` | Fast unformatted capture ready for token triage sweep |
+| `inbox-quick-clip-ai.json` | `00-Inbox/` | Captures web clip with instant 2–3 bullet AI summary for rapid inbox processing |
+| `resource-article.json` | `06-Resources/Articles/` | Standardized web article clipping with author, source, and metadata |
+| `resource-article-ai.json` | `06-Resources/Articles/` | Deep article capture with automated AI synthesis, takeaways & highlights |
+| `dev-guide.json` | `06-Resources/Articles/` | Developer tutorials and deep-dives formatted for technical reading |
+| `dev-snippet.json` | `03-Dev/` | Formats reusable code snippets with syntax highlighting and tags |
+| `github-repo.json` | `06-Resources/` | Captures GitHub repo stats, star counts, license, and repository URL |
+| `youtube-video.json` | `06-Resources/Articles/` | Captures YouTube video metadata, channel name, and timestamped notes |
+
+*Import any preset into the [Obsidian Web Clipper extension](https://obsidian.md/clipper) (Settings → Templates → Import).*
 
 ---
 
@@ -299,7 +325,7 @@ See [`06-Resources/Mobile Workflow Guide.md`](06-Resources/Mobile%20Workflow%20G
 
 ## 📊 Habit Analytics
 
-The **Habit Analytics Dashboard** (`01-Daily/Habit Analytics Dashboard.md`) provides:
+The **Habit Analytics Dashboard** (`07-Reviews/Habit Analytics Dashboard.md`) provides:
 
 * **Overall Completion Rate** — 30-day rolling percentage with per-habit progress bars
 * **Daily Heatmap** — Last 14 days showing which habits were completed each day
@@ -314,7 +340,7 @@ All data is automatically pulled from daily notes — no manual tracking require
 
 ## 📋 Task System Rules & Conventions
 
-* **Source of Truth**: All tasks are logged directly inside daily notes (`01-Daily`) or project notes (`02-Projects`).
+* **Source of Truth & Visual Boards**: All tasks are logged directly inside daily notes (`01-Daily`) or project notes (`02-Projects`). `01-Daily/Tasks Kanban.md` provides an interactive drag-and-drop board for active to-dos and in-progress items, while `_Tasks MOC.md` provides automated aggregation and completion analytics.
 * **Task Status Hierarchy**:
   * `- [ ] task` => **Active To-Do** (Visible in Open Tasks widget & `_Tasks MOC.md`)
   * `- [/] task` => **In Progress** (Sorted to top, focus anchor)
@@ -346,7 +372,7 @@ All data is automatically pulled from daily notes — no manual tracking require
 
 * **No Hardcoded API Keys**: All machine credentials and API tokens strictly reside in `.env` (git-ignored).
 * **Private Notes Directory**: The `.secrets/` directory is strictly excluded from Git tracking for storing sensitive personal documents.
-* **Session Validation**: Kiro IDE hooks check `.env` presence on startup and warn if API keys are missing.
+* **Runtime API Validation**: Scripts automatically validate `.env` configuration on execution and notify if required keys are missing.
 * **Vault Security Policy**: Read the official [Vault Security Policy](06-Resources/Vault%20Security%20Policy.md) for complete guidelines.
 
 ### 🪝 Enabling the pre-commit guard
@@ -393,11 +419,21 @@ Placeholders such as `your_google_gemini_api_key_here` are allowed, so `.env.exa
 | Habit toggles don't reach the daily note | Sync needs today's note at `01-Daily/YYYY-MM-DD.md` with a `## 🔁 Habits` section, and Dataview enabled. |
 | Dashboard cramped or overlapping on mobile | Enable the `homepulse-mobile` snippet: Settings → Appearance → CSS snippets. |
 
-### 🔧 Maintenance
+### 🔧 System & Vault Maintenance
 
+#### 🔄 Operational Rhythm
+| Interval | Target Hub | Key Actions |
+| :--- | :--- | :--- |
+| **☀️ Daily** *(5 min)* | `Home.md` & `01-Daily/` | Check HomePulse dashboard $\rightarrow$ evening habit logging $\rightarrow$ `Ctrl+Shift+A` AI enrichment |
+| **🗓️ Weekly** *(15 min)* | `_Triage MOC` & `07-Reviews/` | Run `🧹 Triage Sweep` $\rightarrow$ clear neglected inbox ($>7$d) $\rightarrow$ generate `Weekly AI Summary` |
+| **🌙 Monthly** *(30 min)* | `07-Reviews/` & `02-Projects/` | Review Habit Analytics trends $\rightarrow$ archive completed boards $\rightarrow$ review stale notes ($>30$d) |
+| **💡 Quarterly** *(45 min)* | `08-Concepts/` | Review evergreen concepts past their 90-day review cycle via `_Triage MOC` |
+
+*(See comprehensive operational specs in [Second Brain Guide](06-Resources/Second%20Brain%20Guide.md))*
+
+#### ⚙️ Technical Maintenance
 * **Updating plugins** — safe for store plugins (Dataview, Templater, QuickAdd, Kanban, Calendar, Activity History). Never for `homepulse` or `kanban-status-sync`, which are local builds with no store equivalent.
 * **Restyling the dashboard** — HomePulse's own `styles.css` is regenerated on rebuild, so put overrides in `.obsidian/snippets/` instead. That's what `homepulse-mobile.css` and `dashboard-cards.css` do.
-* **After editing `.kiro/hooks/`** — reload the app; hooks are read once at session start.
 
 ---
 

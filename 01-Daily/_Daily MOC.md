@@ -22,7 +22,9 @@ LIMIT 14
 
 ---
 
-## 📊 Monthly Habit Overview
+## 📊 Habit Analytics & Trends
+* [[07-Reviews/Habit Analytics Dashboard|📊 30-Day Habit Analytics Dashboard]] — Rolling completion rates, streaks & day-of-week patterns.
+
 ```dataviewjs
 const pages = dv.pages('"01-Daily"').where(p => p.file.day);
 dv.paragraph(`Total logged daily notes: **${pages.length}**`);

@@ -248,6 +248,15 @@ async function createDailyNote(date) {
         })
             .replace(/{{\s*yesterday\s*}}/gi, date.clone().subtract(1, "day").format(format))
             .replace(/{{\s*tomorrow\s*}}/gi, date.clone().add(1, "d").format(format)));
+        // Process Templater commands if Templater plugin is enabled
+        const tpPlugin = app.plugins && app.plugins.getPlugin ? app.plugins.getPlugin("templater-obsidian") : null;
+        if (tpPlugin && tpPlugin.templater) {
+            try {
+                await tpPlugin.templater.overwrite_file_commands(createdFile);
+            } catch (tpErr) {
+                console.error("Calendar: Error executing Templater on daily note", tpErr);
+            }
+        }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         app.foldManager.save(createdFile, IFoldInfo);
         return createdFile;

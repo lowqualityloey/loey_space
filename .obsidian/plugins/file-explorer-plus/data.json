@@ -106,14 +106,21 @@
         "name": "",
         "active": true,
         "type": "FILES",
-        "pattern": "01-Daily/Habit Analytics Dashboard.md",
+        "pattern": "Home.md",
         "patternType": "STRICT"
       },
       {
         "name": "",
         "active": true,
         "type": "FILES",
-        "pattern": "Home.md",
+        "pattern": "01-Daily/Tasks Kanban.md",
+        "patternType": "STRICT"
+      },
+      {
+        "name": "",
+        "active": true,
+        "type": "FILES",
+        "pattern": "06-Resources/Second Brain Guide.md",
         "patternType": "STRICT"
       }
     ],

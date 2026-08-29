@@ -178,9 +178,14 @@ review_cycle: 30d
 type: learning
 status: in-progress
 area: learning
+topic: typescript
+source_url: "https://frontendmasters.com/courses/..."
+platform_author: "Frontend Masters / Matt Pocock"
+progress: "40%"
 tags:
   - type/learning
   - area/learning
+  - topic/typescript
   - status/in-progress
 ---
 ```
@@ -248,6 +253,24 @@ sleep_hours: 7
 tags:
   - type/daily
   - area/personal
+---
+```
+
+### Personal Template (`type/personal`)
+```yaml
+---
+created: 2026-08-06
+updated: 2026-08-06
+last_reviewed: 2026-08-06
+review_cycle: 90d
+type: personal
+status: active
+area: personal
+category: hobbies # health-fitness | goals | hobbies | finance | travel | reflection
+tags:
+  - type/personal
+  - area/personal
+  - status/active
 ---
 ```
 

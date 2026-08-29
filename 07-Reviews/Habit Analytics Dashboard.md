@@ -1,12 +1,12 @@
 ---
 created: 2026-08-09
-updated: 2026-08-09
+updated: 2026-08-29
 type: dashboard
 status: active
-area: daily
+area: reviews
 tags:
   - type/dashboard
-  - area/daily
+  - area/reviews
   - topic/habits
   - topic/analytics
 ---

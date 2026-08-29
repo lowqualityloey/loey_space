@@ -4,6 +4,9 @@ updated: <% tp.date.now("YYYY-MM-DD") %>
 type: resource
 status: active
 area: resources
+source: ""
+author: ""
+published: ""
 tags:
   - type/resource
   - area/resources
@@ -12,19 +15,28 @@ tags:
 
 # <% tp.file.title %>
 
-**Resource URL**: 
+**Resource URL**: <% tp.frontmatter.source %>
+**Author / Source**: <% tp.frontmatter.author %>
+**Published Date**: <% tp.frontmatter.published %>
 
-## Overview
+## 💡 Overview & TL;DR
 Short description of the resource and what it offers.
 
-## Key Takeaways & Highlights
+## ✍️ Key Takeaways & Highlights
 - 
 - 
+- 
+
+## 📖 Content / Notes
 - 
 
 ## 🔗 Related References
 - [[ ]]
 
-## Notes & Analysis
-- 
-
+## 🔄 Auto-Backlinks
+```dataview
+LIST
+FROM [[]] AND !"99-Templates"
+WHERE file.name != this.file.name
+SORT file.mtime DESC
+```

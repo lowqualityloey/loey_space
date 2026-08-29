@@ -17,11 +17,16 @@
 *_secret*
 *_private*
 
-# System files
+# System & sync files
 .DS_Store
 Thumbs.db
 desktop.ini
 $RECYCLE.BIN/
+.tmp.*
+*.tmp
+.tmp.driveupload/
+.tmp.drivedownload/
+*.sync-conflict-*
 
 # Logs & temp
 *.log
@@ -32,9 +37,12 @@ $RECYCLE.BIN/
 # structural instead of relying on never typing `git add -A`.
 # MOCs and already-tracked showcase files stay tracked; everything else is isolated.
 
+00-Inbox/*
+!00-Inbox/_*.md
+
 01-Daily/*
 !01-Daily/_*.md
-!01-Daily/Habit Analytics Dashboard.md
+!01-Daily/Tasks Kanban.md
 
 02-Projects/*
 !02-Projects/_*.md
@@ -49,17 +57,20 @@ $RECYCLE.BIN/
 05-Personal/*
 !05-Personal/_*.md
 
+06-Resources/Articles/*
+!06-Resources/Articles/_*.md
+
 07-Reviews/*
 !07-Reviews/_*.md
+!07-Reviews/Habit Analytics Dashboard.md
+
+08-Concepts/*
+!08-Concepts/_*.md
 
 99-Attachments/*
 !99-Attachments/_*.md
 !99-Attachments/2026-08/obsidian-*.png
 !99-Attachments/2026-08/file-20260803003355764.png
-
-# Quick captures are a live feed of raw thoughts — dashboards only.
-00-Inbox/*
-!00-Inbox/_*.md
 
 # The example env file MUST ship — README's setup step is `cp .env.example .env`.
 # Without this negation the `*.env.*` rule above silently swallows it, and a

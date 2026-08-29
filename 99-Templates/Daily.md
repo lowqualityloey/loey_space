@@ -1,5 +1,5 @@
 ---
-created: <% tp.date.now("YYYY-MM-DD") %>
+created: <% tp.date.now("YYYY-MM-DD", 0, tp.file.title, "YYYY-MM-DD") %>
 updated: 2026-08-10
 type: daily
 area: personal
@@ -10,7 +10,7 @@ tags:
   - type/daily
   - area/personal
 ---
-# <% tp.date.now("dddd, MMMM D, YYYY") %>
+# <% tp.date.now("dddd, MMMM D, YYYY", 0, tp.file.title, "YYYY-MM-DD") %>
 
 > [!INFO] 💡 Daily Properties Reference
 > | Property | Allowed Options / Range | Example |

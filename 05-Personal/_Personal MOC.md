@@ -1,18 +1,57 @@
 ---
 type: moc
+cssclasses:
+  - cards
 tags:
   - type/moc
   - area/personal
 ---
 
-# 🏋️ Personal MOC
+# 🧘 Personal Life Command Hub
 
-> Private life administration — health and fitness logs, finances, goals, and personal reflections. Truly sensitive material belongs in `.secrets/`, never here.
+> Private life administration — health & fitness, personal goals, hobbies, travel, and deep reflections. Truly sensitive credentials and confidential records belong in `.secrets/`.
 
-## 📌 Notes & Reflections
+---
+
+## 🎮 Hobbies, Gaming & Media
 ```dataview
-TABLE tags AS "Tags", file.mtime AS "Last Modified"
+TABLE category AS "Category", file.mtime AS "Last Touched"
 FROM "05-Personal"
-WHERE file.name != "_Personal MOC"
+WHERE file.name != "_Personal MOC" AND (category = "hobbies" OR contains(tags, "topic/gaming") OR contains(file.name, "lore"))
+SORT file.mtime DESC
+```
+
+---
+
+## 🏋️ Health, Fitness & Wellness
+```dataview
+TABLE status AS "Status", file.mtime AS "Updated"
+FROM "05-Personal"
+WHERE file.name != "_Personal MOC" AND (category = "health-fitness" OR contains(tags, "topic/fitness"))
+SORT file.mtime DESC
+```
+
+---
+
+## 🎯 Goals, Habits & Long-Term Vision
+```dataview
+TABLE status AS "Status", last_reviewed AS "Reviewed"
+FROM "05-Personal"
+WHERE file.name != "_Personal MOC" AND (category = "goals" OR category = "reflection")
+SORT file.mtime DESC
+```
+
+---
+
+## 📂 All Other Personal Notes
+```dataview
+TABLE category AS "Category", file.mtime AS "Last Touched"
+FROM "05-Personal"
+WHERE file.name != "_Personal MOC" 
+  AND category != "hobbies" 
+  AND category != "health-fitness" 
+  AND category != "goals"
+  AND category != "reflection"
+  AND !contains(file.name, "lore")
 SORT file.mtime DESC
 ```

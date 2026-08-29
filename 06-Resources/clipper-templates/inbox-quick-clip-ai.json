@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "0.1.0",
+  "name": "Inbox Quick Clip (AI Enriched)",
+  "behavior": "create",
+  "noteNameFormat": "Clip - {{title}}",
+  "path": "00-Inbox",
+  "properties": [
+    {
+      "name": "type",
+      "value": "resource",
+      "type": "text"
+    },
+    {
+      "name": "status",
+      "value": "active",
+      "type": "text"
+    },
+    {
+      "name": "area",
+      "value": "resources",
+      "type": "text"
+    },
+    {
+      "name": "source",
+      "value": "web-clipper",
+      "type": "text"
+    },
+    {
+      "name": "captured",
+      "value": "{{date}}",
+      "type": "date"
+    },
+    {
+      "name": "tags",
+      "value": "type/resource, area/resources, status/active",
+      "type": "multitext"
+    }
+  ],
+  "noteContentFormat": "# {{title}}\n\n**Source**: {{url}}\n\n## 🤖 AI Summary\n{{\"Summarize this in 2-3 quick bullet points for quick inbox triage.\"}}\n\n## Description\n{{description}}\n\n{% if highlights %}\n## Highlights\n{{highlights}}\n{% endif %}\n\n> [!NOTE] Triaged from web clipper on {{date}}. Tag with #ref, #dev, or #concept during triage sweep.\n"
+}
