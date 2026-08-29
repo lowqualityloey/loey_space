@@ -286,6 +286,43 @@
   "defaultLayoutPresetId": "public-default",
   "timeLogs": [
     {
+      "id": "timelog-mtecbazd-8znhj1",
+      "startTime": 1788004007161,
+      "endTime": 1788005507161,
+      "duration": 25,
+      "source": "pomodoro",
+      "targetType": "task",
+      "targetId": "quick-capture-dump",
+      "createdAt": 1788005507161,
+      "activityType": "work",
+      "taskId": "quick-capture-dump"
+    },
+    {
+      "id": "timelog-mtebeq1e-z64svs",
+      "startTime": 1788002187026,
+      "endTime": 1788003987026,
+      "duration": 30,
+      "source": "manual",
+      "targetType": "project",
+      "targetId": "shelf",
+      "createdAt": 1788003987026,
+      "projectId": "shelf",
+      "projectTitle": "shelf",
+      "areaId": "Dev",
+      "areaTitle": "Dev"
+    },
+    {
+      "id": "timelog-mtebegmb-ca39zq",
+      "startTime": 1788002174819,
+      "endTime": 1788003974819,
+      "duration": 30,
+      "source": "manual",
+      "targetType": "task",
+      "targetId": "quick-capture-dump",
+      "createdAt": 1788003974819,
+      "taskId": "quick-capture-dump"
+    },
+    {
       "id": "timelog-msk5jqxa-fiqvwn",
       "startTime": 1786178658477,
       "endTime": 1786180158477,
@@ -403,8 +440,13 @@
         "status": "idle",
         "remainingSeconds": 1500,
         "phaseStartedAt": 0,
-        "todayCountDate": "2026-08-29",
-        "todayCount": 0,
+        "todayCountDate": "2026-08-30",
+        "todayCount": 1,
+        "activeTarget": {
+          "type": "task",
+          "id": "quick-capture-dump",
+          "title": "quick-capture-dump"
+        },
         "recentTargets": [
           {
             "type": "task",

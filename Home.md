@@ -11,6 +11,41 @@ updated: 2026-08-11
 
 > *Your Second Brain daily navigation & focus dashboard.*
 
+```dataviewjs
+const todayStr = moment().format("YYYY-MM-DD");
+const alerts = [];
+
+// 1. Check Today's Daily Note
+const dailyPages = dv.pages('"01-Daily"').where(p => p.file.name === todayStr);
+if (dailyPages.length === 0) {
+  alerts.push(`📅 **Today's daily note (${todayStr}) is not created yet.** Press \`Ctrl + P\` → \`QuickAdd: Create Daily Note\`.`);
+}
+
+// 2. Check Overdue Reviews in Concepts & Learning
+const overdue = dv.pages('"08-Concepts" or "04-Learning"')
+  .where(p => !p.file.name.includes("MOC") && p.last_reviewed && p.review_cycle)
+  .filter(p => {
+    const days = parseInt(p.review_cycle) || 90;
+    const diff = moment().diff(moment(p.last_reviewed), 'days');
+    return diff > days;
+  });
+
+if (overdue.length > 0) {
+  alerts.push(`💡 **${overdue.length} evergreen note(s) overdue for review**. Review them on [[00-Inbox/_Triage MOC|Triage MOC]].`);
+}
+
+// Render dynamic callout
+if (alerts.length > 0) {
+  let callout = `> [!WARNING] ⚡ Action Required\n`;
+  for (let a of alerts) {
+    callout += `> - ${a}\n`;
+  }
+  dv.paragraph(callout);
+} else {
+  dv.paragraph(`> [!NOTE] ✨ **All Caught Up!** Vault is in sync, habits and reviews are up to date.`);
+}
+```
+
 ---
 
 ## ⚡ Quick Navigation

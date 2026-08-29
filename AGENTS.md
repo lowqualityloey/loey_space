@@ -18,6 +18,7 @@ When the user starts a prompt with **`"hey loey"`** (case-insensitive), identify
 | **`hey loey distill`** | **Knowledge Distillation**: Read recent daily notes or dev logs, extract atomic mental models or principles, create new notes in [`08-Concepts/`](file:///c:/Users/jonel/Documents/loey_space/08-Concepts/_Concepts%20MOC.md) (`type: concept`, `review_cycle: 90d`), and link backreferences. |
 | **`hey loey weekly`** | **Weekly Review**: Review 7-day habit completion, project milestones, and generate the weekly retrospective note in [`07-Reviews/`](file:///c:/Users/jonel/Documents/loey_space/07-Reviews/_Reviews%20MOC.md). |
 | **`hey loey health`** / **`audit`** | **Vault Hygiene**: Validate templates against [`Tagging & Properties.md`](file:///c:/Users/jonel/Documents/loey_space/06-Resources/Tagging%20&%20Properties.md), check for broken wikilinks, and verify no secrets exist in tracked files. |
+| **`hey loey remind`** | **Proactive Reminders & Scheduling**: Set one-shot timers or recurring cron reminders for daily routines, project checks, or retrospectives via the scheduler tool. |
 
 ---
 

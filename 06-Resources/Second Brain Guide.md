@@ -305,6 +305,7 @@ Start any prompt in your AI agent interface with `"hey loey"` to trigger fast wo
 | **`hey loey distill`** | **Concept Extraction**: Converts raw notes and dev logs into atomic evergreen concepts in `08-Concepts/` with 90d review cycles. |
 | **`hey loey weekly`** | **Weekly Retrospective**: Aggregates 7-day habit trends and project progress into `07-Reviews/YYYY-[W]WW.md`. |
 | **`hey loey health`** | **Hygiene Audit**: Runs template validation, checks for broken links, and verifies Git secret exclusion. |
+| **`hey loey remind`** | **Proactive Reminders & Scheduling**: Set one-shot timers or recurring reminders for routines, reviews, or task follow-ups. |
 
 ### 🛠️ Specialized Vault Skills (`.agents/skills/`)
 1. **`vault-concept-distiller`**: Synthesizes articles/snippets into atomic `08-Concepts/` notes with 90-day review cycles.

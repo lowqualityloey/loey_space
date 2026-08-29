@@ -122,6 +122,13 @@
         "type": "FILES",
         "pattern": "06-Resources/Second Brain Guide.md",
         "patternType": "STRICT"
+      },
+      {
+        "name": "",
+        "active": true,
+        "type": "DIRECTORIES",
+        "pattern": "06-Resources/Articles",
+        "patternType": "STRICT"
       }
     ],
     "frontMatter": [
