@@ -43,13 +43,13 @@
       "annual reading goal tracker & progress ring": "backlog",
       "isbn barcode scanner via device camera": "backlog",
       "custom shelf tags and categories #priority/p2": "backlog",
-      "implement debounced open library search hook (usebooksearch) #priority/p1": "to do",
-      "build express rest api endpoints (/api/library) #priority/p1": "to do",
+      "configure auth0 react sdk & auth route guards #priority/p1": "to do",
       "build tanstack router layouts (/, _authenticated, /library/$bookid) #priority/p1": "to do",
+      "implement debounced open library search hook (usebooksearch) #priority/p1": "to do",
       "create core ui components (bookcard, shelfselector, starrating) #priority/p2": "to do",
       "add optimistic update logic for reading status toggles #priority/p2": "to do",
       "build book details view with notes editor #priority/p2": "to do",
-      "configure auth0 react sdk & auth route guards #priority/p1": "in progress",
+      "build express rest api endpoints (/api/library) #priority/p1": "in progress",
       "initialize vite + react + typescript repository": "done",
       "design ux wireframes and screen mockups": "done",
       "define rest api contracts and postgresql schema #priority/p2": "done",
@@ -82,6 +82,7 @@
       "add search input debouncing (usedebounce) #priority/p2": "recently completed tasks",
       "add browser geolocation weather detection #priority/p2": "recently completed tasks",
       "implement api response caching with ttl #priority/p3": "recently completed tasks"
-    }
+    },
+    "99-Templates/Kanban.md": {}
   }
 }
