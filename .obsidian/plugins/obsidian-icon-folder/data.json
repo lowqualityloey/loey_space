@@ -17,11 +17,11 @@
     "migrated": 6,
     "emojiStyle": "native",
     "recentlyUsedIcons": [
+      "LiChartNoAxesGantt",
       "LiHome",
       "LiInfo",
       "ℹ",
-      "LiTableOfContents",
-      "LiNotebook"
+      "LiTableOfContents"
     ],
     "recentlyUsedIconsSize": 5,
     "rules": [],
@@ -53,5 +53,6 @@
   "05-Personal": "LiDumbbell",
   "00-Inbox/quick-capture-dump.md": "LiTableOfContents",
   "README.md": "LiInfo",
-  "Home.md": "LiHome"
+  "Home.md": "LiHome",
+  "AGENTS.md": "LiChartNoAxesGantt"
 }

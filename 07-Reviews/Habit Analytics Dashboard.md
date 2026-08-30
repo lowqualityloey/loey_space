@@ -52,10 +52,7 @@ const entries = Object.entries(habitStats).sort((a, b) => (b[1].done / b[1].tota
 if (entries.length > 0) {
   const rows = entries.map(([name, s]) => {
     const r = s.total > 0 ? Math.round((s.done / s.total) * 100) : 0;
-    const filled = Math.floor(r / 10);
-    const empty = 10 - filled;
-    const bar = "█".repeat(filled) + "░".repeat(empty);
-    return [name, `[${bar}] ${r}%`, `${s.done}/${s.total}`];
+    return [name, `<progress value="${r}" max="100"></progress> ${r}%`, `${s.done}/${s.total}`];
   });
   dv.table(["Habit", "Progress", "Completed/Total"], rows);
 } else {

@@ -319,3 +319,42 @@
   width: 2.5px !important;
   height: 2.5px !important;
 }
+
+/* ==========================================================================
+   📊 CLEAN MODERN PROGRESS BARS (Dataview Tables, MOCs & Dashboards)
+   ========================================================================== */
+
+progress,
+.markdown-rendered progress {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  display: inline-block !important;
+  vertical-align: middle !important;
+  width: 80px !important;
+  height: 6px !important;
+  border-radius: 9999px !important;
+  overflow: hidden !important;
+  border: none !important;
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  margin-right: 8px !important;
+  margin-bottom: 2px !important;
+}
+
+progress::-webkit-progress-bar,
+.markdown-rendered progress::-webkit-progress-bar {
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  border-radius: 9999px !important;
+}
+
+progress::-webkit-progress-value,
+.markdown-rendered progress::-webkit-progress-value {
+  background: linear-gradient(90deg, #818cf8, #a78bfa) !important;
+  border-radius: 9999px !important;
+}
+
+progress::-moz-progress-bar,
+.markdown-rendered progress::-moz-progress-bar {
+  background: linear-gradient(90deg, #818cf8, #a78bfa) !important;
+  border-radius: 9999px !important;
+}
+

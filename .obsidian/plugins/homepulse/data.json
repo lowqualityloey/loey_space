@@ -411,7 +411,10 @@
           "tidy|2026-08-20": true,
           "disconnect|2026-08-20": true,
           "read|2026-08-20": true,
-          "prioritise|2026-08-20": true
+          "prioritise|2026-08-20": true,
+          "disconnect|2026-08-30": true,
+          "read|2026-08-30": true,
+          "prioritise|2026-08-30": true
         }
       }
     },
@@ -440,8 +443,8 @@
         "status": "idle",
         "remainingSeconds": 1500,
         "phaseStartedAt": 0,
-        "todayCountDate": "2026-08-30",
-        "todayCount": 1,
+        "todayCountDate": "2026-08-31",
+        "todayCount": 0,
         "activeTarget": {
           "type": "task",
           "id": "quick-capture-dump",

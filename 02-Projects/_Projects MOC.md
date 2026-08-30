@@ -48,10 +48,7 @@ projects.forEach(p => {
     let progressStr = "No tasks";
     if (totalTasks > 0) {
         const percent = Math.round((completedTasks / totalTasks) * 100);
-        const filled = Math.floor(percent / 10);
-        const empty = 10 - filled;
-        const bar = "█".repeat(filled) + "░".repeat(empty);
-        progressStr = `\`[${bar}] ${percent}%\` (${completedTasks}/${totalTasks})`;
+        progressStr = `<progress value="${percent}" max="100"></progress> ${percent}% (${completedTasks}/${totalTasks})`;
     }
     
     rows.push({
