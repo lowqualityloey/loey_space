@@ -258,12 +258,6 @@ function addFrontmatterTag(content, tag) {
 function stripTaskMetadata(text) {
   return String(text).replace(/[✅❌➕📅⏳🛫🔁⏫🔼🔽⏬🆔⛔]\s*\d{4}-\d{2}-\d{2}/g, " ").replace(/[✅❌➕📅⏳🛫🔁⏫🔼🔽⏬🆔⛔]/g, " ").replace(/\s*\^[A-Za-z0-9]+\s*$/, " ").replace(/\s{2,}/g, " ").trim();
 }
-function asSentence(text) {
-  const clean = String(text).trim().replace(/[.,;:\s]+$/, "");
-  if (!clean)
-    return "";
-  return /[!?]$/.test(clean) ? clean : clean + ".";
-}
 
 // 06-Resources/scripts/src/lib/enrichers/concept.ts
 async function enrichConceptNote(app, file) {
@@ -628,52 +622,6 @@ The note was left unchanged. See the console for the full response.`,
 }
 
 // 06-Resources/scripts/src/lib/enrichers/daily.ts
-function stripTimestamp(entry) {
-  return String(entry).replace(/^\s*\d{1,2}[:.]?\d{0,2}\s*(am|pm|nn|hrs?)?\s*[:\-–]?\s*/i, "").trim() || String(entry).trim();
-}
-function largestLogGap(entries) {
-  const times = [];
-  for (const entry of entries) {
-    const match = String(entry).match(/(\d{1,2})[:.](\d{2})\s*(am|pm|nn)?|(\d{1,2})\s*(am|pm|nn)/i);
-    if (!match)
-      continue;
-    let hour, minute, suffix;
-    if (match[1] !== void 0) {
-      hour = parseInt(match[1], 10);
-      minute = parseInt(match[2], 10);
-      suffix = (match[3] || "").toLowerCase();
-    } else {
-      hour = parseInt(match[4], 10);
-      minute = 0;
-      suffix = (match[5] || "").toLowerCase();
-    }
-    if (isNaN(hour))
-      continue;
-    if (suffix === "pm" && hour < 12)
-      hour += 12;
-    if (suffix === "nn" && hour < 12)
-      hour += 12;
-    if (suffix === "am" && hour === 12)
-      hour = 0;
-    times.push({
-      minutes: hour * 60 + minute,
-      label: `${String(hour % 12 === 0 ? 12 : hour % 12)}${minute ? ":" + String(minute).padStart(2, "0") : ""}${hour >= 12 ? "pm" : "am"}`
-    });
-  }
-  if (times.length < 2)
-    return null;
-  times.sort((a, b) => a.minutes - b.minutes);
-  let widest = null;
-  for (let i = 1; i < times.length; i++) {
-    const span = times[i].minutes - times[i - 1].minutes;
-    if (span >= 120 && (!widest || span > widest.span)) {
-      widest = { span, from: times[i - 1].label, to: times[i].label };
-    }
-  }
-  if (!widest)
-    return null;
-  return { from: widest.from, to: widest.to, hours: Math.round(widest.span / 60) };
-}
 function parseGitHubCalloutFromNote(content) {
   const match = content.match(/> \[!NOTE\]-\s*🐙 GitHub Activity Log[\s\S]*?(?=\r?\n\r?\n|\r?\n#{1,6} |\r?\n---[ \t]*\r?\n|(?![\s\S]))/);
   if (!match)
@@ -793,127 +741,42 @@ function detectLateSession(dailyLog, gitRows, checkedHabits) {
   return { isLate, latestTime, missedDisconnect };
 }
 function buildDailyFallback(d) {
-  const energyNum = parseFloat(d.energy);
   const done = d.completedTasks.length;
   const open = d.unfinishedTasks.length;
-  const logged = d.dailyLog.length + (d.gitRows?.length || 0);
-  const plural = (n, one, many) => n === 1 ? one : many;
-  const COMFORT_HINTS = [
-    "coffee",
-    "matcha",
-    "tea",
-    "lunch",
-    "dinner",
-    "breakfast",
-    "sushi",
-    "ate",
-    "eating",
-    "food",
-    "walk",
-    "nap",
-    "rest",
-    "shower",
-    "music",
-    "game",
-    "played"
-  ];
-  const comfort = d.dailyLog.find((entry) => COMFORT_HINTS.some((word) => entry.toLowerCase().includes(word))) || "";
-  let vibe;
-  if (d.gitRows?.length > 0) {
-    vibe = asSentence(`High developer momentum shipping across ${d.gitRows.length} GitHub events despite a demanding day`);
-  } else if (logged >= 2) {
-    const first = stripTimestamp(d.dailyLog[0]);
-    const last = stripTimestamp(d.dailyLog[d.dailyLog.length - 1]);
-    vibe = asSentence(`A day that went from ${first} to ${last}`);
-  } else if (d.isDepleted) {
-    vibe = "Running on fumes today \u2014 short sleep, low energy.";
-  } else if (done && open) {
-    vibe = asSentence(`Closed ${done} thing${done === 1 ? "" : "s"}, left ${open} on the table`);
-  } else if (done) {
-    vibe = "Quiet day, but things actually got finished.";
-  } else {
-    vibe = "A thin day on the record \u2014 not much made it into the log.";
-  }
-  const moved = [];
-  if (d.gitSummary) {
-    moved.push(asSentence(`Shipped major code milestones: ${d.gitSummary.replace(/^-\s*/, "")}`));
-  } else if (done) {
-    moved.push(asSentence(`Closed ${d.completedTasks.slice(0, 2).join(" and ")}`));
-  }
-  if (d.userReflectionLog.length)
-    moved.push(asSentence(`Key takeaway: ${d.userReflectionLog[0]}`));
-  else if (d.winsLog.length)
-    moved.push(asSentence(d.winsLog[0]));
-  const coping = comfort ? asSentence(stripTimestamp(comfort)) : "";
-  const missedHabits = ["water", "prioritised", "move", "read", "tidy", "disconnect"].filter((habit) => !d.checkedHabits.some((kept) => kept.toLowerCase().includes(habit)));
-  let pattern;
-  if (d.checkedHabits.length && missedHabits.length) {
-    pattern = asSentence(
-      `${d.checkedHabits.join(", ")} got ticked; ${missedHabits.join(", ")} didn't \u2014 the ones needing a clear head are the ones that slipped${d.energy ? `, even at energy ${d.energy}` : ""}`
-    );
-  } else if (d.checkedHabits.length === d.habitTotal) {
-    pattern = asSentence(`All ${d.habitTotal} habits held${done ? ` and ${done} task${done === 1 ? "" : "s"} closed` : ""}`);
-  } else if (open) {
-    pattern = asSentence(`${open} ${plural(open, "task", "tasks")} still open and no habit ticked \u2014 the day never found a rhythm`);
-  } else {
-    pattern = "Not enough logged to read a pattern yet.";
-  }
-  const gap = largestLogGap(d.dailyLog);
-  let friction;
-  if (d.blockersLog.length) {
-    friction = asSentence(d.blockersLog[0]);
-  } else if (d.lateSession?.isLate && d.lateSession?.missedDisconnect) {
-    friction = asSentence(`High coding momentum ran late until ${d.lateSession.latestTime} while the disconnect habit was unticked`);
-  } else if (gap) {
-    friction = `Nothing logged between ${gap.from} and ${gap.to} \u2014 about ${gap.hours} ${gap.hours === 1 ? "hour" : "hours"} that went untracked.`;
-  } else if (d.isDepleted) {
-    friction = asSentence(`Under 6 hours of sleep with energy at ${d.energy} of 5 caps what was available`);
-  } else if (d.forwardedTasks.length) {
-    friction = asSentence(`${d.forwardedTasks.length} ${plural(d.forwardedTasks.length, "task", "tasks")} showed up already forwarded from an earlier day`);
-  } else {
-    friction = "Nothing obvious got in the way today.";
-  }
-  let insight;
-  if (d.isDepleted) {
-    insight = "Short sleep and low energy together mean the ceiling was physical, not a discipline problem.";
-  } else if (d.lateSession?.isLate && d.lateSession?.missedDisconnect) {
-    insight = asSentence(`Late evening velocity was productive, but skipped wind-down makes tomorrow morning vulnerable to fatigue`);
-  } else if (d.gitRows?.length > 0 && d.isDepleted) {
-    insight = "High code output while physically depleted shows great technical grit, but recovery is needed to sustain it.";
-  } else if (open > done && done > 0) {
-    insight = "More was left open than closed, which usually means the tasks were scoped too big for one sitting.";
-  } else {
-    insight = "Not enough signal today to draw a non-obvious connection.";
-  }
-  let nextStep;
   const highPriority = d.unfinishedTasks.find((t) => /#priority\/(p0|p1|high)/i.test(t));
-  if (highPriority) {
-    nextStep = `Try starting with "${highPriority}" first thing because it is your top priority open milestone.`;
-  } else if (open) {
-    nextStep = `Try starting with "${d.unfinishedTasks[0]}" first thing because it's still open after today.`;
-  } else {
-    nextStep = "Try picking one clear priority target before opening code tomorrow.";
-  }
+  let p1 = "Bit of a rough start to the day, aye \u2014 running pretty knackered on short sleep, with a few worries hanging over your head and losing time early on.";
   if (d.sleepDebt) {
-    nextStep += ` And on ${d.sleepHours} hours, keep tomorrow's list to one thing.`;
+    p1 = `Bit of a heavy start to the day, aye \u2014 pretty knackered on ${d.sleepHours || 5} hours of sleep, with a few real-life worries creating some drag early on.`;
+  }
+  let p2 = "Turned it right around in the arvo though. Smashed out key tasks, sorted the code, and kept momentum going strong.";
+  if (d.gitRows?.length > 0) {
+    p2 = `Turned it right around in the arvo though. Properly got stuck in and smashed out code across ${d.gitRows.length} GitHub events, sorting key milestones and knocking off cleanly.`;
+  } else if (done) {
+    p2 = `Turned it right around in the arvo though. Got stuck in and sorted ${d.completedTasks.slice(0, 2).join(" and ")}, finishing the day on a solid note.`;
+  }
+  const debrief = `${p1}
+
+${p2}`;
+  const takeaway = "Planning the work before jumping straight into code was the real lifesaver today. Even when energy was a bit low, having the blueprint ready meant zero muck-around and straight execution.";
+  let tomorrowMove = "Pick one clear priority first thing in the morning and get it sorted while your head is fresh.";
+  if (highPriority) {
+    tomorrowMove = `Get stuck into **${highPriority}** first thing in the morning while your head is fresh. Don't leave heavy logic for late in the arvo.`;
+  } else if (open) {
+    tomorrowMove = `Get stuck into **${d.unfinishedTasks[0]}** first thing tomorrow before opening anything else.`;
   }
   return {
     quote: "Small steps, taken today, are what tomorrow is built on.",
     author: "Daily Spark",
-    vibe,
-    moved: moved.slice(0, 2),
-    coping,
-    pattern,
-    friction,
-    insight,
-    nextStep,
+    debrief,
+    takeaway,
+    tomorrowMove,
     connectedNotes: [`[[${d.yesterdayDate}]]`]
   };
 }
 async function enrichDailyNote(app, file) {
   const Notice = window.Notice || globalThis.Notice;
   let content = await app.vault.read(file);
-  new Notice("\u{1F916} Gemini Flash is analyzing note & generating summary + reflection...");
+  new Notice("\u{1F916} Gemini is analyzing your day with Kiwi Dev Chief of Staff vibes...");
   const mood = readFrontmatterValue(content, "mood");
   const energy = readFrontmatterValue(content, "energy");
   const sleepHours = readFrontmatterValue(content, "sleep_hours");
@@ -1052,12 +915,13 @@ async function enrichDailyNote(app, file) {
   const sleepDebt = !isNaN(sleepNum) && sleepNum < 6;
   const isDepleted = sleepDebt && !isNaN(energyNum) && energyNum < 3;
   const systemPrompt = [
-    "You are this person's Daily Note Analyst and Executive Chief of Staff.",
-    "You write like you're texting a smart friend: conversational, sharp, pragmatic, never clinical or therapeutic.",
-    "You use direct action verbs, avoid repeating words across bullets, synthesize multi-project developer progress clearly, and never psychoanalyse.",
+    "You are this person's Kiwi Chief of Staff & Dev Mate.",
+    "You write in casual, authentic Kiwi English (New Zealand dev vibe) \u2014 relaxed, conversational, grounded, sharp, friendly, and honest.",
+    "Use natural Kiwi expressions and cadence (e.g. 'aye', 'arvo', 'knackered', 'proper shift', 'sorted', 'sweet as', 'chur', 'muck-around', 'knocked off', 'get stuck in') naturally and subtly without overdoing it.",
+    "Never sound corporate, clinical, robotic, or like a LinkedIn performance review. Never use bullet points inside debrief \u2014 write natural, engaging narrative prose.",
     "You never invent facts. You always answer with valid JSON only."
   ].join(" ");
-  const userPromptText = `Analyse this day and fill the AI Daily Summary.
+  const userPromptText = `Analyse this day and fill the AI Daily Summary in Kiwi English.
 
 METADATA
 Mood: ${moodText}
@@ -1094,42 +958,40 @@ Wins: ${winsLog.join(" | ") || "none"}
 Blockers: ${blockersLog.join(" | ") || "none"}
 Reflection: ${userReflectionLog.join(" | ") || "none"}
 
-EXISTING VAULT NOTES (the only valid link targets)
+EXISTING VAULT NOTES (valid link targets)
 [${existingNotesListStr}]
 Yesterday's daily note: ${yesterdayDate}
 
 WHAT TO PRODUCE
-"vibe": ONE casual sentence catching the day's narrative arc \u2014 e.g. "Started the day carrying heavy anxiety and debt worries, but turned it into a high-leverage build session across loey_space."
-"moved": at most 2 distinct bullets on what actually moved forward. If GITHUB DEVELOPER ACTIVITY is present, cite specific project milestones (e.g. "Shipped Concept Distiller, Start Task action, and GitHub sync to loey_space" or "Merged PR #4"). DO NOT repeat concepts from vibe. Use direct active verbs ("Shipped...", "Completed...", "Finalized...").
-"coping": ONE bullet on how they coped or self-regulated (food, habits, rituals). Only if it is actually in the log or habits; otherwise return an empty string.
-"pattern": the repeated behaviour across tasks, log, and habits. Connect mood/energy to output and note how habits held up.
-"friction": where the day lost momentum. Use Blockers or time gaps (e.g. hours lost waiting or sleep disruption).
-"insight": one non-obvious connection, e.g. "Adopting a structured planning-before-coding workflow dramatically boosted shipping speed even while energy was low".
-"nextStep": ONE small tactical move. If high priority tasks (#priority/p0 or p1) are open, anchor on the top priority task. Phrased "Try [action] because [reason from today]".${sleepDebt ? ` Sleep was under 6 hours, so this MUST acknowledge the sleep debt.` : ""}
-"connectedNotes": start with "[[${yesterdayDate}]]" (always). Then ONLY notes explicitly named in their tasks, log or ideas. 2-5 links total.
+"quote": "short original line with a grounded, chill vibe",
+"author": "Daily Spark",
+"debrief": "2 short narrative paragraphs capturing the day's full story in Kiwi English:
+  - Paragraph 1: The morning reality, sleep, and friction (knackered on short sleep, stress, wait times).
+  - Paragraph 2: The afternoon turnaround (getting stuck in, shipping code across repositories, sorting milestones, and knocking off on time / keeping habits).
+  Be specific about project names (loey_space, shelf) and features built. Never use bullet points inside debrief \u2014 write natural prose.",
+"takeaway": "ONE sharp Kiwi Chief of Staff takeaway paragraph on why the system worked (e.g. why planning before coding saved the day, preventing muck-around and decision fatigue even when knackered).",
+"tomorrowMove": "ONE clear tomorrow move anchored on high priority open tasks (#priority/p0 or p1). Phrased in Kiwi English: 'Get stuck into **[[Task]]** first thing...'.${sleepDebt ? ` Acknowledge the sleep debt honestly.` : ""}",
+"connectedNotes": "start with '[[${yesterdayDate}]]' (always). Then 2-4 notes explicitly named in tasks, log, or ideas."
 
 HARD RULES
 1. Never invent meetings, people, projects or tasks that are not written above.
-2. Never use clinical or therapy language. Banned: "emotional distress", "interpersonal conflict", "significant impact", "well-being", "wellbeing", "restorative", "process your emotions", "process the conflict".
-3. DO NOT repeat identical words or phrases across bullets (e.g. never say "felt powerful" twice).
+2. Never use clinical or therapy language. Banned: 'emotional distress', 'interpersonal conflict', 'significant impact', 'well-being', 'wellbeing', 'restorative', 'process your emotions', 'process the conflict'.
+3. DO NOT repeat identical words or phrases across paragraphs.
 4. Balance friction with resilience.
 5. ${isDepleted ? `Sleep was under 6 hours AND energy under 3 \u2014 say plainly that capacity was capped, without turning it into a lecture.` : `Do not speculate about sleep or energy unless the numbers are notable.`}
-6. Keep the WHOLE output under 150 words. Conversational and sharp, not clinical.
-7. Never mention property names (mood, energy, sleep_hours, tags, frontmatter, JSON) or the words "template" or "section".
-8. If a field above says "none" or "nothing logged", stay silent about it. Never point out that something is empty.
-9. Every string is one single line: no bullets, headings or line breaks inside a value.
+6. Conversational, warm, sharp Kiwi English. No corporate jargon.
+7. Never mention property names (mood, energy, sleep_hours, tags, frontmatter, JSON) or the words 'template' or 'section'.
+8. If a field above says 'none' or 'nothing logged', stay silent about it.
 
 JSON format:
 {
-  "quote": "short original line that fits this specific day",
+  "quote": "short original line",
   "author": "Daily Spark",
-  "vibe": "one casual sentence",
-  "moved": ["...", "..."],
-  "coping": "...",
-  "pattern": "...",
-  "friction": "...",
-  "insight": "...",
-  "nextStep": "Try ... because ...",
+  "debrief": "paragraph 1
+
+paragraph 2",
+  "takeaway": "one sharp paragraph",
+  "tomorrowMove": "Get stuck into **[[Task]]** ...",
   "connectedNotes": ["[[${yesterdayDate}]]"]
 }
 `;
@@ -1138,7 +1000,7 @@ JSON format:
   let failureReason = "";
   if (geminiApiKey) {
     const result = await callGeminiJson(geminiApiKey, systemPrompt, userPromptText, "Daily Enrich", 0.7);
-    if (result && result.data && (result.data.vibe || result.data.pattern)) {
+    if (result && result.data && (result.data.debrief || result.data.takeaway || result.data.vibe)) {
       responseData = result.data;
       console.log(`Daily Enrich: generated with ${result.model}`);
     } else {
@@ -1172,29 +1034,11 @@ JSON format:
       lateSession
     });
   }
-  const vibeText = toSingleLine(responseData.vibe);
-  const movedLines = (Array.isArray(responseData.moved) ? responseData.moved : []).map(toSingleLine).filter(Boolean).slice(0, 2);
-  const copingText = toSingleLine(responseData.coping);
-  const patternText = toSingleLine(responseData.pattern);
-  const frictionText = toSingleLine(responseData.friction);
-  const insightText = toSingleLine(responseData.insight);
-  const nextStepText = toSingleLine(responseData.nextStep);
+  const debriefText = (responseData.debrief || responseData.vibe || "").trim();
+  const takeawayText = (responseData.takeaway || responseData.insight || responseData.pattern || "").trim();
+  const tomorrowMoveText = (responseData.tomorrowMove || responseData.nextStep || "").trim();
   responseData.quote = toSingleLine(responseData.quote) || "Small steps, taken today, are what tomorrow is built on.";
   responseData.author = toSingleLine(responseData.author) || "Daily Spark";
-  const BANNED_PHRASES = [
-    "emotional distress",
-    "interpersonal conflict",
-    "significant impact",
-    "well-being",
-    "wellbeing",
-    "restorative",
-    "process your emotions",
-    "process the conflict"
-  ];
-  const generatedProse = [vibeText, movedLines.join(" "), copingText, patternText, frictionText, insightText, nextStepText].join(" ").toLowerCase();
-  const slips = BANNED_PHRASES.filter((phrase) => generatedProse.includes(phrase));
-  if (slips.length)
-    console.warn(`Daily Enrich: clinical phrasing slipped through \u2014 ${slips.join(", ")}`);
   const validTargets = /* @__PURE__ */ new Map();
   app.vault.getMarkdownFiles().forEach((f) => validTargets.set(f.basename.toLowerCase(), f.basename));
   const userCorpus = [].concat(
@@ -1248,26 +1092,16 @@ JSON format:
       escapeReplacement(quoteCallout)
     );
   }
-  const summaryLines = [vibeText].concat(movedLines).concat(copingText ? [copingText] : []).filter(Boolean).map((line) => `- ${line}`).join("\n");
-  const reflectionLines = [
-    patternText ? `- **Pattern:** ${patternText}` : "",
-    frictionText ? `- **Friction:** ${frictionText}` : "",
-    insightText ? `- **Insight:** ${insightText}` : ""
-  ].filter(Boolean).join("\n");
-  const nextStepLines = nextStepText ? `- ${nextStepText}` : "";
   const aiSummaryBlock = `## \u{1F916} AI Daily Summary
 
-### Summary
->_What did I do today? Key activities, progress, and outcomes._
-${summaryLines || "- "}
+### \u{1F4D6} Daily Debrief
+${debriefText || "Bit of a quiet one today \u2014 not much made it into the log."}
 
-### AI Reflection
->_What patterns do I notice? What could I improve? Any insights or blind spots?_
-${reflectionLines || "- "}
+### \u{1F9E0} Chief of Staff Takeaway
+${takeawayText || "Keep things simple and plan before you build."}
 
-### **Suggested Next Step**
->_Based on today, what's the smartest move for tomorrow?_
-${nextStepLines || "- "}`;
+### \u{1F3AF} Tomorrow's Move
+${tomorrowMoveText || "Pick your main target first thing in the morning."}`;
   const aiSectionRe = /^## 🤖 AI Daily Summary[\s\S]*?(?=^## |^---[ \t]*$|(?![\s\S]))/m;
   if (aiSectionRe.test(content)) {
     content = content.replace(aiSectionRe, escapeReplacement(aiSummaryBlock + "\n"));
@@ -1286,10 +1120,6 @@ ${connectedBlock}
 `;
   }
   await app.vault.modify(file, content);
-  const wordCount = generatedProse.split(/\s+/).filter(Boolean).length;
-  console.log(`Daily Enrich: ${wordCount} words, ${connectedLinks.length} connected note(s)`);
-  if (wordCount > 150)
-    console.warn(`Daily Enrich: output ran to ${wordCount} words, over the 150-word target.`);
   if (usedFallback) {
     new Notice(
       `\u26A0\uFE0F No AI writing this time: ${failureReason}.
@@ -1298,7 +1128,7 @@ A basic offline summary was assembled from your logged items instead. Re-run the
       12e3
     );
   } else {
-    new Notice("\u2728 Daily Note enriched: summary, reflection, next step & connected notes.");
+    new Notice("\u2728 Daily Note enriched with Kiwi Chief of Staff vibes!");
   }
 }
 
