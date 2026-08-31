@@ -63,23 +63,46 @@ test('formatGitHubEventToRow: maps PushEvent and PullRequestEvent to clean table
   assert.strictEqual(r2.details, 'TanStack Router Layouts');
 });
 
-test('buildGitHubCalloutTable: generates valid collapsible callout with table markdown', () => {
+test('buildGitHubCalloutTable: generates valid collapsible callout and sorts rows from AM to PM', () => {
   const rows = [
     {
-      id: '1',
-      time: '06:36&nbsp;PM',
+      id: '2',
+      time: '07:40&nbsp;PM',
       dateKey: '2026-08-31',
       repo: '`loey_space`',
       type: '🐙 Push',
-      details: '`main`: feat: add distill engine',
-      rawDate: new Date()
+      details: '`main`',
+      rawDate: new Date('2026-08-31T19:40:00Z')
+    },
+    {
+      id: '1',
+      time: '06:33&nbsp;AM',
+      dateKey: '2026-08-31',
+      repo: '`loey_space`',
+      type: '🐙 Push',
+      details: '`main`',
+      rawDate: new Date('2026-08-31T06:33:00Z')
+    },
+    {
+      id: '3',
+      time: '02:46&nbsp;PM',
+      dateKey: '2026-08-31',
+      repo: '`shelf`',
+      type: '🐙 Push',
+      details: '`feature/library-api`',
+      rawDate: new Date('2026-08-31T14:46:00Z')
     }
   ];
 
   const callout = buildGitHubCalloutTable(rows);
-  assert.ok(callout.includes('> [!NOTE]- 🐙 GitHub Activity Log (1 event — click to expand)'));
+  assert.ok(callout.includes('> [!NOTE]- 🐙 GitHub Activity Log (3 events — click to expand)'));
   assert.ok(callout.includes('> | Time | Repo | Action | Details / Branch |'));
-  assert.ok(callout.includes('> | 06:36&nbsp;PM | `loey_space` | 🐙 Push | `main`: feat: add distill engine |'));
+
+  const lines = callout.split('\n').filter(l => l.includes('| `'));
+  assert.strictEqual(lines.length, 3);
+  assert.ok(lines[0].includes('06:33&nbsp;AM'));
+  assert.ok(lines[1].includes('02:46&nbsp;PM'));
+  assert.ok(lines[2].includes('07:40&nbsp;PM'));
 });
 
 test('mergeDailyLogTable: places table callout while preserving manual personal log area', () => {
