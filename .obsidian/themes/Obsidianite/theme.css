@@ -381,7 +381,7 @@ span.cm-formatting-list,
 }
 
 .markdown-preview-view ul > li.task-list-item {
-  text-indent: -3em;
+  text-indent: 0;
 }
 
 .contains-task-list .task-list-item input[type='checkbox'] {

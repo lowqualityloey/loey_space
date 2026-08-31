@@ -13,7 +13,7 @@ a.tag[href="#p0"],
 a.tag[href="#p1"],
 a.tag[href="#p2"],
 a.tag[href="#p3"] {
-  display: inline-flex;
+  display: inline-flex !important;
   align-items: center;
   font-weight: 600;
   font-size: 0.8em;
@@ -21,7 +21,25 @@ a.tag[href="#p3"] {
   padding: 2px 7px;
   border-radius: 6px;
   text-decoration: none !important;
+  text-indent: 0 !important;
+  margin-left: 0.4em !important;
+  vertical-align: middle;
   transition: all 0.15s ease-in-out;
+}
+
+/* Fix for Obsidianite and themes with negative task-list text-indent */
+.markdown-preview-view ul > li.task-list-item,
+.markdown-rendered ul > li.task-list-item,
+.contains-task-list .task-list-item,
+.dataview.task-list-item,
+.project-task-mirror .task-list-item {
+  text-indent: 0 !important;
+}
+
+.markdown-preview-view a.tag,
+.markdown-rendered a.tag,
+.task-list-item a.tag {
+  text-indent: 0 !important;
 }
 
 /* --------------------------------------------------------------------------

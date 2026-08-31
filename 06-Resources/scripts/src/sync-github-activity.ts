@@ -8,6 +8,7 @@ import {
   ActivityTableRow,
   formatGitHubEventToRow,
   formatDateKey,
+  fetchCommitDetailsMap,
   mergeDailyLogTable
 } from './lib/github-events';
 
@@ -50,7 +51,7 @@ async function syncGithubActivityAction(params?: QuickAddParams): Promise<void> 
   const Notice = typeof window !== 'undefined' ? (window as any).Notice : (globalThis as any).Notice;
 
   if (!app) {
-    runCli();
+    await runCli();
     return;
   }
 
@@ -79,10 +80,24 @@ async function syncGithubActivityAction(params?: QuickAddParams): Promise<void> 
     return;
   }
 
+  const targetDateEvents = events.filter((ev) => {
+    const d = new Date(ev.created_at);
+    return formatDateKey(d) === noteDateKey;
+  });
+
+  const pushesToFetch: Array<{ repo: string; head: string }> = [];
+  for (const ev of targetDateEvents) {
+    if (ev.type === 'PushEvent' && ev.payload?.head && (!ev.payload.commits || ev.payload.commits.length === 0)) {
+      pushesToFetch.push({ repo: ev.repo.name, head: ev.payload.head });
+    }
+  }
+
+  const commitMap = await fetchCommitDetailsMap(pushesToFetch);
+
   const rows: ActivityTableRow[] = [];
-  for (const ev of events) {
-    const r = formatGitHubEventToRow(ev);
-    if (r && r.dateKey === noteDateKey) {
+  for (const ev of targetDateEvents) {
+    const r = formatGitHubEventToRow(ev, commitMap);
+    if (r) {
       rows.push(r);
     }
   }
@@ -99,7 +114,7 @@ async function syncGithubActivityAction(params?: QuickAddParams): Promise<void> 
   if (Notice) new Notice(`🎉 Synced ${count} GitHub event(s) into table callout for ${targetFile.basename}!`, 5000);
 }
 
-function runCli() {
+async function runCli() {
   const vaultRoot = resolveVaultPath();
   const args = process.argv.slice(2);
   const targetDateKey = args[0] || formatDateKey(new Date());
@@ -119,10 +134,28 @@ function runCli() {
   console.log(`🔍 Fetching GitHub events for lowqualityloey...`);
   const events = fetchUserEvents('lowqualityloey');
 
+  const targetDateEvents = events.filter((ev) => {
+    const d = new Date(ev.created_at);
+    return formatDateKey(d) === targetDateKey;
+  });
+
+  const pushesToFetch: Array<{ repo: string; head: string }> = [];
+  for (const ev of targetDateEvents) {
+    if (ev.type === 'PushEvent' && ev.payload?.head && (!ev.payload.commits || ev.payload.commits.length === 0)) {
+      pushesToFetch.push({ repo: ev.repo.name, head: ev.payload.head });
+    }
+  }
+
+  if (pushesToFetch.length > 0) {
+    console.log(`⚡ Resolving commit details for ${pushesToFetch.length} push event(s)...`);
+  }
+
+  const commitMap = await fetchCommitDetailsMap(pushesToFetch);
+
   const rows: ActivityTableRow[] = [];
-  for (const ev of events) {
-    const r = formatGitHubEventToRow(ev);
-    if (r && r.dateKey === targetDateKey) {
+  for (const ev of targetDateEvents) {
+    const r = formatGitHubEventToRow(ev, commitMap);
+    if (r) {
       rows.push(r);
     }
   }
@@ -133,7 +166,7 @@ function runCli() {
   }
 
   console.log(`📋 Found ${rows.length} activity item(s) for table callout:`);
-  rows.slice(0, 5).forEach((r) => console.log(`  | ${r.time} | ${r.repo} | ${r.type} | ${r.details.slice(0, 40)}... |`));
+  rows.slice(0, 5).forEach((r) => console.log(`  | ${r.time} | ${r.repo} | ${r.type} | ${r.details.slice(0, 50)}... |`));
 
   const content = fs.readFileSync(dailyPath, 'utf8');
   const { updatedContent, count } = mergeDailyLogTable(content, rows);

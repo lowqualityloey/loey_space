@@ -1,16 +1,17 @@
 {
-  "cssTheme": "Minimal",
-  "accentColor": "#4cae8d",
-  "theme": "system",
+  "cssTheme": "Obsidianite",
+  "accentColor": "",
+  "theme": "obsidian",
   "translucency": true,
   "interfaceFontFamily": "Outfit, Inter, sans-serif",
   "textFontFamily": "Inter, Plus Jakarta Sans, sans-serif",
   "monospaceFontFamily": "JetBrains Mono, monospace",
   "enabledCssSnippets": [
-    "homepulse-mobile",
-    "dashboard-cards",
+    "kanban-tags",
+    "project-tasks",
     "fonts",
-    "kanban-tags"
+    "homepulse-mobile",
+    "dashboard-cards"
   ],
   "baseFontSize": 15,
   "nativeMenus": false,

@@ -1,1 +1,11 @@
-{}
+{
+  "isinglass@@ig-compact": true,
+  "isinglass@@file-line-width": 50,
+  "isinglass@@line-height-normal": 1.45,
+  "isinglass@@ig-no-grain": false,
+  "isinglass@@ig-user-glass": 1.2,
+  "isinglass@@ig-hide-ribbon": false,
+  "isinglass@@ig-hide-status": true,
+  "isinglass@@ig-hide-tabs": false,
+  "isinglass@@ig-high-contrast": false
+}

@@ -44,11 +44,67 @@ export function formatDateKey(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+export interface CommitInfo {
+  message: string;
+  url?: string;
+}
+
 export function escapeTablePipes(text: string): string {
   return text.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ').trim();
 }
 
-export function formatGitHubEventToRow(event: GitHubEventItem): ActivityTableRow | null {
+export async function fetchCommitDetailsMap(
+  pushes: Array<{ repo: string; head: string }>,
+  execFn?: (cmd: string) => Promise<{ stdout: string }>
+): Promise<Map<string, CommitInfo>> {
+  const commitMap = new Map<string, CommitInfo>();
+  const uniqueItems = new Map<string, string>(); // head -> repo
+
+  for (const p of pushes) {
+    if (p.head && !uniqueItems.has(p.head)) {
+      uniqueItems.set(p.head, p.repo);
+    }
+  }
+
+  if (uniqueItems.size === 0) return commitMap;
+
+  let runner = execFn;
+  if (!runner) {
+    try {
+      const cp = require('child_process');
+      const util = require('util');
+      runner = util.promisify(cp.exec);
+    } catch {
+      return commitMap;
+    }
+  }
+
+  const tasks = Array.from(uniqueItems.entries()).map(async ([head, repo]) => {
+    try {
+      const { stdout } = await runner!(
+        `gh api repos/${repo}/commits/${head} -q "{message: .commit.message, url: .html_url}"`
+      );
+      const data = JSON.parse(stdout);
+      commitMap.set(head, {
+        message: data.message ? data.message.split('\n')[0].trim() : '',
+        url: data.url || `https://github.com/${repo}/commit/${head}`
+      });
+    } catch {
+      commitMap.set(head, {
+        message: '',
+        url: `https://github.com/${repo}/commit/${head}`
+      });
+    }
+  });
+
+  await Promise.all(tasks);
+  return commitMap;
+}
+
+export function formatGitHubEventToRow(
+  event: GitHubEventItem,
+  commitMap?: Map<string, CommitInfo>
+): ActivityTableRow | null {
   const date = new Date(event.created_at);
   const time = formatTime12(date);
   const dateKey = formatDateKey(date);
@@ -61,15 +117,30 @@ export function formatGitHubEventToRow(event: GitHubEventItem): ActivityTableRow
   if (event.type === 'PushEvent') {
     eventType = `🐙 Push`;
     const branch = cleanBranchName(event.payload?.ref || 'main');
+    const head = event.payload?.head;
     const commits = event.payload?.commits || [];
-    
+
     if (commits.length > 0) {
-      const commitMsg = commits
-        .map((c: any) => c.message.split('\n')[0].trim())
-        .filter(Boolean)
+      const commitItems = commits
         .slice(0, 2)
-        .join('; ');
-      details = `\`${branch}\`: ${commitMsg}`;
+        .map((c: any) => {
+          const msg = escapeTablePipes(c.message.split('\n')[0].trim());
+          const url = c.url || (c.sha ? `https://github.com/${event.repo.name}/commit/${c.sha}` : (head ? `https://github.com/${event.repo.name}/commit/${head}` : ''));
+          return url ? `[${msg}](${url})` : msg;
+        })
+        .filter(Boolean);
+      details = `\`${branch}\`: ${commitItems.join('; ')}`;
+    } else if (head) {
+      const info = commitMap?.get(head);
+      if (info && info.message) {
+        const msg = escapeTablePipes(info.message.split('\n')[0].trim());
+        const url = info.url || `https://github.com/${event.repo.name}/commit/${head}`;
+        details = `\`${branch}\`: [${msg}](${url})`;
+      } else {
+        const shortHead = head.slice(0, 7);
+        const url = `https://github.com/${event.repo.name}/commit/${head}`;
+        details = `\`${branch}\`: [\`${shortHead}\`](${url})`;
+      }
     } else {
       details = `\`${branch}\``;
     }
@@ -78,7 +149,8 @@ export function formatGitHubEventToRow(event: GitHubEventItem): ActivityTableRow
     const pr = event.payload?.pull_request;
     const number = pr?.number || event.payload?.number;
     const isMerged = action === 'closed' && pr?.merged;
-    
+    const url = pr?.html_url || (number ? `https://github.com/${event.repo.name}/pull/${number}` : '');
+
     if (isMerged) {
       eventType = `🔀 PR #${number} Merged`;
     } else if (action === 'opened') {
@@ -87,24 +159,34 @@ export function formatGitHubEventToRow(event: GitHubEventItem): ActivityTableRow
       eventType = `🔀 PR #${number} ${action}`;
     }
 
-    const title = pr?.title;
+    const title = pr?.title ? escapeTablePipes(pr.title) : '';
     const headBranch = cleanBranchName(pr?.head?.ref);
     const baseBranch = cleanBranchName(pr?.base?.ref || 'main');
 
     if (title && title !== 'Pull Request') {
-      details = title;
+      if (url) {
+        if (headBranch && headBranch !== 'main') {
+          details = `[${title}](${url}) (\`${headBranch}\` → \`${baseBranch}\`)`;
+        } else {
+          details = `[${title}](${url})`;
+        }
+      } else {
+        details = title;
+      }
     } else if (headBranch && headBranch !== 'main') {
-      details = `\`${headBranch}\` → \`${baseBranch}\``;
+      details = url ? `[\`${headBranch}\` → \`${baseBranch}\`](${url})` : `\`${headBranch}\` → \`${baseBranch}\``;
     } else {
-      details = `\`${baseBranch}\``;
+      details = url ? `[\`${baseBranch}\`](${url})` : `\`${baseBranch}\``;
     }
   } else if (event.type === 'IssuesEvent') {
     const action = event.payload?.action;
     const issue = event.payload?.issue;
-    const title = issue?.title || 'Issue';
+    const rawTitle = issue?.title || 'Issue';
+    const title = escapeTablePipes(rawTitle);
     const number = issue?.number;
+    const url = issue?.html_url || (number ? `https://github.com/${event.repo.name}/issues/${number}` : '');
     eventType = `🎯 Issue #${number} ${action}`;
-    details = title;
+    details = url ? `[${title}](${url})` : title;
   } else if (event.type === 'CreateEvent') {
     const refType = event.payload?.ref_type;
     const ref = cleanBranchName(event.payload?.ref);
@@ -115,9 +197,11 @@ export function formatGitHubEventToRow(event: GitHubEventItem): ActivityTableRow
       return null;
     }
   } else if (event.type === 'ReleaseEvent') {
-    const releaseName = event.payload?.release?.name || event.payload?.release?.tag_name || 'Release';
+    const release = event.payload?.release;
+    const releaseName = escapeTablePipes(release?.name || release?.tag_name || 'Release');
+    const url = release?.html_url || `https://github.com/${event.repo.name}/releases`;
     eventType = `🚀 Release`;
-    details = releaseName;
+    details = url ? `[${releaseName}](${url})` : releaseName;
   } else {
     return null;
   }
@@ -128,7 +212,7 @@ export function formatGitHubEventToRow(event: GitHubEventItem): ActivityTableRow
     dateKey,
     repo,
     type: eventType,
-    details: escapeTablePipes(details),
+    details,
     rawDate: date
   };
 }
