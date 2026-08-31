@@ -1,8 +1,8 @@
 /* ==========================================================================
-   ✨ 100% UNIFIED SINGLE COLOR (#0C0D13), TASK SPACING & READABILITY (dashboard-cards.css)
+   ✨ 100% UNIFIED SINGLE COLOR (#111218), TASK SPACING & READABILITY (dashboard-cards.css)
    ========================================================================== */
 
-/* 1. Global Divider & Border Removal */
+/* 1. Global Divider, Border & Scrollbar Track Removal */
 :root {
   --divider-color: transparent !important;
   --background-modifier-border: transparent !important;
@@ -11,12 +11,28 @@
   --tab-outline-color: transparent !important;
   --workspace-background-translucent: transparent !important;
   --line-height-normal: 1.65 !important;
+  --scrollbar-bg: transparent !important;
+  --scrollbar-track-bg: transparent !important;
 
   /* Width kept clear for the pinned window controls (minimize / maximize / close).
      Because those controls are absolutely positioned over the tab bar, anything
      in the tab bar's right edge would otherwise sit underneath them and swallow
      the click. Roughly 3 buttons x 40px — raise it if you add titlebar buttons. */
   --hp-window-controls-width: 120px;
+}
+
+::-webkit-scrollbar {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-track-piece,
+::-webkit-scrollbar-corner {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 .workspace-leaf,
@@ -81,6 +97,51 @@
   background: transparent !important;
 }
 
+.workspace-tab-header-inner,
+.workspace-tab-header-inner:hover,
+.workspace-tab-header-inner:active,
+.workspace-tab-header-inner:focus,
+.workspace-tab-header-inner-title,
+.workspace-tab-header-inner-title:hover,
+.workspace-tab-header-inner-title:active,
+.workspace-tab-header-inner-title:focus,
+.workspace-tab-header-inner-icon,
+.workspace-tab-header-inner-icon:hover,
+.workspace-tab-header-inner-icon:active,
+.workspace-tab-header-inner-icon:focus,
+.workspace-tab-header-inner-close-button,
+.workspace-tab-header-status-container,
+.workspace-tab-header-tab-list,
+.is-focused .workspace-tab-header-inner,
+.is-focused .workspace-tab-header-inner-title,
+.is-focused .workspace-tab-header-inner-icon,
+.is-focused .mod-active .workspace-tab-header-inner,
+.is-focused .mod-active .workspace-tab-header-inner-title,
+.is-focused .mod-active .workspace-tab-header-inner-icon,
+.mod-active .workspace-tab-header-inner,
+.mod-active .workspace-tab-header-inner-title,
+.mod-active .workspace-tab-header-inner-icon {
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+  outline: none !important;
+}
+
+.workspace-tab-header,
+.workspace-tab-header-inner,
+.workspace-tab-header-inner-title {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+.workspace-tab-header ::selection,
+.workspace-tab-header-inner ::selection,
+.workspace-tab-header-inner-title ::selection {
+  background: transparent !important;
+}
+
 .workspace-split.mod-root .workspace-tab-header {
   background: transparent !important;
   border: none !important;
@@ -99,9 +160,8 @@
   color: var(--text-normal, #f8fafc) !important;
 }
 
-/* 4. FORCE SINGLE COLOR (#0C0D13) ACROSS ACTIVE TAB, NAV BAR, NOTE & ALL CHILD CONTAINERS */
+/* 4. FORCE SINGLE COLOR (#111218) ACROSS ACTIVE TAB, NAV BAR, NOTE & ALL CHILD CONTAINERS */
 .workspace-split.mod-root .workspace-tab-header.is-active,
-.workspace-split.mod-root .workspace-tab-header.is-active .workspace-tab-header-inner,
 .view-header,
 .view-header-title-container,
 .view-header-nav-buttons,
@@ -110,8 +170,8 @@
 .workspace-split.mod-root .workspace-leaf-content[data-type="markdown"] .view-content,
 .markdown-source-view,
 .markdown-preview-view {
-  background-color: #0C0D13 !important;
-  background: #0C0D13 !important;
+  background-color: #111218 !important;
+  background: #111218 !important;
   box-shadow: none !important;
   border: none !important;
 }
@@ -157,27 +217,53 @@
 }
 
 .workspace-split.mod-right-split .workspace-tab-header,
-.workspace-split.mod-left-split .workspace-tab-header {
+.workspace-split.mod-left-split .workspace-tab-header,
+.workspace-split.mod-right-split .workspace-tab-header.is-active,
+.workspace-split.mod-left-split .workspace-tab-header.is-active,
+.workspace-split.mod-right-split .workspace-tab-header:hover,
+.workspace-split.mod-left-split .workspace-tab-header:hover,
+.clickable-icon.is-active,
+.side-dock-ribbon-action.is-active,
+.side-dock-ribbon-tab.is-active {
   background: transparent !important;
-  border-radius: 8px !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  outline: none !important;
   padding: 5px 8px !important;
   margin: 0 !important;
+  transition: color 0.15s ease, opacity 0.15s ease !important;
+}
+
+.workspace-split.mod-right-split .workspace-tab-header,
+.workspace-split.mod-left-split .workspace-tab-header {
   color: var(--text-muted, #94a3b8) !important;
-  transition: background 0.15s ease, color 0.15s ease !important;
+  opacity: 0.5;
 }
 
 .workspace-split.mod-right-split .workspace-tab-header:hover,
 .workspace-split.mod-left-split .workspace-tab-header:hover {
-  background: rgba(255, 255, 255, 0.06) !important;
-  color: #f8fafc !important;
+  color: var(--text-accent, #0ed2f7) !important;
+  opacity: 0.85;
 }
 
 .workspace-split.mod-right-split .workspace-tab-header.is-active,
-.workspace-split.mod-left-split .workspace-tab-header.is-active {
-  background: rgba(255, 255, 255, 0.1) !important;
-  color: #f8fafc !important;
-  border-radius: 8px !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+.workspace-split.mod-left-split .workspace-tab-header.is-active,
+.clickable-icon.is-active,
+.side-dock-ribbon-action.is-active,
+.side-dock-ribbon-tab.is-active {
+  color: var(--text-accent, #0ed2f7) !important;
+  opacity: 1 !important;
+}
+
+.workspace-split.mod-right-split .workspace-tab-header.is-active svg,
+.workspace-split.mod-left-split .workspace-tab-header.is-active svg,
+.clickable-icon.is-active svg,
+.side-dock-ribbon-action.is-active svg,
+.side-dock-ribbon-tab.is-active svg {
+  color: var(--text-accent, #0ed2f7) !important;
+  stroke: var(--text-accent, #0ed2f7) !important;
 }
 
 /* 6. Floating Graph View Pane */
@@ -379,5 +465,35 @@ progress::-moz-progress-bar,
 .tree-item-self.is-active .tree-item-inner {
   color: var(--text-accent, #0ed2f7) !important;
 }
+
+/* ==========================================================================
+   🔤 FIX: BOLD INLINE CODE RENDERING IN TABLES & NOTES
+   ========================================================================== */
+
+strong:has(code),
+.cm-strong:has(.cm-inline-code) {
+  -webkit-background-clip: initial !important;
+  background-clip: initial !important;
+  -webkit-text-fill-color: initial !important;
+  background-image: none !important;
+  background-color: transparent !important;
+  color: inherit !important;
+}
+
+strong code,
+strong > code,
+.cm-strong span.cm-inline-code,
+.cm-strong .cm-inline-code,
+strong span.cm-inline-code {
+  -webkit-background-clip: initial !important;
+  background-clip: initial !important;
+  -webkit-text-fill-color: var(--text-accent, #0ed2f7) !important;
+  color: var(--text-accent, #0ed2f7) !important;
+  background-color: rgba(14, 210, 247, 0.08) !important;
+  background-image: none !important;
+  border-radius: 4px !important;
+  padding: 1px 5px !important;
+}
+
 
 

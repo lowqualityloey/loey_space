@@ -188,6 +188,8 @@ a.tag[href*='#想法'] {
 ::-webkit-scrollbar {
   opacity: 1;
   width: 0.6rem;
+  background: transparent !important;
+  background-color: transparent !important;
 }
 
 ::-webkit-scrollbar-thumb {
@@ -196,8 +198,12 @@ a.tag[href*='#想法'] {
 }
 
 ::-webkit-scrollbar-track,
-::-webkit-scrollbar-track-piece {
-  background: var(--background-secondary);
+::-webkit-scrollbar-track-piece,
+::-webkit-scrollbar-corner {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 .markdown-preview-view .internal-link.is-unresolved {
@@ -262,17 +268,32 @@ a.tag[href*='#想法'] {
 .side-dock-ribbon-tab,
 .side-dock-ribbon-action,
 .workspace-ribbon-collapse-btn,
-.workspace-tab-header {
-  transition: all 350ms ease-in-out;
+.workspace-tab-header,
+.clickable-icon.is-active,
+.side-dock-ribbon-action.is-active,
+.side-dock-ribbon-tab.is-active {
+  transition: all 150ms ease-in-out;
   opacity: 0.5;
   cursor: pointer;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  outline: none !important;
 }
 .side-dock-ribbon-tab:hover,
 .side-dock-ribbon-action:hover,
 .workspace-ribbon-collapse-btn:hover,
 .workspace-tab-header:hover {
-  opacity: 1;
+  opacity: 0.85;
   color: var(--text-accent);
+}
+.clickable-icon.is-active,
+.side-dock-ribbon-action.is-active,
+.side-dock-ribbon-tab.is-active {
+  opacity: 1 !important;
+  color: var(--text-accent) !important;
 }
 
 /** Left side menu -- collapsed **/
@@ -286,14 +307,62 @@ a.tag[href*='#想法'] {
 }
 
 /** Navigation tabs **/
-.is-focused .workspace-tab-header.is-active {
-  opacity: 1;
+.workspace-tab-header,
+.workspace-tab-header:hover,
+.workspace-tab-header:active,
+.workspace-tab-header:focus,
+.workspace-tab-header.is-active,
+.workspace-tab-header.is-active:hover,
+.workspace-tab-header.is-active:active,
+.workspace-tab-header.is-active:focus,
+.workspace-tab-header-inner,
+.workspace-tab-header-inner:hover,
+.workspace-tab-header-inner:active,
+.workspace-tab-header-inner:focus,
+.workspace-tab-header-inner-title,
+.workspace-tab-header-inner-title:hover,
+.workspace-tab-header-inner-title:active,
+.workspace-tab-header-inner-title:focus,
+.workspace-tab-header-inner-icon,
+.workspace-tab-header-inner-icon:hover,
+.workspace-tab-header-inner-icon:active,
+.workspace-tab-header-inner-icon:focus,
+.workspace-tab-header-inner-close-button,
+.workspace-tab-header-status-container,
+.workspace-tab-header-tab-list,
+.is-focused .workspace-tab-header,
+.is-focused .workspace-tab-header.is-active,
+.is-focused .workspace-tab-header-inner,
+.is-focused .workspace-tab-header-inner-title,
+.is-focused .workspace-tab-header-inner-icon,
+.is-focused .mod-active .workspace-tab-header-inner,
+.is-focused .mod-active .workspace-tab-header-inner-title,
+.is-focused .mod-active .workspace-tab-header-inner-icon,
+.is-focused .mod-active .workspace-tab-header.is-active .workspace-tab-header-inner,
+.is-focused .mod-active .workspace-tab-header.is-active .workspace-tab-header-inner-icon,
+.is-focused .mod-active .workspace-tab-header.is-active .workspace-tab-header-inner-title,
+.mod-active .workspace-tab-header-inner,
+.mod-active .workspace-tab-header-inner-title,
+.mod-active .workspace-tab-header-inner-icon {
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+  outline: none !important;
 }
 
-.is-focused .mod-active .workspace-tab-header.is-active .workspace-tab-header-inner-icon,
-.is-focused .mod-active .workspace-tab-header.is-active .workspace-tab-header-inner-title {
-  background: var(--background-modifier-border);
-  color: var(--text-accent);
+.workspace-tab-header,
+.workspace-tab-header-inner,
+.workspace-tab-header-inner-title {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+.workspace-tab-header ::selection,
+.workspace-tab-header-inner ::selection,
+.workspace-tab-header-inner-title ::selection {
+  background: transparent !important;
 }
 
 .nav-file-title.is-active,
@@ -632,6 +701,31 @@ strong {
   color: #7aa2f7;
   background-color: #7aa2f7;
   background-image: linear-gradient(62deg, #87c2fd 0%, #dcb9fc 100%) !important;
+}
+
+strong:has(code),
+.cm-strong:has(.cm-inline-code) {
+  -webkit-background-clip: initial !important;
+  background-clip: initial !important;
+  -webkit-text-fill-color: initial !important;
+  background-image: none !important;
+  background-color: transparent !important;
+  color: inherit !important;
+}
+
+strong code,
+strong > code,
+.cm-strong span.cm-inline-code,
+.cm-strong .cm-inline-code,
+strong span.cm-inline-code {
+  -webkit-background-clip: initial !important;
+  background-clip: initial !important;
+  -webkit-text-fill-color: var(--text-accent, #0ed2f7) !important;
+  color: var(--text-accent, #0ed2f7) !important;
+  background-color: rgba(14, 210, 247, 0.08) !important;
+  background-image: none !important;
+  border-radius: 4px !important;
+  padding: 1px 5px !important;
 }
 
 strong .math.math-inline .MathJax {
