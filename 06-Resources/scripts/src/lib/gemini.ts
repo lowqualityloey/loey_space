@@ -10,9 +10,7 @@ export interface GeminiFailure {
   model: string;
 }
 
-// Classifies a Gemini error response. Google puts the useful information in the
-// response body: a RetryInfo entry with retryDelay, and a QuotaFailure entry
-// whose quotaId says whether the limit was per-minute or per-day.
+// Classifies a Gemini error response.
 export function parseGeminiError(status: number, bodyText: string, model: string): GeminiFailure {
   let message = "";
   let retrySeconds = 0;
@@ -103,6 +101,31 @@ export function formatGeminiFailure(failure: GeminiFailure | null | undefined): 
   }
 }
 
+// Unified HTTP request handler that supports both Obsidian requestUrl and Node fetch.
+async function postJson(url: string, payload: any): Promise<{ status: number; text: string }> {
+  const reqUrl = typeof window !== 'undefined' ? (window as any).requestUrl : (globalThis as any).requestUrl;
+
+  if (typeof reqUrl === 'function') {
+    const res = await reqUrl({
+      url,
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      throw: false,
+      body: JSON.stringify(payload)
+    });
+    return { status: res.status, text: res.text };
+  }
+
+  // Node fetch fallback
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  const text = await res.text();
+  return { status: res.status, text };
+}
+
 // One Gemini request with model fallback and quota-aware retries.
 export async function callGeminiJson(
   apiKey: string,
@@ -113,27 +136,22 @@ export async function callGeminiJson(
 ): Promise<{ data: any; model: string; failure: GeminiFailure | null }> {
   let failure: GeminiFailure = { status: 0, kind: "unknown", message: "request failed", retrySeconds: 0, model: "" };
 
-  const reqUrl = (window as any).requestUrl || (globalThis as any).requestUrl || requestUrl;
-
   for (const model of GEMINI_MODELS) {
     for (let attempt = 0; attempt < 2; attempt++) {
-      let res: any = null;
+      let res: { status: number; text: string } | null = null;
 
       try {
-        res = await reqUrl({
-          url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          throw: false,
-          body: JSON.stringify({
+        res = await postJson(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+          {
             system_instruction: { parts: [{ text: systemPrompt }] },
             contents: [{ parts: [{ text: userPrompt }] }],
             generationConfig: {
               responseMimeType: "application/json",
               temperature: typeof temperature === "number" ? temperature : 0.6
             }
-          })
-        });
+          }
+        );
       } catch (e: any) {
         failure = { status: 0, kind: "network", message: e?.message ? e.message : String(e), retrySeconds: 0, model };
         console.warn(`${label}: ${model} network error — ${failure.message}`);

@@ -88,27 +88,43 @@ function formatGeminiFailure(failure) {
       return failure.message || "the request failed";
   }
 }
+async function postJson(url, payload) {
+  const reqUrl = typeof window !== "undefined" ? window.requestUrl : globalThis.requestUrl;
+  if (typeof reqUrl === "function") {
+    const res2 = await reqUrl({
+      url,
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      throw: false,
+      body: JSON.stringify(payload)
+    });
+    return { status: res2.status, text: res2.text };
+  }
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  const text = await res.text();
+  return { status: res.status, text };
+}
 async function callGeminiJson(apiKey, systemPrompt, userPrompt, label, temperature) {
   let failure = { status: 0, kind: "unknown", message: "request failed", retrySeconds: 0, model: "" };
-  const reqUrl = window.requestUrl || globalThis.requestUrl || requestUrl;
   for (const model of GEMINI_MODELS) {
     for (let attempt = 0; attempt < 2; attempt++) {
       let res = null;
       try {
-        res = await reqUrl({
-          url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          throw: false,
-          body: JSON.stringify({
+        res = await postJson(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+          {
             system_instruction: { parts: [{ text: systemPrompt }] },
             contents: [{ parts: [{ text: userPrompt }] }],
             generationConfig: {
               responseMimeType: "application/json",
               temperature: typeof temperature === "number" ? temperature : 0.6
             }
-          })
-        });
+          }
+        );
       } catch (e) {
         failure = { status: 0, kind: "network", message: e?.message ? e.message : String(e), retrySeconds: 0, model };
         console.warn(`${label}: ${model} network error \u2014 ${failure.message}`);
