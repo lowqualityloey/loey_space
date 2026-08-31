@@ -1,7 +1,10 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { execSync } from 'child_process';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import type { App, TFile } from 'obsidian';
+
+const execAsync = promisify(exec);
 import type { QuickAddParams } from './types';
 import {
   ProjectField,
@@ -72,7 +75,7 @@ async function syncSingleBoard(
   let priorityField: ProjectField | null = null;
 
   try {
-    const projViewJson = execSync(`gh project view ${projectNumber} --owner ${owner} --format json`, {
+    const { stdout: projViewJson } = await execAsync(`gh project view ${projectNumber} --owner ${owner} --format json`, {
       encoding: 'utf8',
       timeout: 15000
     });
@@ -94,7 +97,7 @@ async function syncSingleBoard(
   // 2. Fetch Project Items
   const remoteItems: GitHubProjectItem[] = [];
   try {
-    const itemsJson = execSync(`gh project item-list ${projectNumber} --owner ${owner} --format json --limit 100`, {
+    const { stdout: itemsJson } = await execAsync(`gh project item-list ${projectNumber} --owner ${owner} --format json --limit 100`, {
       encoding: 'utf8',
       timeout: 15000
     });
@@ -126,7 +129,7 @@ async function syncSingleBoard(
   if (projectId && statusField && statusField.options) {
     const statusOptions = statusField.options;
 
-    for (const task of localTasks) {
+    const updatePromises = localTasks.map(async (task) => {
       const match = remoteItems.find(
         (r) => r.title && r.title.toLowerCase().trim() === task.title.toLowerCase().trim()
       );
@@ -149,16 +152,23 @@ async function syncSingleBoard(
 
       if (match && matchedOption && match.status !== matchedOption.name) {
         try {
-          execSync(
+          await execAsync(
             `gh project item-edit --project-id "${projectId}" --id "${match.id}" --field-id "${statusField.id}" --single-select-option-id "${matchedOption.id}"`,
             { encoding: 'utf8', timeout: 10000 }
           );
-          updatedCount++;
+          return { updated: true, error: false };
         } catch (err) {
           console.warn(`Failed to update status for "${task.title}":`, err);
-          errorCount++;
+          return { updated: false, error: true };
         }
       }
+      return { updated: false, error: false };
+    });
+
+    const results = await Promise.all(updatePromises);
+    for (const res of results) {
+      if (res.updated) updatedCount++;
+      if (res.error) errorCount++;
     }
   }
 
@@ -346,5 +356,6 @@ if (require.main === module) {
 export = Object.assign(syncGitHubKanban, {
   normalizeLaneName,
   parsePriorityTag,
-  extractLocalKanbanTasks
+  extractLocalKanbanTasks,
+  syncSingleBoard
 });
