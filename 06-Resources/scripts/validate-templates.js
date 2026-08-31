@@ -1,131 +1,126 @@
-// Template validation script for tag and properties consistency
-const fs = require('fs');
-const path = require('path');
-
-const workspaceRoot = __dirname;
-const templatesPath = path.resolve(__dirname, '../../99-Templates');
-
-// Expected required properties for each template type
-const expectedProperties = {
-  'project': ['created', 'updated', 'type', 'status', 'priority', 'area', 'tags'],
-  'learning': ['created', 'updated', 'type', 'status', 'area', 'tags'],
-  'snippet': ['created', 'updated', 'type', 'status', 'area', 'tags'],
-  'resource': ['created', 'updated', 'type', 'status', 'area', 'tags'],
-  'concept': ['created', 'updated', 'type', 'status', 'area', 'tags'],
-  'daily': ['created', 'updated', 'type', 'area', 'tags'],
-  'personal': ['created', 'updated', 'type', 'status', 'area', 'tags'],
-  'review': ['created', 'updated', 'type', 'status', 'area', 'tags'],
-  'triage': ['created', 'updated', 'type', 'status', 'area', 'priority', 'tags']
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
 };
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
 
-// Expected tag structure
-const requiredTagNamespaces = ['type', 'area', 'status'];
-
+// 06-Resources/scripts/src/validate-templates.ts
+var fs = __toESM(require("fs"));
+var path = __toESM(require("path"));
+var workspaceRoot = __dirname;
+var templatesPath = path.resolve(__dirname, "../../99-Templates");
+var expectedProperties = {
+  "project": ["created", "updated", "type", "status", "priority", "area", "tags"],
+  "learning": ["created", "updated", "type", "status", "area", "tags"],
+  "snippet": ["created", "updated", "type", "status", "area", "tags"],
+  "resource": ["created", "updated", "type", "status", "area", "tags"],
+  "concept": ["created", "updated", "type", "status", "area", "tags"],
+  "daily": ["created", "updated", "type", "area", "tags"],
+  "personal": ["created", "updated", "type", "status", "area", "tags"],
+  "review": ["created", "updated", "type", "status", "area", "tags"],
+  "triage": ["created", "updated", "type", "status", "area", "priority", "tags"]
+};
+var requiredTagNamespaces = ["type", "area", "status"];
 function validateTemplate(templateName, content) {
-  console.log(`\n🔍 Validating ${templateName}...`);
-  
-  // Extract YAML frontmatter
+  console.log(`
+\u{1F50D} Validating ${templateName}...`);
   const yamlMatch = content.match(/^---\n([\s\S]*?)\n---/);
   if (!yamlMatch) {
-    console.log('❌ Missing YAML frontmatter');
+    console.log("\u274C Missing YAML frontmatter");
     return false;
   }
-  
   const yamlContent = yamlMatch[1];
-  const lines = yamlContent.split('\n');
+  const lines = yamlContent.split("\n");
   const props = {};
   let inTags = false;
   const tags = [];
-  
   for (const line of lines) {
-    if (line.trim() === '') continue;
-    
+    if (line.trim() === "")
+      continue;
     if (inTags) {
-      if (line.trim().startsWith('-')) {
+      if (line.trim().startsWith("-")) {
         const tag = line.trim().substring(1).trim();
         tags.push(tag);
       } else {
         inTags = false;
       }
     }
-    
     if (!inTags) {
       const propMatch = line.match(/^(\w+):\s*(.*)$/);
       if (propMatch) {
         const [_, key, value] = propMatch;
         props[key] = value.trim() || true;
-        if (key === 'tags') {
+        if (key === "tags") {
           inTags = true;
         }
       }
     }
   }
-  
-  // Determine template type
-  const type = props.type || 'unknown';
+  const type = props.type || "unknown";
   const expected = expectedProperties[type] || [];
-  
-  // Check required properties
   let isValid = true;
   for (const prop of expected) {
     if (!props[prop]) {
-      console.log(`❌ Missing property: ${prop}`);
+      console.log(`\u274C Missing property: ${prop}`);
       isValid = false;
     }
   }
-  
-  // Check tag structure
-  const tagNamespaces = new Set();
+  const tagNamespaces = /* @__PURE__ */ new Set();
   for (const tag of tags) {
-    const namespace = tag.split('/')[0];
+    const namespace = tag.split("/")[0];
     tagNamespaces.add(namespace);
   }
-  
   for (const namespace of requiredTagNamespaces) {
     if (!tagNamespaces.has(namespace)) {
-      console.log(`⚠️ Missing ${namespace}/* tag`);
+      console.log(`\u26A0\uFE0F Missing ${namespace}/* tag`);
     }
   }
-  
-  // Check for dynamic date placeholders
   if (!content.includes('<% tp.date.now("YYYY-MM-DD") %>')) {
-    console.log('⚠️ Missing dynamic date template');
+    console.log("\u26A0\uFE0F Missing dynamic date template");
   }
-  
   if (isValid) {
-    console.log(`✅ ${templateName} passes validation`);
+    console.log(`\u2705 ${templateName} passes validation`);
   }
-  
   return isValid;
 }
-
 function validateAllTemplates() {
-  console.log('📋 Template Validation Report');
-  console.log('=' .repeat(40));
-  
+  console.log("\u{1F4CB} Template Validation Report");
+  console.log("=".repeat(40));
   try {
     const files = fs.readdirSync(templatesPath);
     let allValid = true;
-    
     for (const file of files) {
-      if (file.endsWith('.md')) {
-        const content = fs.readFileSync(path.join(templatesPath, file), 'utf8');
+      if (file.endsWith(".md")) {
+        const content = fs.readFileSync(path.join(templatesPath, file), "utf8");
         const isValid = validateTemplate(file, content);
         allValid = allValid && isValid;
       }
     }
-    
-    console.log('\n' + '=' .repeat(40));
+    console.log("\n" + "=".repeat(40));
     if (allValid) {
-      console.log('🎉 All templates are properly structured!');
+      console.log("\u{1F389} All templates are properly structured!");
     } else {
-      console.log('⚠️ Some templates need attention');
+      console.log("\u26A0\uFE0F Some templates need attention");
     }
-    
   } catch (error) {
-    console.error('❌ Error reading templates:', error.message);
+    console.error("\u274C Error reading templates:", error.message);
   }
 }
-
-// Run validation
 validateAllTemplates();

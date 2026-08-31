@@ -28,6 +28,10 @@ $RECYCLE.BIN/
 .tmp.drivedownload/
 *.sync-conflict-*
 
+# Node & Build artifacts
+node_modules/
+.enriched-timestamps.json
+
 # Logs & temp
 *.log
 
