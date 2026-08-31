@@ -1,5 +1,4 @@
 // 06-Resources/scripts/src/ai-enrich-action.ts
-var import_obsidian = require("obsidian");
 var GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"];
 function readFrontmatterValue(content, key) {
   const fm = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
@@ -1140,7 +1139,7 @@ function largestLogGap(entries) {
 }
 module.exports = async function aiEnrichAction(params) {
   const app = params?.app || window.app || globalThis.app;
-  const Notice2 = window.Notice || import_obsidian.Notice;
+  const Notice2 = window.Notice || globalThis.Notice;
   const file = app.workspace.getActiveFile();
   if (!file) {
     new Notice2("\u26A0\uFE0F Please open a note first!");

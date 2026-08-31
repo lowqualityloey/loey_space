@@ -5,13 +5,17 @@
  * (### 📅 YYYY-MM-DD) and appends an inline time badge (`hh:mm AM/PM`) beside each bullet.
  */
 
-import { App, TFile, Notice as ObsidianNotice } from 'obsidian';
+import type { App, TFile } from 'obsidian';
 import type { QuickAddParams } from './types';
 
-export = async function quickCaptureAction(params: QuickAddParams): Promise<void> {
+function isTFile(file: any): file is TFile {
+  return Boolean(file && typeof file === 'object' && 'extension' in file && 'path' in file);
+}
+
+export = async function quickCaptureAction(params?: QuickAddParams): Promise<void> {
   const app = params?.app || (window as any).app || (globalThis as any).app;
   const quickAddApi = params?.quickAddApi;
-  const Notice = window.Notice || ObsidianNotice;
+  const Notice = (window as any).Notice || (globalThis as any).Notice;
 
   try {
     // 1. Prompt user for capture text
@@ -36,7 +40,7 @@ export = async function quickCaptureAction(params: QuickAddParams): Promise<void
       dumpFile = await app.vault.create(dumpPath, initialContent);
     }
 
-    if (!(dumpFile instanceof TFile)) {
+    if (!isTFile(dumpFile)) {
       new Notice('❌ Could not access quick capture dump file.', 4000);
       return;
     }

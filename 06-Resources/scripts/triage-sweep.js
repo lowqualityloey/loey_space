@@ -1,8 +1,10 @@
 // 06-Resources/scripts/src/triage-sweep.ts
-var import_obsidian = require("obsidian");
+function isTFile(file) {
+  return Boolean(file && typeof file === "object" && "extension" in file && "path" in file);
+}
 module.exports = async function triageSweep(params) {
   const app = params?.app || window.app || globalThis.app;
-  const Notice = window.Notice || import_obsidian.Notice;
+  const Notice = window.Notice || globalThis.Notice;
   if (!app) {
     console.error("Triage Sweep: no app instance available.");
     return;
@@ -177,7 +179,7 @@ module.exports = async function triageSweep(params) {
     return { content: lines.join("\n"), ok: true };
   }
   const dumpFile = app.vault.getAbstractFileByPath(DUMP_PATH);
-  if (!dumpFile || !(dumpFile instanceof import_obsidian.TFile)) {
+  if (!dumpFile || !isTFile(dumpFile)) {
     new Notice(`\u26A0\uFE0F Triage Sweep: ${DUMP_PATH} not found.`);
     return;
   }
@@ -234,7 +236,7 @@ module.exports = async function triageSweep(params) {
       if (route.kind === "task") {
         const dailyPath = `01-Daily/${todayStr}.md`;
         const dailyFile = app.vault.getAbstractFileByPath(dailyPath);
-        if (!dailyFile || !(dailyFile instanceof import_obsidian.TFile)) {
+        if (!dailyFile || !isTFile(dailyFile)) {
           results.push({ item, ok: false, reason: `no daily note for ${todayStr}` });
           continue;
         }

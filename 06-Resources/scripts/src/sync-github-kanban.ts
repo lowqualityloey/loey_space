@@ -11,8 +11,12 @@
  */
 
 import { execSync } from 'child_process';
-import { App, TFile, Notice as ObsidianNotice } from 'obsidian';
+import type { App, TFile } from 'obsidian';
 import type { QuickAddParams, KanbanItem } from './types';
+
+function isTFile(file: any): file is TFile {
+  return Boolean(file && typeof file === 'object' && 'extension' in file && 'path' in file);
+}
 
 interface ProjectFieldOption {
   id: string;
@@ -42,7 +46,7 @@ interface LocalTaskItem {
 
 export = async function syncGitHubKanban(params?: QuickAddParams): Promise<void> {
   const app = params?.app || (window as any).app || (globalThis as any).app;
-  const Notice = window.Notice || ObsidianNotice;
+  const Notice = (window as any).Notice || (globalThis as any).Notice;
 
   try {
     let activeFile = app.workspace.getActiveFile();
@@ -62,7 +66,7 @@ export = async function syncGitHubKanban(params?: QuickAddParams): Promise<void>
     if (!projectNumber) {
       const defaultPath = '02-Projects/weather-dashboard/Weather Dashboard Kanban.md';
       const abstractDefault = app.vault.getAbstractFileByPath(defaultPath);
-      if (abstractDefault && abstractDefault instanceof TFile) {
+      if (abstractDefault && isTFile(abstractDefault)) {
         targetFile = abstractDefault;
         const cache = app.metadataCache.getFileCache(targetFile);
         projectNumber = Number(cache?.frontmatter?.github_project_number) || 2;
@@ -74,7 +78,7 @@ export = async function syncGitHubKanban(params?: QuickAddParams): Promise<void>
       }
     }
 
-    if (!targetFile || !(targetFile instanceof TFile)) {
+    if (!targetFile || !isTFile(targetFile)) {
       new Notice('❌ Please open a Kanban note to sync!', 4000);
       return;
     }

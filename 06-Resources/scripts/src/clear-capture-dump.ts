@@ -6,18 +6,22 @@
  * quick-capture-dump.md to a clean state.
  */
 
-import { App, TFile, Notice as ObsidianNotice } from 'obsidian';
+import type { App, TFile } from 'obsidian';
 import type { QuickAddParams } from './types';
+
+function isTFile(file: any): file is TFile {
+  return Boolean(file && typeof file === 'object' && 'extension' in file && 'path' in file);
+}
 
 export = async function clearCaptureDump(params?: QuickAddParams): Promise<void> {
   const app = params?.app || (window as any).app || (globalThis as any).app;
-  const Notice = window.Notice || ObsidianNotice;
+  const Notice = (window as any).Notice || (globalThis as any).Notice;
 
   try {
     const dumpPath = '00-Inbox/quick-capture-dump.md';
     const dumpFile = app.vault.getAbstractFileByPath(dumpPath);
 
-    if (!dumpFile || !(dumpFile instanceof TFile)) {
+    if (!dumpFile || !isTFile(dumpFile)) {
       new Notice('❌ Quick Capture Dump file not found!', 4000);
       return;
     }
@@ -51,7 +55,7 @@ export = async function clearCaptureDump(params?: QuickAddParams): Promise<void>
     const textToArchive = content.replace(/# Quick Capture Dump\s*\n?/, '').trim();
 
     let archiveFile = app.vault.getAbstractFileByPath(archiveFilePath);
-    if (archiveFile && archiveFile instanceof TFile) {
+    if (archiveFile && isTFile(archiveFile)) {
       const existingArchive = await app.vault.read(archiveFile);
       await app.vault.modify(archiveFile, existingArchive + archiveHeader + textToArchive + '\n');
     } else {
