@@ -6,10 +6,10 @@
     "lockHomepage": true,
     "language": "en",
     "themePreset": "petal",
-    "accentColor": "#f5c2e7",
-    "profileName": "My Homepage",
-    "profileSignature": "",
-    "obsidianStartDate": "",
+    "accentColor": "#89fbd9",
+    "profileName": "loey_space",
+    "profileSignature": "Semantic Second Brain Dashboard",
+    "obsidianStartDate": "2026-08-08",
     "techTreeAreaRoot": "/",
     "techTreeActiveProjectRoot": "/"
   },
@@ -320,7 +320,14 @@
         "title": "habits"
       },
       "state": {
-        "habits": [],
+        "habits": [
+          "water",
+          "prioritise",
+          "move",
+          "read",
+          "tidy",
+          "disconnect"
+        ],
         "completions": {}
       }
     },
@@ -357,12 +364,11 @@
       "config": {
         "title": "open tasks",
         "projectFolders": [
-          "/"
+          "01-Daily",
+          "02-Projects"
         ],
         "projectTags": [],
-        "projectNamePrefixes": [
-          "Project_"
-        ],
+        "projectNamePrefixes": [],
         "limit": 12
       },
       "state": {}
@@ -409,12 +415,12 @@
       "config": {
         "title": "projects",
         "projectFolders": [
-          "/"
+          "02-Projects"
         ],
-        "projectTags": [],
-        "projectNamePrefixes": [
-          "Project_"
+        "projectTags": [
+          "type/project"
         ],
+        "projectNamePrefixes": [],
         "limit": 10
       },
       "state": {}
@@ -435,14 +441,34 @@
         "secondaryItems": [],
         "items": [
           {
+            "label": "capture",
+            "type": "command",
+            "value": "quickadd:choice:e4f0a1b2-1111-4000-8000-000000000001"
+          },
+          {
             "label": "daily",
             "type": "daily-note",
             "value": ""
           },
           {
-            "label": "search",
+            "label": "project",
             "type": "command",
-            "value": "global-search:open"
+            "value": "quickadd:choice:e4f0a1b2-2222-4000-8000-000000000002"
+          },
+          {
+            "label": "snippet",
+            "type": "command",
+            "value": "quickadd:choice:e4f0a1b2-6666-4000-8000-000000000006"
+          },
+          {
+            "label": "learning",
+            "type": "command",
+            "value": "quickadd:choice:e4f0a1b2-3333-4000-8000-000000000003"
+          },
+          {
+            "label": "personal",
+            "type": "command",
+            "value": "quickadd:choice:e4f0a1b2-7777-4000-8000-000000000007"
           }
         ]
       },
