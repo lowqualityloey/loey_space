@@ -11,12 +11,13 @@ When the user starts a prompt with **`"hey loey"`** (case-insensitive), identify
 
 | Command | Action & Workflow |
 | :--- | :--- |
-| **`hey loey status`** (or just `hey loey`) | **Instant Pulse Check**: Count open items in [`00-Inbox/quick-capture-dump.md`](file:///c:/Users/jonel/Documents/loey_space/00-Inbox/quick-capture-dump.md), check today's daily note completion (`mood`, `energy`, habits), and list active `[/]` project tasks. |
+| **`hey loey status`** (or just `hey loey`) | **Instant Pulse Check**: Count open items in [`00-Inbox/quick-capture-dump.md`](file:///c:/Users/jonel/Documents/loey_space/00-Inbox/quick-capture-dump.md), check today's daily note completion (`mood`, `energy`, habits), check recent GitHub pushes/PRs, and list active `[/]` project tasks. |
 | **`hey loey morning`** | **Morning Kick-off**: Verify/create today's note (`01-Daily/YYYY-MM/YYYY-MM-DD.md`), surface up to 3 high-priority `[ ]` tasks from active Kanban boards (e.g. `shelf`), and set today's focus. |
-| **`hey loey evening`** | **Evening Wind-down**: Walk through habit checks, append quick reflection bullets to `## 📝 Daily Log`, and format the note for AI Daily Enrichment (`Ctrl+Shift+A`). |
+| **`hey loey evening`** | **Evening Wind-down**: Run `npm run log-github` (pull today's commits/PRs with 12h `hh:mm A` timestamps into `## 📝 Daily Log`), walk through habit checks, append personal reflection bullets, and run AI Daily Enrichment (`Ctrl+Shift+A`). |
+| **`hey loey activity`** / **`github`** | **GitHub Activity Sync**: Fetch today's GitHub commits, PRs, and issues for `lowqualityloey` and non-destructively merge them into `## 📝 Daily Log` in today's daily note (`npm run log-github`). |
 | **`hey loey sweep`** | **Inbox Triage**: Inspect [`quick-capture-dump.md`](file:///c:/Users/jonel/Documents/loey_space/00-Inbox/quick-capture-dump.md), auto-tag untagged lines (`#do`, `#dev`, `#concept`, `#learn`, `#ref`, `#personal`, `#project`, `#bin`), and run or simulate [`triage-sweep.js`](file:///c:/Users/jonel/Documents/loey_space/06-Resources/scripts/triage-sweep.js). |
 | **`hey loey distill`** | **Knowledge Distillation**: Read recent daily notes or dev logs, extract atomic mental models or principles, create new notes in [`08-Concepts/`](file:///c:/Users/jonel/Documents/loey_space/08-Concepts/_Concepts%20MOC.md) (`type: concept`, `review_cycle: 90d`), and link backreferences. |
-| **`hey loey weekly`** | **Weekly Review**: Review 7-day habit completion, project milestones, and generate the weekly retrospective note in [`07-Reviews/`](file:///c:/Users/jonel/Documents/loey_space/07-Reviews/_Reviews%20MOC.md). |
+| **`hey loey weekly`** | **Weekly Review**: Review 7-day habit completion, project milestones & GitHub achievements, and generate the weekly retrospective note in [`07-Reviews/`](file:///c:/Users/jonel/Documents/loey_space/07-Reviews/_Reviews%20MOC.md). |
 | **`hey loey health`** / **`audit`** | **Vault Hygiene**: Validate templates against [`Tagging & Properties.md`](file:///c:/Users/jonel/Documents/loey_space/06-Resources/Tagging%20&%20Properties.md), check for broken wikilinks, and verify no secrets exist in tracked files. |
 | **`hey loey remind`** | **Proactive Reminders & Scheduling**: Set one-shot timers or recurring cron reminders for daily routines, project checks, or retrospectives via the scheduler tool. |
 

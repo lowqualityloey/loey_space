@@ -1,6 +1,26 @@
 {
   "choices": [
     {
+      "id": "e4f0a1b2-ghact-4000-8000-000000000600",
+      "name": "🐙 Sync GitHub Activity to Daily Log",
+      "type": "Macro",
+      "command": true,
+      "macroId": "e4f0a1b2-ghact-4000-8000-000000000022",
+      "macro": {
+        "id": "e4f0a1b2-ghact-4000-8000-000000000022",
+        "name": "🐙 Sync GitHub Activity to Daily Log",
+        "commands": [
+          {
+            "name": "Run Sync GitHub Activity UserScript",
+            "type": "UserScript",
+            "id": "e4f0a1b2-ghact-4000-8000-000000000033",
+            "path": "06-Resources/scripts/sync-github-activity.js",
+            "settings": {}
+          }
+        ]
+      }
+    },
+    {
       "id": "e4f0a1b2-stk0-4000-8000-000000000500",
       "name": "🚀 Start Work on Kanban Task",
       "type": "Macro",
@@ -673,6 +693,19 @@
           "type": "UserScript",
           "id": "e4f0a1b2-stk0-4000-8000-000000000033",
           "path": "06-Resources/scripts/start-task-action.js",
+          "settings": {}
+        }
+      ]
+    },
+    {
+      "id": "e4f0a1b2-ghact-4000-8000-000000000022",
+      "name": "🐙 Sync GitHub Activity to Daily Log",
+      "commands": [
+        {
+          "name": "Run Sync GitHub Activity UserScript",
+          "type": "UserScript",
+          "id": "e4f0a1b2-ghact-4000-8000-000000000033",
+          "path": "06-Resources/scripts/sync-github-activity.js",
           "settings": {}
         }
       ]

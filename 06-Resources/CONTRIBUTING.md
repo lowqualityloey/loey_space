@@ -49,10 +49,13 @@ npm run distill -- "path/to/note.md"
 # 6. Start work on Kanban card & create GitHub issue + branch
 npm run start-task -- <project-name> "<task-title>"
 
-# 7. Sync GitHub Projects v2 Kanban boards (multi-project)
+# 7. Sync today's GitHub commits/PRs into Daily Log (12h AM/PM)
+npm run log-github
+
+# 8. Sync GitHub Projects v2 Kanban boards (multi-project)
 npm run sync-kanban
 
-# 8. Validate vault templates against schema
+# 9. Validate vault templates against schema
 npm run validate-templates
 ```
 
