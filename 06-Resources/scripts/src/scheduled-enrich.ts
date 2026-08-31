@@ -63,7 +63,7 @@ async function shouldEnrich(file: string): Promise<boolean> {
 
 async function markEnriched(file: string): Promise<void> {
   enrichedTimestamps[file] = Date.now();
-  fs.writeFileSync(ENRICHED_NOTES_FILE, JSON.stringify(enrichedTimestamps, null, 2));
+  await fs.promises.writeFile(ENRICHED_NOTES_FILE, JSON.stringify(enrichedTimestamps, null, 2));
 }
 
 async function processBatch(notes: string[], batchSize: number = 5): Promise<void> {
