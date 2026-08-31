@@ -5,9 +5,10 @@ import type { App, TFile } from 'obsidian';
 import type { QuickAddParams } from './types';
 import {
   GitHubEventItem,
-  formatGitHubEvent,
+  ActivityTableRow,
+  formatGitHubEventToRow,
   formatDateKey,
-  mergeDailyLog
+  mergeDailyLogTable
 } from './lib/github-events';
 
 function isTFile(file: any): file is TFile {
@@ -56,7 +57,6 @@ async function syncGithubActivityAction(params?: QuickAddParams): Promise<void> 
   let targetFile: TFile | null = app.workspace.getActiveFile();
   const todayDateKey = formatDateKey(new Date());
 
-  // If active file is not a daily note, target today's daily note
   if (!targetFile || !targetFile.path.startsWith('01-Daily/') || targetFile.basename.startsWith('_')) {
     const todayPath = `01-Daily/${todayDateKey.slice(0, 7)}/${todayDateKey}.md`;
     const abstractFile = app.vault.getAbstractFileByPath(todayPath);
@@ -70,7 +70,7 @@ async function syncGithubActivityAction(params?: QuickAddParams): Promise<void> 
     return;
   }
 
-  const noteDateKey = targetFile.basename; // e.g. "2026-08-31"
+  const noteDateKey = targetFile.basename;
   if (Notice) new Notice('🐙 Fetching GitHub activity...', 3000);
 
   const events = fetchUserEvents('lowqualityloey');
@@ -79,28 +79,24 @@ async function syncGithubActivityAction(params?: QuickAddParams): Promise<void> 
     return;
   }
 
-  const matchingBullets: string[] = [];
+  const rows: ActivityTableRow[] = [];
   for (const ev of events) {
-    const formatted = formatGitHubEvent(ev);
-    if (formatted && formatted.dateKey === noteDateKey) {
-      matchingBullets.push(formatted.markdown);
+    const r = formatGitHubEventToRow(ev);
+    if (r && r.dateKey === noteDateKey) {
+      rows.push(r);
     }
   }
 
-  if (matchingBullets.length === 0) {
+  if (rows.length === 0) {
     if (Notice) new Notice(`ℹ️ No GitHub events found for ${noteDateKey}.`, 4000);
     return;
   }
 
   const content = await app.vault.read(targetFile);
-  const { updatedContent, addedCount } = mergeDailyLog(content, matchingBullets.reverse()); // chronological order
+  const { updatedContent, count } = mergeDailyLogTable(content, rows);
 
-  if (addedCount > 0) {
-    await app.vault.modify(targetFile, updatedContent);
-    if (Notice) new Notice(`🎉 Synced ${addedCount} GitHub event(s) to ${targetFile.basename}!`, 5000);
-  } else {
-    if (Notice) new Notice(`ℹ️ All GitHub events for ${noteDateKey} are already in Daily Log.`, 4000);
-  }
+  await app.vault.modify(targetFile, updatedContent);
+  if (Notice) new Notice(`🎉 Synced ${count} GitHub event(s) into table callout for ${targetFile.basename}!`, 5000);
 }
 
 function runCli() {
@@ -108,7 +104,7 @@ function runCli() {
   const args = process.argv.slice(2);
   const targetDateKey = args[0] || formatDateKey(new Date());
 
-  console.log('🐙 Sync GitHub Activity to Daily Log (CLI Mode)...');
+  console.log('🐙 Sync GitHub Activity to Daily Log (Table Callout Mode)...');
   console.log(`📂 Vault Root: ${vaultRoot}`);
   console.log(`📅 Target Date: ${targetDateKey}\n`);
 
@@ -123,31 +119,27 @@ function runCli() {
   console.log(`🔍 Fetching GitHub events for lowqualityloey...`);
   const events = fetchUserEvents('lowqualityloey');
 
-  const matchingBullets: string[] = [];
+  const rows: ActivityTableRow[] = [];
   for (const ev of events) {
-    const formatted = formatGitHubEvent(ev);
-    if (formatted && formatted.dateKey === targetDateKey) {
-      matchingBullets.push(formatted.markdown);
+    const r = formatGitHubEventToRow(ev);
+    if (r && r.dateKey === targetDateKey) {
+      rows.push(r);
     }
   }
 
-  if (matchingBullets.length === 0) {
+  if (rows.length === 0) {
     console.log(`ℹ️ No GitHub activity found for date ${targetDateKey}.`);
     return;
   }
 
-  console.log(`📋 Found ${matchingBullets.length} activity item(s):`);
-  matchingBullets.forEach((b) => console.log(`  ${b}`));
+  console.log(`📋 Found ${rows.length} activity item(s) for table callout:`);
+  rows.slice(0, 5).forEach((r) => console.log(`  | ${r.time} | ${r.repo} | ${r.type} | ${r.details.slice(0, 40)}... |`));
 
   const content = fs.readFileSync(dailyPath, 'utf8');
-  const { updatedContent, addedCount } = mergeDailyLog(content, matchingBullets.reverse());
+  const { updatedContent, count } = mergeDailyLogTable(content, rows);
 
-  if (addedCount > 0) {
-    fs.writeFileSync(dailyPath, updatedContent, 'utf8');
-    console.log(`\n🎉 Successfully added ${addedCount} new event(s) to ${dailyPath}!`);
-  } else {
-    console.log(`\nℹ️ All events for ${targetDateKey} are already logged in the note.`);
-  }
+  fs.writeFileSync(dailyPath, updatedContent, 'utf8');
+  console.log(`\n🎉 Successfully formatted ${count} event(s) into collapsible table callout in ${dailyPath}!`);
 }
 
 if (require.main === module) {
