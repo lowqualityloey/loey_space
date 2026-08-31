@@ -358,3 +358,26 @@ progress::-moz-progress-bar,
   border-radius: 9999px !important;
 }
 
+/* ==========================================================================
+   🗂️ FILE EXPLORER: ACTIVE SELECTED NAVIGATION MATCHES HOVER STYLE
+   ========================================================================== */
+
+.nav-file-title.is-active,
+.nav-folder-title.is-active,
+.nav-file.is-active > .nav-file-title,
+.nav-folder.is-active > .nav-folder-title,
+.tree-item-self.is-active {
+  background: var(--background-modifier-border, rgba(14, 210, 247, 0.08)) !important;
+  border: 1px solid var(--interactive-accent-hover, #0ed2f7) !important;
+  color: var(--text-accent, #0ed2f7) !important;
+}
+
+.nav-file-title.is-active .nav-file-title-content,
+.nav-folder-title.is-active .nav-folder-title-content,
+.nav-file.is-active > .nav-file-title .nav-file-title-content,
+.nav-folder.is-active > .nav-folder-title .nav-folder-title-content,
+.tree-item-self.is-active .tree-item-inner {
+  color: var(--text-accent, #0ed2f7) !important;
+}
+
+

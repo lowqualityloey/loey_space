@@ -297,10 +297,21 @@ a.tag[href*='#想法'] {
 }
 
 .nav-file-title.is-active,
-.nav-folder-title.is-active {
-  background: var(--background-secondary);
-  border: 1px solid var(--bg-accent-25);
-  color: var(--text-accent);
+.nav-folder-title.is-active,
+.nav-file.is-active > .nav-file-title,
+.nav-folder.is-active > .nav-folder-title,
+.tree-item-self.is-active {
+  background: var(--background-modifier-border) !important;
+  border: 1px solid var(--interactive-accent-hover) !important;
+  color: var(--text-accent) !important;
+}
+
+.nav-file-title.is-active .nav-file-title-content,
+.nav-folder-title.is-active .nav-folder-title-content,
+.nav-file.is-active > .nav-file-title .nav-file-title-content,
+.nav-folder.is-active > .nav-folder-title .nav-folder-title-content,
+.tree-item-self.is-active .tree-item-inner {
+  color: var(--text-accent) !important;
 }
 
 body:not(.is-grabbing) .nav-file-title:hover,
