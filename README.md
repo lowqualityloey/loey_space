@@ -509,12 +509,14 @@ Placeholders such as `your_google_gemini_api_key_here` are allowed, so `.env.exa
 *(See comprehensive operational specs in [Second Brain Guide](06-Resources/Second%20Brain%20Guide.md))*
 
 #### ⚙️ Technical Maintenance
+* **Script Development & Tooling** — User scripts are authored in TypeScript under [`06-Resources/scripts/src/`](06-Resources/scripts/src/) and compiled to CommonJS bundles via `npm run build` (`esbuild`) into [`06-Resources/scripts/`](06-Resources/scripts/). Run `npm run typecheck` for strict type checking and `npm run validate-templates` to verify template schema conformity.
 * **Updating plugins** — safe for store plugins (Dataview, Templater, QuickAdd, Kanban, Calendar, Activity History). Never for `homepulse` or `kanban-status-sync`, which are local builds with no store equivalent.
 * **Restyling the dashboard** — HomePulse's own `styles.css` is regenerated on rebuild, so put overrides in `.obsidian/snippets/` instead. That's what `homepulse-mobile.css` and `dashboard-cards.css` do.
 
 ---
 
 ## 🤝 Contributing
+
 
 The **system** is open to contributions; the **journal** isn't. PRs are welcome for the Kanban Status Sync plugin, the automation scripts, CSS snippets, the pre-commit hook, templates and docs. The numbered content folders are personal notes and are closed to PRs — though issues are welcome about anything.
 

@@ -9,7 +9,7 @@ This repository is two things in one: a **reusable Obsidian system** (plugins, s
 | Area | What's useful |
 | :--- | :--- |
 | [`.obsidian/plugins/kanban-status-sync/`](.obsidian/plugins/kanban-status-sync/) | Bug fixes, lane-mapping options, tests. Self-contained, ~500 lines, no build step — the best entry point. |
-| [`06-Resources/scripts/`](06-Resources/scripts/) | AI enricher, triage sweep, weekly summary, GitHub Kanban sync. Especially: making hard-coded headings and folder names configurable. |
+| [`06-Resources/scripts/src/`](06-Resources/scripts/src/) | AI enricher, triage sweep, weekly summary, GitHub Kanban sync (TypeScript source). Compiled via `npm run build`. |
 | [`.obsidian/snippets/`](.obsidian/snippets/) | Theme and responsiveness fixes, particularly mobile. |
 | [`.githooks/`](.githooks/) | Additional credential patterns, fewer false positives. |
 | [`99-Templates/`](99-Templates/) | Template improvements that don't assume my personal habits. |
@@ -25,6 +25,21 @@ This repository is two things in one: a **reusable Obsidian system** (plugins, s
 **Issues are welcome for anything**, including the closed areas — a bug report about the dashboard is useful even when the fix has to happen elsewhere.
 
 ---
+
+## 🛠️ Script Development & Verification
+
+Vault user scripts are authored in TypeScript under [`06-Resources/scripts/src/`](06-Resources/scripts/src/) and bundled to CommonJS in [`06-Resources/scripts/`](06-Resources/scripts/) for Obsidian QuickAdd compatibility:
+
+```bash
+# 1. Typecheck TypeScript source
+npm run typecheck
+
+# 2. Build single-file CommonJS bundles via esbuild
+npm run build
+
+# 3. Validate vault templates against schema
+npm run validate-templates
+```
 
 ## 🧪 How to test without a vault
 
@@ -68,9 +83,10 @@ Please include the check you ran in the PR description. Node's built-in `assert`
 ## 📝 Pull requests
 
 1. **One concern per PR.** A lane-mapping fix and a CSS tweak are two PRs.
-2. **Match the surrounding style** — no bundler, no TypeScript, no dependencies. Plain CommonJS, 2-space indent, comments that explain *why*.
+2. **Match the surrounding style** — TypeScript in `06-Resources/scripts/src/` (always run `npm run typecheck` and `npm run build`); plain CommonJS/CSS with no external runtime dependencies for standalone plugins and snippets.
 3. **Say what you verified**, and what you couldn't. "Tested on desktop, not mobile" is genuinely useful.
 4. **Never commit** `.env`, real API keys, or personal notes. Activate the guard first:
+
 
    ```bash
    git config core.hooksPath .githooks
