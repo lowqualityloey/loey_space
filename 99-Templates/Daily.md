@@ -156,11 +156,11 @@ else dv.paragraph("No project tasks in progress.");
 ### 🔁 Habits
 > _Daily rituals I'm building. Track consistency, not perfection._
 - [ ] water
-- [ ] prioritised
+- [x] prioritised
 - [ ] move
-- [ ] read
-- [ ] tidy
-- [ ] disconnect
+- [x] read
+- [x] tidy
+- [x] disconnect
 
 ## 📝 Daily Log
 > _A running timestamp of what happened today._

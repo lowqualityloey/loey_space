@@ -414,7 +414,11 @@
           "prioritise|2026-08-20": true,
           "disconnect|2026-08-30": true,
           "read|2026-08-30": true,
-          "prioritise|2026-08-30": true
+          "prioritise|2026-08-30": true,
+          "read|2026-08-31": true,
+          "tidy|2026-08-31": true,
+          "disconnect|2026-08-31": true,
+          "prioritise|2026-08-31": true
         }
       }
     },

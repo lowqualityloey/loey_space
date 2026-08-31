@@ -13,5 +13,7 @@
     "homepulse-mobile",
     "kanban-tags"
   ],
-  "baseFontSize": 16
+  "baseFontSize": 15,
+  "nativeMenus": false,
+  "baseFontSizeAction": false
 }
