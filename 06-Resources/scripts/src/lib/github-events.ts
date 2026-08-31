@@ -11,12 +11,19 @@ export interface GitHubEventItem {
 
 export interface ActivityTableRow {
   id: string;
-  time: string;       // e.g. "06:36 PM"
+  time: string;       // e.g. "06:36&nbsp;PM"
   dateKey: string;    // e.g. "2026-08-31"
   repo: string;       // e.g. "`loey_space`"
-  type: string;       // e.g. "🐙 Push (`main`)"
-  details: string;    // e.g. "feat(distill): add concept distiller"
+  type: string;       // e.g. "🐙 Push" or "🔀 PR #4 Merged"
+  details: string;    // e.g. "`ts-migration-assessment` → `main`"
   rawDate: Date;
+}
+
+export function cleanBranchName(raw: string): string {
+  if (!raw) return 'main';
+  const branch = raw.replace(/^refs\/heads\//, '').trim();
+  // Strip trailing long generated timestamp hashes (e.g. -1650511599458480235)
+  return branch.replace(/-\d{10,}$/, '');
 }
 
 export function formatTime12(date: Date): string {
@@ -27,7 +34,7 @@ export function formatTime12(date: Date): string {
   hours = hours ? hours : 12; // 0 becomes 12
   const hoursStr = String(hours).padStart(2, '0');
   const minutesStr = String(minutes).padStart(2, '0');
-  return `${hoursStr}:${minutesStr} ${ampm}`;
+  return `${hoursStr}:${minutesStr}&nbsp;${ampm}`;
 }
 
 export function formatDateKey(date: Date): string {
@@ -52,31 +59,45 @@ export function formatGitHubEventToRow(event: GitHubEventItem): ActivityTableRow
   let details = '';
 
   if (event.type === 'PushEvent') {
-    const branch = (event.payload?.ref || 'main').replace('refs/heads/', '');
-    eventType = `🐙 Push (\`${branch}\`)`;
+    eventType = `🐙 Push`;
+    const branch = cleanBranchName(event.payload?.ref || 'main');
     const commits = event.payload?.commits || [];
+    
     if (commits.length > 0) {
-      details = commits
+      const commitMsg = commits
         .map((c: any) => c.message.split('\n')[0].trim())
         .filter(Boolean)
-        .slice(0, 3)
+        .slice(0, 2)
         .join('; ');
+      details = `\`${branch}\`: ${commitMsg}`;
     } else {
-      details = `Pushed commits to ${branch}`;
+      details = `\`${branch}\``;
     }
   } else if (event.type === 'PullRequestEvent') {
     const action = event.payload?.action;
     const pr = event.payload?.pull_request;
-    const title = pr?.title || 'Pull Request';
     const number = pr?.number || event.payload?.number;
-    if (action === 'closed' && pr?.merged) {
+    const isMerged = action === 'closed' && pr?.merged;
+    
+    if (isMerged) {
       eventType = `🔀 PR #${number} Merged`;
     } else if (action === 'opened') {
       eventType = `🔀 PR #${number} Opened`;
     } else {
       eventType = `🔀 PR #${number} ${action}`;
     }
-    details = title;
+
+    const title = pr?.title;
+    const headBranch = cleanBranchName(pr?.head?.ref);
+    const baseBranch = cleanBranchName(pr?.base?.ref || 'main');
+
+    if (title && title !== 'Pull Request') {
+      details = title;
+    } else if (headBranch && headBranch !== 'main') {
+      details = `\`${headBranch}\` → \`${baseBranch}\``;
+    } else {
+      details = `\`${baseBranch}\``;
+    }
   } else if (event.type === 'IssuesEvent') {
     const action = event.payload?.action;
     const issue = event.payload?.issue;
@@ -86,9 +107,9 @@ export function formatGitHubEventToRow(event: GitHubEventItem): ActivityTableRow
     details = title;
   } else if (event.type === 'CreateEvent') {
     const refType = event.payload?.ref_type;
-    const ref = event.payload?.ref;
+    const ref = cleanBranchName(event.payload?.ref);
     if (refType === 'branch' || refType === 'tag') {
-      eventType = `🌿 Created ${refType}`;
+      eventType = `🌿 New ${refType === 'branch' ? 'Branch' : 'Tag'}`;
       details = `\`${ref}\``;
     } else {
       return null;
@@ -115,7 +136,7 @@ export function formatGitHubEventToRow(event: GitHubEventItem): ActivityTableRow
 export function buildGitHubCalloutTable(rows: ActivityTableRow[]): string {
   if (rows.length === 0) return '';
 
-  const header = `> [!NOTE]- 🐙 GitHub Activity Log (${rows.length} event${rows.length === 1 ? '' : 's'} — click to expand)\n> | Time | Repo | Type | Message / Details |\n> | :--- | :--- | :--- | :--- |`;
+  const header = `> [!NOTE]- 🐙 GitHub Activity Log (${rows.length} event${rows.length === 1 ? '' : 's'} — click to expand)\n> | Time | Repo | Action | Details / Branch |\n> | :--- | :--- | :--- | :--- |`;
   const tableLines = rows.map((r) => `> | ${r.time} | ${r.repo} | ${r.type} | ${r.details} |`);
 
   return `${header}\n${tableLines.join('\n')}`;
@@ -129,7 +150,6 @@ export function mergeDailyLogTable(existingContent: string, rows: ActivityTableR
   const calloutBlock = buildGitHubCalloutTable(rows);
   const calloutRegex = /> \[!NOTE\]-\s*🐙 GitHub Activity Log[\s\S]*?(?=\r?\n\r?\n|\r?\n#{1,6} |\r?\n---[ \t]*\r?\n|(?![\s\S]))/;
 
-  // If a previous GitHub callout table already exists in the file, replace it
   if (calloutRegex.test(existingContent)) {
     return {
       updatedContent: existingContent.replace(calloutRegex, calloutBlock),
@@ -145,7 +165,6 @@ export function mergeDailyLogTable(existingContent: string, rows: ActivityTableR
     return { updatedContent: existingContent + newSection, count: rows.length };
   }
 
-  // Find where to insert callout (before next section like ### 💡 Ideas or ## 🌇 End of the Day)
   let insertIdx = sectionIdx + 1;
   while (insertIdx < lines.length && (lines[insertIdx].trim().startsWith('>') || lines[insertIdx].trim() === '')) {
     insertIdx++;
@@ -160,7 +179,6 @@ export function mergeDailyLogTable(existingContent: string, rows: ActivityTableR
     }
   }
 
-  // Insert callout with clean spacing before the next section
   lines.splice(nextSectionIdx, 0, '', calloutBlock, '');
   return { updatedContent: lines.join('\n'), count: rows.length };
 }

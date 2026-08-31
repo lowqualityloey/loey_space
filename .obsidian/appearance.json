@@ -1,5 +1,5 @@
 {
-  "cssTheme": "Isinglass",
+  "cssTheme": "Things",
   "accentColor": "#4cae8d",
   "theme": "system",
   "translucency": true,
@@ -7,11 +7,10 @@
   "textFontFamily": "Inter, Plus Jakarta Sans, sans-serif",
   "monospaceFontFamily": "JetBrains Mono, monospace",
   "enabledCssSnippets": [
-    "fonts",
-    "dashboard-cards",
     "project-tasks",
+    "kanban-tags",
     "homepulse-mobile",
-    "kanban-tags"
+    "dashboard-cards"
   ],
   "baseFontSize": 15,
   "nativeMenus": false,

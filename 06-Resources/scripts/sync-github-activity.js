@@ -27,6 +27,12 @@ var path = __toESM(require("path"));
 var import_child_process = require("child_process");
 
 // 06-Resources/scripts/src/lib/github-events.ts
+function cleanBranchName(raw) {
+  if (!raw)
+    return "main";
+  const branch = raw.replace(/^refs\/heads\//, "").trim();
+  return branch.replace(/-\d{10,}$/, "");
+}
 function formatTime12(date) {
   let hours = date.getHours();
   const minutes = date.getMinutes();
@@ -35,7 +41,7 @@ function formatTime12(date) {
   hours = hours ? hours : 12;
   const hoursStr = String(hours).padStart(2, "0");
   const minutesStr = String(minutes).padStart(2, "0");
-  return `${hoursStr}:${minutesStr} ${ampm}`;
+  return `${hoursStr}:${minutesStr}&nbsp;${ampm}`;
 }
 function formatDateKey(date) {
   const year = date.getFullYear();
@@ -55,27 +61,37 @@ function formatGitHubEventToRow(event) {
   let eventType = "";
   let details = "";
   if (event.type === "PushEvent") {
-    const branch = (event.payload?.ref || "main").replace("refs/heads/", "");
-    eventType = `\u{1F419} Push (\`${branch}\`)`;
+    eventType = `\u{1F419} Push`;
+    const branch = cleanBranchName(event.payload?.ref || "main");
     const commits = event.payload?.commits || [];
     if (commits.length > 0) {
-      details = commits.map((c) => c.message.split("\n")[0].trim()).filter(Boolean).slice(0, 3).join("; ");
+      const commitMsg = commits.map((c) => c.message.split("\n")[0].trim()).filter(Boolean).slice(0, 2).join("; ");
+      details = `\`${branch}\`: ${commitMsg}`;
     } else {
-      details = `Pushed commits to ${branch}`;
+      details = `\`${branch}\``;
     }
   } else if (event.type === "PullRequestEvent") {
     const action = event.payload?.action;
     const pr = event.payload?.pull_request;
-    const title = pr?.title || "Pull Request";
     const number = pr?.number || event.payload?.number;
-    if (action === "closed" && pr?.merged) {
+    const isMerged = action === "closed" && pr?.merged;
+    if (isMerged) {
       eventType = `\u{1F500} PR #${number} Merged`;
     } else if (action === "opened") {
       eventType = `\u{1F500} PR #${number} Opened`;
     } else {
       eventType = `\u{1F500} PR #${number} ${action}`;
     }
-    details = title;
+    const title = pr?.title;
+    const headBranch = cleanBranchName(pr?.head?.ref);
+    const baseBranch = cleanBranchName(pr?.base?.ref || "main");
+    if (title && title !== "Pull Request") {
+      details = title;
+    } else if (headBranch && headBranch !== "main") {
+      details = `\`${headBranch}\` \u2192 \`${baseBranch}\``;
+    } else {
+      details = `\`${baseBranch}\``;
+    }
   } else if (event.type === "IssuesEvent") {
     const action = event.payload?.action;
     const issue = event.payload?.issue;
@@ -85,9 +101,9 @@ function formatGitHubEventToRow(event) {
     details = title;
   } else if (event.type === "CreateEvent") {
     const refType = event.payload?.ref_type;
-    const ref = event.payload?.ref;
+    const ref = cleanBranchName(event.payload?.ref);
     if (refType === "branch" || refType === "tag") {
-      eventType = `\u{1F33F} Created ${refType}`;
+      eventType = `\u{1F33F} New ${refType === "branch" ? "Branch" : "Tag"}`;
       details = `\`${ref}\``;
     } else {
       return null;
@@ -113,7 +129,7 @@ function buildGitHubCalloutTable(rows) {
   if (rows.length === 0)
     return "";
   const header = `> [!NOTE]- \u{1F419} GitHub Activity Log (${rows.length} event${rows.length === 1 ? "" : "s"} \u2014 click to expand)
-> | Time | Repo | Type | Message / Details |
+> | Time | Repo | Action | Details / Branch |
 > | :--- | :--- | :--- | :--- |`;
   const tableLines = rows.map((r) => `> | ${r.time} | ${r.repo} | ${r.type} | ${r.details} |`);
   return `${header}
