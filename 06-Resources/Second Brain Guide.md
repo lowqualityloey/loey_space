@@ -101,7 +101,9 @@ flowchart TD
 | Sidebar / Hotkey | Choice Name | Type | Folder Target | Naming / Function |
 | :---: | :--- | :---: | :--- | :--- |
 | **`✨` / `Ctrl+Shift+A`** | **AI Enrich Note** | Script Macro | Active Note | Multi-domain AI summary, reflection, code explanation, or concept lore |
-| **`🐙` / `Cmdr Ribbon`** | **Sync GitHub Project Kanban** | Script Macro | Active Kanban | Bi-directional sync with GitHub Projects v2 (`github_project_number`) |
+| **`💡` / QuickAdd** | **Distill Evergreen Concepts** | Script Macro | Active Note | Extracts atomic mental models into `08-Concepts/` with backlinks |
+| **`🚀` / QuickAdd** | **Start Work on Kanban Task** | Script Macro | Active Kanban | Creates GitHub issue in repo, switches git branch, moves card to In Progress |
+| **`🐙` / `Cmdr Ribbon`** | **Sync GitHub Project Kanban** | Script Macro | Active Kanban | Multi-project 2-way sync with GitHub Projects v2 (`github_project_number`) |
 | 📥 | **Quick Capture to Inbox** | Capture | `00-Inbox/` | `quick-capture-dump.md` (Timestamped `### 📅 YYYY-MM-DD HH:mm`) |
 | 🧹 | **Triage Sweep** | Script Macro | `00-Inbox/` → destinations | `triage-sweep.js` (files every tagged capture line in one pass) |
 | 🗃️ | **Archive & Clear Quick Capture Dump** | Script Macro | `00-Inbox/` | `clear-capture-dump.js` (Archives dump to `00-Inbox/Archives/`) |

@@ -85,11 +85,14 @@ Each project gets a board. Card checkboxes follow their lane automatically — `
 | **HomePulse Dashboard** | Custom native plugin with real-time widgets — habits, tasks, pomodoro, focus, projects, tech tree, activity heatmap, all in one view |
 | **2-Way Habit Sync** | Toggle habits in the dashboard and they instantly update in today's daily note (and vice versa) |
 | **Multi-Domain AI Enrichment** | One shortcut (`Ctrl+Shift+A`) analyzes any note — generates summaries for daily notes, explanations for concepts, code breakdowns for dev notes, study quizzes & concept extraction for learning notes |
+| **Automatic Concept Distiller** | Extracts atomic evergreen mental models and principles from articles or dev notes into `08-Concepts/` with 90-day review cycles (`QuickAdd` / `npm run distill`) |
+| **Kanban Issue & Branch Generator** | Converts Kanban cards into real GitHub Issues, switches git branch, and moves cards to In Progress (`QuickAdd` / `npm run start-task`) |
+| **Vault Link & Graph Auditor** | Vault-wide scanner for broken wikilinks, fuzzy match fix suggestions, and orphan note discovery (`npm run audit-links`) |
 | **Weekly AI Summaries** | Automated 7-day analysis of mood, energy, tasks, and habits with actionable recommendations |
 | **Habit Analytics Dashboard** | 30-day rolling metrics, streak tracking, day-of-week patterns, and improvement recommendations |
 | **Smart Task Management** | Tasks live in daily notes and project kanbans, aggregated in real-time via `_Tasks MOC.md` with status indicators (`[ ]`, `[/]`, `[x]`) |
 | **Project Kanban Integration** | Each project gets a visual kanban board; tasks from To Do/In Progress/Review flow into the central task hub (Backlog excluded) |
-| **GitHub Project Sync** | Bi-directional 2-way sync between Obsidian Kanbans and GitHub Projects v2 (`github_project_number`) via QuickAdd & `gh` CLI |
+| **Multi-Project GitHub Sync** | 2-way sync between Obsidian Kanbans and GitHub Projects v2 (`github_project_number`) via QuickAdd picker & CLI (`npm run sync-kanban`) |
 | **Kanban Status Sync** | Drag a card between lanes and its checkbox follows automatically — To Do `[ ]`, In Progress `[/]`, Done `[x]` with a completion date |
 | **Mobile Quick Capture** | 4 mobile-optimized commands for instant capture on the go — process later on desktop |
 | **Inbox Auto-Classification** | Quick captures tagged with type/area/priority suggestions based on content analysis |
@@ -329,7 +332,9 @@ Use QuickAdd ribbon buttons or command palette (`Ctrl + P` -> `QuickAdd: Run...`
 * `📥 Quick Capture to Inbox` — Appends a quick note to the inbox dump (timestamped).
 * `🧹 Archive & Clear Quick Capture Dump` — Archives processed entries to `00-Inbox/Archives/` and resets the dump note.
 * `🚀 Create Project Note` — Scaffolds a new project with folder and kanban.
-* `🔄 Sync GitHub Project Kanban` — Bi-directionally syncs the active project board with GitHub Projects v2 (via left ribbon button `lucide-github` or QuickAdd).
+* `💡 Distill Evergreen Concepts` — Extracts atomic mental models into `08-Concepts/` with backlinks.
+* `🚀 Start Work on Kanban Task` — Converts a card into a GitHub Issue, creates git branch, and moves to In Progress.
+* `🔄 Sync GitHub Project Kanban` — Multi-project 2-way sync with GitHub Projects v2 (`github_project_number`).
 
 ### Multi-Domain AI Enricher (`Ctrl + Shift + A`)
 Position your cursor inside any active note and press `Ctrl + Shift + A` (or run `QuickAdd: AI Enrich Note`):
@@ -508,8 +513,17 @@ Placeholders such as `your_google_gemini_api_key_here` are allowed, so `.env.exa
 
 *(See comprehensive operational specs in [Second Brain Guide](06-Resources/Second%20Brain%20Guide.md))*
 
-#### ⚙️ Technical Maintenance
-* **Script Development & Tooling** — User scripts are authored in TypeScript under [`06-Resources/scripts/src/`](06-Resources/scripts/src/) and compiled to CommonJS bundles via `npm run build` (`esbuild`) into [`06-Resources/scripts/`](06-Resources/scripts/). Run `npm run typecheck` for strict type checking and `npm run validate-templates` to verify template schema conformity.
+#### ⚙️ Technical Maintenance & CLI Tooling
+* **TypeScript & Bundling Engine** — User scripts are authored in TypeScript under [`06-Resources/scripts/src/`](06-Resources/scripts/src/) (modularized under `src/lib/`) and bundled into single-file CommonJS via `npm run build` (`esbuild`) for seamless Obsidian QuickAdd & Node CLI compatibility.
+* **Automated CLI Commands**:
+  - `npm run typecheck` — Strict TypeScript typecheck across all scripts.
+  - `npm run build` — Bundles all 11 user scripts in under 50ms.
+  - `npm test` — Runs automated Node test suite (18 unit tests).
+  - `npm run audit-links` — Scans vault for broken wikilinks, fuzzy fix suggestions, and orphan notes.
+  - `npm run distill -- <file>` — Distills atomic evergreen concepts into `08-Concepts/`.
+  - `npm run start-task -- <proj> <title>` — Converts a Kanban card to a GitHub Issue and creates a Git branch.
+  - `npm run sync-kanban` — Multi-project 2-way sync with GitHub Projects v2.
+  - `npm run validate-templates` — Validates all 19 vault templates against schema rules.
 * **Updating plugins** — safe for store plugins (Dataview, Templater, QuickAdd, Kanban, Calendar, Activity History). Never for `homepulse` or `kanban-status-sync`, which are local builds with no store equivalent.
 * **Restyling the dashboard** — HomePulse's own `styles.css` is regenerated on rebuild, so put overrides in `.obsidian/snippets/` instead. That's what `homepulse-mobile.css` and `dashboard-cards.css` do.
 
