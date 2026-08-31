@@ -66,6 +66,71 @@ function largestLogGap(entries: any[]): { from: string; to: string; hours: numbe
   return { from: widest.from, to: widest.to, hours: Math.round(widest.span / 60) };
 }
 
+// Groups GitHub activity by repository for executive summary
+function extractGitHubSummary(dailyLog: string[]): string {
+  const repoActivity: Record<string, { pushes: number; prs: number; issues: number; highlights: string[] }> = {};
+
+  for (const entry of dailyLog) {
+    const pushMatch = entry.match(/🐙\s*\*\*Push\*\*\s*\(`([^`]+)`\s*→\s*`([^`]+)`\)(?::\s*(.*))?/i);
+    const prMatch = entry.match(/🔀\s*\*\*PR\s*([^*]+)\*\*\s*\(`([^`]+)`(?:\s*#(\d+))?\)(?::\s*(.*))?/i);
+    const issueMatch = entry.match(/🎯\s*\*\*Issue\s*([^*]+)\*\*\s*\(`([^`]+)`(?:\s*#(\d+))?\)(?::\s*(.*))?/i);
+
+    if (pushMatch) {
+      const repo = pushMatch[1];
+      if (!repoActivity[repo]) repoActivity[repo] = { pushes: 0, prs: 0, issues: 0, highlights: [] };
+      repoActivity[repo].pushes++;
+      if (pushMatch[3]) repoActivity[repo].highlights.push(pushMatch[3]);
+    } else if (prMatch) {
+      const repo = prMatch[2];
+      if (!repoActivity[repo]) repoActivity[repo] = { pushes: 0, prs: 0, issues: 0, highlights: [] };
+      repoActivity[repo].prs++;
+      if (prMatch[4]) repoActivity[repo].highlights.push(`PR: ${prMatch[4]}`);
+    } else if (issueMatch) {
+      const repo = issueMatch[2];
+      if (!repoActivity[repo]) repoActivity[repo] = { pushes: 0, prs: 0, issues: 0, highlights: [] };
+      repoActivity[repo].issues++;
+      if (issueMatch[4]) repoActivity[repo].highlights.push(`Issue: ${issueMatch[4]}`);
+    }
+  }
+
+  const repoNames = Object.keys(repoActivity);
+  if (repoNames.length === 0) return "";
+
+  return repoNames.map((r) => {
+    const act = repoActivity[r];
+    const parts: string[] = [];
+    if (act.pushes) parts.push(`${act.pushes} push(es)`);
+    if (act.prs) parts.push(`${act.prs} PR(s)`);
+    if (act.issues) parts.push(`${act.issues} issue(s)`);
+    const hl = act.highlights.slice(0, 2).join("; ");
+    return `- \`${r}\`: ${parts.join(", ")}${hl ? ` (${hl})` : ""}`;
+  }).join("\n");
+}
+
+function detectLateSession(dailyLog: string[], checkedHabits: string[]): { isLate: boolean; latestTime: string; missedDisconnect: boolean } {
+  let isLate = false;
+  let latestTime = "";
+
+  for (const entry of dailyLog) {
+    const match = entry.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    if (match) {
+      let hour = parseInt(match[1], 10);
+      const minute = parseInt(match[2], 10);
+      const ampm = match[3].toUpperCase();
+      if (ampm === "PM" && hour < 12) hour += 12;
+      if (ampm === "AM" && hour === 12) hour = 0;
+
+      if (hour > 19 || (hour === 19 && minute >= 30)) {
+        isLate = true;
+        latestTime = `${match[1]}:${match[2]} ${ampm}`;
+      }
+    }
+  }
+
+  const missedDisconnect = !checkedHabits.some(h => h.toLowerCase().includes("disconnect"));
+  return { isLate, latestTime, missedDisconnect };
+}
+
 function buildDailyFallback(d: any) {
   const energyNum = parseFloat(d.energy);
   const done = d.completedTasks.length;
@@ -122,6 +187,8 @@ function buildDailyFallback(d: any) {
   let friction: string;
   if (d.blockersLog.length) {
     friction = asSentence(d.blockersLog[0]);
+  } else if (d.lateSession?.isLate && d.lateSession?.missedDisconnect) {
+    friction = asSentence(`High coding momentum ran late until ${d.lateSession.latestTime} while the disconnect habit was unticked`);
   } else if (gap) {
     friction = `Nothing logged between ${gap.from} and ${gap.to} — about ${gap.hours} ${gap.hours === 1 ? "hour" : "hours"} that went untracked.`;
   } else if (d.isDepleted) {
@@ -137,6 +204,8 @@ function buildDailyFallback(d: any) {
   let insight: string;
   if (d.isDepleted) {
     insight = "Short sleep and low energy together mean the ceiling was physical, not a discipline problem.";
+  } else if (d.lateSession?.isLate && d.lateSession?.missedDisconnect) {
+    insight = asSentence(`Late evening velocity was productive, but skipped wind-down makes tomorrow morning vulnerable to fatigue`);
   } else if (comfort && done) {
     insight = asSentence(`${capitalise(stripTimestamp(comfort))} held the day together more than the task list did`);
   } else if (!isNaN(energyNum) && energyNum >= 4 && done === 0) {
@@ -152,7 +221,10 @@ function buildDailyFallback(d: any) {
   }
 
   let nextStep: string;
-  if (open) {
+  const highPriority = d.unfinishedTasks.find((t: string) => /#priority\/(p0|p1|high)/i.test(t));
+  if (highPriority) {
+    nextStep = `Try starting with "${highPriority}" first thing because it is your top priority open milestone.`;
+  } else if (open) {
     nextStep = `Try starting with "${d.unfinishedTasks[0]}" first thing because it's still open after today.`;
   } else if (d.focusItems.length) {
     nextStep = "Try picking one outcome with a clear finish line because today's intentions had none.";
@@ -305,7 +377,12 @@ export async function enrichDailyNote(app: App, file: TFile): Promise<void> {
     return;
   }
 
-  // 5. Load Gemini API Key from .env
+  // 5. Compute Developer & Pacing Signals
+  const githubSummary = extractGitHubSummary(dailyLog);
+  const highPriorityTasks = unfinishedTasks.filter(t => /#priority\/(p0|p1|high)/i.test(t));
+  const lateSession = detectLateSession(dailyLog, checkedHabits);
+
+  // 6. Load Gemini API Key from .env
   let geminiApiKey = "";
   try {
     const envContent = await app.vault.adapter.read(".env");
@@ -322,9 +399,9 @@ export async function enrichDailyNote(app: App, file: TFile): Promise<void> {
   const isDepleted = sleepDebt && !isNaN(energyNum) && energyNum < 3;
 
   const systemPrompt = [
-    "You are this person's Daily Note Analyst.",
-    "You write like you're texting a smart friend who had a rough day: conversational and sharp, never clinical or therapeutic.",
-    "You use their own words for what happened, you name the coping that worked, and you never psychoanalyse.",
+    "You are this person's Daily Note Analyst and Executive Chief of Staff.",
+    "You write like you're texting a smart friend: conversational, sharp, pragmatic, never clinical or therapeutic.",
+    "You use their own words for what happened, you synthesize multi-project developer progress clearly, you name the coping that worked, and you never psychoanalyse.",
     "You never invent facts. You always answer with valid JSON only."
   ].join(" ");
 
@@ -341,10 +418,18 @@ ${focusItems.length ? focusItems.map((f: string) => "- " + f).join("\n") : "- no
 TASKS
 Completed: ${completedTasks.join(" | ") || "none"}
 Still open: ${unfinishedTasks.join(" | ") || "none"}
+High Priority Open Tasks: ${highPriorityTasks.join(" | ") || "none"}
 Forwarded from an earlier day: ${forwardedTasks.join(" | ") || "none"}
 
 DAILY LOG (timestamped, what actually happened)
 ${dailyLog.length ? dailyLog.map((l: string) => "- " + l).join("\n") : "- nothing logged"}
+
+GITHUB DEVELOPER ACTIVITY (grouped by project)
+${githubSummary || "- no GitHub events logged"}
+
+PACING & RECOVERY SIGNALS
+Late evening coding session (>7:30 PM): ${lateSession.isLate ? `YES (latest at ${lateSession.latestTime})` : "NO"}
+Disconnect habit kept: ${!lateSession.missedDisconnect ? "YES" : "NO"}
 
 HABITS
 Kept ${checkedHabits.length} of ${HABIT_RITUALS.length}: ${checkedHabits.join(", ") || "none"}
@@ -362,18 +447,18 @@ EXISTING VAULT NOTES (the only valid link targets)
 Yesterday's daily note: ${yesterdayDate}
 
 WHAT TO PRODUCE
-"vibe": ONE casual sentence catching the day's vibe, in their register — e.g. "A day that started with matcha and ended with dinuguan, with a boss fight in between" or "Shipped code through tears". Name the real things they logged (the food, the fight, the crying), not abstractions.
-"moved": at most 2 short bullets on what actually moved forward — tasks closed, something learned, output shipped.
+"vibe": ONE casual sentence catching the day's vibe in their register — name the real things they logged (the food, the code, the tiredness, the wins), not abstractions.
+"moved": at most 2 short bullets on what actually moved forward. If GitHub activity is present, synthesize achievements by project milestone (e.g. "Shipped 3 automations to loey_space and closed library endpoints in shelf") rather than echoing raw commit titles.
 "coping": ONE bullet on how they coped or self-regulated (food, habits, rituals). Only if it is actually in the log; otherwise return an empty string.
-"pattern": the repeated behaviour across tasks, log and habits. Do not stop at "fight = bad day" — connect mood and energy to output, and ask why some habits got ticked while others were not.
-"friction": where the day lost momentum. Use their Blockers if given; otherwise infer it from gaps between timestamps in the log.
-"insight": one non-obvious connection, e.g. "You still shipped at 4pm, so the fight cost attention rather than capacity".
-"nextStep": ONE small tactical move, phrased "Try [action] because [reason from today]". Never "process your feelings" or anything therapeutic.${sleepDebt ? ` Sleep was under 6 hours, so this MUST acknowledge the sleep debt.` : ""}
-"connectedNotes": start with "[[${yesterdayDate}]]" (always). Then ONLY notes explicitly named in their tasks, log or ideas. If they logged a URL or gist, suggest a note title describing its content (e.g. "[[Semantic Commit Messages]]"). Never invent a project name out of an API or error message. 2-5 links total.
+"pattern": the repeated behaviour across tasks, log and habits. Connect mood and energy to output, and ask why some habits held while others slipped.
+"friction": where the day lost momentum. If late evening coding occurred with disconnect missed, note the fatigue cost. Otherwise use Blockers or time gaps.
+"insight": one non-obvious connection, e.g. "Late evening velocity was productive, but skipping the disconnect ritual makes tomorrow morning vulnerable to slow focus".
+"nextStep": ONE small tactical move. If high priority tasks (#priority/p0 or p1) are open, anchor on the top priority task. Phrased "Try [action] because [reason from today]".${sleepDebt ? ` Sleep was under 6 hours, so this MUST acknowledge the sleep debt.` : ""}
+"connectedNotes": start with "[[${yesterdayDate}]]" (always). Then ONLY notes explicitly named in their tasks, log or ideas. 2-5 links total.
 
 HARD RULES
 1. Never invent meetings, people, projects or tasks that are not written above.
-2. Never use clinical or therapy language. Banned: "emotional distress", "interpersonal conflict", "significant impact", "well-being", "wellbeing", "restorative", "process your emotions", "process the conflict". Use the words they used — if they cried, say "rough morning"; if they ate sushi, mention the sushi.
+2. Never use clinical or therapy language. Banned: "emotional distress", "interpersonal conflict", "significant impact", "well-being", "wellbeing", "restorative", "process your emotions", "process the conflict".
 3. Balance friction with resilience. Every bad day has at least one coping mechanism in the log — find it and name it.
 4. ${isDepleted ? `Sleep was under 6 hours AND energy under 3 — say plainly that capacity was capped, without turning it into a lecture.` : `Do not speculate about sleep or energy unless the numbers are notable.`}
 5. Keep the WHOLE output under 150 words. Conversational and sharp, not clinical.
@@ -417,7 +502,8 @@ JSON format:
     responseData = buildDailyFallback({
       mood, energy, sleepHours, sleepDebt, isDepleted, focusItems, completedTasks,
       unfinishedTasks, forwardedTasks, checkedHabits, habitTotal: HABIT_RITUALS.length,
-      dailyLog, ideas, winsLog, blockersLog, userReflectionLog, yesterdayDate
+      dailyLog, ideas, winsLog, blockersLog, userReflectionLog, yesterdayDate,
+      lateSession
     });
   }
 
