@@ -37,7 +37,10 @@ npm run typecheck
 # 2. Build single-file CommonJS bundles via esbuild
 npm run build
 
-# 3. Validate vault templates against schema
+# 3. Run automated unit test suite
+npm test
+
+# 4. Validate vault templates against schema
 npm run validate-templates
 ```
 
