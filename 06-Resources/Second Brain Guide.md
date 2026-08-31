@@ -103,6 +103,7 @@ flowchart TD
 | **`✨` / `Ctrl+Shift+A`** | **AI Enrich Note** | Script Macro | Active Note | Multi-domain AI summary, reflection, code explanation, or concept lore |
 | **`💡` / QuickAdd** | **Distill Evergreen Concepts** | Script Macro | Active Note | Extracts atomic mental models into `08-Concepts/` with backlinks |
 | **`🚀` / QuickAdd** | **Start Work on Kanban Task** | Script Macro | Active Kanban | Creates GitHub issue in repo, switches git branch, moves card to In Progress |
+| **`🐙` / QuickAdd** | **Sync GitHub Activity to Daily Log** | Script Macro | Active / Today Daily Note | Fetches commits, PRs, and issues with 12h `hh:mm A` timestamps into `## 📝 Daily Log` |
 | **`🐙` / `Cmdr Ribbon`** | **Sync GitHub Project Kanban** | Script Macro | Active Kanban | Multi-project 2-way sync with GitHub Projects v2 (`github_project_number`) |
 | 📥 | **Quick Capture to Inbox** | Capture | `00-Inbox/` | `quick-capture-dump.md` (Timestamped `### 📅 YYYY-MM-DD HH:mm`) |
 | 🧹 | **Triage Sweep** | Script Macro | `00-Inbox/` → destinations | `triage-sweep.js` (files every tagged capture line in one pass) |

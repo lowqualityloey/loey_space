@@ -334,6 +334,7 @@ Use QuickAdd ribbon buttons or command palette (`Ctrl + P` -> `QuickAdd: Run...`
 * `🚀 Create Project Note` — Scaffolds a new project with folder and kanban.
 * `💡 Distill Evergreen Concepts` — Extracts atomic mental models into `08-Concepts/` with backlinks.
 * `🚀 Start Work on Kanban Task` — Converts a card into a GitHub Issue, creates git branch, and moves to In Progress.
+* `🐙 Sync GitHub Activity to Daily Log` — Fetches today's commits, PRs, and closed issues with 12h `hh:mm A` timestamps into `## 📝 Daily Log`.
 * `🔄 Sync GitHub Project Kanban` — Multi-project 2-way sync with GitHub Projects v2 (`github_project_number`).
 
 ### Multi-Domain AI Enricher (`Ctrl + Shift + A`)
@@ -521,6 +522,7 @@ Placeholders such as `your_google_gemini_api_key_here` are allowed, so `.env.exa
   - `npm test` — Runs automated Node test suite (18 unit tests).
   - `npm run audit-links` — Scans vault for broken wikilinks, fuzzy fix suggestions, and orphan notes.
   - `npm run distill -- <file>` — Distills atomic evergreen concepts into `08-Concepts/`.
+  - `npm run log-github` — Syncs today's GitHub commits/PRs with 12h `hh:mm A` timestamps into Daily Log.
   - `npm run start-task -- <proj> <title>` — Converts a Kanban card to a GitHub Issue and creates a Git branch.
   - `npm run sync-kanban` — Multi-project 2-way sync with GitHub Projects v2.
   - `npm run validate-templates` — Validates all 19 vault templates against schema rules.

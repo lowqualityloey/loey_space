@@ -15,6 +15,7 @@ const entryPoints = [
   '06-Resources/scripts/src/quick-capture-action.ts',
   '06-Resources/scripts/src/scheduled-enrich.ts',
   '06-Resources/scripts/src/start-task-action.ts',
+  '06-Resources/scripts/src/sync-github-activity.ts',
   '06-Resources/scripts/src/sync-github-kanban.ts',
   '06-Resources/scripts/src/triage-sweep.ts',
   '06-Resources/scripts/src/validate-templates.ts',
