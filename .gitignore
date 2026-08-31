@@ -4,6 +4,7 @@
 .obsidian/workspace*
 .obsidian/cache/
 .obsidian/indexed*
+.trash/
 
 # 🤖 Local AI Indices & Plugin Caches
 .smart-env/
@@ -16,24 +17,39 @@
 *.env.*
 *_secret*
 *_private*
+!.env.example
 
 # System & sync files
 .DS_Store
 Thumbs.db
+ehthumbs.db
 desktop.ini
 $RECYCLE.BIN/
+.Spotlight-V100
+.Trashes
+.directory
 .tmp.*
 *.tmp
 .tmp.driveupload/
 .tmp.drivedownload/
 *.sync-conflict-*
 
-# Node & Build artifacts
+# IDE & Editor configurations
+.vscode/
+.idea/
+
+# Node & TypeScript Build artifacts
 node_modules/
+*.tsbuildinfo
+06-Resources/scripts/dist/
 .enriched-timestamps.json
 
 # Logs & temp
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
 # 📓 PERSONAL CONTENT (the system is shareable, the journal is not)
 # History audit found 8 daily notes had been committed and later deleted —
@@ -76,7 +92,3 @@ node_modules/
 !99-Attachments/2026-08/obsidian-*.png
 !99-Attachments/2026-08/file-20260803003355764.png
 
-# The example env file MUST ship — README's setup step is `cp .env.example .env`.
-# Without this negation the `*.env.*` rule above silently swallows it, and a
-# fresh clone arrives with no template to copy.
-!.env.example
