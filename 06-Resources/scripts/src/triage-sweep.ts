@@ -15,12 +15,16 @@
  * Run from QuickAdd (user script) or Templater.
  */
 
-import { App, TFile, Notice as ObsidianNotice } from 'obsidian';
+import type { App, TFile } from 'obsidian';
 import type { QuickAddParams, RouteConfig } from './types';
+
+function isTFile(file: any): file is TFile {
+  return Boolean(file && typeof file === 'object' && 'extension' in file && 'path' in file);
+}
 
 export = async function triageSweep(params?: QuickAddParams): Promise<void> {
   const app = params?.app || (window as any).app || (globalThis as any).app;
-  const Notice = window.Notice || ObsidianNotice;
+  const Notice = (window as any).Notice || (globalThis as any).Notice;
 
   if (!app) {
     console.error("Triage Sweep: no app instance available.");
@@ -233,7 +237,7 @@ export = async function triageSweep(params?: QuickAddParams): Promise<void> {
      ====================================================================== */
 
   const dumpFile = app.vault.getAbstractFileByPath(DUMP_PATH);
-  if (!dumpFile || !(dumpFile instanceof TFile)) {
+  if (!dumpFile || !isTFile(dumpFile)) {
     new Notice(`⚠️ Triage Sweep: ${DUMP_PATH} not found.`);
     return;
   }
@@ -320,7 +324,7 @@ export = async function triageSweep(params?: QuickAddParams): Promise<void> {
         const dailyPath = `01-Daily/${todayStr}.md`;
         const dailyFile = app.vault.getAbstractFileByPath(dailyPath);
 
-        if (!dailyFile || !(dailyFile instanceof TFile)) {
+        if (!dailyFile || !isTFile(dailyFile)) {
           results.push({ item, ok: false, reason: `no daily note for ${todayStr}` });
           continue;
         }

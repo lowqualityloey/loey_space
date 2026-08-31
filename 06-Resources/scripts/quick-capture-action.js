@@ -1,9 +1,11 @@
 // 06-Resources/scripts/src/quick-capture-action.ts
-var import_obsidian = require("obsidian");
+function isTFile(file) {
+  return Boolean(file && typeof file === "object" && "extension" in file && "path" in file);
+}
 module.exports = async function quickCaptureAction(params) {
   const app = params?.app || window.app || globalThis.app;
   const quickAddApi = params?.quickAddApi;
-  const Notice = window.Notice || import_obsidian.Notice;
+  const Notice = window.Notice || globalThis.Notice;
   try {
     let captureText = params?.variables?.value;
     if (!captureText || typeof captureText !== "string" || !captureText.trim()) {
@@ -27,7 +29,7 @@ module.exports = async function quickCaptureAction(params) {
 `;
       dumpFile = await app.vault.create(dumpPath, initialContent);
     }
-    if (!(dumpFile instanceof import_obsidian.TFile)) {
+    if (!isTFile(dumpFile)) {
       new Notice("\u274C Could not access quick capture dump file.", 4e3);
       return;
     }

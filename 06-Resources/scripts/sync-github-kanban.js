@@ -1,9 +1,11 @@
 // 06-Resources/scripts/src/sync-github-kanban.ts
 var import_child_process = require("child_process");
-var import_obsidian = require("obsidian");
+function isTFile(file) {
+  return Boolean(file && typeof file === "object" && "extension" in file && "path" in file);
+}
 module.exports = async function syncGitHubKanban(params) {
   const app = params?.app || window.app || globalThis.app;
-  const Notice = window.Notice || import_obsidian.Notice;
+  const Notice = window.Notice || globalThis.Notice;
   try {
     let activeFile = app.workspace.getActiveFile();
     let projectNumber = null;
@@ -19,7 +21,7 @@ module.exports = async function syncGitHubKanban(params) {
     if (!projectNumber) {
       const defaultPath = "02-Projects/weather-dashboard/Weather Dashboard Kanban.md";
       const abstractDefault = app.vault.getAbstractFileByPath(defaultPath);
-      if (abstractDefault && abstractDefault instanceof import_obsidian.TFile) {
+      if (abstractDefault && isTFile(abstractDefault)) {
         targetFile = abstractDefault;
         const cache = app.metadataCache.getFileCache(targetFile);
         projectNumber = Number(cache?.frontmatter?.github_project_number) || 2;
@@ -30,7 +32,7 @@ module.exports = async function syncGitHubKanban(params) {
         targetFile = activeFile;
       }
     }
-    if (!targetFile || !(targetFile instanceof import_obsidian.TFile)) {
+    if (!targetFile || !isTFile(targetFile)) {
       new Notice("\u274C Please open a Kanban note to sync!", 4e3);
       return;
     }

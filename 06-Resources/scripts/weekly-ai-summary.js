@@ -1,5 +1,4 @@
 // 06-Resources/scripts/src/weekly-ai-summary.ts
-var import_obsidian = require("obsidian");
 function parseGeminiError(status, bodyText, model) {
   let message = "";
   let retrySeconds = 0;
@@ -229,7 +228,7 @@ function getWeekRange(date) {
 }
 module.exports = async function weeklyAISummary(params) {
   const app = params?.app || window.app || globalThis.app;
-  const Notice = window.Notice || import_obsidian.Notice;
+  const Notice = window.Notice || globalThis.Notice;
   new Notice("\u{1F916} Generating weekly AI summary...");
   let geminiApiKey = "";
   try {

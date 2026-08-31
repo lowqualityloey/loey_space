@@ -1,4 +1,4 @@
-import { App, TFile, Notice as ObsidianNotice } from 'obsidian';
+import type { App, TFile } from 'obsidian';
 import type { QuickAddParams } from './types';
 
 interface WeeklySummaryJson {
@@ -24,7 +24,7 @@ interface GeminiFailure {
 
 export = async function weeklyAISummary(params?: QuickAddParams): Promise<void> {
   const app = params?.app || (window as any).app || (globalThis as any).app;
-  const Notice = window.Notice || ObsidianNotice;
+  const Notice = (window as any).Notice || (globalThis as any).Notice;
 
   new Notice("🤖 Generating weekly AI summary...");
 
