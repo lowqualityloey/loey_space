@@ -249,17 +249,19 @@ module.exports = async function weeklyAISummary(params) {
     new Notice("\u26A0\uFE0F No daily notes found for weekly summary!");
     return;
   }
-  const weekData = [];
-  for (const note of recentNotes) {
-    try {
-      const content = await app.vault.read(note);
-      const noteDate = note.basename;
-      const data = extractDailyData(content, noteDate);
-      weekData.push(data);
-    } catch (error) {
-      console.warn(`Error reading note ${note.name}:`, error);
-    }
-  }
+  const weekDataResults = await Promise.all(
+    recentNotes.map(async (note) => {
+      try {
+        const content = await app.vault.read(note);
+        const noteDate = note.basename;
+        return extractDailyData(content, noteDate);
+      } catch (error) {
+        console.warn(`Error reading note ${note.name}:`, error);
+        return null;
+      }
+    })
+  );
+  const weekData = weekDataResults.filter((data) => data !== null);
   const systemPrompt = `You are an insightful personal coach and productivity analyst. Analyze weekly data and provide comprehensive insights with actionable recommendations.`;
   const userPrompt = `Analyze this weekly data and provide a comprehensive weekly review. Provide JSON only.
 

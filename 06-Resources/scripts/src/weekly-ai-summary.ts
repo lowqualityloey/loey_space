@@ -58,22 +58,23 @@ export = async function weeklyAISummary(params?: QuickAddParams): Promise<void> 
     return;
   }
 
-  // 3. Extract data from each daily note
-  const weekData: any[] = [];
+  // 3. Extract data from each daily note (in parallel)
+  const weekDataResults = await Promise.all(
+    recentNotes.map(async (note: TFile) => {
+      try {
+        const content = await app.vault.read(note);
+        const noteDate = note.basename;
 
+        // Extract key data from daily note
+        return extractDailyData(content, noteDate);
+      } catch (error) {
+        console.warn(`Error reading note ${note.name}:`, error);
+        return null;
+      }
+    })
+  );
 
-  for (const note of recentNotes) {
-    try {
-      const content = await app.vault.read(note);
-      const noteDate = note.basename;
-
-      // Extract key data from daily note
-      const data = extractDailyData(content, noteDate);
-      weekData.push(data);
-    } catch (error) {
-      console.warn(`Error reading note ${note.name}:`, error);
-    }
-  }
+  const weekData = weekDataResults.filter((data): data is NonNullable<typeof data> => data !== null);
 
   // 4. Prepare prompt for AI
   const systemPrompt = `You are an insightful personal coach and productivity analyst. Analyze weekly data and provide comprehensive insights with actionable recommendations.`;
