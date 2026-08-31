@@ -43,20 +43,25 @@ function formatDateKey(date) {
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
-function formatGitHubEvent(event) {
+function escapeTablePipes(text) {
+  return text.replace(/\|/g, "\\|").replace(/\r?\n/g, " ").trim();
+}
+function formatGitHubEventToRow(event) {
   const date = new Date(event.created_at);
-  const timeStr = formatTime12(date);
+  const time = formatTime12(date);
   const dateKey = formatDateKey(date);
-  const repoName = event.repo.name.split("/")[1] || event.repo.name;
-  let text = "";
+  const repoShort = event.repo.name.split("/")[1] || event.repo.name;
+  const repo = `\`${repoShort}\``;
+  let eventType = "";
+  let details = "";
   if (event.type === "PushEvent") {
     const branch = (event.payload?.ref || "main").replace("refs/heads/", "");
+    eventType = `\u{1F419} Push (\`${branch}\`)`;
     const commits = event.payload?.commits || [];
     if (commits.length > 0) {
-      const commitMessages = commits.map((c) => c.message.split("\n")[0].trim()).filter(Boolean).slice(0, 3).join("; ");
-      text = `- ${timeStr} \u{1F419} **Push** (\`${repoName}\` \u2192 \`${branch}\`): ${commitMessages}`;
+      details = commits.map((c) => c.message.split("\n")[0].trim()).filter(Boolean).slice(0, 3).join("; ");
     } else {
-      text = `- ${timeStr} \u{1F419} **Push** (\`${repoName}\` \u2192 \`${branch}\`)`;
+      details = `Pushed commits to ${branch}`;
     }
   } else if (event.type === "PullRequestEvent") {
     const action = event.payload?.action;
@@ -64,43 +69,67 @@ function formatGitHubEvent(event) {
     const title = pr?.title || "Pull Request";
     const number = pr?.number || event.payload?.number;
     if (action === "closed" && pr?.merged) {
-      text = `- ${timeStr} \u{1F500} **PR Merged** (\`${repoName}\` #${number}): ${title}`;
+      eventType = `\u{1F500} PR #${number} Merged`;
     } else if (action === "opened") {
-      text = `- ${timeStr} \u{1F500} **PR Opened** (\`${repoName}\` #${number}): ${title}`;
+      eventType = `\u{1F500} PR #${number} Opened`;
     } else {
-      text = `- ${timeStr} \u{1F500} **PR ${action}** (\`${repoName}\` #${number}): ${title}`;
+      eventType = `\u{1F500} PR #${number} ${action}`;
     }
+    details = title;
   } else if (event.type === "IssuesEvent") {
     const action = event.payload?.action;
     const issue = event.payload?.issue;
     const title = issue?.title || "Issue";
     const number = issue?.number;
-    text = `- ${timeStr} \u{1F3AF} **Issue ${action}** (\`${repoName}\` #${number}): ${title}`;
+    eventType = `\u{1F3AF} Issue #${number} ${action}`;
+    details = title;
   } else if (event.type === "CreateEvent") {
     const refType = event.payload?.ref_type;
     const ref = event.payload?.ref;
     if (refType === "branch" || refType === "tag") {
-      text = `- ${timeStr} \u{1F33F} **Created ${refType}** \`${ref}\` in \`${repoName}\``;
+      eventType = `\u{1F33F} Created ${refType}`;
+      details = `\`${ref}\``;
     } else {
       return null;
     }
   } else if (event.type === "ReleaseEvent") {
     const releaseName = event.payload?.release?.name || event.payload?.release?.tag_name || "Release";
-    text = `- ${timeStr} \u{1F680} **Release** \`${releaseName}\` in \`${repoName}\``;
+    eventType = `\u{1F680} Release`;
+    details = releaseName;
   } else {
     return null;
   }
   return {
     id: event.id,
-    timestamp12: timeStr,
+    time,
     dateKey,
-    rawDate: date,
-    markdown: text
+    repo,
+    type: eventType,
+    details: escapeTablePipes(details),
+    rawDate: date
   };
 }
-function mergeDailyLog(existingContent, newLogBullets) {
-  if (!newLogBullets.length) {
-    return { updatedContent: existingContent, addedCount: 0 };
+function buildGitHubCalloutTable(rows) {
+  if (rows.length === 0)
+    return "";
+  const header = `> [!NOTE]- \u{1F419} GitHub Activity Log (${rows.length} event${rows.length === 1 ? "" : "s"} \u2014 click to expand)
+> | Time | Repo | Type | Message / Details |
+> | :--- | :--- | :--- | :--- |`;
+  const tableLines = rows.map((r) => `> | ${r.time} | ${r.repo} | ${r.type} | ${r.details} |`);
+  return `${header}
+${tableLines.join("\n")}`;
+}
+function mergeDailyLogTable(existingContent, rows) {
+  if (rows.length === 0) {
+    return { updatedContent: existingContent, count: 0 };
+  }
+  const calloutBlock = buildGitHubCalloutTable(rows);
+  const calloutRegex = /> \[!NOTE\]-\s*🐙 GitHub Activity Log[\s\S]*?(?=\r?\n\r?\n|\r?\n#{1,6} |\r?\n---[ \t]*\r?\n|(?![\s\S]))/;
+  if (calloutRegex.test(existingContent)) {
+    return {
+      updatedContent: existingContent.replace(calloutRegex, calloutBlock),
+      count: rows.length
+    };
   }
   const lines = existingContent.split("\n");
   const sectionIdx = lines.findIndex((l) => l.trim().startsWith("## \u{1F4DD} Daily Log"));
@@ -108,40 +137,26 @@ function mergeDailyLog(existingContent, newLogBullets) {
     const newSection = `
 ## \u{1F4DD} Daily Log
 > _A running timestamp of what happened today._
+- 
 
-${newLogBullets.join("\n")}
+${calloutBlock}
 `;
-    return { updatedContent: existingContent + newSection, addedCount: newLogBullets.length };
+    return { updatedContent: existingContent + newSection, count: rows.length };
   }
   let insertIdx = sectionIdx + 1;
   while (insertIdx < lines.length && (lines[insertIdx].trim().startsWith(">") || lines[insertIdx].trim() === "")) {
     insertIdx++;
   }
-  let logEndIdx = lines.length;
+  let nextSectionIdx = lines.length;
   for (let i = insertIdx; i < lines.length; i++) {
     const trimmed = lines[i].trim();
     if (trimmed.startsWith("## ") || trimmed.startsWith("### ") || trimmed === "---") {
-      logEndIdx = i;
+      nextSectionIdx = i;
       break;
     }
   }
-  const dailyLogSlice = lines.slice(sectionIdx, logEndIdx).join("\n");
-  const bulletsToAdd = [];
-  for (const bullet of newLogBullets) {
-    const clean = bullet.replace(/-\s*\d{2}:\d{2}\s*(?:AM|PM)\s*/i, "").trim();
-    if (!dailyLogSlice.includes(clean)) {
-      bulletsToAdd.push(bullet);
-    }
-  }
-  if (bulletsToAdd.length === 0) {
-    return { updatedContent: existingContent, addedCount: 0 };
-  }
-  if (lines[insertIdx]?.trim() === "-") {
-    lines.splice(insertIdx, 1, ...bulletsToAdd);
-  } else {
-    lines.splice(logEndIdx, 0, ...bulletsToAdd);
-  }
-  return { updatedContent: lines.join("\n"), addedCount: bulletsToAdd.length };
+  lines.splice(nextSectionIdx, 0, "", calloutBlock, "");
+  return { updatedContent: lines.join("\n"), count: rows.length };
 }
 
 // 06-Resources/scripts/src/sync-github-activity.ts
@@ -207,34 +222,29 @@ async function syncGithubActivityAction(params) {
       new Notice("\u26A0\uFE0F No GitHub activity found or gh CLI not authenticated.", 4e3);
     return;
   }
-  const matchingBullets = [];
+  const rows = [];
   for (const ev of events) {
-    const formatted = formatGitHubEvent(ev);
-    if (formatted && formatted.dateKey === noteDateKey) {
-      matchingBullets.push(formatted.markdown);
+    const r = formatGitHubEventToRow(ev);
+    if (r && r.dateKey === noteDateKey) {
+      rows.push(r);
     }
   }
-  if (matchingBullets.length === 0) {
+  if (rows.length === 0) {
     if (Notice)
       new Notice(`\u2139\uFE0F No GitHub events found for ${noteDateKey}.`, 4e3);
     return;
   }
   const content = await app.vault.read(targetFile);
-  const { updatedContent, addedCount } = mergeDailyLog(content, matchingBullets.reverse());
-  if (addedCount > 0) {
-    await app.vault.modify(targetFile, updatedContent);
-    if (Notice)
-      new Notice(`\u{1F389} Synced ${addedCount} GitHub event(s) to ${targetFile.basename}!`, 5e3);
-  } else {
-    if (Notice)
-      new Notice(`\u2139\uFE0F All GitHub events for ${noteDateKey} are already in Daily Log.`, 4e3);
-  }
+  const { updatedContent, count } = mergeDailyLogTable(content, rows);
+  await app.vault.modify(targetFile, updatedContent);
+  if (Notice)
+    new Notice(`\u{1F389} Synced ${count} GitHub event(s) into table callout for ${targetFile.basename}!`, 5e3);
 }
 function runCli() {
   const vaultRoot = resolveVaultPath();
   const args = process.argv.slice(2);
   const targetDateKey = args[0] || formatDateKey(/* @__PURE__ */ new Date());
-  console.log("\u{1F419} Sync GitHub Activity to Daily Log (CLI Mode)...");
+  console.log("\u{1F419} Sync GitHub Activity to Daily Log (Table Callout Mode)...");
   console.log(`\u{1F4C2} Vault Root: ${vaultRoot}`);
   console.log(`\u{1F4C5} Target Date: ${targetDateKey}
 `);
@@ -246,29 +256,24 @@ function runCli() {
   }
   console.log(`\u{1F50D} Fetching GitHub events for lowqualityloey...`);
   const events = fetchUserEvents("lowqualityloey");
-  const matchingBullets = [];
+  const rows = [];
   for (const ev of events) {
-    const formatted = formatGitHubEvent(ev);
-    if (formatted && formatted.dateKey === targetDateKey) {
-      matchingBullets.push(formatted.markdown);
+    const r = formatGitHubEventToRow(ev);
+    if (r && r.dateKey === targetDateKey) {
+      rows.push(r);
     }
   }
-  if (matchingBullets.length === 0) {
+  if (rows.length === 0) {
     console.log(`\u2139\uFE0F No GitHub activity found for date ${targetDateKey}.`);
     return;
   }
-  console.log(`\u{1F4CB} Found ${matchingBullets.length} activity item(s):`);
-  matchingBullets.forEach((b) => console.log(`  ${b}`));
+  console.log(`\u{1F4CB} Found ${rows.length} activity item(s) for table callout:`);
+  rows.slice(0, 5).forEach((r) => console.log(`  | ${r.time} | ${r.repo} | ${r.type} | ${r.details.slice(0, 40)}... |`));
   const content = fs.readFileSync(dailyPath, "utf8");
-  const { updatedContent, addedCount } = mergeDailyLog(content, matchingBullets.reverse());
-  if (addedCount > 0) {
-    fs.writeFileSync(dailyPath, updatedContent, "utf8");
-    console.log(`
-\u{1F389} Successfully added ${addedCount} new event(s) to ${dailyPath}!`);
-  } else {
-    console.log(`
-\u2139\uFE0F All events for ${targetDateKey} are already logged in the note.`);
-  }
+  const { updatedContent, count } = mergeDailyLogTable(content, rows);
+  fs.writeFileSync(dailyPath, updatedContent, "utf8");
+  console.log(`
+\u{1F389} Successfully formatted ${count} event(s) into collapsible table callout in ${dailyPath}!`);
 }
 if (require.main === module) {
   runCli();
