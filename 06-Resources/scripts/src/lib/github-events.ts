@@ -136,8 +136,11 @@ export function formatGitHubEventToRow(event: GitHubEventItem): ActivityTableRow
 export function buildGitHubCalloutTable(rows: ActivityTableRow[]): string {
   if (rows.length === 0) return '';
 
-  const header = `> [!NOTE]- 🐙 GitHub Activity Log (${rows.length} event${rows.length === 1 ? '' : 's'} — click to expand)\n> | Time | Repo | Action | Details / Branch |\n> | :--- | :--- | :--- | :--- |`;
-  const tableLines = rows.map((r) => `> | ${r.time} | ${r.repo} | ${r.type} | ${r.details} |`);
+  // Sort chronologically (AM to PM: earliest morning to latest evening)
+  const sortedRows = [...rows].sort((a, b) => a.rawDate.getTime() - b.rawDate.getTime());
+
+  const header = `> [!NOTE]- 🐙 GitHub Activity Log (${sortedRows.length} event${sortedRows.length === 1 ? '' : 's'} — click to expand)\n> | Time | Repo | Action | Details / Branch |\n> | :--- | :--- | :--- | :--- |`;
+  const tableLines = sortedRows.map((r) => `> | ${r.time} | ${r.repo} | ${r.type} | ${r.details} |`);
 
   return `${header}\n${tableLines.join('\n')}`;
 }

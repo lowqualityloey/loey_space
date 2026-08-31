@@ -128,10 +128,11 @@ function formatGitHubEventToRow(event) {
 function buildGitHubCalloutTable(rows) {
   if (rows.length === 0)
     return "";
-  const header = `> [!NOTE]- \u{1F419} GitHub Activity Log (${rows.length} event${rows.length === 1 ? "" : "s"} \u2014 click to expand)
+  const sortedRows = [...rows].sort((a, b) => a.rawDate.getTime() - b.rawDate.getTime());
+  const header = `> [!NOTE]- \u{1F419} GitHub Activity Log (${sortedRows.length} event${sortedRows.length === 1 ? "" : "s"} \u2014 click to expand)
 > | Time | Repo | Action | Details / Branch |
 > | :--- | :--- | :--- | :--- |`;
-  const tableLines = rows.map((r) => `> | ${r.time} | ${r.repo} | ${r.type} | ${r.details} |`);
+  const tableLines = sortedRows.map((r) => `> | ${r.time} | ${r.repo} | ${r.type} | ${r.details} |`);
   return `${header}
 ${tableLines.join("\n")}`;
 }
