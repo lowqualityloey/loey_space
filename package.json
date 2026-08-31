@@ -1,0 +1,18 @@
+{
+  "name": "loey-space-scripts",
+  "version": "1.0.0",
+  "description": "TypeScript scripts and automation for loey_space Obsidian vault",
+  "private": true,
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "validate-templates": "node 06-Resources/scripts/validate-templates.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "esbuild": "^0.20.0",
+    "obsidian": "^1.5.7",
+    "typescript": "^5.3.3"
+  }
+}
