@@ -11,14 +11,15 @@ const EXPECTED_SCRIPTS = [
   'clear-capture-dump.js',
   'distill-concept-action.js',
   'quick-capture-action.js',
+  'scheduled-enrich.js',
+  'start-task-action.js',
   'sync-github-kanban.js',
   'triage-sweep.js',
-  'weekly-ai-summary.js',
-  'scheduled-enrich.js',
-  'validate-templates.js'
+  'validate-templates.js',
+  'weekly-ai-summary.js'
 ];
 
-test('build integrity: all 10 bundled scripts exist and contain no require("obsidian")', () => {
+test('build integrity: all 11 bundled scripts exist and contain no require("obsidian")', () => {
   for (const script of EXPECTED_SCRIPTS) {
     const scriptPath = path.join(SCRIPTS_DIR, script);
     assert.ok(fs.existsSync(scriptPath), `Bundled script ${script} must exist in 06-Resources/scripts`);

@@ -123,3 +123,68 @@ export function extractLocalKanbanTasks(content: string): { tasks: LocalTaskItem
 
   return { tasks, sections };
 }
+
+export function createBranchSlug(issueNumber: number, title: string, prefix = 'feat'): string {
+  const clean = title
+    .toLowerCase()
+    .replace(/#priority\/[^\s]+/gi, '')
+    .replace(/[^\w\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 35)
+    .replace(/^-|-$/g, '');
+
+  return `${prefix}/issue-${issueNumber}-${clean || 'task'}`;
+}
+
+export function formatCardWithIssue(
+  issueNumber: number,
+  issueUrl: string,
+  title: string,
+  priority?: string | null
+): string {
+  const prioritySuffix = priority ? ` #priority/${priority.toLowerCase()}` : '';
+  const cleanTitle = title.replace(/#priority\/[^\s]+/gi, '').trim();
+  return `- [/] [#${issueNumber}](${issueUrl}) ${cleanTitle}${prioritySuffix}`;
+}
+
+export function moveCardToInProgress(
+  content: string,
+  targetTaskTitle: string,
+  updatedCardText: string
+): string {
+  const lines = content.split('\n');
+  const cleanTarget = targetTaskTitle.toLowerCase().trim();
+
+  let removedLine = false;
+  const filteredLines: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const taskMatch = line.match(/^\s*-\s*\[[ xX/>\-?*!]\]\s+(.*)$/);
+    if (taskMatch && !removedLine) {
+      const lineClean = taskMatch[1].toLowerCase().trim();
+      if (lineClean.includes(cleanTarget) || cleanTarget.includes(lineClean)) {
+        removedLine = true;
+        continue;
+      }
+    }
+    filteredLines.push(line);
+  }
+
+  let inProgressIdx = -1;
+  for (let i = 0; i < filteredLines.length; i++) {
+    if (normalizeLaneName(filteredLines[i]) === 'in progress') {
+      inProgressIdx = i;
+      break;
+    }
+  }
+
+  if (inProgressIdx !== -1) {
+    filteredLines.splice(inProgressIdx + 1, 0, '', updatedCardText);
+    return filteredLines.join('\n');
+  }
+
+  return filteredLines.join('\n') + `\n\n## In Progress\n\n${updatedCardText}\n`;
+}
