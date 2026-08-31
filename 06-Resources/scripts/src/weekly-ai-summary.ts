@@ -1,5 +1,6 @@
 import type { App, TFile } from 'obsidian';
 import type { QuickAddParams } from './types';
+import { parseGeminiError, formatGeminiFailure, type GeminiFailure } from './lib/gemini';
 
 interface WeeklySummaryJson {
   weeklyTitle?: string;
@@ -12,14 +13,6 @@ interface WeeklySummaryJson {
   topInsights?: string[];
   recommendations?: string[];
   weeklyQuote?: string;
-}
-
-interface GeminiFailure {
-  status: number;
-  kind: string;
-  message: string;
-  retrySeconds: number;
-  model: string;
 }
 
 export = async function weeklyAISummary(params?: QuickAddParams): Promise<void> {
@@ -336,68 +329,6 @@ SORT updated DESC
   }
 };
 
-/* Helper function to classify Gemini error responses */
-function parseGeminiError(status: number, bodyText: string, model: string): GeminiFailure {
-  let message = "";
-  let retrySeconds = 0;
-  let quotaId = "";
-
-  try {
-    const body = JSON.parse(bodyText);
-    const error = body.error || {};
-    message = error.message || "";
-    const details = Array.isArray(error.details) ? error.details : [];
-
-    for (const detail of details) {
-      const type = String(detail["@type"] || "");
-      if (type.includes("RetryInfo") && detail.retryDelay) {
-        const seconds = String(detail.retryDelay).match(/([\d.]+)\s*s/);
-        if (seconds) retrySeconds = Math.ceil(parseFloat(seconds[1]));
-      }
-      if (type.includes("QuotaFailure") && Array.isArray(detail.violations) && detail.violations.length) {
-        quotaId = detail.violations[0].quotaId || "";
-      }
-    }
-  } catch (e) {
-    message = String(bodyText || "").slice(0, 200);
-  }
-
-  let kind = "unknown";
-  if (status === 429) {
-    if (/PerDay/i.test(quotaId)) kind = "quotaPerDay";
-    else if (/PerMinute/i.test(quotaId)) kind = "quotaPerMinute";
-    else kind = retrySeconds > 120 ? "quotaPerDay" : "quotaPerMinute";
-  } else if (status === 404) kind = "modelMissing";
-  else if (status === 400) kind = "badRequest";
-  else if (status === 401 || status === 403) kind = "auth";
-  else if (status >= 500) kind = "serverError";
-
-  return { status, kind, message, retrySeconds, model };
-}
-
-/* Helper function to format Gemini error message */
-function formatGeminiFailure(failure: GeminiFailure | null): string {
-  if (!failure) return "the request failed";
-
-  switch (failure.kind) {
-    case "quotaPerMinute":
-      return failure.retrySeconds
-        ? `per-minute rate limit hit — retry in about ${failure.retrySeconds}s`
-        : "per-minute rate limit hit — wait a minute and run again";
-    case "quotaPerDay":
-      return "daily free-tier quota used up — resets at midnight Pacific time";
-    case "auth":
-      return `API key rejected (HTTP ${failure.status}) — check GEMINI_API_KEY in .env`;
-    case "badRequest":
-      return `request rejected (400): ${failure.message || "invalid request"}`;
-    case "modelMissing":
-      return "none of the configured models are available for this key (404)";
-    case "network":
-      return `network error: ${failure.message}`;
-    default:
-      return failure.message || "the request failed";
-  }
-}
 
 // Helper function to extract data from daily notes
 function extractDailyData(content: string, noteDate: string) {

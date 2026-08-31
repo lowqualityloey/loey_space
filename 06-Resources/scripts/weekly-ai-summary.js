@@ -1,8 +1,9 @@
-// 06-Resources/scripts/src/weekly-ai-summary.ts
+// 06-Resources/scripts/src/lib/gemini.ts
 function parseGeminiError(status, bodyText, model) {
   let message = "";
   let retrySeconds = 0;
   let quotaId = "";
+  let quotaValue = "";
   try {
     const body = JSON.parse(bodyText);
     const error = body.error || {};
@@ -17,6 +18,7 @@ function parseGeminiError(status, bodyText, model) {
       }
       if (type.includes("QuotaFailure") && Array.isArray(detail.violations) && detail.violations.length) {
         quotaId = detail.violations[0].quotaId || "";
+        quotaValue = detail.violations[0].quotaValue || "";
       }
     }
   } catch (e) {
@@ -28,6 +30,8 @@ function parseGeminiError(status, bodyText, model) {
       kind = "quotaPerDay";
     else if (/PerMinute/i.test(quotaId))
       kind = "quotaPerMinute";
+    else if (/Token/i.test(quotaId))
+      kind = "quotaTokens";
     else
       kind = retrySeconds > 120 ? "quotaPerDay" : "quotaPerMinute";
   } else if (status === 404)
@@ -38,28 +42,53 @@ function parseGeminiError(status, bodyText, model) {
     kind = "auth";
   else if (status >= 500)
     kind = "serverError";
-  return { status, kind, message, retrySeconds, model };
+  return { status, kind, message, retrySeconds, quotaId, quotaValue, model };
+}
+function describeQuotaReset() {
+  try {
+    const now = /* @__PURE__ */ new Date();
+    const pacific = new Date(now.toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
+    const msUntilReset = ((24 - pacific.getHours()) * 60 - pacific.getMinutes()) * 60 * 1e3;
+    const resetLocal = new Date(now.getTime() + msUntilReset);
+    const hours = Math.max(1, Math.round(msUntilReset / 36e5));
+    const clock = resetLocal.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return `in about ${hours}h (around ${clock} your time)`;
+  } catch (e) {
+    return "at midnight Pacific time";
+  }
 }
 function formatGeminiFailure(failure) {
   if (!failure)
     return "the request failed";
   switch (failure.kind) {
     case "quotaPerMinute":
-      return failure.retrySeconds ? `per-minute rate limit hit \u2014 retry in about ${failure.retrySeconds}s` : "per-minute rate limit hit \u2014 wait a minute and run again";
+      return failure.retrySeconds ? `per-minute rate limit hit \u2014 Google says retry in about ${failure.retrySeconds}s` : "per-minute rate limit hit \u2014 wait about a minute and run it again";
     case "quotaPerDay":
-      return "daily free-tier quota used up \u2014 resets at midnight Pacific time";
+      return `daily free-tier quota used up${failure.quotaValue ? ` (limit ${failure.quotaValue} requests/day on ${failure.model})` : ""} \u2014 resets ${describeQuotaReset()}, so waiting a few minutes will NOT help`;
+    case "quotaTokens":
+      return "tokens-per-minute quota hit \u2014 wait a minute, or shorten the note";
     case "auth":
       return `API key rejected (HTTP ${failure.status}) \u2014 check GEMINI_API_KEY in .env`;
     case "badRequest":
       return `request rejected (400): ${failure.message || "invalid request"}`;
     case "modelMissing":
       return "none of the configured models are available for this key (404)";
+    case "serverError":
+      return `Google server error (${failure.status}) \u2014 try again shortly`;
     case "network":
       return `network error: ${failure.message}`;
+    case "emptyResponse":
+      return `model returned no content${failure.message ? ` (${failure.message})` : ""}`;
+    case "badJson":
+      return "model returned text that was not valid JSON";
+    case "noKey":
+      return "GEMINI_API_KEY is missing from .env";
     default:
       return failure.message || "the request failed";
   }
 }
+
+// 06-Resources/scripts/src/weekly-ai-summary.ts
 function extractDailyData(content, noteDate) {
   const lines = content.split("\n");
   let mood = "neutral";
