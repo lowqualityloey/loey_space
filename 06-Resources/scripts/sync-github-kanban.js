@@ -25,6 +25,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 var fs = __toESM(require("fs"));
 var path = __toESM(require("path"));
 var import_child_process = require("child_process");
+var import_util = require("util");
 
 // 06-Resources/scripts/src/lib/github.ts
 function normalizeLaneName(rawName) {
@@ -111,6 +112,7 @@ function extractLocalKanbanTasks(content) {
 }
 
 // 06-Resources/scripts/src/sync-github-kanban.ts
+var execAsync = (0, import_util.promisify)(import_child_process.exec);
 function isTFile(file) {
   return Boolean(file && typeof file === "object" && "extension" in file && "path" in file);
 }
@@ -158,7 +160,7 @@ async function syncSingleBoard(app, targetFile, config) {
   let statusField = null;
   let priorityField = null;
   try {
-    const projViewJson = (0, import_child_process.execSync)(`gh project view ${projectNumber} --owner ${owner} --format json`, {
+    const { stdout: projViewJson } = await execAsync(`gh project view ${projectNumber} --owner ${owner} --format json`, {
       encoding: "utf8",
       timeout: 15e3
     });
@@ -178,7 +180,7 @@ async function syncSingleBoard(app, targetFile, config) {
   }
   const remoteItems = [];
   try {
-    const itemsJson = (0, import_child_process.execSync)(`gh project item-list ${projectNumber} --owner ${owner} --format json --limit 100`, {
+    const { stdout: itemsJson } = await execAsync(`gh project item-list ${projectNumber} --owner ${owner} --format json --limit 100`, {
       encoding: "utf8",
       timeout: 15e3
     });
@@ -203,7 +205,7 @@ async function syncSingleBoard(app, targetFile, config) {
   let errorCount = 0;
   if (projectId && statusField && statusField.options) {
     const statusOptions = statusField.options;
-    for (const task of localTasks) {
+    const updatePromises = localTasks.map(async (task) => {
       const match = remoteItems.find(
         (r) => r.title && r.title.toLowerCase().trim() === task.title.toLowerCase().trim()
       );
@@ -222,16 +224,24 @@ async function syncSingleBoard(app, targetFile, config) {
       }
       if (match && matchedOption && match.status !== matchedOption.name) {
         try {
-          (0, import_child_process.execSync)(
+          await execAsync(
             `gh project item-edit --project-id "${projectId}" --id "${match.id}" --field-id "${statusField.id}" --single-select-option-id "${matchedOption.id}"`,
             { encoding: "utf8", timeout: 1e4 }
           );
-          updatedCount++;
+          return { updated: true, error: false };
         } catch (err) {
           console.warn(`Failed to update status for "${task.title}":`, err);
-          errorCount++;
+          return { updated: false, error: true };
         }
       }
+      return { updated: false, error: false };
+    });
+    const results = await Promise.all(updatePromises);
+    for (const res of results) {
+      if (res.updated)
+        updatedCount++;
+      if (res.error)
+        errorCount++;
     }
   }
   return { updated: updatedCount, created: createdCount, errors: errorCount };
@@ -394,5 +404,6 @@ if (require.main === module) {
 module.exports = Object.assign(syncGitHubKanban, {
   normalizeLaneName,
   parsePriorityTag,
-  extractLocalKanbanTasks
+  extractLocalKanbanTasks,
+  syncSingleBoard
 });

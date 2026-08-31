@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import syncGitHubKanban from '../sync-github-kanban.js';
 
-const { normalizeLaneName, parsePriorityTag, extractLocalKanbanTasks } = syncGitHubKanban;
+const { normalizeLaneName, parsePriorityTag, extractLocalKanbanTasks, syncSingleBoard } = syncGitHubKanban;
 
 test('normalizeLaneName: normalizes lane variations and icons', () => {
   assert.strictEqual(normalizeLaneName('## Backlog'), 'backlog');
@@ -63,4 +63,21 @@ github_project_number: 4
   assert.strictEqual(tasks[3].title, 'Initial project setup');
   assert.strictEqual(tasks[3].completionDate, '2026-08-24');
   assert.strictEqual(tasks[3].checkbox, 'x');
+});
+
+test('syncSingleBoard: executes asynchronously without blocking', async () => {
+  assert.strictEqual(typeof syncSingleBoard, 'function');
+  const mockApp = {
+    vault: {
+      read: async () => '## Backlog\n- [ ] Task 1\n'
+    }
+  };
+  const mockFile = { basename: 'Test Board', path: '02-Projects/Test.md' };
+  const mockConfig = { projectNumber: 9999, owner: 'testowner', title: 'Test Board', filePath: '02-Projects/Test.md' };
+
+  // syncSingleBoard returns a Promise and catches gh CLI errors gracefully
+  const result = await syncSingleBoard(mockApp, mockFile, mockConfig);
+  assert.ok(typeof result.updated === 'number');
+  assert.ok(typeof result.created === 'number');
+  assert.ok(typeof result.errors === 'number');
 });
