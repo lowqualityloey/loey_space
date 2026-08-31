@@ -1,92 +1,5 @@
-// 06-Resources/scripts/src/ai-enrich-action.ts
+// 06-Resources/scripts/src/lib/gemini.ts
 var GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"];
-function readFrontmatterValue(content, key) {
-  const fm = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  const scope = fm ? fm[1] : content;
-  const match = scope.match(new RegExp("^" + key + ":[ \\t]*([^\\r\\n]*)$", "m"));
-  if (!match)
-    return "";
-  return match[1].trim().replace(/^["']|["']$/g, "").trim();
-}
-function formatDate(date) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-function previousDateStr(dateStr) {
-  const parts = String(dateStr).split("-").map(Number);
-  const date = new Date(parts[0], (parts[1] || 1) - 1, parts[2] || 1);
-  if (isNaN(date.getTime()))
-    return dateStr;
-  date.setDate(date.getDate() - 1);
-  return formatDate(date);
-}
-function toSingleLine(value) {
-  if (value === void 0 || value === null)
-    return "";
-  const raw = Array.isArray(value) ? value.filter(Boolean).join(" ") : String(value);
-  return raw.replace(/\r?\n+/g, " ").replace(/^\s*>+\s*/, "").replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "").replace(/^\s*#{1,6}\s*/, "").replace(/\s{2,}/g, " ").trim();
-}
-function escapeReplacement(text) {
-  return String(text).replace(/\$/g, "$$$$");
-}
-function normalizeWikiLink(raw) {
-  let text = toSingleLine(raw).replace(/^-?\s*\[[ xX]\]\s*/, "").trim();
-  if (!text)
-    return "";
-  let highlighted = false;
-  for (let i = 0; i < 4; i++) {
-    const wrapped = text.match(/^(==|\*\*|__|\*|_)([\s\S]+)\1$/);
-    if (!wrapped)
-      break;
-    if (wrapped[1] === "==")
-      highlighted = true;
-    text = wrapped[2].trim();
-  }
-  const inner = text.match(/^\[\[([^\[\]]+)\]\]$/);
-  const target = (inner ? inner[1] : text.replace(/^\[+|\]+$/g, "")).trim();
-  if (!target || target === "|" || target === "#")
-    return "";
-  const link = `[[${target}]]`;
-  return highlighted ? `==${link}==` : link;
-}
-function wikiLinkTarget(link) {
-  const inner = String(link).match(/\[\[([^\[\]]+)\]\]/);
-  if (!inner)
-    return "";
-  return inner[1].split("|")[0].split("#")[0].trim();
-}
-function replaceSectionBody(content, headingLiteral, bodyText) {
-  const heading = headingLiteral.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const re = new RegExp(
-    "(^" + heading + "[ \\t]*\\r?\\n)[\\s\\S]*?(?=^#{1,6} |^```|^---[ \\t]*$|(?![\\s\\S]))",
-    "m"
-  );
-  if (!re.test(content))
-    return content;
-  return content.replace(re, (match, headingLine) => headingLine + bodyText + "\n\n");
-}
-function addFrontmatterTag(content, tag) {
-  const clean = toSingleLine(tag).replace(/^#/, "").trim();
-  if (!clean)
-    return content;
-  const fm = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  if (!fm)
-    return content;
-  if (new RegExp("^\\s*-\\s*" + clean.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*$", "m").test(fm[1]))
-    return content;
-  return content.replace(/(^tags:[ \t]*\r?\n)/m, (m, key) => key + "  - " + clean + "\n");
-}
-function stripTaskMetadata(text) {
-  return String(text).replace(/[✅❌➕📅⏳🛫🔁⏫🔼🔽⏬🆔⛔]\s*\d{4}-\d{2}-\d{2}/g, " ").replace(/[✅❌➕📅⏳🛫🔁⏫🔼🔽⏬🆔⛔]/g, " ").replace(/\s*\^[A-Za-z0-9]+\s*$/, " ").replace(/\s{2,}/g, " ").trim();
-}
-function asSentence(text) {
-  const clean = String(text).trim().replace(/[.,;:\s]+$/, "");
-  if (!clean)
-    return "";
-  return /[!?]$/.test(clean) ? clean : clean + ".";
-}
 function parseGeminiError(status, bodyText, model) {
   let message = "";
   let retrySeconds = 0;
@@ -177,11 +90,12 @@ function formatGeminiFailure(failure) {
 }
 async function callGeminiJson(apiKey, systemPrompt, userPrompt, label, temperature) {
   let failure = { status: 0, kind: "unknown", message: "request failed", retrySeconds: 0, model: "" };
+  const reqUrl = window.requestUrl || globalThis.requestUrl || requestUrl;
   for (const model of GEMINI_MODELS) {
     for (let attempt = 0; attempt < 2; attempt++) {
       let res = null;
       try {
-        res = await requestUrl({
+        res = await reqUrl({
           url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -226,7 +140,9 @@ async function callGeminiJson(apiKey, systemPrompt, userPrompt, label, temperatu
         }
       }
       failure = parseGeminiError(res.status, res.text, model);
-      console.warn(`${label}: ${model} \u2192 HTTP ${res.status} [${failure.kind}]${failure.quotaId ? ` quotaId=${failure.quotaId}` : ""}${failure.retrySeconds ? ` retryDelay=${failure.retrySeconds}s` : ""} \u2014 ${failure.message}`);
+      console.warn(
+        `${label}: ${model} \u2192 HTTP ${res.status} [${failure.kind}]${failure.quotaId ? ` quotaId=${failure.quotaId}` : ""}${failure.retrySeconds ? ` retryDelay=${failure.retrySeconds}s` : ""} \u2014 ${failure.message}`
+      );
       if (failure.kind === "quotaPerMinute" && attempt === 0) {
         const waitSeconds = Math.min(Math.max(failure.retrySeconds || 6, 5), 20);
         console.log(`${label}: waiting ${waitSeconds}s before retrying ${model}`);
@@ -243,108 +159,103 @@ async function callGeminiJson(apiKey, systemPrompt, userPrompt, label, temperatu
   console.warn(`${label}: all models failed \u2014 ${formatGeminiFailure(failure)}`);
   return { data: null, model: "", failure };
 }
-async function enrichDevNote(app, file) {
-  let content = await app.vault.read(file);
-  const noteTitle = file.basename;
-  new Notice(`\u{1F916} Analyzing & enriching Dev Note: "${noteTitle}"...`);
-  let geminiApiKey = "";
-  try {
-    const envContent = await app.vault.adapter.read(".env");
-    const match = envContent.match(/GEMINI_API_KEY\s*=\s*([^\s]+)/);
-    if (match && !match[1].includes("your_gemini"))
-      geminiApiKey = match[1].trim();
-  } catch (e) {
-  }
-  if (!geminiApiKey) {
-    new Notice("\u26A0\uFE0F GEMINI_API_KEY missing in .env!");
-    return;
-  }
-  const existingNotes = app.vault.getMarkdownFiles().map((f) => f.basename).filter((n) => n && !n.startsWith("_") && n !== noteTitle && !n.match(/^\d{4}-\d{2}-\d{2}/));
-  const existingNotesStr = existingNotes.slice(0, 60).join(", ");
-  const systemPrompt = `You are a senior software engineer. Enrich dev notes with frontmatter and sections.`;
-  const userPrompt = `Analyze this dev note. Provide JSON only.
 
-Title: "${noteTitle}"
-Existing Notes: [${existingNotesStr}]
-
-Content:
-${content}
-
-JSON format:
-{
-  "type":"snippet",
-  "area":"dev",
-  "language":"JavaScript ES6",
-  "tags":["type/dev","area/dev"],
-  "context":{"system":"[[second brain]]","stack":"JavaScript ES6+","whereItFits":""},
-  "codeExplanation":[],
-  "related":[]
+// 06-Resources/scripts/src/lib/markdown.ts
+function readFrontmatterValue(content, key) {
+  const fm = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  const scope = fm ? fm[1] : content;
+  const match = scope.match(new RegExp("^" + key + ":[ \\t]*([^\\r\\n]*)$", "m"));
+  if (!match)
+    return "";
+  return match[1].trim().replace(/^["']|["']$/g, "").trim();
 }
-`;
-  const devResult = await callGeminiJson(geminiApiKey, systemPrompt, userPrompt, "Dev Enrich", 0.4);
-  if (!devResult || !devResult.data) {
-    new Notice(
-      `\u26A0\uFE0F Dev note not enriched: ${formatGeminiFailure(devResult && devResult.failure)}.
-
-The note was left unchanged. See the console for the full response.`,
-      12e3
-    );
-    return;
-  }
-  try {
-    const data = devResult.data;
-    if (data.type)
-      content = content.replace(/^type:\s*.*$/m, `type: ${data.type}`);
-    if (data.area)
-      content = content.replace(/^area:\s*.*$/m, `area: ${data.area}`);
-    if (data.language)
-      content = content.replace(/^language:\s*.*$/m, `language: ${data.language}`);
-    if (Array.isArray(data.tags)) {
-      data.tags.forEach((t) => {
-        content = addFrontmatterTag(content, t);
-      });
-    }
-    if (data.context) {
-      const ctxLines = [];
-      const system = toSingleLine(data.context.system);
-      const stack = toSingleLine(data.context.stack);
-      const fits = toSingleLine(data.context.whereItFits);
-      if (system)
-        ctxLines.push(`- System: ${system}`);
-      if (stack)
-        ctxLines.push(`- Stack: ${stack}`);
-      if (fits)
-        ctxLines.push(`- Where this fits: ${fits}`);
-      if (ctxLines.length)
-        content = replaceSectionBody(content, "## Context", ctxLines.join("\n"));
-    }
-    if (Array.isArray(data.codeExplanation)) {
-      const items = data.codeExplanation.map(toSingleLine).filter(Boolean);
-      if (items.length)
-        content = replaceSectionBody(content, "## Code Explanation", items.map((e) => `- ${e}`).join("\n"));
-    }
-    if (Array.isArray(data.related)) {
-      const seen = /* @__PURE__ */ new Set();
-      const links = [];
-      data.related.forEach((r) => {
-        const normalized = normalizeWikiLink(r);
-        const target = wikiLinkTarget(normalized);
-        if (!target || seen.has(target.toLowerCase()))
-          return;
-        seen.add(target.toLowerCase());
-        links.push(normalized);
-      });
-      if (links.length)
-        content = replaceSectionBody(content, "## Related", links.map((l) => `- ${l}`).join("\n"));
-    }
-    await app.vault.modify(file, content);
-    new Notice(`\u2728 Dev note "${noteTitle}" enriched with AI! (${devResult.model})`);
-  } catch (err) {
-    console.error("Failed to apply Dev enrichment:", err);
-    new Notice("\u26A0\uFE0F Failed to apply AI Dev response.");
-  }
+function formatDate(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
+function previousDateStr(dateStr) {
+  const parts = String(dateStr).split("-").map(Number);
+  const date = new Date(parts[0], (parts[1] || 1) - 1, parts[2] || 1);
+  if (isNaN(date.getTime()))
+    return dateStr;
+  date.setDate(date.getDate() - 1);
+  return formatDate(date);
+}
+function toSingleLine(value) {
+  if (value === void 0 || value === null)
+    return "";
+  const raw = Array.isArray(value) ? value.filter(Boolean).join(" ") : String(value);
+  return raw.replace(/\r?\n+/g, " ").replace(/^\s*>+\s*/, "").replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "").replace(/^\s*#{1,6}\s*/, "").replace(/\s{2,}/g, " ").trim();
+}
+function escapeReplacement(text) {
+  return String(text).replace(/\$/g, "$$$$");
+}
+function normalizeWikiLink(raw) {
+  let text = toSingleLine(raw).replace(/^-?\s*\[[ xX]\]\s*/, "").trim();
+  if (!text)
+    return "";
+  let highlighted = false;
+  for (let i = 0; i < 4; i++) {
+    const wrapped = text.match(/^(==|\*\*|__|\*|_)([\s\S]+)\1$/);
+    if (!wrapped)
+      break;
+    if (wrapped[1] === "==")
+      highlighted = true;
+    text = wrapped[2].trim();
+  }
+  const inner = text.match(/^\[\[([^\[\]]+)\]\]$/);
+  const target = (inner ? inner[1] : text.replace(/^\[+|\]+$/g, "")).trim();
+  if (!target || target === "|" || target === "#")
+    return "";
+  const link = `[[${target}]]`;
+  return highlighted ? `==${link}==` : link;
+}
+function wikiLinkTarget(link) {
+  const inner = String(link).match(/\[\[([^\[\]]+)\]\]/);
+  if (!inner)
+    return "";
+  return inner[1].split("|")[0].split("#")[0].trim();
+}
+function replaceSectionBody(content, headingLiteral, bodyText) {
+  const heading = headingLiteral.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(
+    "(^" + heading + "[ \\t]*\\r?\\n)[\\s\\S]*?(?=^#{1,6} |^```|^---[ \\t]*$|(?![\\s\\S]))",
+    "m"
+  );
+  if (!re.test(content))
+    return content;
+  return content.replace(re, (match, headingLine) => headingLine + bodyText + "\n\n");
+}
+function addFrontmatterTag(content, tag) {
+  const clean = toSingleLine(tag).replace(/^#/, "").trim();
+  if (!clean)
+    return content;
+  const fm = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!fm)
+    return content;
+  if (new RegExp("^\\s*-\\s*" + clean.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*$", "m").test(fm[1]))
+    return content;
+  return content.replace(/(^tags:[ \t]*\r?\n)/m, (m, key) => key + "  - " + clean + "\n");
+}
+function stripTaskMetadata(text) {
+  return String(text).replace(/[✅❌➕📅⏳🛫🔁⏫🔼🔽⏬🆔⛔]\s*\d{4}-\d{2}-\d{2}/g, " ").replace(/[✅❌➕📅⏳🛫🔁⏫🔼🔽⏬🆔⛔]/g, " ").replace(/\s*\^[A-Za-z0-9]+\s*$/, " ").replace(/\s{2,}/g, " ").trim();
+}
+function asSentence(text) {
+  const clean = String(text).trim().replace(/[.,;:\s]+$/, "");
+  if (!clean)
+    return "";
+  return /[!?]$/.test(clean) ? clean : clean + ".";
+}
+function capitalise(text) {
+  const clean = String(text).trim();
+  return clean ? clean.charAt(0).toUpperCase() + clean.slice(1) : clean;
+}
+
+// 06-Resources/scripts/src/lib/enrichers/concept.ts
 async function enrichConceptNote(app, file) {
+  const Notice = window.Notice || globalThis.Notice;
   let content = await app.vault.read(file);
   const conceptName = file.basename;
   new Notice(`\u{1F916} Analyzing & enriching Concept: "${conceptName}"...`);
@@ -480,7 +391,114 @@ The note was left unchanged. See the console for the full response.`,
     new Notice("\u26A0\uFE0F Failed to apply AI concept response.");
   }
 }
+
+// 06-Resources/scripts/src/lib/enrichers/dev.ts
+async function enrichDevNote(app, file) {
+  const Notice = window.Notice || globalThis.Notice;
+  let content = await app.vault.read(file);
+  const noteTitle = file.basename;
+  new Notice(`\u{1F916} Analyzing & enriching Dev Note: "${noteTitle}"...`);
+  let geminiApiKey = "";
+  try {
+    const envContent = await app.vault.adapter.read(".env");
+    const match = envContent.match(/GEMINI_API_KEY\s*=\s*([^\s]+)/);
+    if (match && !match[1].includes("your_gemini"))
+      geminiApiKey = match[1].trim();
+  } catch (e) {
+  }
+  if (!geminiApiKey) {
+    new Notice("\u26A0\uFE0F GEMINI_API_KEY missing in .env!");
+    return;
+  }
+  const existingNotes = app.vault.getMarkdownFiles().map((f) => f.basename).filter((n) => n && !n.startsWith("_") && n !== noteTitle && !n.match(/^\d{4}-\d{2}-\d{2}/));
+  const existingNotesStr = existingNotes.slice(0, 60).join(", ");
+  const systemPrompt = `You are a senior software engineer. Enrich dev notes with frontmatter and sections.`;
+  const userPrompt = `Analyze this dev note. Provide JSON only.
+
+Title: "${noteTitle}"
+Existing Notes: [${existingNotesStr}]
+
+Content:
+${content}
+
+JSON format:
+{
+  "type":"snippet",
+  "area":"dev",
+  "language":"JavaScript ES6",
+  "tags":["type/dev","area/dev"],
+  "context":{"system":"[[second brain]]","stack":"JavaScript ES6+","whereItFits":""},
+  "codeExplanation":[],
+  "related":[]
+}
+`;
+  const devResult = await callGeminiJson(geminiApiKey, systemPrompt, userPrompt, "Dev Enrich", 0.4);
+  if (!devResult || !devResult.data) {
+    new Notice(
+      `\u26A0\uFE0F Dev note not enriched: ${formatGeminiFailure(devResult && devResult.failure)}.
+
+The note was left unchanged. See the console for the full response.`,
+      12e3
+    );
+    return;
+  }
+  try {
+    const data = devResult.data;
+    if (data.type)
+      content = content.replace(/^type:\s*.*$/m, `type: ${data.type}`);
+    if (data.area)
+      content = content.replace(/^area:\s*.*$/m, `area: ${data.area}`);
+    if (data.language)
+      content = content.replace(/^language:\s*.*$/m, `language: ${data.language}`);
+    if (Array.isArray(data.tags)) {
+      data.tags.forEach((t) => {
+        content = addFrontmatterTag(content, t);
+      });
+    }
+    if (data.context) {
+      const ctxLines = [];
+      const system = toSingleLine(data.context.system);
+      const stack = toSingleLine(data.context.stack);
+      const fits = toSingleLine(data.context.whereItFits);
+      if (system)
+        ctxLines.push(`- System: ${system}`);
+      if (stack)
+        ctxLines.push(`- Stack: ${stack}`);
+      if (fits)
+        ctxLines.push(`- Where this fits: ${fits}`);
+      if (ctxLines.length)
+        content = replaceSectionBody(content, "## Context", ctxLines.join("\n"));
+    }
+    if (Array.isArray(data.codeExplanation)) {
+      const items = data.codeExplanation.map(toSingleLine).filter(Boolean);
+      if (items.length)
+        content = replaceSectionBody(content, "## Code Explanation", items.map((e) => `- ${e}`).join("\n"));
+    }
+    if (Array.isArray(data.related)) {
+      const seen = /* @__PURE__ */ new Set();
+      const links = [];
+      data.related.forEach((r) => {
+        const normalized = normalizeWikiLink(r);
+        const target = wikiLinkTarget(normalized);
+        if (!target || seen.has(target.toLowerCase()))
+          return;
+        seen.add(target.toLowerCase());
+        links.push(normalized);
+      });
+      if (links.length)
+        content = replaceSectionBody(content, "## Related", links.map((l) => `- ${l}`).join("\n"));
+    }
+    await app.vault.modify(file, content);
+    new Notice(`\u2728 Dev note "${noteTitle}" enriched with AI! (${devResult.model})`);
+  } catch (err) {
+    console.error("Failed to apply Dev enrichment:", err);
+    new Notice("\u26A0\uFE0F Failed to apply AI Dev response.");
+  }
+}
+
+// 06-Resources/scripts/src/lib/enrichers/learning.ts
 async function enrichLearningNote(app, file) {
+  const Notice = window.Notice || globalThis.Notice;
   let content = await app.vault.read(file);
   const noteTitle = file.basename;
   new Notice(`\u{1F916} Analyzing & enriching Learning Note: "${noteTitle}"...`);
@@ -596,7 +614,174 @@ The note was left unchanged. See the console for the full response.`,
     new Notice("\u26A0\uFE0F Failed to apply AI Learning response.");
   }
 }
+
+// 06-Resources/scripts/src/lib/enrichers/daily.ts
+function stripTimestamp(entry) {
+  return String(entry).replace(/^\s*\d{1,2}[:.]?\d{0,2}\s*(am|pm|nn|hrs?)?\s*[:\-–]?\s*/i, "").trim() || String(entry).trim();
+}
+function largestLogGap(entries) {
+  const times = [];
+  for (const entry of entries) {
+    const match = String(entry).match(/(\d{1,2})[:.](\d{2})\s*(am|pm|nn)?|(\d{1,2})\s*(am|pm|nn)/i);
+    if (!match)
+      continue;
+    let hour, minute, suffix;
+    if (match[1] !== void 0) {
+      hour = parseInt(match[1], 10);
+      minute = parseInt(match[2], 10);
+      suffix = (match[3] || "").toLowerCase();
+    } else {
+      hour = parseInt(match[4], 10);
+      minute = 0;
+      suffix = (match[5] || "").toLowerCase();
+    }
+    if (isNaN(hour))
+      continue;
+    if (suffix === "pm" && hour < 12)
+      hour += 12;
+    if (suffix === "nn" && hour < 12)
+      hour += 12;
+    if (suffix === "am" && hour === 12)
+      hour = 0;
+    times.push({
+      minutes: hour * 60 + minute,
+      label: `${String(hour % 12 === 0 ? 12 : hour % 12)}${minute ? ":" + String(minute).padStart(2, "0") : ""}${hour >= 12 ? "pm" : "am"}`
+    });
+  }
+  if (times.length < 2)
+    return null;
+  times.sort((a, b) => a.minutes - b.minutes);
+  let widest = null;
+  for (let i = 1; i < times.length; i++) {
+    const span = times[i].minutes - times[i - 1].minutes;
+    if (span >= 120 && (!widest || span > widest.span)) {
+      widest = { span, from: times[i - 1].label, to: times[i].label };
+    }
+  }
+  if (!widest)
+    return null;
+  return { from: widest.from, to: widest.to, hours: Math.round(widest.span / 60) };
+}
+function buildDailyFallback(d) {
+  const energyNum = parseFloat(d.energy);
+  const done = d.completedTasks.length;
+  const open = d.unfinishedTasks.length;
+  const logged = d.dailyLog.length;
+  const plural = (n, one, many) => n === 1 ? one : many;
+  const COMFORT_HINTS = [
+    "coffee",
+    "matcha",
+    "tea",
+    "lunch",
+    "dinner",
+    "breakfast",
+    "sushi",
+    "ate",
+    "eating",
+    "food",
+    "walk",
+    "nap",
+    "rest",
+    "shower",
+    "music",
+    "game",
+    "played"
+  ];
+  const comfort = d.dailyLog.find((entry) => COMFORT_HINTS.some((word) => entry.toLowerCase().includes(word))) || "";
+  let vibe;
+  if (logged >= 2) {
+    const first = stripTimestamp(d.dailyLog[0]);
+    const last = stripTimestamp(d.dailyLog[d.dailyLog.length - 1]);
+    vibe = asSentence(`A day that went from ${first} to ${last}`);
+  } else if (d.isDepleted) {
+    vibe = "Running on fumes today \u2014 short sleep, low energy.";
+  } else if (done && open) {
+    vibe = asSentence(`Closed ${done} thing${done === 1 ? "" : "s"}, left ${open} on the table`);
+  } else if (done) {
+    vibe = "Quiet day, but things actually got finished.";
+  } else {
+    vibe = "A thin day on the record \u2014 not much made it into the log.";
+  }
+  const moved = [];
+  if (done)
+    moved.push(asSentence(`Closed ${d.completedTasks.slice(0, 2).join(" and ")}`));
+  if (d.userReflectionLog.length)
+    moved.push(asSentence(`Took something away: ${d.userReflectionLog[0]}`));
+  else if (d.winsLog.length)
+    moved.push(asSentence(d.winsLog[0]));
+  if (!moved.length && logged)
+    moved.push(asSentence(stripTimestamp(d.dailyLog[0])));
+  const coping = comfort ? asSentence(stripTimestamp(comfort)) : "";
+  const missedHabits = ["water", "prioritised", "move", "read", "tidy", "disconnect"].filter((habit) => !d.checkedHabits.some((kept) => kept.toLowerCase().includes(habit)));
+  let pattern;
+  if (d.checkedHabits.length && missedHabits.length) {
+    pattern = asSentence(
+      `${d.checkedHabits.join(", ")} got ticked; ${missedHabits.join(", ")} didn't \u2014 the ones needing a clear head are the ones that slipped${d.energy ? `, even at energy ${d.energy}` : ""}`
+    );
+  } else if (d.checkedHabits.length === d.habitTotal) {
+    pattern = asSentence(`All ${d.habitTotal} habits held${done ? ` and ${done} task${done === 1 ? "" : "s"} closed` : ""}`);
+  } else if (open) {
+    pattern = asSentence(`${open} ${plural(open, "task", "tasks")} still open and no habit ticked \u2014 the day never found a rhythm`);
+  } else {
+    pattern = "Not enough logged to read a pattern yet.";
+  }
+  const gap = largestLogGap(d.dailyLog);
+  let friction;
+  if (d.blockersLog.length) {
+    friction = asSentence(d.blockersLog[0]);
+  } else if (gap) {
+    friction = `Nothing logged between ${gap.from} and ${gap.to} \u2014 about ${gap.hours} ${gap.hours === 1 ? "hour" : "hours"} that went untracked.`;
+  } else if (d.isDepleted) {
+    friction = asSentence(`Under 6 hours of sleep with energy at ${d.energy} of 5 caps what was available`);
+  } else if (d.forwardedTasks.length) {
+    friction = asSentence(`${d.forwardedTasks.length} ${plural(d.forwardedTasks.length, "task", "tasks")} showed up already forwarded from an earlier day`);
+  } else if (!logged) {
+    friction = "The log is empty, so there's no trace of where the day went.";
+  } else {
+    friction = "Nothing obvious got in the way today.";
+  }
+  let insight;
+  if (d.isDepleted) {
+    insight = "Short sleep and low energy together mean the ceiling was physical, not a discipline problem.";
+  } else if (comfort && done) {
+    insight = asSentence(`${capitalise(stripTimestamp(comfort))} held the day together more than the task list did`);
+  } else if (!isNaN(energyNum) && energyNum >= 4 && done === 0) {
+    insight = asSentence(`Energy at ${d.energy} of 5 with nothing closed points to a missing target, not missing capacity`);
+  } else if (open > done && done > 0) {
+    insight = "More was left open than closed, which usually means the tasks were scoped too big for one sitting.";
+  } else if (gap && done) {
+    insight = `You still closed something after that ${gap.hours}-hour gap, so the day cost attention rather than capacity.`;
+  } else if (d.ideas.length) {
+    insight = asSentence(`An idea got captured ("${d.ideas[0]}") but never scheduled, so it'll fade unless it becomes a task`);
+  } else {
+    insight = "Not enough signal today to draw a non-obvious connection.";
+  }
+  let nextStep;
+  if (open) {
+    nextStep = `Try starting with "${d.unfinishedTasks[0]}" first thing because it's still open after today.`;
+  } else if (d.focusItems.length) {
+    nextStep = "Try picking one outcome with a clear finish line because today's intentions had none.";
+  } else {
+    nextStep = "Try writing one target before you start because today had nothing to steer by.";
+  }
+  if (d.sleepDebt) {
+    nextStep += ` And on ${d.sleepHours} hours, keep tomorrow's list to one thing.`;
+  }
+  return {
+    quote: "Small steps, taken today, are what tomorrow is built on.",
+    author: "Daily Spark",
+    vibe,
+    moved: moved.slice(0, 2),
+    coping,
+    pattern,
+    friction,
+    insight,
+    nextStep,
+    connectedNotes: [`[[${d.yesterdayDate}]]`]
+  };
+}
 async function enrichDailyNote(app, file) {
+  const Notice = window.Notice || globalThis.Notice;
   let content = await app.vault.read(file);
   new Notice("\u{1F916} Gemini Flash is analyzing note & generating summary + reflection...");
   const mood = readFrontmatterValue(content, "mood");
@@ -719,15 +904,11 @@ async function enrichDailyNote(app, file) {
     return;
   }
   let geminiApiKey = "";
-  let openAiApiKey = "";
   try {
     const envContent = await app.vault.adapter.read(".env");
     const geminiMatch = envContent.match(/GEMINI_API_KEY\s*=\s*([^\s]+)/);
-    const openAiMatch = envContent.match(/OPENAI_API_KEY\s*=\s*([^\s]+)/);
     if (geminiMatch && !geminiMatch[1].includes("your_gemini"))
       geminiApiKey = geminiMatch[1].trim();
-    if (openAiMatch && !openAiMatch[1].includes("your_openai"))
-      openAiApiKey = openAiMatch[1].trim();
   } catch (e) {
   }
   const noteDate = (file.basename.match(/^(\d{4}-\d{2}-\d{2})/) || [])[1] || formatDate(/* @__PURE__ */ new Date());
@@ -821,7 +1002,7 @@ JSON format:
       failureReason = formatGeminiFailure(result && result.failure);
     }
   } else {
-    failureReason = formatGeminiFailure({ kind: "noKey" });
+    failureReason = formatGeminiFailure({ status: 0, kind: "noKey", message: "GEMINI_API_KEY is missing from .env", retrySeconds: 0, model: "" });
   }
   if (!responseData) {
     usedFallback = true;
@@ -974,175 +1155,14 @@ A basic offline summary was assembled from your logged items instead. Re-run the
     new Notice("\u2728 Daily Note enriched: summary, reflection, next step & connected notes.");
   }
 }
-function buildDailyFallback(d) {
-  const energyNum = parseFloat(d.energy);
-  const done = d.completedTasks.length;
-  const open = d.unfinishedTasks.length;
-  const logged = d.dailyLog.length;
-  const plural = (n, one, many) => n === 1 ? one : many;
-  const COMFORT_HINTS = [
-    "coffee",
-    "matcha",
-    "tea",
-    "lunch",
-    "dinner",
-    "breakfast",
-    "sushi",
-    "ate",
-    "eating",
-    "food",
-    "walk",
-    "nap",
-    "rest",
-    "shower",
-    "music",
-    "game",
-    "played"
-  ];
-  const comfort = d.dailyLog.find((entry) => COMFORT_HINTS.some((word) => entry.toLowerCase().includes(word))) || "";
-  let vibe;
-  if (logged >= 2) {
-    const first = stripTimestamp(d.dailyLog[0]);
-    const last = stripTimestamp(d.dailyLog[d.dailyLog.length - 1]);
-    vibe = asSentence(`A day that went from ${first} to ${last}`);
-  } else if (d.isDepleted) {
-    vibe = "Running on fumes today \u2014 short sleep, low energy.";
-  } else if (done && open) {
-    vibe = asSentence(`Closed ${done} thing${done === 1 ? "" : "s"}, left ${open} on the table`);
-  } else if (done) {
-    vibe = "Quiet day, but things actually got finished.";
-  } else {
-    vibe = "A thin day on the record \u2014 not much made it into the log.";
-  }
-  const moved = [];
-  if (done)
-    moved.push(asSentence(`Closed ${d.completedTasks.slice(0, 2).join(" and ")}`));
-  if (d.userReflectionLog.length)
-    moved.push(asSentence(`Took something away: ${d.userReflectionLog[0]}`));
-  else if (d.winsLog.length)
-    moved.push(asSentence(d.winsLog[0]));
-  if (!moved.length && logged)
-    moved.push(asSentence(stripTimestamp(d.dailyLog[0])));
-  const coping = comfort ? asSentence(stripTimestamp(comfort)) : "";
-  const missedHabits = ["water", "prioritised", "move", "read", "tidy", "disconnect"].filter((habit) => !d.checkedHabits.some((kept) => kept.toLowerCase().includes(habit)));
-  let pattern;
-  if (d.checkedHabits.length && missedHabits.length) {
-    pattern = asSentence(`${d.checkedHabits.join(", ")} got ticked; ${missedHabits.join(", ")} didn't \u2014 the ones needing a clear head are the ones that slipped${d.energy ? `, even at energy ${d.energy}` : ""}`);
-  } else if (d.checkedHabits.length === d.habitTotal) {
-    pattern = asSentence(`All ${d.habitTotal} habits held${done ? ` and ${done} task${done === 1 ? "" : "s"} closed` : ""}`);
-  } else if (open) {
-    pattern = asSentence(`${open} ${plural(open, "task", "tasks")} still open and no habit ticked \u2014 the day never found a rhythm`);
-  } else {
-    pattern = "Not enough logged to read a pattern yet.";
-  }
-  const gap = largestLogGap(d.dailyLog);
-  let friction;
-  if (d.blockersLog.length) {
-    friction = asSentence(d.blockersLog[0]);
-  } else if (gap) {
-    friction = `Nothing logged between ${gap.from} and ${gap.to} \u2014 about ${gap.hours} ${gap.hours === 1 ? "hour" : "hours"} that went untracked.`;
-  } else if (d.isDepleted) {
-    friction = asSentence(`Under 6 hours of sleep with energy at ${d.energy} of 5 caps what was available`);
-  } else if (d.forwardedTasks.length) {
-    friction = asSentence(`${d.forwardedTasks.length} ${plural(d.forwardedTasks.length, "task", "tasks")} showed up already forwarded from an earlier day`);
-  } else if (!logged) {
-    friction = "The log is empty, so there's no trace of where the day went.";
-  } else {
-    friction = "Nothing obvious got in the way today.";
-  }
-  let insight;
-  if (d.isDepleted) {
-    insight = "Short sleep and low energy together mean the ceiling was physical, not a discipline problem.";
-  } else if (comfort && done) {
-    insight = asSentence(`${capitalise(stripTimestamp(comfort))} held the day together more than the task list did`);
-  } else if (!isNaN(energyNum) && energyNum >= 4 && done === 0) {
-    insight = asSentence(`Energy at ${d.energy} of 5 with nothing closed points to a missing target, not missing capacity`);
-  } else if (open > done && done > 0) {
-    insight = "More was left open than closed, which usually means the tasks were scoped too big for one sitting.";
-  } else if (gap && done) {
-    insight = `You still closed something after that ${gap.hours}-hour gap, so the day cost attention rather than capacity.`;
-  } else if (d.ideas.length) {
-    insight = asSentence(`An idea got captured ("${d.ideas[0]}") but never scheduled, so it'll fade unless it becomes a task`);
-  } else {
-    insight = "Not enough signal today to draw a non-obvious connection.";
-  }
-  let nextStep;
-  if (open) {
-    nextStep = `Try starting with "${d.unfinishedTasks[0]}" first thing because it's still open after today.`;
-  } else if (d.focusItems.length) {
-    nextStep = "Try picking one outcome with a clear finish line because today's intentions had none.";
-  } else {
-    nextStep = "Try writing one target before you start because today had nothing to steer by.";
-  }
-  if (d.sleepDebt) {
-    nextStep += ` And on ${d.sleepHours} hours, keep tomorrow's list to one thing.`;
-  }
-  return {
-    quote: "Small steps, taken today, are what tomorrow is built on.",
-    author: "Daily Spark",
-    vibe,
-    moved: moved.slice(0, 2),
-    coping,
-    pattern,
-    friction,
-    insight,
-    nextStep,
-    connectedNotes: [`[[${d.yesterdayDate}]]`]
-  };
-}
-function capitalise(text) {
-  const clean = String(text).trim();
-  return clean ? clean.charAt(0).toUpperCase() + clean.slice(1) : clean;
-}
-function stripTimestamp(entry) {
-  return String(entry).replace(/^\s*\d{1,2}[:.]?\d{0,2}\s*(am|pm|nn|hrs?)?\s*[:\-–]?\s*/i, "").trim() || String(entry).trim();
-}
-function largestLogGap(entries) {
-  const times = [];
-  for (const entry of entries) {
-    const match = String(entry).match(/(\d{1,2})[:.](\d{2})\s*(am|pm|nn)?|(\d{1,2})\s*(am|pm|nn)/i);
-    if (!match)
-      continue;
-    let hour, minute, suffix;
-    if (match[1] !== void 0) {
-      hour = parseInt(match[1], 10);
-      minute = parseInt(match[2], 10);
-      suffix = (match[3] || "").toLowerCase();
-    } else {
-      hour = parseInt(match[4], 10);
-      minute = 0;
-      suffix = (match[5] || "").toLowerCase();
-    }
-    if (isNaN(hour))
-      continue;
-    if (suffix === "pm" && hour < 12)
-      hour += 12;
-    if (suffix === "nn" && hour < 12)
-      hour += 12;
-    if (suffix === "am" && hour === 12)
-      hour = 0;
-    times.push({ minutes: hour * 60 + minute, label: `${String(hour % 12 === 0 ? 12 : hour % 12)}${minute ? ":" + String(minute).padStart(2, "0") : ""}${hour >= 12 ? "pm" : "am"}` });
-  }
-  if (times.length < 2)
-    return null;
-  times.sort((a, b) => a.minutes - b.minutes);
-  let widest = null;
-  for (let i = 1; i < times.length; i++) {
-    const span = times[i].minutes - times[i - 1].minutes;
-    if (span >= 120 && (!widest || span > widest.span)) {
-      widest = { span, from: times[i - 1].label, to: times[i].label };
-    }
-  }
-  if (!widest)
-    return null;
-  return { from: widest.from, to: widest.to, hours: Math.round(widest.span / 60) };
-}
+
+// 06-Resources/scripts/src/ai-enrich-action.ts
 module.exports = async function aiEnrichAction(params) {
   const app = params?.app || window.app || globalThis.app;
-  const Notice2 = window.Notice || globalThis.Notice;
+  const Notice = window.Notice || globalThis.Notice;
   const file = app.workspace.getActiveFile();
   if (!file) {
-    new Notice2("\u26A0\uFE0F Please open a note first!");
+    new Notice("\u26A0\uFE0F Please open a note first!");
     return;
   }
   const isDaily = file.path.startsWith("01-Daily");
@@ -1150,7 +1170,7 @@ module.exports = async function aiEnrichAction(params) {
   const isDev = file.path.startsWith("03-Dev");
   const isLearning = file.path.startsWith("04-Learning");
   if (!isDaily && !isConcept && !isDev && !isLearning) {
-    new Notice2("\u26A0\uFE0F Please open a Daily, Concept, Dev, or Learning note first!");
+    new Notice("\u26A0\uFE0F Please open a Daily, Concept, Dev, or Learning note first!");
     return;
   }
   if (isConcept) {
