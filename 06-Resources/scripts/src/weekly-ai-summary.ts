@@ -329,7 +329,6 @@ SORT updated DESC
   }
 };
 
-
 // Helper function to extract data from daily notes
 function extractDailyData(content: string, noteDate: string) {
   const lines = content.split('\n');
