@@ -5,7 +5,7 @@ cssclasses:
 tags:
   - type/moc
   - area/tasks
-updated: 2026-08-10
+updated: 2026-08-31
 ---
 
 # 📋 Tasks MOC & History Dashboard
@@ -13,7 +13,7 @@ updated: 2026-08-10
 Central dashboard for active tasks, in-progress items, and completed task history across your daily notes and project Kanban boards.
 
 > [!TIP] 📌 Dedicated Kanban Board View
-> Prefer a multi-column visual board? Open the **[[01-Daily/Tasks Kanban|📋 Live Tasks Kanban Board]]**!
+> Prefer a multi-column visual board? Open the **[[01-Daily/Tasks Kanban|📋 Live Tasks Kanban Board]]**
 
 ---
 

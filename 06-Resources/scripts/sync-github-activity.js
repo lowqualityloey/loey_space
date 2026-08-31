@@ -52,7 +52,47 @@ function formatDateKey(date) {
 function escapeTablePipes(text) {
   return text.replace(/\|/g, "\\|").replace(/\r?\n/g, " ").trim();
 }
-function formatGitHubEventToRow(event) {
+async function fetchCommitDetailsMap(pushes, execFn) {
+  const commitMap = /* @__PURE__ */ new Map();
+  const uniqueItems = /* @__PURE__ */ new Map();
+  for (const p of pushes) {
+    if (p.head && !uniqueItems.has(p.head)) {
+      uniqueItems.set(p.head, p.repo);
+    }
+  }
+  if (uniqueItems.size === 0)
+    return commitMap;
+  let runner = execFn;
+  if (!runner) {
+    try {
+      const cp = require("child_process");
+      const util = require("util");
+      runner = util.promisify(cp.exec);
+    } catch {
+      return commitMap;
+    }
+  }
+  const tasks = Array.from(uniqueItems.entries()).map(async ([head, repo]) => {
+    try {
+      const { stdout } = await runner(
+        `gh api repos/${repo}/commits/${head} -q "{message: .commit.message, url: .html_url}"`
+      );
+      const data = JSON.parse(stdout);
+      commitMap.set(head, {
+        message: data.message ? data.message.split("\n")[0].trim() : "",
+        url: data.url || `https://github.com/${repo}/commit/${head}`
+      });
+    } catch {
+      commitMap.set(head, {
+        message: "",
+        url: `https://github.com/${repo}/commit/${head}`
+      });
+    }
+  });
+  await Promise.all(tasks);
+  return commitMap;
+}
+function formatGitHubEventToRow(event, commitMap) {
   const date = new Date(event.created_at);
   const time = formatTime12(date);
   const dateKey = formatDateKey(date);
@@ -63,10 +103,26 @@ function formatGitHubEventToRow(event) {
   if (event.type === "PushEvent") {
     eventType = `\u{1F419} Push`;
     const branch = cleanBranchName(event.payload?.ref || "main");
+    const head = event.payload?.head;
     const commits = event.payload?.commits || [];
     if (commits.length > 0) {
-      const commitMsg = commits.map((c) => c.message.split("\n")[0].trim()).filter(Boolean).slice(0, 2).join("; ");
-      details = `\`${branch}\`: ${commitMsg}`;
+      const commitItems = commits.slice(0, 2).map((c) => {
+        const msg = escapeTablePipes(c.message.split("\n")[0].trim());
+        const url = c.url || (c.sha ? `https://github.com/${event.repo.name}/commit/${c.sha}` : head ? `https://github.com/${event.repo.name}/commit/${head}` : "");
+        return url ? `[${msg}](${url})` : msg;
+      }).filter(Boolean);
+      details = `\`${branch}\`: ${commitItems.join("; ")}`;
+    } else if (head) {
+      const info = commitMap?.get(head);
+      if (info && info.message) {
+        const msg = escapeTablePipes(info.message.split("\n")[0].trim());
+        const url = info.url || `https://github.com/${event.repo.name}/commit/${head}`;
+        details = `\`${branch}\`: [${msg}](${url})`;
+      } else {
+        const shortHead = head.slice(0, 7);
+        const url = `https://github.com/${event.repo.name}/commit/${head}`;
+        details = `\`${branch}\`: [\`${shortHead}\`](${url})`;
+      }
     } else {
       details = `\`${branch}\``;
     }
@@ -75,6 +131,7 @@ function formatGitHubEventToRow(event) {
     const pr = event.payload?.pull_request;
     const number = pr?.number || event.payload?.number;
     const isMerged = action === "closed" && pr?.merged;
+    const url = pr?.html_url || (number ? `https://github.com/${event.repo.name}/pull/${number}` : "");
     if (isMerged) {
       eventType = `\u{1F500} PR #${number} Merged`;
     } else if (action === "opened") {
@@ -82,23 +139,33 @@ function formatGitHubEventToRow(event) {
     } else {
       eventType = `\u{1F500} PR #${number} ${action}`;
     }
-    const title = pr?.title;
+    const title = pr?.title ? escapeTablePipes(pr.title) : "";
     const headBranch = cleanBranchName(pr?.head?.ref);
     const baseBranch = cleanBranchName(pr?.base?.ref || "main");
     if (title && title !== "Pull Request") {
-      details = title;
+      if (url) {
+        if (headBranch && headBranch !== "main") {
+          details = `[${title}](${url}) (\`${headBranch}\` \u2192 \`${baseBranch}\`)`;
+        } else {
+          details = `[${title}](${url})`;
+        }
+      } else {
+        details = title;
+      }
     } else if (headBranch && headBranch !== "main") {
-      details = `\`${headBranch}\` \u2192 \`${baseBranch}\``;
+      details = url ? `[\`${headBranch}\` \u2192 \`${baseBranch}\`](${url})` : `\`${headBranch}\` \u2192 \`${baseBranch}\``;
     } else {
-      details = `\`${baseBranch}\``;
+      details = url ? `[\`${baseBranch}\`](${url})` : `\`${baseBranch}\``;
     }
   } else if (event.type === "IssuesEvent") {
     const action = event.payload?.action;
     const issue = event.payload?.issue;
-    const title = issue?.title || "Issue";
+    const rawTitle = issue?.title || "Issue";
+    const title = escapeTablePipes(rawTitle);
     const number = issue?.number;
+    const url = issue?.html_url || (number ? `https://github.com/${event.repo.name}/issues/${number}` : "");
     eventType = `\u{1F3AF} Issue #${number} ${action}`;
-    details = title;
+    details = url ? `[${title}](${url})` : title;
   } else if (event.type === "CreateEvent") {
     const refType = event.payload?.ref_type;
     const ref = cleanBranchName(event.payload?.ref);
@@ -109,9 +176,11 @@ function formatGitHubEventToRow(event) {
       return null;
     }
   } else if (event.type === "ReleaseEvent") {
-    const releaseName = event.payload?.release?.name || event.payload?.release?.tag_name || "Release";
+    const release = event.payload?.release;
+    const releaseName = escapeTablePipes(release?.name || release?.tag_name || "Release");
+    const url = release?.html_url || `https://github.com/${event.repo.name}/releases`;
     eventType = `\u{1F680} Release`;
-    details = releaseName;
+    details = url ? `[${releaseName}](${url})` : releaseName;
   } else {
     return null;
   }
@@ -121,7 +190,7 @@ function formatGitHubEventToRow(event) {
     dateKey,
     repo,
     type: eventType,
-    details: escapeTablePipes(details),
+    details,
     rawDate: date
   };
 }
@@ -213,7 +282,7 @@ async function syncGithubActivityAction(params) {
   const app = params?.app || (typeof window !== "undefined" ? window.app : globalThis.app);
   const Notice = typeof window !== "undefined" ? window.Notice : globalThis.Notice;
   if (!app) {
-    runCli();
+    await runCli();
     return;
   }
   let targetFile = app.workspace.getActiveFile();
@@ -239,10 +308,21 @@ async function syncGithubActivityAction(params) {
       new Notice("\u26A0\uFE0F No GitHub activity found or gh CLI not authenticated.", 4e3);
     return;
   }
+  const targetDateEvents = events.filter((ev) => {
+    const d = new Date(ev.created_at);
+    return formatDateKey(d) === noteDateKey;
+  });
+  const pushesToFetch = [];
+  for (const ev of targetDateEvents) {
+    if (ev.type === "PushEvent" && ev.payload?.head && (!ev.payload.commits || ev.payload.commits.length === 0)) {
+      pushesToFetch.push({ repo: ev.repo.name, head: ev.payload.head });
+    }
+  }
+  const commitMap = await fetchCommitDetailsMap(pushesToFetch);
   const rows = [];
-  for (const ev of events) {
-    const r = formatGitHubEventToRow(ev);
-    if (r && r.dateKey === noteDateKey) {
+  for (const ev of targetDateEvents) {
+    const r = formatGitHubEventToRow(ev, commitMap);
+    if (r) {
       rows.push(r);
     }
   }
@@ -257,7 +337,7 @@ async function syncGithubActivityAction(params) {
   if (Notice)
     new Notice(`\u{1F389} Synced ${count} GitHub event(s) into table callout for ${targetFile.basename}!`, 5e3);
 }
-function runCli() {
+async function runCli() {
   const vaultRoot = resolveVaultPath();
   const args = process.argv.slice(2);
   const targetDateKey = args[0] || formatDateKey(/* @__PURE__ */ new Date());
@@ -273,10 +353,24 @@ function runCli() {
   }
   console.log(`\u{1F50D} Fetching GitHub events for lowqualityloey...`);
   const events = fetchUserEvents("lowqualityloey");
+  const targetDateEvents = events.filter((ev) => {
+    const d = new Date(ev.created_at);
+    return formatDateKey(d) === targetDateKey;
+  });
+  const pushesToFetch = [];
+  for (const ev of targetDateEvents) {
+    if (ev.type === "PushEvent" && ev.payload?.head && (!ev.payload.commits || ev.payload.commits.length === 0)) {
+      pushesToFetch.push({ repo: ev.repo.name, head: ev.payload.head });
+    }
+  }
+  if (pushesToFetch.length > 0) {
+    console.log(`\u26A1 Resolving commit details for ${pushesToFetch.length} push event(s)...`);
+  }
+  const commitMap = await fetchCommitDetailsMap(pushesToFetch);
   const rows = [];
-  for (const ev of events) {
-    const r = formatGitHubEventToRow(ev);
-    if (r && r.dateKey === targetDateKey) {
+  for (const ev of targetDateEvents) {
+    const r = formatGitHubEventToRow(ev, commitMap);
+    if (r) {
       rows.push(r);
     }
   }
@@ -285,7 +379,7 @@ function runCli() {
     return;
   }
   console.log(`\u{1F4CB} Found ${rows.length} activity item(s) for table callout:`);
-  rows.slice(0, 5).forEach((r) => console.log(`  | ${r.time} | ${r.repo} | ${r.type} | ${r.details.slice(0, 40)}... |`));
+  rows.slice(0, 5).forEach((r) => console.log(`  | ${r.time} | ${r.repo} | ${r.type} | ${r.details.slice(0, 50)}... |`));
   const content = fs.readFileSync(dailyPath, "utf8");
   const { updatedContent, count } = mergeDailyLogTable(content, rows);
   fs.writeFileSync(dailyPath, updatedContent, "utf8");
