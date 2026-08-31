@@ -10,33 +10,62 @@
  *   github_owner: lowqualityloey
  */
 
-const { execSync } = require('child_process');
+import { execSync } from 'child_process';
+import { App, TFile, Notice as ObsidianNotice } from 'obsidian';
+import type { QuickAddParams, KanbanItem } from './types';
 
-module.exports = async (params) => {
-  const { app } = params;
-  const Notice = window.Notice || globalThis.Notice;
+interface ProjectFieldOption {
+  id: string;
+  name: string;
+}
+
+interface ProjectField {
+  id: string;
+  name: string;
+  options?: ProjectFieldOption[];
+}
+
+interface GitHubProjectItem {
+  id: string;
+  title?: string;
+  status?: string;
+  priority?: string | null;
+}
+
+interface LocalTaskItem {
+  title: string;
+  priority: string | null;
+  section: string;
+  checkbox: string;
+  completionDate: string | null;
+}
+
+export = async function syncGitHubKanban(params?: QuickAddParams): Promise<void> {
+  const app = params?.app || (window as any).app || (globalThis as any).app;
+  const Notice = window.Notice || ObsidianNotice;
 
   try {
     let activeFile = app.workspace.getActiveFile();
-    let projectNumber = null;
-    let owner = null;
-    let targetFile = activeFile;
+    let projectNumber: number | null = null;
+    let owner: string | null = null;
+    let targetFile: TFile | null = activeFile;
 
     // 1. Resolve Target Note & Frontmatter
     if (activeFile) {
       const cache = app.metadataCache.getFileCache(activeFile);
       if (cache?.frontmatter?.github_project_number) {
-        projectNumber = cache.frontmatter.github_project_number;
+        projectNumber = Number(cache.frontmatter.github_project_number);
         owner = cache.frontmatter.github_owner || 'lowqualityloey';
       }
     }
 
     if (!projectNumber) {
       const defaultPath = '02-Projects/weather-dashboard/Weather Dashboard Kanban.md';
-      targetFile = app.vault.getAbstractFileByPath(defaultPath);
-      if (targetFile) {
+      const abstractDefault = app.vault.getAbstractFileByPath(defaultPath);
+      if (abstractDefault && abstractDefault instanceof TFile) {
+        targetFile = abstractDefault;
         const cache = app.metadataCache.getFileCache(targetFile);
-        projectNumber = cache?.frontmatter?.github_project_number || 2;
+        projectNumber = Number(cache?.frontmatter?.github_project_number) || 2;
         owner = cache?.frontmatter?.github_owner || 'lowqualityloey';
       } else {
         projectNumber = 2;
@@ -45,7 +74,7 @@ module.exports = async (params) => {
       }
     }
 
-    if (!targetFile) {
+    if (!targetFile || !(targetFile instanceof TFile)) {
       new Notice('❌ Please open a Kanban note to sync!', 4000);
       return;
     }
@@ -53,13 +82,13 @@ module.exports = async (params) => {
     new Notice(`🔄 2-Way Syncing "${targetFile.basename}" with GitHub Project #${projectNumber}...`, 4000);
 
     // 2. Dynamic Project & Schema Discovery
-    let projectId = null;
+    let projectId: string | null = null;
     try {
       const projViewJson = execSync(`gh project view ${projectNumber} --owner ${owner} --format json`, { encoding: 'utf8', timeout: 10000 });
       const projData = JSON.parse(projViewJson);
       projectId = projData.id;
-    } catch (e) {
-      if (e.stderr && e.stderr.includes('read:project')) {
+    } catch (e: any) {
+      if (e?.stderr && typeof e.stderr === 'string' && e.stderr.includes('read:project')) {
         new Notice('⚠️ Missing GitHub token scope!\nRun in terminal: gh auth refresh -s project', 8000);
         return;
       }
@@ -72,17 +101,17 @@ module.exports = async (params) => {
     }
 
     // 3. Dynamic Field Schema Discovery (Status & Priority fields)
-    let statusFieldId = null;
-    let statusOptionsMap = {}; // name.toLowerCase() -> optionId
-    let statusIdToNameMap = {}; // optionId -> name
-    let priorityFieldId = null;
-    let priorityOptionsMap = {}; // name.toLowerCase() -> optionId
-    let priorityIdToNameMap = {}; // optionId -> name
+    let statusFieldId: string | null = null;
+    const statusOptionsMap: Record<string, string> = {}; // name.toLowerCase() -> optionId
+    const statusIdToNameMap: Record<string, string> = {}; // optionId -> name
+    let priorityFieldId: string | null = null;
+    const priorityOptionsMap: Record<string, string> = {}; // name.toLowerCase() -> optionId
+    const priorityIdToNameMap: Record<string, string> = {}; // optionId -> name
 
     try {
       const fieldsJson = execSync(`gh project field-list ${projectNumber} --owner ${owner} --format json`, { encoding: 'utf8', timeout: 10000 });
       const fieldsData = JSON.parse(fieldsJson);
-      const fields = fieldsData.fields || [];
+      const fields: ProjectField[] = fieldsData.fields || [];
 
       for (const field of fields) {
         const nameLower = (field.name || '').toLowerCase();
@@ -105,7 +134,7 @@ module.exports = async (params) => {
     }
 
     // Status mapping helpers
-    const statusToSectionMap = {
+    const statusToSectionMap: Record<string, string> = {
       'backlog': 'Backlog',
       'ready': 'To Do',
       'to do': 'To Do',
@@ -115,7 +144,7 @@ module.exports = async (params) => {
       'done': 'Done'
     };
 
-    const sectionToStatusMap = {
+    const sectionToStatusMap: Record<string, string> = {
       'Backlog': 'Backlog',
       'To Do': 'Ready',
       'In Progress': 'In progress',
@@ -123,7 +152,7 @@ module.exports = async (params) => {
       'Done': 'Done'
     };
 
-    const sectionToCheckboxMap = {
+    const sectionToCheckboxMap: Record<string, string> = {
       'Backlog': '- [ ]',
       'To Do': '- [ ]',
       'In Progress': '- [/]',
@@ -131,7 +160,7 @@ module.exports = async (params) => {
       'Done': '- [x]'
     };
 
-    const resolveStatusOption = (statusStr) => {
+    const resolveStatusOption = (statusStr?: string | null): string | null => {
       if (!statusStr) return statusOptionsMap['backlog'] || null;
       const s = statusStr.toLowerCase();
       if (statusOptionsMap[s]) return statusOptionsMap[s];
@@ -141,7 +170,7 @@ module.exports = async (params) => {
       return statusOptionsMap['backlog'] || null;
     };
 
-    const resolvePriorityOption = (priStr) => {
+    const resolvePriorityOption = (priStr?: string | null): string | null => {
       if (!priStr) return null;
       const p = priStr.toLowerCase();
       if (priorityOptionsMap[p]) return priorityOptionsMap[p];
@@ -153,7 +182,7 @@ module.exports = async (params) => {
     };
 
     // 4. Fetch GitHub Items (PULL Source)
-    let githubItems = [];
+    let githubItems: GitHubProjectItem[] = [];
     try {
       const ghJson = execSync(`gh project item-list ${projectNumber} --owner ${owner} --format json`, {
         encoding: 'utf8',
@@ -165,7 +194,7 @@ module.exports = async (params) => {
       console.warn('Item fetch warning:', e);
     }
 
-    const githubMap = new Map(); // normTitle -> githubItem
+    const githubMap = new Map<string, { id: string; rawTitle: string; status: string; priority: string | null }>();
     for (const item of githubItems) {
       const rawTitle = (item.title || '').replace(/^\]\s*/, '').trim();
       const normTitle = rawTitle.toLowerCase();
@@ -183,9 +212,10 @@ module.exports = async (params) => {
 
     // 5. Read & Parse Local Obsidian Kanban File
     const content = await app.vault.read(targetFile);
+
     const lines = content.split('\n');
 
-    const sections = {
+    const sections: Record<string, LocalTaskItem[]> = {
       'Backlog': [],
       'To Do': [],
       'In Progress': [],
@@ -195,12 +225,12 @@ module.exports = async (params) => {
     };
 
     let currentSection = 'Backlog';
-    let frontmatterLines = [];
+    const frontmatterLines: string[] = [];
     let isFrontmatter = false;
     let frontmatterDone = false;
-    let sectionOrder = ['Backlog', 'To Do', 'In Progress', 'Review / Test', 'Done', 'Archive'];
+    const sectionOrder: string[] = ['Backlog', 'To Do', 'In Progress', 'Review / Test', 'Done', 'Archive'];
 
-    const localItemsMap = new Map(); // normTitle -> { title, priority, section, checkbox, completionDate }
+    const localItemsMap = new Map<string, LocalTaskItem>();
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
@@ -237,14 +267,14 @@ module.exports = async (params) => {
         let rawTaskText = trimmed.slice(5).trim();
 
         // Extract priority tag
-        let priority = null;
+        let priority: string | null = null;
         if (rawTaskText.includes('#priority/p0') || rawTaskText.includes('#p0')) priority = 'P0';
         else if (rawTaskText.includes('#priority/p1') || rawTaskText.includes('#p1')) priority = 'P1';
         else if (rawTaskText.includes('#priority/p2') || rawTaskText.includes('#p2')) priority = 'P2';
         else if (rawTaskText.includes('#priority/p3') || rawTaskText.includes('#p3')) priority = 'P3';
 
         // Extract completion date if Done
-        let completionDate = null;
+        let completionDate: string | null = null;
         const dateMatch = rawTaskText.match(/✅\s*(\d{4}-\d{2}-\d{2})/);
         if (dateMatch) {
           completionDate = dateMatch[1];
@@ -255,7 +285,7 @@ module.exports = async (params) => {
           .replace(/#priority\/p[0-3]/g, '')
           .replace(/#p[0-3]/g, '')
           .replace(/✅\s*\d{4}-\d{2}-\d{2}/g, '')
-          .replace(/`[^`]+`/g, (match) => match.replace(/`/g, ''))
+          .replace(/`[^`]+`/g, (match: string) => match.replace(/`/g, ''))
           .trim();
         cleanTitle = cleanTitle.replace(/^\]\s*/, '').trim();
 
@@ -277,7 +307,7 @@ module.exports = async (params) => {
     let pushedCount = 0;
     const nowStr = new Date().toISOString().slice(0, 10);
 
-    const reconciledMap = new Map(); // normTitle -> { title, priority, section, checkbox, completionDate }
+    const reconciledMap = new Map<string, LocalTaskItem>();
 
     // Phase A: Reconcile GitHub Items (PULL & Update)
     for (const [normTitle, ghItem] of githubMap.entries()) {
@@ -381,8 +411,9 @@ module.exports = async (params) => {
 
     new Notice(`🎉 2-Way Sync Complete! Updated ${pulledCount} from GitHub, Pushed ${pushedCount} to GitHub.`, 7000);
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('GitHub 2-Way Sync Error:', error);
-    new Notice(`❌ GitHub Sync Error: ${error.message}`, 7000);
+    new Notice(`❌ GitHub Sync Error: ${error?.message || error}`, 7000);
   }
 };
+

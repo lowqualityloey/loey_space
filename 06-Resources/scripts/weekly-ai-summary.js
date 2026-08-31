@@ -1,4 +1,5 @@
 // 06-Resources/scripts/src/weekly-ai-summary.ts
+var import_obsidian = require("obsidian");
 function parseGeminiError(status, bodyText, model) {
   let message = "";
   let retrySeconds = 0;
@@ -65,11 +66,11 @@ function extractDailyData(content, noteDate) {
   let mood = "neutral";
   let energy = "3";
   let sleepHours = "7";
-  let completedTasks = [];
-  let unfinishedTasks = [];
-  let checkedHabits = [];
-  let winsLog = [];
-  let blockersLog = [];
+  const completedTasks = [];
+  const unfinishedTasks = [];
+  const checkedHabits = [];
+  const winsLog = [];
+  const blockersLog = [];
   const moodMatch = content.match(/^mood:\s*(.*)$/m);
   const energyMatch = content.match(/^energy:\s*(.*)$/m);
   const sleepMatch = content.match(/^sleep_hours:\s*(.*)$/m);
@@ -210,23 +211,25 @@ ${data.executiveSummary}
 }
 function getWeekNumber(date) {
   const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
-  const pastDaysOfYear = (date - firstDayOfYear) / 864e5;
+  const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 864e5;
   return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
 }
 function getWeekRange(date) {
-  const day = date.getDay();
-  const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-  const monday = new Date(date.setDate(diff));
-  const sunday = new Date(date.setDate(diff + 6));
-  const formatDate = (d) => {
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const day2 = String(d.getDate()).padStart(2, "0");
-    return `${d.getFullYear()}-${month}-${day2}`;
+  const d = new Date(date.getTime());
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(d.setDate(diff));
+  const sunday = new Date(d.setDate(diff + 6));
+  const formatDate = (dt) => {
+    const month = String(dt.getMonth() + 1).padStart(2, "0");
+    const dayNum = String(dt.getDate()).padStart(2, "0");
+    return `${dt.getFullYear()}-${month}-${dayNum}`;
   };
   return `${formatDate(monday)} to ${formatDate(sunday)}`;
 }
 module.exports = async function weeklyAISummary(params) {
-  const app = params && params.app ? params.app : window.app || globalThis.app;
+  const app = params?.app || window.app || globalThis.app;
+  const Notice = window.Notice || import_obsidian.Notice;
   new Notice("\u{1F916} Generating weekly AI summary...");
   let geminiApiKey = "";
   try {
@@ -325,7 +328,7 @@ JSON FORMAT:
         }
       }
     } catch (e) {
-      failureReason = { status: 0, kind: "network", message: e && e.message ? e.message : String(e), model };
+      failureReason = { status: 0, kind: "network", message: e?.message ? e.message : String(e), retrySeconds: 0, model };
       console.warn(`Weekly Summary model ${model} warning:`, failureReason.message);
     }
   }
@@ -365,7 +368,7 @@ tags:
 
 # \u{1F4CA} Weekly Review: Week ${weekNumber}, ${year}
 
-**Period**: ${getWeekRange(currentDate)}  
+**Period**: ${getWeekRange(currentDate)}
 **Theme**: ${data.weeklyTitle || "Weekly Analysis"}
 
 ---
@@ -439,18 +442,18 @@ dv.paragraph(\`**Habit Completion Rate**: \${habitRate}% (\${completedHabits}/\$
 ## \u{1F4DD} Manual Review Notes
 
 ### What Went Well This Week
-- 
+-
 
 ### What Could Be Improved
-- 
+-
 
 ### Key Learnings
-- 
+-
 
 ### Goals for Next Week
-1. 
-2. 
-3. 
+1.
+2.
+3.
 
 ---
 

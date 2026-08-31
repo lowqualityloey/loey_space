@@ -15,8 +15,13 @@
  * Run from QuickAdd (user script) or Templater.
  */
 
-module.exports = async function triageSweep(params) {
-  const app = (params && params.app) ? params.app : (typeof window !== "undefined" ? window.app : null);
+import { App, TFile, Notice as ObsidianNotice } from 'obsidian';
+import type { QuickAddParams, RouteConfig } from './types';
+
+export = async function triageSweep(params?: QuickAddParams): Promise<void> {
+  const app = params?.app || (window as any).app || (globalThis as any).app;
+  const Notice = window.Notice || ObsidianNotice;
+
   if (!app) {
     console.error("Triage Sweep: no app instance available.");
     return;
@@ -35,7 +40,7 @@ module.exports = async function triageSweep(params) {
   const TRIAGED_HEADING = "## ✅ Triaged";
 
   // Frontmatter mirrors 99-Templates so swept notes match hand-made ones.
-  const ROUTES = {
+  const ROUTES: Record<string, RouteConfig> = {
     do: { kind: "task" },
     bin: { kind: "drop" },
     dev: { kind: "note", folder: "03-Dev", type: "snippet", area: "dev", status: "active" },
@@ -53,12 +58,12 @@ module.exports = async function triageSweep(params) {
      HELPERS
      ====================================================================== */
 
-  const pad = (n) => String(n).padStart(2, "0");
+  const pad = (n: number) => String(n).padStart(2, "0");
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
 
   // Windows and Obsidian both reject these in filenames; # ^ [ ] break wikilinks.
-  function sanitizeTitle(text) {
+  function sanitizeTitle(text: string): string {
     let clean = String(text)
       .replace(/[\\/:*?"<>|#^[\]]/g, " ")
       .replace(/\s+/g, " ")
@@ -70,7 +75,7 @@ module.exports = async function triageSweep(params) {
   }
 
   // A bare link becomes a readable title; anything else keeps its own words.
-  function deriveTitle(text) {
+  function deriveTitle(text: string): string {
     const urlMatch = text.match(/https?:\/\/\S+/);
     const withoutUrl = urlMatch ? text.replace(urlMatch[0], "") : text;
     const hasWords = withoutUrl.replace(/[^\p{L}\p{N}]/gu, "").length >= 4;
@@ -90,7 +95,7 @@ module.exports = async function triageSweep(params) {
     return sanitizeTitle(hasWords ? withoutUrl : text) || "Capture " + todayStr;
   }
 
-  async function uniquePath(folder, title) {
+  async function uniquePath(folder: string, title: string): Promise<string> {
     let candidate = `${folder}/${title}.md`;
     let n = 2;
     while (app.vault.getAbstractFileByPath(candidate)) {
@@ -101,13 +106,13 @@ module.exports = async function triageSweep(params) {
     return candidate;
   }
 
-  async function ensureFolder(path) {
-    if (!app.vault.getAbstractFileByPath(path)) {
-      try { await app.vault.createFolder(path); } catch (e) { /* already exists */ }
+  async function ensureFolder(folderPath: string): Promise<void> {
+    if (!app.vault.getAbstractFileByPath(folderPath)) {
+      try { await app.vault.createFolder(folderPath); } catch (e) { /* already exists */ }
     }
   }
 
-  function buildNote(route, title, text, capturedDate) {
+  function buildNote(route: RouteConfig, title: string, text: string, noteCapturedDate?: string): string {
     const url = (text.match(/https?:\/\/\S+/) || [])[0] || "";
     const tags = [`type/${route.type}`, `area/${route.area}`];
     if (route.status) tags.push(`status/${route.status}`);
@@ -126,7 +131,7 @@ module.exports = async function triageSweep(params) {
     front.push(`area: ${route.area}`);
     if (route.type === "project") front.push("priority: medium");
     front.push(`source: quick-capture`);
-    if (capturedDate) front.push(`captured: ${capturedDate}`);
+    if (noteCapturedDate) front.push(`captured: ${noteCapturedDate}`);
     front.push("tags:");
     tags.forEach(t => front.push(`  - ${t}`));
     front.push("---");
@@ -151,14 +156,14 @@ module.exports = async function triageSweep(params) {
     body.push("## 🔗 Related References");
     body.push("- [[ ]]");
     body.push("");
-    body.push(`> [!NOTE] Triaged from quick capture${capturedDate ? " on " + capturedDate : ""}. Expand when you next touch this.`);
+    body.push(`> [!NOTE] Triaged from quick capture${noteCapturedDate ? " on " + noteCapturedDate : ""}. Expand when you next touch this.`);
     body.push("");
 
     return front.join("\n") + body.join("\n");
   }
 
   // A project needs its board too, or _Projects MOC's progress query has nothing to read.
-  function buildKanban() {
+  function buildKanban(): string {
     return [
       "---",
       "",
@@ -190,7 +195,7 @@ module.exports = async function triageSweep(params) {
 
   /* Inserts a task into the daily note's Tasks section only, so the project
      query block and Habits section below it are never disturbed. */
-  function insertTask(content, text) {
+  function insertTask(content: string, text: string): { content: string; ok: boolean } {
     const lines = content.split("\n");
 
     let start = -1;
@@ -222,12 +227,13 @@ module.exports = async function triageSweep(params) {
     return { content: lines.join("\n"), ok: true };
   }
 
+
   /* ======================================================================
      1. READ AND PARSE THE DUMP
      ====================================================================== */
 
   const dumpFile = app.vault.getAbstractFileByPath(DUMP_PATH);
-  if (!dumpFile) {
+  if (!dumpFile || !(dumpFile instanceof TFile)) {
     new Notice(`⚠️ Triage Sweep: ${DUMP_PATH} not found.`);
     return;
   }
@@ -235,7 +241,22 @@ module.exports = async function triageSweep(params) {
   const dumpRaw = await app.vault.read(dumpFile);
   const dumpLines = dumpRaw.split("\n");
 
-  const picked = [];          // { index, token, text, capturedDate }
+  interface TriageCandidate {
+    index: number;
+    token: string;
+    text: string;
+    capturedDate: string;
+  }
+
+  interface TriageResult {
+    item: TriageCandidate;
+    destination?: string;
+    ok: boolean;
+    reason?: string;
+    extra?: string;
+  }
+
+  const picked: TriageCandidate[] = [];
   let inTriaged = false;
   let capturedDate = "";
 
@@ -281,8 +302,8 @@ module.exports = async function triageSweep(params) {
      2. FILE EACH ITEM
      ====================================================================== */
 
-  const results = [];
-  const sweptIndexes = new Set();
+  const results: TriageResult[] = [];
+  const sweptIndexes = new Set<number>();
 
   for (const item of picked) {
     const route = ROUTES[item.token];
@@ -299,14 +320,14 @@ module.exports = async function triageSweep(params) {
         const dailyPath = `01-Daily/${todayStr}.md`;
         const dailyFile = app.vault.getAbstractFileByPath(dailyPath);
 
-        if (!dailyFile) {
+        if (!dailyFile || !(dailyFile instanceof TFile)) {
           results.push({ item, ok: false, reason: `no daily note for ${todayStr}` });
           continue;
         }
 
         let inserted = false;
-        if (typeof app.vault.process === "function") {
-          await app.vault.process(dailyFile, (data) => {
+        if (typeof (app.vault as any).process === "function") {
+          await (app.vault as any).process(dailyFile, (data: string) => {
             const out = insertTask(data, item.text);
             inserted = out.ok;
             return out.content;
@@ -347,16 +368,18 @@ module.exports = async function triageSweep(params) {
       }
 
       // Plain note routes
-      await ensureFolder(route.folder);
-      const notePath = await uniquePath(route.folder, title);
-      await app.vault.create(notePath, buildNote(route, title, item.text, item.capturedDate));
+      if (route.folder) {
+        await ensureFolder(route.folder);
+        const notePath = await uniquePath(route.folder, title);
+        await app.vault.create(notePath, buildNote(route, title, item.text, item.capturedDate));
 
-      results.push({ item, destination: notePath, ok: true });
-      sweptIndexes.add(item.index);
+        results.push({ item, destination: notePath, ok: true });
+        sweptIndexes.add(item.index);
+      }
 
-    } catch (e) {
+    } catch (e: any) {
       console.error(`Triage Sweep: failed on "${item.text}"`, e);
-      results.push({ item, ok: false, reason: e && e.message ? e.message : String(e) });
+      results.push({ item, ok: false, reason: e?.message ? e.message : String(e) });
     }
   }
 
@@ -365,8 +388,8 @@ module.exports = async function triageSweep(params) {
      ====================================================================== */
 
   if (sweptIndexes.size > 0) {
-    const kept = [];
-    const logEntries = [];
+    const kept: string[] = [];
+    const logEntries: string[] = [];
 
     for (let i = 0; i < dumpLines.length; i++) {
       if (!sweptIndexes.has(i)) { kept.push(dumpLines[i]); continue; }
@@ -377,13 +400,13 @@ module.exports = async function triageSweep(params) {
       if (ARCHIVE_SWEPT_LINES) {
         const target = result.destination === "dropped"
           ? "dropped"
-          : `[[${result.destination.replace(/^.*\//, "").replace(/\.md$/, "")}]]`;
+          : `[[${(result.destination || '').replace(/^.*\//, "").replace(/\.md$/, "")}]]`;
         logEntries.push(`- ~~${result.item.text}~~ → ${target} \`#${result.item.token}\``);
       }
     }
 
     // Drop date headings whose items were all swept.
-    const pruned = [];
+    const pruned: string[] = [];
     for (let i = 0; i < kept.length; i++) {
       const isDateHeading = /^###\s+.*?\d{4}-\d{2}-\d{2}/.test(kept[i]);
       if (!isDateHeading) { pruned.push(kept[i]); continue; }
@@ -410,8 +433,8 @@ module.exports = async function triageSweep(params) {
       }
     }
 
-    if (typeof app.vault.process === "function") {
-      await app.vault.process(dumpFile, () => nextDump);
+    if (typeof (app.vault as any).process === "function") {
+      await (app.vault as any).process(dumpFile, () => nextDump);
     } else {
       await app.vault.modify(dumpFile, nextDump);
     }
@@ -432,7 +455,7 @@ module.exports = async function triageSweep(params) {
     to: r.ok ? r.destination : "FAILED: " + r.reason
   })));
 
-  const parts = [];
+  const parts: string[] = [];
   if (tasks.length) parts.push(`${tasks.length} to today's tasks`);
   const notes = filed.length - tasks.length;
   if (notes > 0) parts.push(`${notes} note${notes === 1 ? "" : "s"} created`);
@@ -445,3 +468,4 @@ module.exports = async function triageSweep(params) {
     failed.length ? 12000 : 7000
   );
 };
+

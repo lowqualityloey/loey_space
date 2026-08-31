@@ -1,11 +1,12 @@
 // 06-Resources/scripts/src/clear-capture-dump.ts
-module.exports = async (params) => {
-  const { app } = params;
-  const Notice = window.Notice || globalThis.Notice;
+var import_obsidian = require("obsidian");
+module.exports = async function clearCaptureDump(params) {
+  const app = params?.app || window.app || globalThis.app;
+  const Notice = window.Notice || import_obsidian.Notice;
   try {
     const dumpPath = "00-Inbox/quick-capture-dump.md";
     const dumpFile = app.vault.getAbstractFileByPath(dumpPath);
-    if (!dumpFile) {
+    if (!dumpFile || !(dumpFile instanceof import_obsidian.TFile)) {
       new Notice("\u274C Quick Capture Dump file not found!", 4e3);
       return;
     }
@@ -31,7 +32,7 @@ module.exports = async (params) => {
 `;
     const textToArchive = content.replace(/# Quick Capture Dump\s*\n?/, "").trim();
     let archiveFile = app.vault.getAbstractFileByPath(archiveFilePath);
-    if (archiveFile) {
+    if (archiveFile && archiveFile instanceof import_obsidian.TFile) {
       const existingArchive = await app.vault.read(archiveFile);
       await app.vault.modify(archiveFile, existingArchive + archiveHeader + textToArchive + "\n");
     } else {
@@ -54,6 +55,6 @@ tags:
     new Notice(`\u{1F389} Archived capture entries to "Quick Capture Archive ${yearMonth}.md" and reset dump!`, 6e3);
   } catch (error) {
     console.error("Clear Capture Dump Error:", error);
-    new Notice(`\u274C Archive Error: ${error.message}`, 5e3);
+    new Notice(`\u274C Archive Error: ${error?.message || error}`, 5e3);
   }
 };

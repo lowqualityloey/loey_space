@@ -1,4 +1,5 @@
 // 06-Resources/scripts/src/ai-enrich-action.ts
+var import_obsidian = require("obsidian");
 var GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"];
 function readFrontmatterValue(content, key) {
   const fm = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
@@ -196,7 +197,7 @@ async function callGeminiJson(apiKey, systemPrompt, userPrompt, label, temperatu
           })
         });
       } catch (e) {
-        failure = { status: 0, kind: "network", message: e && e.message ? e.message : String(e), retrySeconds: 0, model };
+        failure = { status: 0, kind: "network", message: e?.message ? e.message : String(e), retrySeconds: 0, model };
         console.warn(`${label}: ${model} network error \u2014 ${failure.message}`);
         break;
       }
@@ -220,7 +221,7 @@ async function callGeminiJson(apiKey, systemPrompt, userPrompt, label, temperatu
           const clean = text.replace(/^```json\s*/i, "").replace(/^```\s*/, "").replace(/```$/, "").trim();
           return { data: JSON.parse(clean), model, failure: null };
         } catch (e) {
-          failure = { status: 200, kind: "badJson", message: e && e.message ? e.message : String(e), retrySeconds: 0, model };
+          failure = { status: 200, kind: "badJson", message: e?.message ? e.message : String(e), retrySeconds: 0, model };
           console.warn(`${label}: ${model} returned unparsable JSON \u2014 ${failure.message}`);
           break;
         }
@@ -305,7 +306,7 @@ The note was left unchanged. See the console for the full response.`,
       });
     }
     if (data.context) {
-      let ctxLines = [];
+      const ctxLines = [];
       const system = toSingleLine(data.context.system);
       const stack = toSingleLine(data.context.stack);
       const fits = toSingleLine(data.context.whereItFits);
@@ -608,16 +609,16 @@ async function enrichDailyNote(app, file) {
   const existingNoteNames = app.vault.getMarkdownFiles().map((f) => f.basename).filter((name) => name && !name.startsWith("_") && name.length > 2 && !name.match(/^\d{4}-\d{2}-\d{2}/));
   const existingNotesListStr = existingNoteNames.slice(0, 60).join(", ");
   const lines = content.split("\n");
-  let focusItems = [];
-  let completedTasks = [];
-  let unfinishedTasks = [];
-  let forwardedTasks = [];
-  let checkedHabits = [];
-  let dailyLog = [];
-  let ideas = [];
-  let winsLog = [];
-  let blockersLog = [];
-  let userReflectionLog = [];
+  const focusItems = [];
+  const completedTasks = [];
+  const unfinishedTasks = [];
+  const forwardedTasks = [];
+  const checkedHabits = [];
+  const dailyLog = [];
+  const ideas = [];
+  const winsLog = [];
+  const blockersLog = [];
+  const userReflectionLog = [];
   const HABIT_RITUALS = ["water", "prioritised", "move", "read", "tidy", "disconnect"];
   let currentSec = "";
   let inFrontmatter = false;
@@ -787,7 +788,7 @@ WHAT TO PRODUCE
 
 HARD RULES
 1. Never invent meetings, people, projects or tasks that are not written above.
-2. Never use clinical or therapy language. Banned: "emotional distress", "interpersonal conflict", "significant impact", "well-being", "restorative", "process your emotions". Use the words they used \u2014 if they cried, say "rough morning"; if they ate sushi, mention the sushi.
+2. Never use clinical or therapy language. Banned: "emotional distress", "interpersonal conflict", "significant impact", "well-being", "wellbeing", "restorative", "process your emotions", "process the conflict". Use the words they used \u2014 if they cried, say "rough morning"; if they ate sushi, mention the sushi.
 3. Balance friction with resilience. Every bad day has at least one coping mechanism in the log \u2014 find it and name it.
 4. ${isDepleted ? `Sleep was under 6 hours AND energy under 3 \u2014 say plainly that capacity was capped, without turning it into a lecture.` : `Do not speculate about sleep or energy unless the numbers are notable.`}
 5. Keep the WHOLE output under 150 words. Conversational and sharp, not clinical.
@@ -1138,10 +1139,11 @@ function largestLogGap(entries) {
   return { from: widest.from, to: widest.to, hours: Math.round(widest.span / 60) };
 }
 module.exports = async function aiEnrichAction(params) {
-  const app = params && params.app ? params.app : window.app || globalThis.app;
+  const app = params?.app || window.app || globalThis.app;
+  const Notice2 = window.Notice || import_obsidian.Notice;
   const file = app.workspace.getActiveFile();
   if (!file) {
-    new Notice("\u26A0\uFE0F Please open a note first!");
+    new Notice2("\u26A0\uFE0F Please open a note first!");
     return;
   }
   const isDaily = file.path.startsWith("01-Daily");
@@ -1149,7 +1151,7 @@ module.exports = async function aiEnrichAction(params) {
   const isDev = file.path.startsWith("03-Dev");
   const isLearning = file.path.startsWith("04-Learning");
   if (!isDaily && !isConcept && !isDev && !isLearning) {
-    new Notice("\u26A0\uFE0F Please open a Daily, Concept, Dev, or Learning note first!");
+    new Notice2("\u26A0\uFE0F Please open a Daily, Concept, Dev, or Learning note first!");
     return;
   }
   if (isConcept) {

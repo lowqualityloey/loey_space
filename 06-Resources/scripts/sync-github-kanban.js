@@ -1,8 +1,9 @@
 // 06-Resources/scripts/src/sync-github-kanban.ts
-var { execSync } = require("child_process");
-module.exports = async (params) => {
-  const { app } = params;
-  const Notice = window.Notice || globalThis.Notice;
+var import_child_process = require("child_process");
+var import_obsidian = require("obsidian");
+module.exports = async function syncGitHubKanban(params) {
+  const app = params?.app || window.app || globalThis.app;
+  const Notice = window.Notice || import_obsidian.Notice;
   try {
     let activeFile = app.workspace.getActiveFile();
     let projectNumber = null;
@@ -11,16 +12,17 @@ module.exports = async (params) => {
     if (activeFile) {
       const cache = app.metadataCache.getFileCache(activeFile);
       if (cache?.frontmatter?.github_project_number) {
-        projectNumber = cache.frontmatter.github_project_number;
+        projectNumber = Number(cache.frontmatter.github_project_number);
         owner = cache.frontmatter.github_owner || "lowqualityloey";
       }
     }
     if (!projectNumber) {
       const defaultPath = "02-Projects/weather-dashboard/Weather Dashboard Kanban.md";
-      targetFile = app.vault.getAbstractFileByPath(defaultPath);
-      if (targetFile) {
+      const abstractDefault = app.vault.getAbstractFileByPath(defaultPath);
+      if (abstractDefault && abstractDefault instanceof import_obsidian.TFile) {
+        targetFile = abstractDefault;
         const cache = app.metadataCache.getFileCache(targetFile);
-        projectNumber = cache?.frontmatter?.github_project_number || 2;
+        projectNumber = Number(cache?.frontmatter?.github_project_number) || 2;
         owner = cache?.frontmatter?.github_owner || "lowqualityloey";
       } else {
         projectNumber = 2;
@@ -28,18 +30,18 @@ module.exports = async (params) => {
         targetFile = activeFile;
       }
     }
-    if (!targetFile) {
+    if (!targetFile || !(targetFile instanceof import_obsidian.TFile)) {
       new Notice("\u274C Please open a Kanban note to sync!", 4e3);
       return;
     }
     new Notice(`\u{1F504} 2-Way Syncing "${targetFile.basename}" with GitHub Project #${projectNumber}...`, 4e3);
     let projectId = null;
     try {
-      const projViewJson = execSync(`gh project view ${projectNumber} --owner ${owner} --format json`, { encoding: "utf8", timeout: 1e4 });
+      const projViewJson = (0, import_child_process.execSync)(`gh project view ${projectNumber} --owner ${owner} --format json`, { encoding: "utf8", timeout: 1e4 });
       const projData = JSON.parse(projViewJson);
       projectId = projData.id;
     } catch (e) {
-      if (e.stderr && e.stderr.includes("read:project")) {
+      if (e?.stderr && typeof e.stderr === "string" && e.stderr.includes("read:project")) {
         new Notice("\u26A0\uFE0F Missing GitHub token scope!\nRun in terminal: gh auth refresh -s project", 8e3);
         return;
       }
@@ -50,13 +52,13 @@ module.exports = async (params) => {
       return;
     }
     let statusFieldId = null;
-    let statusOptionsMap = {};
-    let statusIdToNameMap = {};
+    const statusOptionsMap = {};
+    const statusIdToNameMap = {};
     let priorityFieldId = null;
-    let priorityOptionsMap = {};
-    let priorityIdToNameMap = {};
+    const priorityOptionsMap = {};
+    const priorityIdToNameMap = {};
     try {
-      const fieldsJson = execSync(`gh project field-list ${projectNumber} --owner ${owner} --format json`, { encoding: "utf8", timeout: 1e4 });
+      const fieldsJson = (0, import_child_process.execSync)(`gh project field-list ${projectNumber} --owner ${owner} --format json`, { encoding: "utf8", timeout: 1e4 });
       const fieldsData = JSON.parse(fieldsJson);
       const fields = fieldsData.fields || [];
       for (const field of fields) {
@@ -133,7 +135,7 @@ module.exports = async (params) => {
     };
     let githubItems = [];
     try {
-      const ghJson = execSync(`gh project item-list ${projectNumber} --owner ${owner} --format json`, {
+      const ghJson = (0, import_child_process.execSync)(`gh project item-list ${projectNumber} --owner ${owner} --format json`, {
         encoding: "utf8",
         timeout: 1e4
       });
@@ -166,10 +168,10 @@ module.exports = async (params) => {
       "Archive": []
     };
     let currentSection = "Backlog";
-    let frontmatterLines = [];
+    const frontmatterLines = [];
     let isFrontmatter = false;
     let frontmatterDone = false;
-    let sectionOrder = ["Backlog", "To Do", "In Progress", "Review / Test", "Done", "Archive"];
+    const sectionOrder = ["Backlog", "To Do", "In Progress", "Review / Test", "Done", "Archive"];
     const localItemsMap = /* @__PURE__ */ new Map();
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
@@ -249,7 +251,7 @@ module.exports = async (params) => {
           const priorityOptId = resolvePriorityOption(targetPriority);
           if (priorityFieldId && priorityOptId) {
             try {
-              execSync(`gh project item-edit --id "${ghItem.id}" --project-id "${projectId}" --field-id "${priorityFieldId}" --single-select-option-id "${priorityOptId}"`, { encoding: "utf8", timeout: 5e3 });
+              (0, import_child_process.execSync)(`gh project item-edit --id "${ghItem.id}" --project-id "${projectId}" --field-id "${priorityFieldId}" --single-select-option-id "${priorityOptId}"`, { encoding: "utf8", timeout: 5e3 });
               pushedCount++;
             } catch (err) {
               console.warn("Priority push err:", err);
@@ -276,18 +278,18 @@ module.exports = async (params) => {
       if (!githubMap.has(normTitle)) {
         try {
           const createCmd = `gh project item-create ${projectNumber} --owner ${owner} --title "${localItem.title.replace(/"/g, '\\"')}" --format json`;
-          const createRes = execSync(createCmd, { encoding: "utf8", timeout: 1e4 });
+          const createRes = (0, import_child_process.execSync)(createCmd, { encoding: "utf8", timeout: 1e4 });
           const newItem = JSON.parse(createRes);
           if (newItem && newItem.id) {
             const ghStatusName = sectionToStatusMap[localItem.section] || "Backlog";
             const statusOptId = resolveStatusOption(ghStatusName);
             if (statusFieldId && statusOptId) {
-              execSync(`gh project item-edit --id "${newItem.id}" --project-id "${projectId}" --field-id "${statusFieldId}" --single-select-option-id "${statusOptId}"`, { encoding: "utf8", timeout: 5e3 });
+              (0, import_child_process.execSync)(`gh project item-edit --id "${newItem.id}" --project-id "${projectId}" --field-id "${statusFieldId}" --single-select-option-id "${statusOptId}"`, { encoding: "utf8", timeout: 5e3 });
             }
             if (priorityFieldId && localItem.priority) {
               const priorityOptId = resolvePriorityOption(localItem.priority);
               if (priorityOptId) {
-                execSync(`gh project item-edit --id "${newItem.id}" --project-id "${projectId}" --field-id "${priorityFieldId}" --single-select-option-id "${priorityOptId}"`, { encoding: "utf8", timeout: 5e3 });
+                (0, import_child_process.execSync)(`gh project item-edit --id "${newItem.id}" --project-id "${projectId}" --field-id "${priorityFieldId}" --single-select-option-id "${priorityOptId}"`, { encoding: "utf8", timeout: 5e3 });
               }
             }
             pushedCount++;
@@ -322,6 +324,6 @@ module.exports = async (params) => {
     new Notice(`\u{1F389} 2-Way Sync Complete! Updated ${pulledCount} from GitHub, Pushed ${pushedCount} to GitHub.`, 7e3);
   } catch (error) {
     console.error("GitHub 2-Way Sync Error:", error);
-    new Notice(`\u274C GitHub Sync Error: ${error.message}`, 7e3);
+    new Notice(`\u274C GitHub Sync Error: ${error?.message || error}`, 7e3);
   }
 };

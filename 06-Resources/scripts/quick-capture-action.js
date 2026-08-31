@@ -1,11 +1,15 @@
 // 06-Resources/scripts/src/quick-capture-action.ts
-module.exports = async (params) => {
-  const { app, quickAddApi } = params;
-  const Notice = window.Notice || globalThis.Notice;
+var import_obsidian = require("obsidian");
+module.exports = async function quickCaptureAction(params) {
+  const app = params?.app || window.app || globalThis.app;
+  const quickAddApi = params?.quickAddApi;
+  const Notice = window.Notice || import_obsidian.Notice;
   try {
-    let captureText = params.variables?.value;
+    let captureText = params?.variables?.value;
     if (!captureText || typeof captureText !== "string" || !captureText.trim()) {
-      captureText = await quickAddApi.inputPrompt("\u{1F4E5} Quick Capture to Inbox", "Type your thought, link, or idea...");
+      if (quickAddApi) {
+        captureText = await quickAddApi.inputPrompt("\u{1F4E5} Quick Capture to Inbox", "Type your thought, link, or idea...");
+      }
     }
     if (!captureText || !captureText.trim()) {
       return;
@@ -22,6 +26,10 @@ module.exports = async (params) => {
 
 `;
       dumpFile = await app.vault.create(dumpPath, initialContent);
+    }
+    if (!(dumpFile instanceof import_obsidian.TFile)) {
+      new Notice("\u274C Could not access quick capture dump file.", 4e3);
+      return;
     }
     let content = await app.vault.read(dumpFile);
     const now = /* @__PURE__ */ new Date();
@@ -99,6 +107,6 @@ ${newBullet}
     new Notice(`\u{1F4E5} Captured to Inbox (\`${timeStr}\`)`, 3e3);
   } catch (error) {
     console.error("Quick Capture Error:", error);
-    new Notice(`\u274C Capture Error: ${error.message}`, 5e3);
+    new Notice(`\u274C Capture Error: ${error?.message || error}`, 5e3);
   }
 };

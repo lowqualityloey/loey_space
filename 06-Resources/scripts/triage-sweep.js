@@ -1,6 +1,8 @@
 // 06-Resources/scripts/src/triage-sweep.ts
+var import_obsidian = require("obsidian");
 module.exports = async function triageSweep(params) {
-  const app = params && params.app ? params.app : typeof window !== "undefined" ? window.app : null;
+  const app = params?.app || window.app || globalThis.app;
+  const Notice = window.Notice || import_obsidian.Notice;
   if (!app) {
     console.error("Triage Sweep: no app instance available.");
     return;
@@ -56,15 +58,15 @@ module.exports = async function triageSweep(params) {
     }
     return candidate;
   }
-  async function ensureFolder(path) {
-    if (!app.vault.getAbstractFileByPath(path)) {
+  async function ensureFolder(folderPath) {
+    if (!app.vault.getAbstractFileByPath(folderPath)) {
       try {
-        await app.vault.createFolder(path);
+        await app.vault.createFolder(folderPath);
       } catch (e) {
       }
     }
   }
-  function buildNote(route, title, text, capturedDate2) {
+  function buildNote(route, title, text, noteCapturedDate) {
     const url = (text.match(/https?:\/\/\S+/) || [])[0] || "";
     const tags = [`type/${route.type}`, `area/${route.area}`];
     if (route.status)
@@ -84,8 +86,8 @@ module.exports = async function triageSweep(params) {
     if (route.type === "project")
       front.push("priority: medium");
     front.push(`source: quick-capture`);
-    if (capturedDate2)
-      front.push(`captured: ${capturedDate2}`);
+    if (noteCapturedDate)
+      front.push(`captured: ${noteCapturedDate}`);
     front.push("tags:");
     tags.forEach((t) => front.push(`  - ${t}`));
     front.push("---");
@@ -107,7 +109,7 @@ module.exports = async function triageSweep(params) {
     body.push("## \u{1F517} Related References");
     body.push("- [[ ]]");
     body.push("");
-    body.push(`> [!NOTE] Triaged from quick capture${capturedDate2 ? " on " + capturedDate2 : ""}. Expand when you next touch this.`);
+    body.push(`> [!NOTE] Triaged from quick capture${noteCapturedDate ? " on " + noteCapturedDate : ""}. Expand when you next touch this.`);
     body.push("");
     return front.join("\n") + body.join("\n");
   }
@@ -175,7 +177,7 @@ module.exports = async function triageSweep(params) {
     return { content: lines.join("\n"), ok: true };
   }
   const dumpFile = app.vault.getAbstractFileByPath(DUMP_PATH);
-  if (!dumpFile) {
+  if (!dumpFile || !(dumpFile instanceof import_obsidian.TFile)) {
     new Notice(`\u26A0\uFE0F Triage Sweep: ${DUMP_PATH} not found.`);
     return;
   }
@@ -232,7 +234,7 @@ module.exports = async function triageSweep(params) {
       if (route.kind === "task") {
         const dailyPath = `01-Daily/${todayStr}.md`;
         const dailyFile = app.vault.getAbstractFileByPath(dailyPath);
-        if (!dailyFile) {
+        if (!dailyFile || !(dailyFile instanceof import_obsidian.TFile)) {
           results.push({ item, ok: false, reason: `no daily note for ${todayStr}` });
           continue;
         }
@@ -262,24 +264,26 @@ module.exports = async function triageSweep(params) {
       if (route.kind === "project") {
         const folder = `${route.folder}/${title}`;
         await ensureFolder(folder);
-        const notePath2 = await uniquePath(folder, title);
-        await app.vault.create(notePath2, buildNote(route, title, item.text, item.capturedDate));
+        const notePath = await uniquePath(folder, title);
+        await app.vault.create(notePath, buildNote(route, title, item.text, item.capturedDate));
         const kanbanPath = `${folder}/${title} Kanban.md`;
         if (!app.vault.getAbstractFileByPath(kanbanPath)) {
           await app.vault.create(kanbanPath, buildKanban());
         }
-        results.push({ item, destination: notePath2, ok: true, extra: "+ Kanban" });
+        results.push({ item, destination: notePath, ok: true, extra: "+ Kanban" });
         sweptIndexes.add(item.index);
         continue;
       }
-      await ensureFolder(route.folder);
-      const notePath = await uniquePath(route.folder, title);
-      await app.vault.create(notePath, buildNote(route, title, item.text, item.capturedDate));
-      results.push({ item, destination: notePath, ok: true });
-      sweptIndexes.add(item.index);
+      if (route.folder) {
+        await ensureFolder(route.folder);
+        const notePath = await uniquePath(route.folder, title);
+        await app.vault.create(notePath, buildNote(route, title, item.text, item.capturedDate));
+        results.push({ item, destination: notePath, ok: true });
+        sweptIndexes.add(item.index);
+      }
     } catch (e) {
       console.error(`Triage Sweep: failed on "${item.text}"`, e);
-      results.push({ item, ok: false, reason: e && e.message ? e.message : String(e) });
+      results.push({ item, ok: false, reason: e?.message ? e.message : String(e) });
     }
   }
   if (sweptIndexes.size > 0) {
@@ -296,7 +300,7 @@ module.exports = async function triageSweep(params) {
         continue;
       }
       if (ARCHIVE_SWEPT_LINES) {
-        const target = result.destination === "dropped" ? "dropped" : `[[${result.destination.replace(/^.*\//, "").replace(/\.md$/, "")}]]`;
+        const target = result.destination === "dropped" ? "dropped" : `[[${(result.destination || "").replace(/^.*\//, "").replace(/\.md$/, "")}]]`;
         logEntries.push(`- ~~${result.item.text}~~ \u2192 ${target} \`#${result.item.token}\``);
       }
     }
