@@ -24,7 +24,21 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 // 06-Resources/scripts/src/scheduled-enrich.ts
 var fs = __toESM(require("fs"));
 var path = __toESM(require("path"));
-var VAULT_PATH = path.resolve(__dirname, "../../");
+function resolveVaultPath() {
+  const fromCwd = process.cwd();
+  if (fs.existsSync(path.join(fromCwd, "01-Daily")) || fs.existsSync(path.join(fromCwd, "06-Resources"))) {
+    return fromCwd;
+  }
+  let current = __dirname;
+  for (let i = 0; i < 4; i++) {
+    if (fs.existsSync(path.join(current, "01-Daily")) || fs.existsSync(path.join(current, "06-Resources"))) {
+      return current;
+    }
+    current = path.dirname(current);
+  }
+  return path.resolve(__dirname, "../../");
+}
+var VAULT_PATH = resolveVaultPath();
 var ENRICHED_NOTES_FILE = path.join(__dirname, ".enriched-timestamps.json");
 var enrichedTimestamps = {};
 try {
@@ -36,25 +50,20 @@ try {
 }
 var today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
 async function getNotesToEnrich() {
-  const vault = {
-    getMarkdownFiles: () => {
-      const files = [];
-      const folders = ["01-Daily", "02-Projects", "03-Dev", "04-Learning", "08-Concepts"];
-      folders.forEach((folder) => {
-        const folderPath = path.join(VAULT_PATH, folder);
-        if (fs.existsSync(folderPath)) {
-          const entries = fs.readdirSync(folderPath);
-          entries.forEach((entry) => {
-            if (entry.endsWith(".md") && !entry.startsWith("_")) {
-              files.push(path.join(folder, entry));
-            }
-          });
+  const files = [];
+  const folders = ["01-Daily", "02-Projects", "03-Dev", "04-Learning", "08-Concepts"];
+  folders.forEach((folder) => {
+    const folderPath = path.join(VAULT_PATH, folder);
+    if (fs.existsSync(folderPath)) {
+      const entries = fs.readdirSync(folderPath);
+      entries.forEach((entry) => {
+        if (entry.endsWith(".md") && !entry.startsWith("_")) {
+          files.push(path.join(folder, entry));
         }
       });
-      return files;
     }
-  };
-  return vault.getMarkdownFiles();
+  });
+  return files;
 }
 async function shouldEnrich(file) {
   const now = Date.now();
@@ -84,7 +93,7 @@ async function processBatch(notes, batchSize = 5) {
         console.log(`Skipping (recently enriched): ${note}`);
       }
     } catch (e) {
-      console.error(`Error processing ${note}:`, e.message);
+      console.error(`Error processing ${note}:`, e?.message || e);
     }
   }
   console.log(`

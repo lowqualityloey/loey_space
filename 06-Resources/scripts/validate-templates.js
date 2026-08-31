@@ -24,8 +24,20 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 // 06-Resources/scripts/src/validate-templates.ts
 var fs = __toESM(require("fs"));
 var path = __toESM(require("path"));
-var workspaceRoot = __dirname;
-var templatesPath = path.resolve(__dirname, "../../99-Templates");
+function resolveTemplatesPath() {
+  const fromCwd = path.resolve(process.cwd(), "99-Templates");
+  if (fs.existsSync(fromCwd))
+    return fromCwd;
+  let current = __dirname;
+  for (let i = 0; i < 4; i++) {
+    const candidate = path.join(current, "99-Templates");
+    if (fs.existsSync(candidate))
+      return candidate;
+    current = path.dirname(current);
+  }
+  return path.resolve(__dirname, "../../99-Templates");
+}
+var templatesPath = resolveTemplatesPath();
 var expectedProperties = {
   "project": ["created", "updated", "type", "status", "priority", "area", "tags"],
   "learning": ["created", "updated", "type", "status", "area", "tags"],
@@ -41,13 +53,13 @@ var requiredTagNamespaces = ["type", "area", "status"];
 function validateTemplate(templateName, content) {
   console.log(`
 \u{1F50D} Validating ${templateName}...`);
-  const yamlMatch = content.match(/^---\n([\s\S]*?)\n---/);
+  const yamlMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!yamlMatch) {
     console.log("\u274C Missing YAML frontmatter");
     return false;
   }
   const yamlContent = yamlMatch[1];
-  const lines = yamlContent.split("\n");
+  const lines = yamlContent.split(/\r?\n/);
   const props = {};
   let inTags = false;
   const tags = [];
@@ -73,7 +85,7 @@ function validateTemplate(templateName, content) {
       }
     }
   }
-  const type = props.type || "unknown";
+  const type = (typeof props.type === "string" ? props.type : "") || "unknown";
   const expected = expectedProperties[type] || [];
   let isValid = true;
   for (const prop of expected) {
@@ -119,8 +131,10 @@ function validateAllTemplates() {
     } else {
       console.log("\u26A0\uFE0F Some templates need attention");
     }
+    return allValid;
   } catch (error) {
-    console.error("\u274C Error reading templates:", error.message);
+    console.error("\u274C Error reading templates:", error?.message || error);
+    return false;
   }
 }
 validateAllTemplates();

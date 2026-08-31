@@ -6,15 +6,18 @@
  * quick-capture-dump.md to a clean state.
  */
 
-module.exports = async (params) => {
-  const { app } = params;
-  const Notice = window.Notice || globalThis.Notice;
+import { App, TFile, Notice as ObsidianNotice } from 'obsidian';
+import type { QuickAddParams } from './types';
+
+export = async function clearCaptureDump(params?: QuickAddParams): Promise<void> {
+  const app = params?.app || (window as any).app || (globalThis as any).app;
+  const Notice = window.Notice || ObsidianNotice;
 
   try {
     const dumpPath = '00-Inbox/quick-capture-dump.md';
     const dumpFile = app.vault.getAbstractFileByPath(dumpPath);
 
-    if (!dumpFile) {
+    if (!dumpFile || !(dumpFile instanceof TFile)) {
       new Notice('❌ Quick Capture Dump file not found!', 4000);
       return;
     }
@@ -22,8 +25,8 @@ module.exports = async (params) => {
     const content = await app.vault.read(dumpFile);
 
     // Check if file is empty or only has the header
-    const lines = content.split('\n').filter(l => l.trim().length > 0);
-    const nonHeaderLines = lines.filter(l => !l.startsWith('# Quick Capture Dump'));
+    const lines = content.split('\n').filter((l: string) => l.trim().length > 0);
+    const nonHeaderLines = lines.filter((l: string) => !l.startsWith('# Quick Capture Dump'));
 
     if (nonHeaderLines.length === 0) {
       new Notice('✨ Quick Capture Dump is already clean and empty!', 4000);
@@ -48,7 +51,7 @@ module.exports = async (params) => {
     const textToArchive = content.replace(/# Quick Capture Dump\s*\n?/, '').trim();
 
     let archiveFile = app.vault.getAbstractFileByPath(archiveFilePath);
-    if (archiveFile) {
+    if (archiveFile && archiveFile instanceof TFile) {
       const existingArchive = await app.vault.read(archiveFile);
       await app.vault.modify(archiveFile, existingArchive + archiveHeader + textToArchive + '\n');
     } else {
@@ -62,8 +65,8 @@ module.exports = async (params) => {
 
     new Notice(`🎉 Archived capture entries to "Quick Capture Archive ${yearMonth}.md" and reset dump!`, 6000);
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Clear Capture Dump Error:', error);
-    new Notice(`❌ Archive Error: ${error.message}`, 5000);
+    new Notice(`❌ Archive Error: ${error?.message || error}`, 5000);
   }
 };

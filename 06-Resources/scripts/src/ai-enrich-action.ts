@@ -1,5 +1,9 @@
-export = async function aiEnrichAction(params: any) {
-  const app = (params && params.app) ? params.app : ((window as any).app || (globalThis as any).app);
+import { App, TFile, Notice as ObsidianNotice } from 'obsidian';
+import type { QuickAddParams } from './types';
+
+export = async function aiEnrichAction(params?: QuickAddParams): Promise<void> {
+  const app = params?.app || (window as any).app || (globalThis as any).app;
+  const Notice = window.Notice || ObsidianNotice;
   const file = app.workspace.getActiveFile();
 
   if (!file) {
@@ -28,6 +32,7 @@ export = async function aiEnrichAction(params: any) {
   }
 };
 
+
 /* ==========================================================================
    SHARED HELPERS
    ========================================================================== */
@@ -41,7 +46,7 @@ const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-
 // The character class deliberately excludes line breaks: with /\s*(.*)/ a blank
 // property captures the NEXT property name, which is what produced the
 // "energy:", "sleep_hours:/5" and "tags:h" text in generated summaries.
-function readFrontmatterValue(content, key) {
+function readFrontmatterValue(content: string, key: string): string {
   const fm = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   const scope = fm ? fm[1] : content;
   const match = scope.match(new RegExp("^" + key + ":[ \\t]*([^\\r\\n]*)$", "m"));
@@ -50,7 +55,7 @@ function readFrontmatterValue(content, key) {
 }
 
 // Local YYYY-MM-DD (never UTC, which can shift the date near midnight).
-function formatDate(date) {
+function formatDate(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
@@ -58,7 +63,7 @@ function formatDate(date) {
 }
 
 // The day before a YYYY-MM-DD string, used for the daily-note chain link.
-function previousDateStr(dateStr) {
+function previousDateStr(dateStr: string): string {
   const parts = String(dateStr).split("-").map(Number);
   const date = new Date(parts[0], (parts[1] || 1) - 1, parts[2] || 1);
   if (isNaN(date.getTime())) return dateStr;
@@ -68,7 +73,7 @@ function previousDateStr(dateStr) {
 
 // Collapses model output into one clean line so generated text can never break
 // the bullet layout of a template section or inject extra headings.
-function toSingleLine(value) {
+function toSingleLine(value: any): string {
   if (value === undefined || value === null) return "";
   const raw = Array.isArray(value) ? value.filter(Boolean).join(" ") : String(value);
   return raw
@@ -82,14 +87,14 @@ function toSingleLine(value) {
 
 // "$&", "$1" etc. are replacement patterns for String.replace, so AI text must
 // be escaped before it is ever used as a replacement value.
-function escapeReplacement(text) {
+function escapeReplacement(text: string): string {
   return String(text).replace(/\$/g, "$$$$");
 }
 
 // Accepts "React", "[[React]]", "==[[React]]==", "**[[React]]**", "- [[React]]"
 // or "[[React|alias]]" and returns one well-formed link, keeping the highlight
 // when the source used one.
-function normalizeWikiLink(raw) {
+function normalizeWikiLink(raw: any): string {
   let text = toSingleLine(raw).replace(/^-?\s*\[[ xX]\]\s*/, "").trim();
   if (!text) return "";
 
@@ -110,7 +115,7 @@ function normalizeWikiLink(raw) {
 }
 
 // The note name a link points at, ignoring alias and heading parts.
-function wikiLinkTarget(link) {
+function wikiLinkTarget(link: any): string {
   const inner = String(link).match(/\[\[([^\[\]]+)\]\]/);
   if (!inner) return "";
   return inner[1].split("|")[0].split("#")[0].trim();
@@ -118,7 +123,7 @@ function wikiLinkTarget(link) {
 
 // Replaces only a section body: from its heading to the next heading, code
 // fence, horizontal rule or true end of file. Never swallows the rest of a note.
-function replaceSectionBody(content, headingLiteral, bodyText) {
+function replaceSectionBody(content: string, headingLiteral: string, bodyText: string): string {
   const heading = headingLiteral.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const re = new RegExp(
     "(^" + heading + "[ \\t]*\\r?\\n)[\\s\\S]*?(?=^#{1,6} |^```|^---[ \\t]*$|(?![\\s\\S]))",
@@ -132,7 +137,7 @@ function replaceSectionBody(content, headingLiteral, bodyText) {
 
 // Adds a tag under the frontmatter "tags:" key, checking for duplicates inside
 // the frontmatter only (a body mention must not suppress a real tag).
-function addFrontmatterTag(content, tag) {
+function addFrontmatterTag(content: string, tag: string): string {
   const clean = toSingleLine(tag).replace(/^#/, "").trim();
   if (!clean) return content;
   const fm = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
@@ -143,7 +148,7 @@ function addFrontmatterTag(content, tag) {
 
 // Strips Tasks-plugin metadata (✅ 2026-08-09, 📅 dates, priorities, recurrence)
 // so logged items read as plain language in generated text.
-function stripTaskMetadata(text) {
+function stripTaskMetadata(text: string): string {
   return String(text)
     .replace(/[✅❌➕📅⏳🛫🔁⏫🔼🔽⏬🆔⛔]\s*\d{4}-\d{2}-\d{2}/g, " ")
     .replace(/[✅❌➕📅⏳🛫🔁⏫🔼🔽⏬🆔⛔]/g, " ")
@@ -153,7 +158,7 @@ function stripTaskMetadata(text) {
 }
 
 // Ends a fragment with exactly one period.
-function asSentence(text) {
+function asSentence(text: string): string {
   const clean = String(text).trim().replace(/[.,;:\s]+$/, "");
   if (!clean) return "";
   return /[!?]$/.test(clean) ? clean : clean + ".";
@@ -162,7 +167,7 @@ function asSentence(text) {
 // Classifies a Gemini error response. Google puts the useful information in the
 // response body: a RetryInfo entry with retryDelay, and a QuotaFailure entry
 // whose quotaId says whether the limit was per-minute or per-day.
-function parseGeminiError(status: any, bodyText: any, model: any): any {
+function parseGeminiError(status: number, bodyText: string, model: string): any {
   let message = "";
   let retrySeconds = 0;
   let quotaId: any = "";
@@ -204,7 +209,7 @@ function parseGeminiError(status: any, bodyText: any, model: any): any {
 }
 
 // Free-tier daily quotas reset at midnight Pacific, expressed in local time.
-function describeQuotaReset() {
+function describeQuotaReset(): string {
   try {
     const now = new Date();
     const pacific = new Date(now.toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
@@ -219,7 +224,7 @@ function describeQuotaReset() {
 }
 
 // Turns a failure into one plain-language sentence for the Obsidian notice.
-function formatGeminiFailure(failure) {
+function formatGeminiFailure(failure: any): string {
   if (!failure) return "the request failed";
 
   switch (failure.kind) {
@@ -255,12 +260,12 @@ function formatGeminiFailure(failure) {
 // One Gemini request with model fallback and quota-aware retries.
 // requestUrl throws on non-2xx and discards the response body, so "throw: false"
 // is required to read the status and the quota details Google sends back.
-async function callGeminiJson(apiKey, systemPrompt, userPrompt, label, temperature) {
+async function callGeminiJson(apiKey: string, systemPrompt: string, userPrompt: string, label: string, temperature?: number): Promise<{ data: any; model: string; failure: any }> {
   let failure: any = { status: 0, kind: "unknown", message: "request failed", retrySeconds: 0, model: "" };
 
   for (const model of GEMINI_MODELS) {
     for (let attempt = 0; attempt < 2; attempt++) {
-      let res = null;
+      let res: any = null;
 
       try {
         res = await requestUrl({
@@ -277,8 +282,8 @@ async function callGeminiJson(apiKey, systemPrompt, userPrompt, label, temperatu
             }
           })
         });
-      } catch (e) {
-        failure = { status: 0, kind: "network", message: e && e.message ? e.message : String(e), retrySeconds: 0, model };
+      } catch (e: any) {
+        failure = { status: 0, kind: "network", message: e?.message ? e.message : String(e), retrySeconds: 0, model };
         console.warn(`${label}: ${model} network error — ${failure.message}`);
         break;
       }
@@ -301,8 +306,8 @@ async function callGeminiJson(apiKey, systemPrompt, userPrompt, label, temperatu
 
           const clean = text.replace(/^```json\s*/i, "").replace(/^```\s*/, "").replace(/```$/, "").trim();
           return { data: JSON.parse(clean), model, failure: null };
-        } catch (e) {
-          failure = { status: 200, kind: "badJson", message: e && e.message ? e.message : String(e), retrySeconds: 0, model };
+        } catch (e: any) {
+          failure = { status: 200, kind: "badJson", message: e?.message ? e.message : String(e), retrySeconds: 0, model };
           console.warn(`${label}: ${model} returned unparsable JSON — ${failure.message}`);
           break;
         }
@@ -333,10 +338,11 @@ async function callGeminiJson(apiKey, systemPrompt, userPrompt, label, temperatu
   return { data: null, model: "", failure };
 }
 
+
 /* ==========================================================================
    DEV NOTE AI ENRICHER
    ========================================================================== */
-async function enrichDevNote(app, file) {
+async function enrichDevNote(app: App, file: TFile): Promise<void> {
   let content = await app.vault.read(file);
   const noteTitle = file.basename;
 
@@ -357,8 +363,8 @@ async function enrichDevNote(app, file) {
 
   // 2. Collect existing markdown notes for wikilinks
   const existingNotes = app.vault.getMarkdownFiles()
-    .map(f => f.basename)
-    .filter(n => n && !n.startsWith("_") && n !== noteTitle && !n.match(/^\d{4}-\d{2}-\d{2}/));
+    .map((f: TFile) => f.basename)
+    .filter((n: string) => n && !n.startsWith("_") && n !== noteTitle && !n.match(/^\d{4}-\d{2}-\d{2}/));
   const existingNotesStr = existingNotes.slice(0, 60).join(", ");
 
   const systemPrompt = `You are a senior software engineer. Enrich dev notes with frontmatter and sections.`;
@@ -403,12 +409,12 @@ JSON format:
     if (data.language) content = content.replace(/^language:\s*.*$/m, `language: ${data.language}`);
 
     if (Array.isArray(data.tags)) {
-      data.tags.forEach(t => { content = addFrontmatterTag(content, t); });
+      data.tags.forEach((t: string) => { content = addFrontmatterTag(content, t); });
     }
 
     // Update Context
     if (data.context) {
-      let ctxLines = [];
+      const ctxLines: string[] = [];
       const system = toSingleLine(data.context.system);
       const stack = toSingleLine(data.context.stack);
       const fits = toSingleLine(data.context.whereItFits);
@@ -421,22 +427,22 @@ JSON format:
     // Update Code Explanation
     if (Array.isArray(data.codeExplanation)) {
       const items = data.codeExplanation.map(toSingleLine).filter(Boolean);
-      if (items.length) content = replaceSectionBody(content, "## Code Explanation", items.map(e => `- ${e}`).join("\n"));
+      if (items.length) content = replaceSectionBody(content, "## Code Explanation", items.map((e: string) => `- ${e}`).join("\n"));
     }
 
     // Update Related — normalized links, bounded replacement so the rest of the
     // note (including any dataview block) is preserved.
     if (Array.isArray(data.related)) {
-      const seen = new Set();
-      const links = [];
-      data.related.forEach(r => {
+      const seen = new Set<string>();
+      const links: string[] = [];
+      data.related.forEach((r: any) => {
         const normalized = normalizeWikiLink(r);
         const target = wikiLinkTarget(normalized);
         if (!target || seen.has(target.toLowerCase())) return;
         seen.add(target.toLowerCase());
         links.push(normalized);
       });
-      if (links.length) content = replaceSectionBody(content, "## Related", links.map(l => `- ${l}`).join("\n"));
+      if (links.length) content = replaceSectionBody(content, "## Related", links.map((l: string) => `- ${l}`).join("\n"));
     }
 
     await app.vault.modify(file, content);
@@ -451,7 +457,7 @@ JSON format:
 /* ==========================================================================
    CONCEPT NOTE AI ENRICHER
    ========================================================================== */
-async function enrichConceptNote(app, file) {
+async function enrichConceptNote(app: App, file: TFile): Promise<void> {
   let content = await app.vault.read(file);
   const conceptName = file.basename;
 
@@ -472,13 +478,13 @@ async function enrichConceptNote(app, file) {
 
   // 2. Collect existing vault markdown notes to populate valid wikilinks
   const existingNotes = app.vault.getMarkdownFiles()
-    .map(f => f.basename)
-    .filter(n => n && !n.startsWith("_") && n !== conceptName && !n.match(/^\d{4}-\d{2}-\d{2}/));
+    .map((f: TFile) => f.basename)
+    .filter((n: string) => n && !n.startsWith("_") && n !== conceptName && !n.match(/^\d{4}-\d{2}-\d{2}/));
   const existingNotesStr = existingNotes.slice(0, 60).join(", ");
 
   // 3. Links the user already wrote in the note, including highlighted ones
   //    like ==[[React]]==, so existing connections are kept rather than wiped.
-  const existingLinksInNote = [];
+  const existingLinksInNote: string[] = [];
   const linkMatches = content.match(/(?:==)?\[\[[^\[\]]+\]\](?:==)?/g) || [];
   for (const rawLink of linkMatches) {
     const normalized = normalizeWikiLink(rawLink);
@@ -535,7 +541,7 @@ JSON format:
 
     // Update tags in frontmatter
     if (Array.isArray(data.tags)) {
-      data.tags.forEach(t => { content = addFrontmatterTag(content, t); });
+      data.tags.forEach((t: string) => { content = addFrontmatterTag(content, t); });
     }
 
     // Update Summary
@@ -545,39 +551,39 @@ JSON format:
     // Update Why it matters
     if (Array.isArray(data.whyItMatters)) {
       const items = data.whyItMatters.map(toSingleLine).filter(Boolean);
-      if (items.length) content = replaceSectionBody(content, "## Why it matters", items.map(w => `- ${w}`).join("\n"));
+      if (items.length) content = replaceSectionBody(content, "## Why it matters", items.map((w: string) => `- ${w}`).join("\n"));
     }
 
     // Update Examples
     if (Array.isArray(data.examples)) {
       const items = data.examples.map(toSingleLine).filter(Boolean);
-      if (items.length) content = replaceSectionBody(content, "## Examples", items.map(e => `- ${e}`).join("\n"));
+      if (items.length) content = replaceSectionBody(content, "## Examples", items.map((e: string) => `- ${e}`).join("\n"));
     }
 
     // Update Questions
     if (Array.isArray(data.questions)) {
       const items = data.questions.map(toSingleLine).filter(Boolean);
-      if (items.length) content = replaceSectionBody(content, "## Questions", items.map(q => `- ${q}`).join("\n"));
+      if (items.length) content = replaceSectionBody(content, "## Questions", items.map((q: string) => `- ${q}`).join("\n"));
     }
 
     // Update Next steps
     if (Array.isArray(data.nextSteps)) {
       const items = data.nextSteps
-        .map(s => toSingleLine(s).replace(/^\[[ xX]\]\s*/, "").trim())
+        .map((s: any) => toSingleLine(s).replace(/^\[[ xX]\]\s*/, "").trim())
         .filter(Boolean);
-      if (items.length) content = replaceSectionBody(content, "## Next steps", items.map(s => `- [ ] ${s}`).join("\n"));
+      if (items.length) content = replaceSectionBody(content, "## Next steps", items.map((s: string) => `- [ ] ${s}`).join("\n"));
     }
 
     // Update related links. Each candidate is normalized (handles ==[[x]]==,
     // **[[x]]**, bare names) and must resolve to a note that really exists.
     if (Array.isArray(data.relatedConcepts)) {
-      const validTargets = new Map();
-      existingNotes.forEach(n => validTargets.set(n.toLowerCase(), n));
+      const validTargets = new Map<string, string>();
+      existingNotes.forEach((n: string) => validTargets.set(n.toLowerCase(), n));
 
-      const links = [];
-      const seen = new Set();
+      const links: string[] = [];
+      const seen = new Set<string>();
 
-      const addLink = (candidate) => {
+      const addLink = (candidate: any) => {
         const normalized = normalizeWikiLink(candidate);
         const target = wikiLinkTarget(normalized);
         if (!target) return;
@@ -615,10 +621,11 @@ JSON format:
   }
 }
 
+
 /* ==========================================================================
    LEARNING NOTE AI ENRICHER
    ========================================================================== */
-async function enrichLearningNote(app, file) {
+async function enrichLearningNote(app: App, file: TFile): Promise<void> {
   let content = await app.vault.read(file);
   const noteTitle = file.basename;
 
@@ -639,8 +646,8 @@ async function enrichLearningNote(app, file) {
 
   // 2. Collect existing markdown note titles for valid wikilinks
   const existingNotes = app.vault.getMarkdownFiles()
-    .map(f => f.basename)
-    .filter(n => n && !n.startsWith("_") && n !== noteTitle && !n.match(/^\d{4}-\d{2}-\d{2}/));
+    .map((f: TFile) => f.basename)
+    .filter((n: string) => n && !n.startsWith("_") && n !== noteTitle && !n.match(/^\d{4}-\d{2}-\d{2}/));
   const existingNotesStr = existingNotes.slice(0, 60).join(", ");
 
   const systemPrompt = [
@@ -717,7 +724,7 @@ JSON format:
     if (Array.isArray(data.extractedConcepts) && data.extractedConcepts.length > 0) {
       const links = data.extractedConcepts.map(normalizeWikiLink).filter(Boolean);
       if (links.length) {
-        const text = "*Atomic concepts distilled into `08-Concepts/`:*\n" + links.map(l => `- ${l}`).join("\n");
+        const text = "*Atomic concepts distilled into `08-Concepts/`:*\n" + links.map((l: string) => `- ${l}`).join("\n");
         content = replaceSectionBody(content, "## 💡 Extracted Evergreen Concepts", text);
       }
     }
@@ -726,15 +733,15 @@ JSON format:
     if (Array.isArray(data.extractedSnippets) && data.extractedSnippets.length > 0) {
       const snippets = data.extractedSnippets.map(normalizeWikiLink).filter(Boolean);
       if (snippets.length) {
-        const text = "*Practical snippets & solutions saved to `03-Dev/`:*\n" + snippets.map(s => `- ${s}`).join("\n");
+        const text = "*Practical snippets & solutions saved to `03-Dev/`:*\n" + snippets.map((s: string) => `- ${s}`).join("\n");
         content = replaceSectionBody(content, "## 💻 Reusable Code Patterns & Snippets", text);
       }
     }
 
     // Update Active Recall & Self-Quiz
     if (Array.isArray(data.activeRecall) && data.activeRecall.length > 0) {
-      const quizLines = [];
-      data.activeRecall.forEach(item => {
+      const quizLines: string[] = [];
+      data.activeRecall.forEach((item: any) => {
         const q = toSingleLine(item.q);
         const a = toSingleLine(item.a);
         if (q && a) {
@@ -755,10 +762,11 @@ JSON format:
   }
 }
 
+
 /* ==========================================================================
    DAILY NOTE AI ENRICHER
    ========================================================================== */
-async function enrichDailyNote(app, file) {
+async function enrichDailyNote(app: App, file: TFile): Promise<void> {
   let content = await app.vault.read(file);
   new Notice("🤖 Gemini Flash is analyzing note & generating summary + reflection...");
 
@@ -776,23 +784,23 @@ async function enrichDailyNote(app, file) {
 
   // 2. Collect existing markdown note titles for valid wikilinks
   const existingNoteNames = app.vault.getMarkdownFiles()
-    .map(f => f.basename)
-    .filter(name => name && !name.startsWith('_') && name.length > 2 && !name.match(/^\d{4}-\d{2}-\d{2}/));
+    .map((f: TFile) => f.basename)
+    .filter((name: string) => name && !name.startsWith('_') && name.length > 2 && !name.match(/^\d{4}-\d{2}-\d{2}/));
 
   const existingNotesListStr = existingNoteNames.slice(0, 60).join(", ");
 
   // 3. Extract clean structured user data from Daily.md template sections
   const lines = content.split('\n');
-  let focusItems = [];
-  let completedTasks = [];
-  let unfinishedTasks = [];
-  let forwardedTasks = [];
-  let checkedHabits = [];
-  let dailyLog = [];
-  let ideas = [];
-  let winsLog = [];
-  let blockersLog = [];
-  let userReflectionLog = [];
+  const focusItems: string[] = [];
+  const completedTasks: string[] = [];
+  const unfinishedTasks: string[] = [];
+  const forwardedTasks: string[] = [];
+  const checkedHabits: string[] = [];
+  const dailyLog: string[] = [];
+  const ideas: string[] = [];
+  const winsLog: string[] = [];
+  const blockersLog: string[] = [];
+  const userReflectionLog: string[] = [];
 
   // Habits defined by the template, used to report consistency as "n of 6".
   const HABIT_RITUALS = ["water", "prioritised", "move", "read", "tidy", "disconnect"];
@@ -938,7 +946,7 @@ Energy: ${energyText}
 Sleep: ${sleepText}
 
 TODAY'S FOCUS (intentions)
-${focusItems.length ? focusItems.map(f => "- " + f).join("\n") : "- none written"}
+${focusItems.length ? focusItems.map((f: string) => "- " + f).join("\n") : "- none written"}
 
 TASKS
 Completed: ${completedTasks.join(" | ") || "none"}
@@ -946,13 +954,13 @@ Still open: ${unfinishedTasks.join(" | ") || "none"}
 Forwarded from an earlier day: ${forwardedTasks.join(" | ") || "none"}
 
 DAILY LOG (timestamped, what actually happened)
-${dailyLog.length ? dailyLog.map(l => "- " + l).join("\n") : "- nothing logged"}
+${dailyLog.length ? dailyLog.map((l: string) => "- " + l).join("\n") : "- nothing logged"}
 
 HABITS
 Kept ${checkedHabits.length} of ${HABIT_RITUALS.length}: ${checkedHabits.join(", ") || "none"}
 
 IDEAS & FLEETING NOTES
-${ideas.length ? ideas.map(i => "- " + i).join("\n") : "- none"}
+${ideas.length ? ideas.map((i: string) => "- " + i).join("\n") : "- none"}
 
 END OF DAY (written by them)
 Wins: ${winsLog.join(" | ") || "none"}
@@ -975,7 +983,7 @@ WHAT TO PRODUCE
 
 HARD RULES
 1. Never invent meetings, people, projects or tasks that are not written above.
-2. Never use clinical or therapy language. Banned: "emotional distress", "interpersonal conflict", "significant impact", "well-being", "restorative", "process your emotions". Use the words they used — if they cried, say "rough morning"; if they ate sushi, mention the sushi.
+2. Never use clinical or therapy language. Banned: "emotional distress", "interpersonal conflict", "significant impact", "well-being", "wellbeing", "restorative", "process your emotions", "process the conflict". Use the words they used — if they cried, say "rough morning"; if they ate sushi, mention the sushi.
 3. Balance friction with resilience. Every bad day has at least one coping mechanism in the log — find it and name it.
 4. ${isDepleted ? `Sleep was under 6 hours AND energy under 3 — say plainly that capacity was capped, without turning it into a lecture.` : `Do not speculate about sleep or energy unless the numbers are notable.`}
 5. Keep the WHOLE output under 150 words. Conversational and sharp, not clinical.
@@ -998,7 +1006,7 @@ JSON format:
 }
 `;
 
-  let responseData = null;
+  let responseData: any = null;
   let usedFallback = false;
   let failureReason = "";
 
@@ -1054,28 +1062,28 @@ JSON format:
      actually wrote, or a suggested title whose words appear in what they wrote
      (so a logged gist can become [[Semantic Commit Messages]]). This is what
      stops invented links like [[API]] or [[Tasks Kanban]] appearing. */
-  const validTargets = new Map();
-  app.vault.getMarkdownFiles().forEach(f => validTargets.set(f.basename.toLowerCase(), f.basename));
+  const validTargets = new Map<string, string>();
+  app.vault.getMarkdownFiles().forEach((f: TFile) => validTargets.set(f.basename.toLowerCase(), f.basename));
 
   // Only the user's own words — never headings or template prompts.
-  const userCorpus = [].concat(
+  const userCorpus = ([] as string[]).concat(
     focusItems, completedTasks, unfinishedTasks, forwardedTasks,
     dailyLog, ideas, winsLog, blockersLog, userReflectionLog
   ).join(" \n ").toLowerCase();
 
-  const isNamedByUser = (target) => {
+  const isNamedByUser = (target: string): boolean => {
     const lower = target.toLowerCase();
     if (validTargets.has(lower) && userCorpus.includes(lower)) return true;
-    const tokens = lower.split(/[^\p{L}\p{N}]+/u).filter(word => word.length >= 4);
+    const tokens = lower.split(/[^\p{L}\p{N}]+/u).filter((word: string) => word.length >= 4);
     if (tokens.length === 0) return false;
-    const hits = tokens.filter(word => userCorpus.includes(word)).length;
+    const hits = tokens.filter((word: string) => userCorpus.includes(word)).length;
     return hits >= 2;
   };
 
-  const connectedLinks = [];
-  const seenLinks = new Set();
+  const connectedLinks: string[] = [];
+  const seenLinks = new Set<string>();
 
-  const addConnected = (rawLink, force) => {
+  const addConnected = (rawLink: any, force: boolean) => {
     const target = wikiLinkTarget(normalizeWikiLink(rawLink));
     if (!target) return;
     const key = target.toLowerCase();
@@ -1090,7 +1098,7 @@ JSON format:
 
   // Yesterday is always first, whether or not that note exists yet.
   addConnected(`[[${yesterdayDate}]]`, true);
-  (Array.isArray(responseData.connectedNotes) ? responseData.connectedNotes : []).forEach(link => addConnected(link, false));
+  (Array.isArray(responseData.connectedNotes) ? responseData.connectedNotes : []).forEach((link: any) => addConnected(link, false));
   while (connectedLinks.length > 5) connectedLinks.pop();
 
   // Prepare quote callout
@@ -1172,20 +1180,20 @@ ${nextStepLines || "- "}`;
    insight / next step) so the note looks the same either way. It stays
    diagnostic, never mentions property names, and never remarks on empty
    sections. */
-function buildDailyFallback(d) {
+function buildDailyFallback(d: any) {
   const energyNum = parseFloat(d.energy);
   const done = d.completedTasks.length;
   const open = d.unfinishedTasks.length;
   const logged = d.dailyLog.length;
-  const plural = (n, one, many) => (n === 1 ? one : many);
+  const plural = (n: number, one: string, many: string): string => (n === 1 ? one : many);
 
   // Words that read like coping rather than work, used to find the day's anchor.
   const COMFORT_HINTS = ["coffee", "matcha", "tea", "lunch", "dinner", "breakfast", "sushi", "ate", "eating",
     "food", "walk", "nap", "rest", "shower", "music", "game", "played"];
-  const comfort = d.dailyLog.find(entry => COMFORT_HINTS.some(word => entry.toLowerCase().includes(word))) || "";
+  const comfort = d.dailyLog.find((entry: string) => COMFORT_HINTS.some(word => entry.toLowerCase().includes(word))) || "";
 
   // Vibe, built from what was logged rather than from sentiment guessing.
-  let vibe;
+  let vibe: string;
   if (logged >= 2) {
     const first = stripTimestamp(d.dailyLog[0]);
     const last = stripTimestamp(d.dailyLog[d.dailyLog.length - 1]);
@@ -1200,7 +1208,7 @@ function buildDailyFallback(d) {
     vibe = "A thin day on the record — not much made it into the log.";
   }
 
-  const moved = [];
+  const moved: string[] = [];
   if (done) moved.push(asSentence(`Closed ${d.completedTasks.slice(0, 2).join(" and ")}`));
   if (d.userReflectionLog.length) moved.push(asSentence(`Took something away: ${d.userReflectionLog[0]}`));
   else if (d.winsLog.length) moved.push(asSentence(d.winsLog[0]));
@@ -1210,9 +1218,9 @@ function buildDailyFallback(d) {
 
   // Pattern: which habits survived the day and which didn't.
   const missedHabits = ["water", "prioritised", "move", "read", "tidy", "disconnect"]
-    .filter(habit => !d.checkedHabits.some(kept => kept.toLowerCase().includes(habit)));
+    .filter((habit: string) => !d.checkedHabits.some((kept: string) => kept.toLowerCase().includes(habit)));
 
-  let pattern;
+  let pattern: string;
   if (d.checkedHabits.length && missedHabits.length) {
     pattern = asSentence(`${d.checkedHabits.join(", ")} got ticked; ${missedHabits.join(", ")} didn't — the ones needing a clear head are the ones that slipped${d.energy ? `, even at energy ${d.energy}` : ""}`);
   } else if (d.checkedHabits.length === d.habitTotal) {
@@ -1225,7 +1233,7 @@ function buildDailyFallback(d) {
 
   // Friction: their own blockers first, then the biggest untracked gap.
   const gap = largestLogGap(d.dailyLog);
-  let friction;
+  let friction: string;
   if (d.blockersLog.length) {
     friction = asSentence(d.blockersLog[0]);
   } else if (gap) {
@@ -1241,7 +1249,7 @@ function buildDailyFallback(d) {
   }
 
   // Insight: one non-obvious connection.
-  let insight;
+  let insight: string;
   if (d.isDepleted) {
     insight = "Short sleep and low energy together mean the ceiling was physical, not a discipline problem.";
   } else if (comfort && done) {
@@ -1258,7 +1266,7 @@ function buildDailyFallback(d) {
     insight = "Not enough signal today to draw a non-obvious connection.";
   }
 
-  let nextStep;
+  let nextStep: string;
   if (open) {
     nextStep = `Try starting with "${d.unfinishedTasks[0]}" first thing because it's still open after today.`;
   } else if (d.focusItems.length) {
@@ -1285,27 +1293,27 @@ function buildDailyFallback(d) {
 }
 
 // Sentence-cases a fragment without touching the rest of its capitalisation.
-function capitalise(text) {
+function capitalise(text: string): string {
   const clean = String(text).trim();
   return clean ? clean.charAt(0).toUpperCase() + clean.slice(1) : clean;
 }
 
 // Drops a leading clock time so a log line can be dropped into a sentence.
-function stripTimestamp(entry) {
+function stripTimestamp(entry: any): string {
   return String(entry)
     .replace(/^\s*\d{1,2}[:.]?\d{0,2}\s*(am|pm|nn|hrs?)?\s*[:\-–]?\s*/i, "")
     .trim() || String(entry).trim();
 }
 
 // Finds the largest untracked gap between timestamped log entries.
-function largestLogGap(entries) {
-  const times = [];
+function largestLogGap(entries: any[]): { from: string; to: string; hours: number } | null {
+  const times: Array<{ minutes: number; label: string }> = [];
 
   for (const entry of entries) {
     const match = String(entry).match(/(\d{1,2})[:.](\d{2})\s*(am|pm|nn)?|(\d{1,2})\s*(am|pm|nn)/i);
     if (!match) continue;
 
-    let hour, minute, suffix;
+    let hour: number, minute: number, suffix: string;
     if (match[1] !== undefined) {
       hour = parseInt(match[1], 10);
       minute = parseInt(match[2], 10);
@@ -1327,7 +1335,7 @@ function largestLogGap(entries) {
   if (times.length < 2) return null;
   times.sort((a, b) => a.minutes - b.minutes);
 
-  let widest = null;
+  let widest: { span: number; from: string; to: string } | null = null;
   for (let i = 1; i < times.length; i++) {
     const span = times[i].minutes - times[i - 1].minutes;
     if (span >= 120 && (!widest || span > widest.span)) {

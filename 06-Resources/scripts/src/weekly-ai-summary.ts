@@ -1,5 +1,30 @@
-export = async function weeklyAISummary(params: any) {
-  const app = (params && params.app) ? params.app : ((window as any).app || (globalThis as any).app);
+import { App, TFile, Notice as ObsidianNotice } from 'obsidian';
+import type { QuickAddParams } from './types';
+
+interface WeeklySummaryJson {
+  weeklyTitle?: string;
+  executiveSummary?: string;
+  keyAccomplishments?: string[];
+  challengesFaced?: string[];
+  productivityPatterns?: string[];
+  moodEnergyTrends?: string[];
+  habitAnalysis?: string[];
+  topInsights?: string[];
+  recommendations?: string[];
+  weeklyQuote?: string;
+}
+
+interface GeminiFailure {
+  status: number;
+  kind: string;
+  message: string;
+  retrySeconds: number;
+  model: string;
+}
+
+export = async function weeklyAISummary(params?: QuickAddParams): Promise<void> {
+  const app = params?.app || (window as any).app || (globalThis as any).app;
+  const Notice = window.Notice || ObsidianNotice;
 
   new Notice("🤖 Generating weekly AI summary...");
 
@@ -18,12 +43,12 @@ export = async function weeklyAISummary(params: any) {
 
   // 2. Get daily notes from the last 7 days
   const dailyNotes = app.vault.getMarkdownFiles()
-    .filter(f => f.path.startsWith("01-Daily/") &&
+    .filter((f: TFile) => f.path.startsWith("01-Daily/") &&
                 !f.name.includes("MOC") &&
                 !f.name.includes("All daily notes live here"));
 
   // Sort by date (newest first)
-  dailyNotes.sort((a, b) => b.name.localeCompare(a.name));
+  dailyNotes.sort((a: TFile, b: TFile) => b.name.localeCompare(a.name));
 
   // Get last 7 days of notes (or all if fewer than 7)
   const recentNotes = dailyNotes.slice(0, 7);
@@ -34,7 +59,8 @@ export = async function weeklyAISummary(params: any) {
   }
 
   // 3. Extract data from each daily note
-  const weekData = [];
+  const weekData: any[] = [];
+
 
   for (const note of recentNotes) {
     try {
@@ -83,7 +109,7 @@ JSON FORMAT:
   // 5. Call Gemini API with model fallback and error classification
   const modelsToTry = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"];
   let responseText = "";
-  let failureReason = null;
+  let failureReason: GeminiFailure | null = null;
 
   for (const model of modelsToTry) {
     try {
@@ -121,8 +147,8 @@ JSON FORMAT:
           break;
         }
       }
-    } catch (e) {
-      failureReason = { status: 0, kind: "network", message: e && e.message ? e.message : String(e), model };
+    } catch (e: any) {
+      failureReason = { status: 0, kind: "network", message: e?.message ? e.message : String(e), retrySeconds: 0, model };
       console.warn(`Weekly Summary model ${model} warning:`, failureReason.message);
     }
   }
@@ -132,6 +158,7 @@ JSON FORMAT:
     new Notice(`⚠️ Failed to generate weekly AI summary: ${errorMsg}`);
     return;
   }
+
 
   // 6. Parse response and create weekly review note
   try {
@@ -309,7 +336,7 @@ SORT updated DESC
 };
 
 /* Helper function to classify Gemini error responses */
-function parseGeminiError(status: any, bodyText: any, model: any): any {
+function parseGeminiError(status: number, bodyText: string, model: string): GeminiFailure {
   let message = "";
   let retrySeconds = 0;
   let quotaId = "";
@@ -348,7 +375,7 @@ function parseGeminiError(status: any, bodyText: any, model: any): any {
 }
 
 /* Helper function to format Gemini error message */
-function formatGeminiFailure(failure) {
+function formatGeminiFailure(failure: GeminiFailure | null): string {
   if (!failure) return "the request failed";
 
   switch (failure.kind) {
@@ -372,17 +399,17 @@ function formatGeminiFailure(failure) {
 }
 
 // Helper function to extract data from daily notes
-function extractDailyData(content, noteDate) {
+function extractDailyData(content: string, noteDate: string) {
   const lines = content.split('\n');
 
   let mood = "neutral";
   let energy = "3";
   let sleepHours = "7";
-  let completedTasks = [];
-  let unfinishedTasks = [];
-  let checkedHabits = [];
-  let winsLog = [];
-  let blockersLog = [];
+  const completedTasks: string[] = [];
+  const unfinishedTasks: string[] = [];
+  const checkedHabits: string[] = [];
+  const winsLog: string[] = [];
+  const blockersLog: string[] = [];
 
   // Extract frontmatter
   const moodMatch = content.match(/^mood:\s*(.*)$/m);
@@ -457,7 +484,7 @@ function extractDailyData(content, noteDate) {
 }
 
 // Helper function to format weekly summary
-function formatWeeklySummary(data) {
+function formatWeeklySummary(data: WeeklySummaryJson): string {
   let formatted = "";
 
   if (data.executiveSummary) {
@@ -524,24 +551,26 @@ function formatWeeklySummary(data) {
 }
 
 // Helper function to get week number
-function getWeekNumber(date: any) {
-  const firstDayOfYear: any = new Date(date.getFullYear(), 0, 1);
-  const pastDaysOfYear = (date - firstDayOfYear) / 86400000;
+function getWeekNumber(date: Date): number {
+  const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
+  const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000;
   return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
 }
 
 // Helper function to get week range
-function getWeekRange(date) {
-  const day = date.getDay();
-  const diff = date.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
-  const monday = new Date(date.setDate(diff));
-  const sunday = new Date(date.setDate(diff + 6));
+function getWeekRange(date: Date): string {
+  const d = new Date(date.getTime());
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+  const monday = new Date(d.setDate(diff));
+  const sunday = new Date(d.setDate(diff + 6));
 
-  const formatDate = (d) => {
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${d.getFullYear()}-${month}-${day}`;
+  const formatDate = (dt: Date) => {
+    const month = String(dt.getMonth() + 1).padStart(2, '0');
+    const dayNum = String(dt.getDate()).padStart(2, '0');
+    return `${dt.getFullYear()}-${month}-${dayNum}`;
   };
 
   return `${formatDate(monday)} to ${formatDate(sunday)}`;
-};
+}
+

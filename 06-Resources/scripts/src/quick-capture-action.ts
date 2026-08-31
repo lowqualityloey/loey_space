@@ -5,15 +5,21 @@
  * (### 📅 YYYY-MM-DD) and appends an inline time badge (`hh:mm AM/PM`) beside each bullet.
  */
 
-module.exports = async (params) => {
-  const { app, quickAddApi } = params;
-  const Notice = window.Notice || globalThis.Notice;
+import { App, TFile, Notice as ObsidianNotice } from 'obsidian';
+import type { QuickAddParams } from './types';
+
+export = async function quickCaptureAction(params: QuickAddParams): Promise<void> {
+  const app = params?.app || (window as any).app || (globalThis as any).app;
+  const quickAddApi = params?.quickAddApi;
+  const Notice = window.Notice || ObsidianNotice;
 
   try {
     // 1. Prompt user for capture text
-    let captureText = params.variables?.value;
+    let captureText = params?.variables?.value;
     if (!captureText || typeof captureText !== 'string' || !captureText.trim()) {
-      captureText = await quickAddApi.inputPrompt('📥 Quick Capture to Inbox', 'Type your thought, link, or idea...');
+      if (quickAddApi) {
+        captureText = await quickAddApi.inputPrompt('📥 Quick Capture to Inbox', 'Type your thought, link, or idea...');
+      }
     }
 
     if (!captureText || !captureText.trim()) {
@@ -28,6 +34,11 @@ module.exports = async (params) => {
     if (!dumpFile) {
       const initialContent = `# Quick Capture Dump\n\n> Append quick thoughts, links, or ideas here. Run \`QuickAdd: 🧹 Archive & Clear Quick Capture Dump\` to archive processed entries.\n\n## Captured Notes\n\n`;
       dumpFile = await app.vault.create(dumpPath, initialContent);
+    }
+
+    if (!(dumpFile instanceof TFile)) {
+      new Notice('❌ Could not access quick capture dump file.', 4000);
+      return;
     }
 
     let content = await app.vault.read(dumpFile);
@@ -51,8 +62,8 @@ module.exports = async (params) => {
 
     // 3. Re-format existing flooded headers into clean grouped layout
     const lines = content.split('\n');
-    const cleanedLines = [];
-    let currentGroupHeader = null;
+    const cleanedLines: string[] = [];
+    let currentGroupHeader: string | null = null;
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
@@ -104,8 +115,8 @@ module.exports = async (params) => {
     await app.vault.modify(dumpFile, updatedContent);
     new Notice(`📥 Captured to Inbox (\`${timeStr}\`)`, 3000);
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Quick Capture Error:', error);
-    new Notice(`❌ Capture Error: ${error.message}`, 5000);
+    new Notice(`❌ Capture Error: ${error?.message || error}`, 5000);
   }
 };

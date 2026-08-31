@@ -4,11 +4,11 @@
     "module": "CommonJS",
     "moduleResolution": "node",
     "strict": false,
-    "noImplicitAny": false,
+    "noImplicitAny": true,
+    "noEmit": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "outDir": "./06-Resources/scripts/dist",
     "rootDir": "./06-Resources/scripts/src"
   },
   "include": [
