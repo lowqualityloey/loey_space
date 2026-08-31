@@ -172,16 +172,17 @@ Pressing **`Ctrl + Shift + A`** or clicking **`✨`** automatically detects the 
 | **💻 Dev Notes** | `03-Dev/...` | Detects language, context, code explanations, and related architectural links. |
 | **📖 Learning Notes** | `04-Learning/...` | Extracts evergreen concepts, reusable patterns, and active recall self-quiz flashcards. |
 
-> [!INFO]- 🔍 Daily AI Enricher Contract & Voice Guard (Click to expand)
-> **Reads**: `mood` / `energy` / `sleep_hours`, 🎯 Today's Focus, ✅ Tasks (completed, open, and `[>]` forwarded counted separately), 🔁 Habits (as *n* of 6), 📝 Daily Log, 💡 Ideas & Fleeting Notes, and human-written Wins / Blockers / Reflection. Fenced blocks — including the project query — are ignored.
+> [!INFO]- 🔍 Daily AI Enricher Contract & Chief of Staff Persona (Click to expand)
+> **Reads**: `mood` / `energy` / `sleep_hours`, 🎯 Today's Focus, ✅ Tasks (completed, open, and `[>]` forwarded counted separately), 🔁 Habits (as *n* of 6), 📝 Daily Log personal entries, 🐙 GitHub Activity Log callout table, 💡 Ideas & Fleeting Notes, and human-written Wins / Blockers / Reflection.
 >
 > **Writes** into 🤖 AI Daily Summary:
-> - **Summary** — one casual "vibe" sentence naming real events logged, up to 2 bullets on progress, 1 bullet on coping.
-> - **AI Reflection** — labelled `**Pattern:**` (repeated behavior across tasks/habits), `**Friction:**` (blockers or timestamp gaps), `**Insight:**` (one non-obvious connection).
-> - **Suggested Next Step** — small tactical move phrased *"Try [action] because [reason]"*. Never therapeutic.
-> - **🔗 Connected Notes** — yesterday's note always first, then only notes actually named in tasks/logs.
+> - **📖 Daily Debrief** — 2-paragraph narrative in casual Kiwi English capturing the morning context/friction, afternoon developer output across projects, and evening wind-down.
+> - **🧠 Chief of Staff Takeaway** — High-signal strategic lesson explaining why the workflow succeeded (e.g. how planning before coding prevented decision fatigue and token waste).
+> - **🎯 Tomorrow's Move** — Priority-first anchor recommending the top `#priority/p0` or `#priority/p1` task to tackle first thing in the morning, factoring in sleep debt.
+> - **💡 Daily Spark** — Real, verified inspirational quote from a famous real-world philosopher, author, or engineer (e.g. Marcus Aurelius, James Clear, Linus Torvalds, Seneca).
+> - **🔗 Connected Notes** — Yesterday's daily note always first, followed by valid wikilinks to notes actually named in the day's tasks or log.
 >
-> **Voice contract**: Conversational and sharp, like texting a smart friend — under 150 words. Clinical phrasing is banned ("emotional distress", "interpersonal conflict", "significant impact"). Link guard prevents hallucinated note titles. If `sleep_hours` is under 6, the next step acknowledges sleep debt.
+> **Voice contract**: Authentic Kiwi English dev mate persona — conversational, sharp, pragmatic, never clinical or corporate. Link guard prevents hallucinated note titles. Automatic non-breaking `&nbsp;` spacing and chronological AM $\rightarrow$ PM sorting in GitHub activity tables.
 
 ---
 

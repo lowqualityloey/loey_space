@@ -518,11 +518,11 @@ Placeholders such as `your_google_gemini_api_key_here` are allowed, so `.env.exa
 * **TypeScript & Bundling Engine** — User scripts are authored in TypeScript under [`06-Resources/scripts/src/`](06-Resources/scripts/src/) (modularized under `src/lib/`) and bundled into single-file CommonJS via `npm run build` (`esbuild`) for seamless Obsidian QuickAdd & Node CLI compatibility.
 * **Automated CLI Commands**:
   - `npm run typecheck` — Strict TypeScript typecheck across all scripts.
-  - `npm run build` — Bundles all 11 user scripts in under 50ms.
-  - `npm test` — Runs automated Node test suite (18 unit tests).
+  - `npm run build` — Bundles all 12 user scripts in under 50ms.
+  - `npm test` — Runs automated Node test suite (23 unit tests).
   - `npm run audit-links` — Scans vault for broken wikilinks, fuzzy fix suggestions, and orphan notes.
   - `npm run distill -- <file>` — Distills atomic evergreen concepts into `08-Concepts/`.
-  - `npm run log-github` — Syncs today's GitHub commits/PRs with 12h `hh:mm A` timestamps into Daily Log.
+  - `npm run log-github` — Syncs today's GitHub activity into a collapsible table callout (`> [!NOTE]-`) sorted AM $\rightarrow$ PM with non-breaking timestamps.
   - `npm run start-task -- <proj> <title>` — Converts a Kanban card to a GitHub Issue and creates a Git branch.
   - `npm run sync-kanban` — Multi-project 2-way sync with GitHub Projects v2.
   - `npm run validate-templates` — Validates all 19 vault templates against schema rules.
