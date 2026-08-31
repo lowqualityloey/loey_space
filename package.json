@@ -8,6 +8,7 @@
     "watch": "node build.mjs --watch",
     "typecheck": "tsc --noEmit",
     "test": "node --test \"06-Resources/scripts/tests/*.test.mjs\"",
+    "audit-links": "node 06-Resources/scripts/audit-links.js",
     "validate-templates": "node 06-Resources/scripts/validate-templates.js"
   },
   "devDependencies": {

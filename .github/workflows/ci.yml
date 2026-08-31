@@ -35,3 +35,6 @@ jobs:
 
       - name: 📋 Validate Vault Templates
         run: npm run validate-templates
+
+      - name: 🔍 Audit Vault Wikilinks
+        run: npm run audit-links
