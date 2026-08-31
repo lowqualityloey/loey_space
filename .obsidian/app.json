@@ -3,5 +3,6 @@
   "attachmentFolderPath": "99-Attachments",
   "newFileLocation": "folder",
   "newFileFolderPath": "08-Concepts",
-  "promptDelete": false
+  "promptDelete": false,
+  "tabSize": 4
 }
