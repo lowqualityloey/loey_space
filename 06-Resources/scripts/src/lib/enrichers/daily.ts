@@ -99,7 +99,6 @@ export function parseGitHubCalloutFromNote(content: string): ParsedGitHubRow[] {
 export function extractGitHubSummary(rows: ParsedGitHubRow[], dailyLog: string[]): string {
   const repoActivity: Record<string, { pushes: number; prs: number; issues: number; highlights: string[] }> = {};
 
-  // 1. Process structured table rows
   for (const r of rows) {
     const repo = r.repo;
     if (!repoActivity[repo]) repoActivity[repo] = { pushes: 0, prs: 0, issues: 0, highlights: [] };
@@ -116,7 +115,6 @@ export function extractGitHubSummary(rows: ParsedGitHubRow[], dailyLog: string[]
     }
   }
 
-  // 2. Process raw bullets if table wasn't present
   if (rows.length === 0) {
     for (const entry of dailyLog) {
       const pushMatch = entry.match(/🐙\s*\*\*Push\*\*\s*\(`([^`]+)`\s*→\s*`([^`]+)`\)(?::\s*(.*))?/i);
@@ -189,6 +187,16 @@ function detectLateSession(dailyLog: string[], gitRows: ParsedGitHubRow[], check
   return { isLate, latestTime, missedDisconnect };
 }
 
+const REAL_FALLBACK_QUOTES = [
+  { quote: "Give me six hours to chop down a tree and I will spend the first four sharpening the axe.", author: "Abraham Lincoln" },
+  { quote: "You do not rise to the level of your goals. You fall to the level of your systems.", author: "James Clear" },
+  { quote: "First, solve the problem. Then, write the code.", author: "John Johnson" },
+  { quote: "We suffer more often in imagination than in reality.", author: "Seneca" },
+  { quote: "Simplicity is prerequisite for reliability.", author: "Edsger W. Dijkstra" },
+  { quote: "Talk is cheap. Show me the code.", author: "Linus Torvalds" },
+  { quote: "Never let the future disturb you. You will meet it with the same weapons of reason which today arm you against the present.", author: "Marcus Aurelius" }
+];
+
 function buildDailyFallback(d: any) {
   const done = d.completedTasks.length;
   const open = d.unfinishedTasks.length;
@@ -207,7 +215,6 @@ function buildDailyFallback(d: any) {
   }
 
   const debrief = `${p1}\n\n${p2}`;
-
   const takeaway = "Planning the work before jumping straight into code was the real lifesaver today. Even when energy was a bit low, having the blueprint ready meant zero muck-around and straight execution.";
 
   let tomorrowMove = "Pick one clear priority first thing in the morning and get it sorted while your head is fresh.";
@@ -217,9 +224,11 @@ function buildDailyFallback(d: any) {
     tomorrowMove = `Get stuck into **${d.unfinishedTasks[0]}** first thing tomorrow before opening anything else.`;
   }
 
+  const selectedQuote = REAL_FALLBACK_QUOTES[Math.floor(Math.random() * REAL_FALLBACK_QUOTES.length)];
+
   return {
-    quote: "Small steps, taken today, are what tomorrow is built on.",
-    author: "Daily Spark",
+    quote: selectedQuote.quote,
+    author: selectedQuote.author,
     debrief,
     takeaway,
     tomorrowMove,
@@ -382,7 +391,8 @@ export async function enrichDailyNote(app: App, file: TFile): Promise<void> {
   const systemPrompt = [
     "You are this person's Kiwi Chief of Staff & Dev Mate.",
     "You write in casual, authentic Kiwi English (New Zealand dev vibe) — relaxed, conversational, grounded, sharp, friendly, and honest.",
-    "Use natural Kiwi expressions and cadence (e.g. 'aye', 'arvo', 'knackered', 'proper shift', 'sorted', 'sweet as', 'chur', 'muck-around', 'knocked off', 'get stuck in') naturally and subtly without overdoing it.",
+    "Use natural Kiwi expressions and cadence (e.g. 'aye', 'arvo', 'knackered', 'proper shift', 'sorted', 'sweet as', 'chur', 'muck-around', 'knocked off', 'get stuck in') naturally without overdoing it.",
+    "CRITICAL FOR QUOTE: You must pick a REAL, famous, verified quote from a real-world philosopher, author, engineer, scientist, leader, or thinker (e.g. Marcus Aurelius, Seneca, James Clear, Linus Torvalds, Abraham Lincoln, Edsger Dijkstra, Alan Kay, Epictetus, Steve Jobs). NEVER make up a fake quote or attribute to 'Daily Spark'.",
     "Never sound corporate, clinical, robotic, or like a LinkedIn performance review. Never use bullet points inside debrief — write natural, engaging narrative prose.",
     "You never invent facts. You always answer with valid JSON only."
   ].join(" ");
@@ -429,14 +439,14 @@ EXISTING VAULT NOTES (valid link targets)
 Yesterday's daily note: ${yesterdayDate}
 
 WHAT TO PRODUCE
-"quote": "short original line with a grounded, chill vibe",
-"author": "Daily Spark",
+"quote": "A REAL, verified quote from a famous real-world philosopher, author, engineer, scientist, or thinker (e.g. Marcus Aurelius, Seneca, James Clear, Linus Torvalds, Edsger Dijkstra, Epictetus, Steve Jobs) that fits the theme of the day (e.g. preparation, systems over willpower, resilience, rest, code craftsmanship).",
+"author": "The REAL author's full name (e.g. 'Marcus Aurelius', 'James Clear', 'Linus Torvalds') — NEVER 'Daily Spark'.",
 "debrief": "2 short narrative paragraphs capturing the day's full story in Kiwi English:
   - Paragraph 1: The morning reality, sleep, and friction (knackered on short sleep, stress, wait times).
   - Paragraph 2: The afternoon turnaround (getting stuck in, shipping code across repositories, sorting milestones, and knocking off on time / keeping habits).
   Be specific about project names (loey_space, shelf) and features built. Never use bullet points inside debrief — write natural prose.",
 "takeaway": "ONE sharp Kiwi Chief of Staff takeaway paragraph on why the system worked (e.g. why planning before coding saved the day, preventing muck-around and decision fatigue even when knackered).",
-"tomorrowMove": "ONE clear tomorrow move anchored on high priority open tasks (#priority/p0 or p1). Phrased in Kiwi English: 'Get stuck into **[[Task]]** first thing...'.${sleepDebt ? ` Acknowledge the sleep debt honestly.` : ''}",
+"tomorrowMove": "ONE clear, regular paragraph (1-2 sentences) anchored on high priority open tasks (#priority/p0 or p1). Phrased in Kiwi English: 'Get stuck into [[Task]] first thing...'.${sleepDebt ? ` Acknowledge the sleep debt honestly.` : ''}",
 "connectedNotes": "start with '[[${yesterdayDate}]]' (always). Then 2-4 notes explicitly named in tasks, log, or ideas."
 
 HARD RULES
@@ -446,16 +456,15 @@ HARD RULES
 4. Balance friction with resilience.
 5. ${isDepleted ? `Sleep was under 6 hours AND energy under 3 — say plainly that capacity was capped, without turning it into a lecture.` : `Do not speculate about sleep or energy unless the numbers are notable.`}
 6. Conversational, warm, sharp Kiwi English. No corporate jargon.
-7. Never mention property names (mood, energy, sleep_hours, tags, frontmatter, JSON) or the words 'template' or 'section'.
-8. If a field above says 'none' or 'nothing logged', stay silent about it.
+7. Always provide a REAL, historical/famous author for the quote.
 
 JSON format:
 {
-  "quote": "short original line",
-  "author": "Daily Spark",
+  "quote": "Real quote from a real thinker",
+  "author": "Real Author Name",
   "debrief": "paragraph 1\n\nparagraph 2",
   "takeaway": "one sharp paragraph",
-  "tomorrowMove": "Get stuck into **[[Task]]** ...",
+  "tomorrowMove": "Get stuck into [[Task]] ...",
   "connectedNotes": ["[[${yesterdayDate}]]"]
 }
 `;
@@ -490,8 +499,8 @@ JSON format:
   const takeawayText = (responseData.takeaway || responseData.insight || responseData.pattern || "").trim();
   const tomorrowMoveText = (responseData.tomorrowMove || responseData.nextStep || "").trim();
 
-  responseData.quote = toSingleLine(responseData.quote) || "Small steps, taken today, are what tomorrow is built on.";
-  responseData.author = toSingleLine(responseData.author) || "Daily Spark";
+  responseData.quote = toSingleLine(responseData.quote) || "You do not rise to the level of your goals. You fall to the level of your systems.";
+  responseData.author = toSingleLine(responseData.author) || "James Clear";
 
   const validTargets = new Map<string, string>();
   app.vault.getMarkdownFiles().forEach((f: TFile) => validTargets.set(f.basename.toLowerCase(), f.basename));
@@ -549,14 +558,15 @@ ${debriefText || "Bit of a quiet one today — not much made it into the log."}
 ${takeawayText || "Keep things simple and plan before you build."}
 
 ### 🎯 Tomorrow's Move
-${tomorrowMoveText || "Pick your main target first thing in the morning."}`;
+${tomorrowMoveText || "Pick your main target first thing in the morning."}
+`;
 
   const aiSectionRe = /^## 🤖 AI Daily Summary[\s\S]*?(?=^## |^---[ \t]*$|(?![\s\S]))/m;
 
   if (aiSectionRe.test(content)) {
-    content = content.replace(aiSectionRe, escapeReplacement(aiSummaryBlock + "\n"));
+    content = content.replace(aiSectionRe, escapeReplacement(aiSummaryBlock));
   } else {
-    content = content.replace(/\s*$/, "") + "\n\n" + aiSummaryBlock + "\n";
+    content = content.replace(/\s*$/, "") + "\n\n" + aiSummaryBlock;
   }
 
   const connectedBlock = connectedLinks.map(link => `- ${link}`).join("\n");
@@ -564,7 +574,7 @@ ${tomorrowMoveText || "Pick your main target first thing in the morning."}`;
   if (/^##### 🔗 Connected Notes[ \t]*$/m.test(content)) {
     content = replaceSectionBody(content, "##### 🔗 Connected Notes", connectedBlock);
   } else {
-    content = content.replace(/\s*$/, "") + `\n\n---\n##### 🔗 Connected Notes\n${connectedBlock}\n`;
+    content = content.replace(/\s*$/, "") + `\n\n---\n\n##### 🔗 Connected Notes\n${connectedBlock}\n`;
   }
 
   await app.vault.modify(file, content);
@@ -576,6 +586,6 @@ ${tomorrowMoveText || "Pick your main target first thing in the morning."}`;
       12000
     );
   } else {
-    new Notice("✨ Daily Note enriched with Kiwi Chief of Staff vibes!");
+    new Notice("✨ Daily Note enriched with Kiwi Chief of Staff vibes & real quote!");
   }
 }
