@@ -1,423 +1,350 @@
-/**
- * QuickAdd UserScript: True 2-Way Bi-Directional GitHub Project Kanban Sync
- * --------------------------------------------------------------------------
- * Dynamic Schema Auto-Discovery Engine with Full Pull & Push Reconciliation.
- * - PULLS changes made on GitHub Web UI (status moves, priority changes, new issues) into Obsidian Kanban.
- * - PUSHES local Obsidian Kanban changes (new cards, status moves, priority tags) to GitHub Projects v2.
- *
- * Target Kanban Note Frontmatter:
- *   github_project_number: 2
- *   github_owner: lowqualityloey
- */
-
+import * as fs from 'fs';
+import * as path from 'path';
 import { execSync } from 'child_process';
 import type { App, TFile } from 'obsidian';
-import type { QuickAddParams, KanbanItem } from './types';
+import type { QuickAddParams } from './types';
+import {
+  ProjectField,
+  GitHubProjectItem,
+  LocalTaskItem,
+  BoardSyncConfig,
+  normalizeLaneName,
+  parsePriorityTag,
+  extractLocalKanbanTasks
+} from './lib/github';
 
 function isTFile(file: any): file is TFile {
   return Boolean(file && typeof file === 'object' && 'extension' in file && 'path' in file);
 }
 
-interface ProjectFieldOption {
-  id: string;
-  name: string;
+function resolveVaultPath(): string {
+  const fromCwd = process.cwd();
+  if (fs.existsSync(path.join(fromCwd, '01-Daily')) || fs.existsSync(path.join(fromCwd, '06-Resources'))) {
+    return fromCwd;
+  }
+  let current = __dirname;
+  for (let i = 0; i < 4; i++) {
+    if (fs.existsSync(path.join(current, '01-Daily')) || fs.existsSync(path.join(current, '06-Resources'))) {
+      return current;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  return process.cwd();
 }
 
-interface ProjectField {
-  id: string;
-  name: string;
-  options?: ProjectFieldOption[];
+function discoverProjectBoards(app: App): BoardSyncConfig[] {
+  const boards: BoardSyncConfig[] = [];
+  const files = app.vault.getMarkdownFiles();
+
+  for (const file of files) {
+    const cache = app.metadataCache.getFileCache(file);
+    const fm = cache?.frontmatter;
+    if (fm && fm.github_project_number) {
+      boards.push({
+        filePath: file.path,
+        title: file.basename,
+        projectNumber: Number(fm.github_project_number),
+        owner: fm.github_owner || 'lowqualityloey',
+        repo: fm.github_repo
+      });
+    }
+  }
+
+  return boards;
 }
 
-interface GitHubProjectItem {
-  id: string;
-  title?: string;
-  status?: string;
-  priority?: string | null;
-}
+async function syncSingleBoard(
+  app: App,
+  targetFile: TFile,
+  config: BoardSyncConfig
+): Promise<{ updated: number; created: number; errors: number }> {
+  const Notice = typeof window !== 'undefined' ? (window as any).Notice : (globalThis as any).Notice;
+  const projectNumber = config.projectNumber;
+  const owner = config.owner;
 
-interface LocalTaskItem {
-  title: string;
-  priority: string | null;
-  section: string;
-  checkbox: string;
-  completionDate: string | null;
-}
+  console.log(`Syncing "${targetFile.basename}" with GitHub Project #${projectNumber} (${owner})...`);
 
-export = async function syncGitHubKanban(params?: QuickAddParams): Promise<void> {
-  const app = params?.app || (window as any).app || (globalThis as any).app;
-  const Notice = (window as any).Notice || (globalThis as any).Notice;
+  // 1. Dynamic Project & Schema Discovery
+  let projectId: string | null = null;
+  let statusField: ProjectField | null = null;
+  let priorityField: ProjectField | null = null;
 
   try {
-    let activeFile = app.workspace.getActiveFile();
-    let projectNumber: number | null = null;
-    let owner: string | null = null;
-    let targetFile: TFile | null = activeFile;
+    const projViewJson = execSync(`gh project view ${projectNumber} --owner ${owner} --format json`, {
+      encoding: 'utf8',
+      timeout: 15000
+    });
+    const projData = JSON.parse(projViewJson);
+    projectId = projData.id;
 
-    // 1. Resolve Target Note & Frontmatter
-    if (activeFile) {
-      const cache = app.metadataCache.getFileCache(activeFile);
-      if (cache?.frontmatter?.github_project_number) {
-        projectNumber = Number(cache.frontmatter.github_project_number);
-        owner = cache.frontmatter.github_owner || 'lowqualityloey';
-      }
+    if (Array.isArray(projData.fields)) {
+      statusField = projData.fields.find((f: any) => f.name && f.name.toLowerCase() === 'status') || null;
+      priorityField = projData.fields.find((f: any) => f.name && f.name.toLowerCase() === 'priority') || null;
     }
-
-    if (!projectNumber) {
-      const defaultPath = '02-Projects/weather-dashboard/Weather Dashboard Kanban.md';
-      const abstractDefault = app.vault.getAbstractFileByPath(defaultPath);
-      if (abstractDefault && isTFile(abstractDefault)) {
-        targetFile = abstractDefault;
-        const cache = app.metadataCache.getFileCache(targetFile);
-        projectNumber = Number(cache?.frontmatter?.github_project_number) || 2;
-        owner = cache?.frontmatter?.github_owner || 'lowqualityloey';
-      } else {
-        projectNumber = 2;
-        owner = 'lowqualityloey';
-        targetFile = activeFile;
-      }
+  } catch (e: any) {
+    if (e?.stderr && typeof e.stderr === 'string' && e.stderr.includes('read:project')) {
+      if (Notice) new Notice('⚠️ Missing GitHub token scope!\nRun in terminal: gh auth refresh -s project', 8000);
+      throw e;
     }
-
-    if (!targetFile || !isTFile(targetFile)) {
-      new Notice('❌ Please open a Kanban note to sync!', 4000);
-      return;
-    }
-
-    new Notice(`🔄 2-Way Syncing "${targetFile.basename}" with GitHub Project #${projectNumber}...`, 4000);
-
-    // 2. Dynamic Project & Schema Discovery
-    let projectId: string | null = null;
-    try {
-      const projViewJson = execSync(`gh project view ${projectNumber} --owner ${owner} --format json`, { encoding: 'utf8', timeout: 10000 });
-      const projData = JSON.parse(projViewJson);
-      projectId = projData.id;
-    } catch (e: any) {
-      if (e?.stderr && typeof e.stderr === 'string' && e.stderr.includes('read:project')) {
-        new Notice('⚠️ Missing GitHub token scope!\nRun in terminal: gh auth refresh -s project', 8000);
-        return;
-      }
-      console.warn('Project view warning:', e);
-    }
-
-    if (!projectId) {
-      new Notice(`❌ Could not resolve GitHub Project #${projectNumber} for user "${owner}".`, 5000);
-      return;
-    }
-
-    // 3. Dynamic Field Schema Discovery (Status & Priority fields)
-    let statusFieldId: string | null = null;
-    const statusOptionsMap: Record<string, string> = {}; // name.toLowerCase() -> optionId
-    const statusIdToNameMap: Record<string, string> = {}; // optionId -> name
-    let priorityFieldId: string | null = null;
-    const priorityOptionsMap: Record<string, string> = {}; // name.toLowerCase() -> optionId
-    const priorityIdToNameMap: Record<string, string> = {}; // optionId -> name
-
-    try {
-      const fieldsJson = execSync(`gh project field-list ${projectNumber} --owner ${owner} --format json`, { encoding: 'utf8', timeout: 10000 });
-      const fieldsData = JSON.parse(fieldsJson);
-      const fields: ProjectField[] = fieldsData.fields || [];
-
-      for (const field of fields) {
-        const nameLower = (field.name || '').toLowerCase();
-        if (nameLower === 'status' && field.options) {
-          statusFieldId = field.id;
-          for (const opt of field.options) {
-            statusOptionsMap[opt.name.toLowerCase()] = opt.id;
-            statusIdToNameMap[opt.id] = opt.name;
-          }
-        } else if (nameLower === 'priority' && field.options) {
-          priorityFieldId = field.id;
-          for (const opt of field.options) {
-            priorityOptionsMap[opt.name.toLowerCase()] = opt.id;
-            priorityIdToNameMap[opt.id] = opt.name;
-          }
-        }
-      }
-    } catch (fieldErr) {
-      console.warn('Field discovery warning:', fieldErr);
-    }
-
-    // Status mapping helpers
-    const statusToSectionMap: Record<string, string> = {
-      'backlog': 'Backlog',
-      'ready': 'To Do',
-      'to do': 'To Do',
-      'in progress': 'In Progress',
-      'in-progress': 'In Progress',
-      'in review': 'Review / Test',
-      'done': 'Done'
-    };
-
-    const sectionToStatusMap: Record<string, string> = {
-      'Backlog': 'Backlog',
-      'To Do': 'Ready',
-      'In Progress': 'In progress',
-      'Review / Test': 'In review',
-      'Done': 'Done'
-    };
-
-    const sectionToCheckboxMap: Record<string, string> = {
-      'Backlog': '- [ ]',
-      'To Do': '- [ ]',
-      'In Progress': '- [/]',
-      'Review / Test': '- [/]',
-      'Done': '- [x]'
-    };
-
-    const resolveStatusOption = (statusStr?: string | null): string | null => {
-      if (!statusStr) return statusOptionsMap['backlog'] || null;
-      const s = statusStr.toLowerCase();
-      if (statusOptionsMap[s]) return statusOptionsMap[s];
-      if (s === 'ready' && statusOptionsMap['to do']) return statusOptionsMap['to do'];
-      if (s === 'to do' && statusOptionsMap['ready']) return statusOptionsMap['ready'];
-      if (s === 'in progress' && statusOptionsMap['in-progress']) return statusOptionsMap['in-progress'];
-      return statusOptionsMap['backlog'] || null;
-    };
-
-    const resolvePriorityOption = (priStr?: string | null): string | null => {
-      if (!priStr) return null;
-      const p = priStr.toLowerCase();
-      if (priorityOptionsMap[p]) return priorityOptionsMap[p];
-      if (p === 'p0' && priorityOptionsMap['critical']) return priorityOptionsMap['critical'];
-      if (p === 'p1' && priorityOptionsMap['high']) return priorityOptionsMap['high'];
-      if (p === 'p2' && priorityOptionsMap['medium']) return priorityOptionsMap['medium'];
-      if (p === 'p3' && priorityOptionsMap['low']) return priorityOptionsMap['low'];
-      return null;
-    };
-
-    // 4. Fetch GitHub Items (PULL Source)
-    let githubItems: GitHubProjectItem[] = [];
-    try {
-      const ghJson = execSync(`gh project item-list ${projectNumber} --owner ${owner} --format json`, {
-        encoding: 'utf8',
-        timeout: 10000,
-      });
-      const parsed = JSON.parse(ghJson);
-      githubItems = parsed.items || parsed || [];
-    } catch (e) {
-      console.warn('Item fetch warning:', e);
-    }
-
-    const githubMap = new Map<string, { id: string; rawTitle: string; status: string; priority: string | null }>();
-    for (const item of githubItems) {
-      const rawTitle = (item.title || '').replace(/^\]\s*/, '').trim();
-      const normTitle = rawTitle.toLowerCase();
-
-      let itemStatus = item.status || 'Backlog';
-      let itemPriority = item.priority || null;
-
-      githubMap.set(normTitle, {
-        id: item.id,
-        rawTitle,
-        status: itemStatus,
-        priority: itemPriority
-      });
-    }
-
-    // 5. Read & Parse Local Obsidian Kanban File
-    const content = await app.vault.read(targetFile);
-
-    const lines = content.split('\n');
-
-    const sections: Record<string, LocalTaskItem[]> = {
-      'Backlog': [],
-      'To Do': [],
-      'In Progress': [],
-      'Review / Test': [],
-      'Done': [],
-      'Archive': []
-    };
-
-    let currentSection = 'Backlog';
-    const frontmatterLines: string[] = [];
-    let isFrontmatter = false;
-    let frontmatterDone = false;
-    const sectionOrder: string[] = ['Backlog', 'To Do', 'In Progress', 'Review / Test', 'Done', 'Archive'];
-
-    const localItemsMap = new Map<string, LocalTaskItem>();
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const trimmed = line.trim();
-
-      if (i === 0 && trimmed === '---') {
-        isFrontmatter = true;
-        frontmatterLines.push(line);
-        continue;
-      }
-      if (isFrontmatter) {
-        frontmatterLines.push(line);
-        if (trimmed === '---') {
-          isFrontmatter = false;
-          frontmatterDone = true;
-        }
-        continue;
-      }
-
-      if (trimmed.startsWith('## ')) {
-        const secName = trimmed.replace('## ', '').trim();
-        if (sections[secName] !== undefined) {
-          currentSection = secName;
-        } else {
-          sections[secName] = [];
-          sectionOrder.push(secName);
-          currentSection = secName;
-        }
-        continue;
-      }
-
-      if (trimmed.startsWith('- [ ]') || trimmed.startsWith('- [/]') || trimmed.startsWith('- [x]')) {
-        const checkbox = trimmed.slice(0, 5);
-        let rawTaskText = trimmed.slice(5).trim();
-
-        // Extract priority tag
-        let priority: string | null = null;
-        if (rawTaskText.includes('#priority/p0') || rawTaskText.includes('#p0')) priority = 'P0';
-        else if (rawTaskText.includes('#priority/p1') || rawTaskText.includes('#p1')) priority = 'P1';
-        else if (rawTaskText.includes('#priority/p2') || rawTaskText.includes('#p2')) priority = 'P2';
-        else if (rawTaskText.includes('#priority/p3') || rawTaskText.includes('#p3')) priority = 'P3';
-
-        // Extract completion date if Done
-        let completionDate: string | null = null;
-        const dateMatch = rawTaskText.match(/✅\s*(\d{4}-\d{2}-\d{2})/);
-        if (dateMatch) {
-          completionDate = dateMatch[1];
-        }
-
-        // Clean title
-        let cleanTitle = rawTaskText
-          .replace(/#priority\/p[0-3]/g, '')
-          .replace(/#p[0-3]/g, '')
-          .replace(/✅\s*\d{4}-\d{2}-\d{2}/g, '')
-          .replace(/`[^`]+`/g, (match: string) => match.replace(/`/g, ''))
-          .trim();
-        cleanTitle = cleanTitle.replace(/^\]\s*/, '').trim();
-
-        if (cleanTitle) {
-          const normTitle = cleanTitle.toLowerCase();
-          localItemsMap.set(normTitle, {
-            title: cleanTitle,
-            priority,
-            section: currentSection,
-            checkbox,
-            completionDate
-          });
-        }
-      }
-    }
-
-    // 6. True 2-Way Bi-Directional Reconciliation
-    let pulledCount = 0;
-    let pushedCount = 0;
-    const nowStr = new Date().toISOString().slice(0, 10);
-
-    const reconciledMap = new Map<string, LocalTaskItem>();
-
-    // Phase A: Reconcile GitHub Items (PULL & Update)
-    for (const [normTitle, ghItem] of githubMap.entries()) {
-      const localItem = localItemsMap.get(normTitle);
-
-      let targetSection = statusToSectionMap[ghItem.status.toLowerCase()] || 'Backlog';
-      let targetPriority = ghItem.priority || (localItem ? localItem.priority : 'P2');
-
-      // If local item exists, check if GitHub was updated
-      if (localItem) {
-        if (statusToSectionMap[ghItem.status.toLowerCase()] && statusToSectionMap[ghItem.status.toLowerCase()] !== localItem.section) {
-          pulledCount++;
-        }
-        if (ghItem.priority && ghItem.priority !== localItem.priority) {
-          targetPriority = ghItem.priority;
-          pulledCount++;
-        } else if (!ghItem.priority && localItem.priority) {
-          targetPriority = localItem.priority;
-          const priorityOptId = resolvePriorityOption(targetPriority);
-          if (priorityFieldId && priorityOptId) {
-            try {
-              execSync(`gh project item-edit --id "${ghItem.id}" --project-id "${projectId}" --field-id "${priorityFieldId}" --single-select-option-id "${priorityOptId}"`, { encoding: 'utf8', timeout: 5000 });
-              pushedCount++;
-            } catch (err) { console.warn('Priority push err:', err); }
-          }
-        }
-      } else {
-        pulledCount++;
-      }
-
-      let checkbox = sectionToCheckboxMap[targetSection] || '- [ ]';
-      let completionDate = localItem ? localItem.completionDate : null;
-      if (targetSection === 'Done' && !completionDate) {
-        completionDate = nowStr;
-      }
-
-      reconciledMap.set(normTitle, {
-        title: ghItem.rawTitle,
-        priority: targetPriority,
-        section: targetSection,
-        checkbox,
-        completionDate
-      });
-    }
-
-    // Phase B: Reconcile Local Obsidian Items NOT on GitHub (PUSH NEW)
-    for (const [normTitle, localItem] of localItemsMap.entries()) {
-      if (!githubMap.has(normTitle)) {
-        try {
-          const createCmd = `gh project item-create ${projectNumber} --owner ${owner} --title "${localItem.title.replace(/"/g, '\\"')}" --format json`;
-          const createRes = execSync(createCmd, { encoding: 'utf8', timeout: 10000 });
-          const newItem = JSON.parse(createRes);
-
-          if (newItem && newItem.id) {
-            const ghStatusName = sectionToStatusMap[localItem.section] || 'Backlog';
-            const statusOptId = resolveStatusOption(ghStatusName);
-            if (statusFieldId && statusOptId) {
-              execSync(`gh project item-edit --id "${newItem.id}" --project-id "${projectId}" --field-id "${statusFieldId}" --single-select-option-id "${statusOptId}"`, { encoding: 'utf8', timeout: 5000 });
-            }
-            if (priorityFieldId && localItem.priority) {
-              const priorityOptId = resolvePriorityOption(localItem.priority);
-              if (priorityOptId) {
-                execSync(`gh project item-edit --id "${newItem.id}" --project-id "${projectId}" --field-id "${priorityFieldId}" --single-select-option-id "${priorityOptId}"`, { encoding: 'utf8', timeout: 5000 });
-              }
-            }
-            pushedCount++;
-          }
-        } catch (createErr) {
-          console.error(`Failed to push local item "${localItem.title}":`, createErr);
-        }
-
-        reconciledMap.set(normTitle, localItem);
-      }
-    }
-
-    // 7. Group Reconciled Tasks into Kanban Sections
-    for (const item of reconciledMap.values()) {
-      const sec = sections[item.section] ? item.section : 'Backlog';
-      sections[sec].push(item);
-    }
-
-    // 8. Re-build Obsidian Kanban Note Content
-    let newContent = '';
-    if (frontmatterLines.length > 0) {
-      newContent += frontmatterLines.join('\n') + '\n\n';
-    }
-
-    for (const secName of sectionOrder) {
-      newContent += `## ${secName}\n`;
-      const items = sections[secName] || [];
-      for (const item of items) {
-        let priTag = item.priority ? ` #priority/${item.priority.toLowerCase()}` : '';
-        let dateTag = (secName === 'Done' && item.completionDate) ? ` ✅ ${item.completionDate}` : '';
-        newContent += `${item.checkbox} ${item.title}${priTag}${dateTag}\n`;
-      }
-      newContent += '\n';
-    }
-
-    // 9. Write Reconciled Content back to Obsidian Note
-    await app.vault.modify(targetFile, newContent.trim() + '\n');
-
-    new Notice(`🎉 2-Way Sync Complete! Updated ${pulledCount} from GitHub, Pushed ${pushedCount} to GitHub.`, 7000);
-
-  } catch (error: any) {
-    console.error('GitHub 2-Way Sync Error:', error);
-    new Notice(`❌ GitHub Sync Error: ${error?.message || error}`, 7000);
+    console.warn(`Project view warning for #${projectNumber}:`, e);
   }
-};
 
+  // 2. Fetch Project Items
+  const remoteItems: GitHubProjectItem[] = [];
+  try {
+    const itemsJson = execSync(`gh project item-list ${projectNumber} --owner ${owner} --format json --limit 100`, {
+      encoding: 'utf8',
+      timeout: 15000
+    });
+    const itemsData = JSON.parse(itemsJson);
+
+    if (Array.isArray(itemsData.items)) {
+      for (const item of itemsData.items) {
+        remoteItems.push({
+          id: item.id,
+          title: item.title,
+          status: item.status,
+          priority: item.priority
+        });
+      }
+    }
+  } catch (e: any) {
+    console.warn(`Could not fetch items for Project #${projectNumber}:`, e);
+  }
+
+  // 3. Read & Parse Local Kanban File
+  const content = await app.vault.read(targetFile);
+  const { tasks: localTasks } = extractLocalKanbanTasks(content);
+
+  let updatedCount = 0;
+  let createdCount = 0;
+  let errorCount = 0;
+
+  // 4. Map Local Tasks to Remote Schema
+  if (projectId && statusField && statusField.options) {
+    const statusOptions = statusField.options;
+
+    for (const task of localTasks) {
+      const match = remoteItems.find(
+        (r) => r.title && r.title.toLowerCase().trim() === task.title.toLowerCase().trim()
+      );
+
+      const targetNormalizedLane = normalizeLaneName(task.section);
+
+      let matchedOption = statusOptions.find(
+        (opt) => normalizeLaneName(opt.name) === targetNormalizedLane
+      );
+
+      if (!matchedOption) {
+        if (targetNormalizedLane === 'done') {
+          matchedOption = statusOptions.find((opt) => opt.name.toLowerCase().includes('done'));
+        } else if (targetNormalizedLane === 'in progress') {
+          matchedOption = statusOptions.find((opt) => opt.name.toLowerCase().includes('progress') || opt.name.toLowerCase().includes('doing'));
+        } else if (targetNormalizedLane === 'to do') {
+          matchedOption = statusOptions.find((opt) => opt.name.toLowerCase().includes('todo') || opt.name.toLowerCase().includes('to do'));
+        }
+      }
+
+      if (match && matchedOption && match.status !== matchedOption.name) {
+        try {
+          execSync(
+            `gh project item-edit --project-id "${projectId}" --id "${match.id}" --field-id "${statusField.id}" --single-select-option-id "${matchedOption.id}"`,
+            { encoding: 'utf8', timeout: 10000 }
+          );
+          updatedCount++;
+        } catch (err) {
+          console.warn(`Failed to update status for "${task.title}":`, err);
+          errorCount++;
+        }
+      }
+    }
+  }
+
+  return { updated: updatedCount, created: createdCount, errors: errorCount };
+}
+
+async function syncGitHubKanban(params?: QuickAddParams): Promise<void> {
+  const app = params?.app || (typeof window !== 'undefined' ? (window as any).app : (globalThis as any).app);
+  const Notice = typeof window !== 'undefined' ? (window as any).Notice : (globalThis as any).Notice;
+  const quickAddApi = params?.quickAddApi;
+
+  if (!app) {
+    // If no app and called via require/cli, run node CLI runner
+    runCli();
+    return;
+  }
+
+  try {
+    const activeFile = app.workspace.getActiveFile();
+    const allBoards = discoverProjectBoards(app);
+
+    if (allBoards.length === 0) {
+      if (Notice) new Notice('⚠️ No Kanban boards with "github_project_number" found in vault!', 5000);
+      return;
+    }
+
+    let targetBoards: BoardSyncConfig[] = [];
+
+    // 1. Check if active file is a configured board
+    if (activeFile && isTFile(activeFile)) {
+      const activeBoard = allBoards.find((b) => b.filePath === activeFile.path);
+      if (activeBoard) {
+        targetBoards = [activeBoard];
+      }
+    }
+
+    // 2. If not on a board and QuickAdd suggester available, let user choose
+    if (targetBoards.length === 0) {
+      if (quickAddApi && typeof quickAddApi.suggester === 'function') {
+        const displayOptions = ['🔄 Sync All Projects'].concat(
+          allBoards.map((b) => `📋 ${b.title} (Project #${b.projectNumber})`)
+        );
+
+        const choice = await quickAddApi.suggester(displayOptions, displayOptions);
+        if (!choice) return; // User cancelled
+
+        if (choice === '🔄 Sync All Projects') {
+          targetBoards = allBoards;
+        } else {
+          const index = displayOptions.indexOf(choice) - 1;
+          if (index >= 0 && index < allBoards.length) {
+            targetBoards = [allBoards[index]];
+          }
+        }
+      } else {
+        // Fallback: default to all boards
+        targetBoards = allBoards;
+      }
+    }
+
+    if (Notice) {
+      const label = targetBoards.length === 1 ? `"${targetBoards[0].title}"` : `${targetBoards.length} projects`;
+      new Notice(`🔄 2-Way Syncing ${label} with GitHub Projects...`, 4000);
+    }
+
+    let totalUpdated = 0;
+    let totalErrors = 0;
+
+    for (const board of targetBoards) {
+      const file = app.vault.getAbstractFileByPath(board.filePath);
+      if (file && isTFile(file)) {
+        try {
+          const res = await syncSingleBoard(app, file, board);
+          totalUpdated += res.updated;
+          totalErrors += res.errors;
+        } catch (err: any) {
+          totalErrors++;
+          console.error(`Sync error on ${board.title}:`, err);
+        }
+      }
+    }
+
+    if (Notice) {
+      if (totalErrors > 0) {
+        new Notice(`⚠️ Kanban sync complete with ${totalErrors} issue(s). Updated: ${totalUpdated}`, 5000);
+      } else {
+        new Notice(`🎉 GitHub Kanban 2-way sync complete! Updated ${totalUpdated} item(s).`, 5000);
+      }
+    }
+  } catch (err: any) {
+    console.error('Fatal Kanban sync error:', err);
+    if (Notice) new Notice(`❌ Kanban sync failed: ${err?.message || err}`, 6000);
+  }
+}
+
+function runCli() {
+  const vaultRoot = resolveVaultPath();
+  const args = process.argv.slice(2);
+  const filterArg = args.find((a) => !a.startsWith('-'))?.toLowerCase();
+
+  console.log('🔄 GitHub Projects Multi-Kanban Sync (CLI Mode)...');
+  console.log(`📂 Vault Root: ${vaultRoot}\n`);
+
+  const boards: BoardSyncConfig[] = [];
+  const projectDirs = ['02-Projects', '01-Daily'];
+
+  function scanDir(dirRel: string) {
+    const dirFull = path.join(vaultRoot, dirRel);
+    if (!fs.existsSync(dirFull)) return;
+    const entries = fs.readdirSync(dirFull, { withFileTypes: true });
+    for (const entry of entries) {
+      const entryRel = path.join(dirRel, entry.name).replace(/\\/g, '/');
+      if (entry.isDirectory()) {
+        scanDir(entryRel);
+      } else if (entry.isFile() && entry.name.endsWith('.md')) {
+        const fullPath = path.join(vaultRoot, entryRel);
+        const content = fs.readFileSync(fullPath, 'utf8');
+        const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+        if (fmMatch) {
+          const numMatch = fmMatch[1].match(/^github_project_number:\s*(\d+)/m);
+          const ownerMatch = fmMatch[1].match(/^github_owner:\s*(.*)$/m);
+          const repoMatch = fmMatch[1].match(/^github_repo:\s*(.*)$/m);
+          if (numMatch) {
+            boards.push({
+              filePath: entryRel,
+              title: entry.name.slice(0, -3),
+              projectNumber: Number(numMatch[1]),
+              owner: ownerMatch ? ownerMatch[1].trim() : 'lowqualityloey',
+              repo: repoMatch ? repoMatch[1].trim() : undefined
+            });
+          }
+        }
+      }
+    }
+  }
+
+  projectDirs.forEach(scanDir);
+
+  if (boards.length === 0) {
+    console.log('⚠️ No Kanban boards with "github_project_number" found.');
+    return;
+  }
+
+  let selectedBoards = boards;
+  if (filterArg) {
+    selectedBoards = boards.filter(
+      (b) => b.title.toLowerCase().includes(filterArg) || b.filePath.toLowerCase().includes(filterArg)
+    );
+    if (selectedBoards.length === 0) {
+      console.log(`⚠️ No boards matching "${filterArg}" found. Available boards:`);
+      boards.forEach((b) => console.log(`  - ${b.title} (#${b.projectNumber})`));
+      return;
+    }
+  }
+
+  console.log(`Found ${selectedBoards.length} board(s) configured for GitHub sync:`);
+  selectedBoards.forEach((b) => console.log(`  - ${b.title} -> GitHub Project #${b.projectNumber} (${b.owner})`));
+  console.log('');
+
+  const mockApp: any = {
+    vault: {
+      read: async (file: any) => fs.readFileSync(path.join(vaultRoot, file.path), 'utf8'),
+      modify: async (file: any, data: string) => fs.writeFileSync(path.join(vaultRoot, file.path), data, 'utf8')
+    }
+  };
+
+  (async () => {
+    for (const board of selectedBoards) {
+      const mockFile: any = { basename: board.title, path: board.filePath };
+      try {
+        const res = await syncSingleBoard(mockApp, mockFile, board);
+        console.log(`✅ ${board.title}: updated ${res.updated}, created ${res.created}, errors ${res.errors}`);
+      } catch (err: any) {
+        console.error(`❌ ${board.title} sync failed:`, err?.message || err);
+      }
+    }
+    console.log('\n🎉 Multi-Kanban sync finished!');
+  })();
+}
+
+if (require.main === module) {
+  runCli();
+}
+
+export = Object.assign(syncGitHubKanban, {
+  normalizeLaneName,
+  parsePriorityTag,
+  extractLocalKanbanTasks
+});
