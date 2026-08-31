@@ -46,10 +46,13 @@ npm run audit-links
 # 5. Distill atomic evergreen concepts from articles/notes
 npm run distill -- "path/to/note.md"
 
-# 6. Sync GitHub Projects v2 Kanban boards (multi-project)
+# 6. Start work on Kanban card & create GitHub issue + branch
+npm run start-task -- <project-name> "<task-title>"
+
+# 7. Sync GitHub Projects v2 Kanban boards (multi-project)
 npm run sync-kanban
 
-# 7. Validate vault templates against schema
+# 8. Validate vault templates against schema
 npm run validate-templates
 ```
 

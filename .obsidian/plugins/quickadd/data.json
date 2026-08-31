@@ -1,6 +1,46 @@
 {
   "choices": [
     {
+      "id": "e4f0a1b2-stk0-4000-8000-000000000500",
+      "name": "🚀 Start Work on Kanban Task",
+      "type": "Macro",
+      "command": true,
+      "macroId": "e4f0a1b2-stk0-4000-8000-000000000022",
+      "macro": {
+        "id": "e4f0a1b2-stk0-4000-8000-000000000022",
+        "name": "🚀 Start Work on Kanban Task",
+        "commands": [
+          {
+            "name": "Run Start Task UserScript",
+            "type": "UserScript",
+            "id": "e4f0a1b2-stk0-4000-8000-000000000033",
+            "path": "06-Resources/scripts/start-task-action.js",
+            "settings": {}
+          }
+        ]
+      }
+    },
+    {
+      "id": "e4f0a1b2-dst0-4000-8000-000000000400",
+      "name": "💡 Distill Evergreen Concepts",
+      "type": "Macro",
+      "command": true,
+      "macroId": "e4f0a1b2-dst0-4000-8000-000000000022",
+      "macro": {
+        "id": "e4f0a1b2-dst0-4000-8000-000000000022",
+        "name": "💡 Distill Evergreen Concepts",
+        "commands": [
+          {
+            "name": "Run Distill Concept UserScript",
+            "type": "UserScript",
+            "id": "e4f0a1b2-dst0-4000-8000-000000000033",
+            "path": "06-Resources/scripts/distill-concept-action.js",
+            "settings": {}
+          }
+        ]
+      }
+    },
+    {
       "id": "e4f0a1b2-clr0-4000-8000-000000000300",
       "name": "🧹 Archive & Clear Quick Capture Dump",
       "type": "Macro",
@@ -607,6 +647,32 @@
           "type": "UserScript",
           "id": "e4f0a1b2-swp0-4000-8000-000000000033",
           "path": "06-Resources/scripts/triage-sweep.js",
+          "settings": {}
+        }
+      ]
+    },
+    {
+      "id": "e4f0a1b2-dst0-4000-8000-000000000022",
+      "name": "💡 Distill Evergreen Concepts",
+      "commands": [
+        {
+          "name": "Run Distill Concept UserScript",
+          "type": "UserScript",
+          "id": "e4f0a1b2-dst0-4000-8000-000000000033",
+          "path": "06-Resources/scripts/distill-concept-action.js",
+          "settings": {}
+        }
+      ]
+    },
+    {
+      "id": "e4f0a1b2-stk0-4000-8000-000000000022",
+      "name": "🚀 Start Work on Kanban Task",
+      "commands": [
+        {
+          "name": "Run Start Task UserScript",
+          "type": "UserScript",
+          "id": "e4f0a1b2-stk0-4000-8000-000000000033",
+          "path": "06-Resources/scripts/start-task-action.js",
           "settings": {}
         }
       ]
