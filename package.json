@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "test": "node --test \"06-Resources/scripts/tests/*.test.mjs\"",
     "audit-links": "node 06-Resources/scripts/audit-links.js",
+    "distill": "node 06-Resources/scripts/distill-concept-action.js",
     "sync-kanban": "node 06-Resources/scripts/sync-github-kanban.js",
     "validate-templates": "node 06-Resources/scripts/validate-templates.js"
   },

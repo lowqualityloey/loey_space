@@ -43,10 +43,13 @@ npm test
 # 4. Audit vault wikilinks & graph connectivity
 npm run audit-links
 
-# 5. Sync GitHub Projects v2 Kanban boards (multi-project)
+# 5. Distill atomic evergreen concepts from articles/notes
+npm run distill -- "path/to/note.md"
+
+# 6. Sync GitHub Projects v2 Kanban boards (multi-project)
 npm run sync-kanban
 
-# 6. Validate vault templates against schema
+# 7. Validate vault templates against schema
 npm run validate-templates
 ```
 
