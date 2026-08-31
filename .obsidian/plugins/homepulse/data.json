@@ -6,12 +6,12 @@
     "lockHomepage": true,
     "language": "en",
     "themePreset": "petal",
-    "accentColor": "#89fbd9",
-    "profileName": "loey_space",
-    "profileSignature": "Semantic Second Brain Dashboard",
-    "obsidianStartDate": "2026-08-08",
-    "techTreeAreaRoot": "08-Concepts",
-    "techTreeActiveProjectRoot": "02-Projects"
+    "accentColor": "#f5c2e7",
+    "profileName": "My Homepage",
+    "profileSignature": "",
+    "obsidianStartDate": "",
+    "techTreeAreaRoot": "/",
+    "techTreeActiveProjectRoot": "/"
   },
   "layout": {
     "columns": 5,
@@ -26,7 +26,7 @@
         "h": 1
       },
       {
-        "id": "knowledge-profile-jqr4hgc",
+        "id": "knowledge-main",
         "type": "knowledge-profile",
         "x": 1,
         "y": 0,
@@ -89,8 +89,8 @@
         "h": 2
       },
       {
-        "id": "quick-actions-0h6rh95",
-        "type": "quick-actions",
+        "id": "bookmarks-b1qil66",
+        "type": "bookmarks",
         "x": 4,
         "y": 3,
         "sizePreset": "W1H2",
@@ -98,7 +98,7 @@
         "h": 2
       },
       {
-        "id": "tech-tree-96vjutd",
+        "id": "tech-tree-main",
         "type": "tech-tree",
         "x": 0,
         "y": 5,
@@ -116,7 +116,7 @@
         "h": 2
       },
       {
-        "id": "recent-notes-rsoxrsi",
+        "id": "recent-notes-xmng40z",
         "type": "recent-notes",
         "x": 3,
         "y": 5,
@@ -125,8 +125,8 @@
         "h": 2
       },
       {
-        "id": "bookmarks-b1qil66",
-        "type": "bookmarks",
+        "id": "quick-actions-0h6rh95",
+        "type": "quick-actions",
         "x": 4,
         "y": 5,
         "sizePreset": "W1H2",
@@ -284,108 +284,34 @@
     }
   ],
   "defaultLayoutPresetId": "public-default",
-  "timeLogs": [
-    {
-      "id": "timelog-mtecbazd-8znhj1",
-      "startTime": 1788004007161,
-      "endTime": 1788005507161,
-      "duration": 25,
-      "source": "pomodoro",
-      "targetType": "task",
-      "targetId": "quick-capture-dump",
-      "createdAt": 1788005507161,
-      "activityType": "work",
-      "taskId": "quick-capture-dump"
-    },
-    {
-      "id": "timelog-mtebeq1e-z64svs",
-      "startTime": 1788002187026,
-      "endTime": 1788003987026,
-      "duration": 30,
-      "source": "manual",
-      "targetType": "project",
-      "targetId": "shelf",
-      "createdAt": 1788003987026,
-      "projectId": "shelf",
-      "projectTitle": "shelf",
-      "areaId": "Dev",
-      "areaTitle": "Dev"
-    },
-    {
-      "id": "timelog-mtebegmb-ca39zq",
-      "startTime": 1788002174819,
-      "endTime": 1788003974819,
-      "duration": 30,
-      "source": "manual",
-      "targetType": "task",
-      "targetId": "quick-capture-dump",
-      "createdAt": 1788003974819,
-      "taskId": "quick-capture-dump"
-    },
-    {
-      "id": "timelog-msk5jqxa-fiqvwn",
-      "startTime": 1786178658477,
-      "endTime": 1786180158477,
-      "duration": 25,
-      "source": "pomodoro",
-      "targetType": "task",
-      "targetId": "quick-capture-dump",
-      "createdAt": 1786180158478,
-      "activityType": "work",
-      "taskId": "quick-capture-dump"
-    },
-    {
-      "id": "timelog-msjenmc8-mvpef6",
-      "startTime": 1786133189528,
-      "endTime": 1786134989528,
-      "duration": 30,
-      "source": "manual",
-      "targetType": "quick",
-      "targetId": "doing something",
-      "createdAt": 1786134989528
-    },
-    {
-      "id": "timelog-msjemwnf-1527tx",
-      "startTime": 1786133156235,
-      "endTime": 1786134956235,
-      "duration": 30,
-      "source": "manual",
-      "targetType": "project",
-      "targetId": "Weather Dashboard",
-      "createdAt": 1786134956235,
-      "projectId": "Weather Dashboard",
-      "projectTitle": "Weather Dashboard"
-    }
-  ],
+  "timeLogs": [],
   "widgets": {
     "focus-main": {
       "config": {
-        "title": "today's focus",
-        "placeholder": "define your primary goal..."
+        "title": "today's goal",
+        "placeholder": "define your focus..."
       },
       "state": {
         "text": ""
       }
     },
-    "knowledge-profile-jqr4hgc": {
+    "knowledge-main": {
       "config": {
         "title": "knowledge profile",
         "projectNamePrefixes": [
           "Project_"
         ],
-        "projectFolders": [
-          "02-Projects/"
-        ],
+        "projectFolders": [],
         "projectTags": []
       },
       "state": {}
     },
     "music-player-b5317ac": {
       "config": {
-        "title": "YouTube Music",
-        "serviceName": "Music",
-        "loginUrl": "https://music.youtube.com/",
-        "playUrl": "https://music.youtube.com/explore"
+        "title": "music player",
+        "serviceName": "NetEase Cloud Music",
+        "loginUrl": "https://music.163.com/",
+        "playUrl": "https://music.163.com/"
       },
       "state": {}
     },
@@ -394,32 +320,8 @@
         "title": "habits"
       },
       "state": {
-        "habits": [
-          "water",
-          "prioritise",
-          "move",
-          "read",
-          "tidy",
-          "disconnect"
-        ],
-        "completions": {
-          "read|2026-08-09": true,
-          "prioritise|2026-08-09": true,
-          "prioritise|2026-08-18": true,
-          "read|2026-08-18": true,
-          "water|2026-08-18": true,
-          "tidy|2026-08-20": true,
-          "disconnect|2026-08-20": true,
-          "read|2026-08-20": true,
-          "prioritise|2026-08-20": true,
-          "disconnect|2026-08-30": true,
-          "read|2026-08-30": true,
-          "prioritise|2026-08-30": true,
-          "read|2026-08-31": true,
-          "tidy|2026-08-31": true,
-          "disconnect|2026-08-31": true,
-          "prioritise|2026-08-31": true
-        }
+        "habits": [],
+        "completions": {}
       }
     },
     "pomodoro-64kmxai": {
@@ -427,51 +329,40 @@
         "title": "pomodoro",
         "workMinutes": 25,
         "breakMinutes": 5,
-        "projectFolders": [
-          "02-Projects"
-        ],
+        "projectFolders": [],
         "projectTags": [
           "type/project"
         ],
-        "projectNamePrefixes": [],
+        "projectNamePrefixes": [
+          "Project_"
+        ],
         "areaFolders": [
-          "03-Dev",
-          "04-Learning",
-          "08-Concepts"
+          "20_Areas"
         ],
         "areaTags": [],
-        "areaNamePrefixes": [],
-        "taskFile": "00-Inbox/quick-capture-dump.md"
+        "areaNamePrefixes": [
+          "Area_"
+        ],
+        "taskFile": "10_Projects/进行中/QuickCapture.md"
       },
       "state": {
         "status": "idle",
         "remainingSeconds": 1500,
         "phaseStartedAt": 0,
-        "todayCountDate": "2026-08-31",
-        "todayCount": 0,
-        "activeTarget": {
-          "type": "task",
-          "id": "quick-capture-dump",
-          "title": "quick-capture-dump"
-        },
-        "recentTargets": [
-          {
-            "type": "task",
-            "id": "quick-capture-dump",
-            "title": "quick-capture-dump"
-          }
-        ]
+        "todayCountDate": "2026-09-01",
+        "todayCount": 0
       }
     },
     "tasks-lt2bqf1": {
       "config": {
         "title": "open tasks",
         "projectFolders": [
-          "01-Daily/",
-          "02-Projects"
+          "/"
         ],
         "projectTags": [],
-        "projectNamePrefixes": [],
+        "projectNamePrefixes": [
+          "Project_"
+        ],
         "limit": 12
       },
       "state": {}
@@ -488,60 +379,29 @@
       },
       "state": {}
     },
-    "quick-actions-0h6rh95": {
+    "bookmarks-b1qil66": {
       "config": {
-        "title": "create note",
+        "title": "bookmarks",
         "variant": "grid",
-        "sectionTitle": "",
-        "secondaryTitle": "",
-        "secondaryItems": [],
-        "items": [
-          {
-            "label": "capture",
-            "type": "command",
-            "value": "quickadd:choice:e4f0a1b2-1111-4000-8000-000000000001"
-          },
-          {
-            "label": "daily",
-            "type": "daily-note",
-            "value": ""
-          },
-          {
-            "label": "project",
-            "type": "command",
-            "value": "quickadd:choice:e4f0a1b2-2222-4000-8000-000000000002"
-          },
-          {
-            "label": "snippet",
-            "type": "command",
-            "value": "quickadd:choice:e4f0a1b2-6666-4000-8000-000000000006"
-          },
-          {
-            "label": "learning",
-            "type": "command",
-            "value": "quickadd:choice:e4f0a1b2-3333-4000-8000-000000000003"
-          },
-          {
-            "label": "personal",
-            "type": "command",
-            "value": "quickadd:choice:e4f0a1b2-7777-4000-8000-000000000007"
-          }
-        ]
+        "useFavicons": false,
+        "items": []
       },
       "state": {}
     },
-    "tech-tree-96vjutd": {
+    "tech-tree-main": {
       "config": {
         "title": "tech tree",
-        "areaRoot": "08-Concepts",
+        "areaRoot": "",
         "projectFolders": [
-          "02-Projects",
-          "03-Dev",
-          "04-Learning",
-          "08-Concepts"
+          "10_Projects/进行中"
         ],
-        "projectTags": [],
-        "projectNamePrefixes": []
+        "projectTags": [
+          "type/project",
+          "status/ing"
+        ],
+        "projectNamePrefixes": [
+          "Project_"
+        ]
       },
       "state": {}
     },
@@ -549,38 +409,40 @@
       "config": {
         "title": "projects",
         "projectFolders": [
-          "02-Projects"
+          "/"
         ],
-        "projectTags": [
-          "type/project"
+        "projectTags": [],
+        "projectNamePrefixes": [
+          "Project_"
         ],
-        "projectNamePrefixes": [],
         "limit": 10
       },
       "state": {}
     },
-    "recent-notes-rsoxrsi": {
+    "recent-notes-xmng40z": {
       "config": {
         "title": "recently updated",
         "limit": 6
       },
       "state": {}
     },
-    "bookmarks-b1qil66": {
+    "quick-actions-0h6rh95": {
       "config": {
-        "title": "Bookmarks",
+        "title": "system",
         "variant": "grid",
-        "useFavicons": true,
+        "sectionTitle": "",
+        "secondaryTitle": "",
+        "secondaryItems": [],
         "items": [
           {
-            "label": "github.com",
-            "type": "url",
-            "value": "https://github.com/lowqualityloey/loey_space"
+            "label": "daily",
+            "type": "daily-note",
+            "value": ""
           },
           {
-            "label": "openweathermap.org",
-            "type": "url",
-            "value": "https://openweathermap.org/api/one-call-4?collection=one_call_api"
+            "label": "search",
+            "type": "command",
+            "value": "global-search:open"
           }
         ]
       },
