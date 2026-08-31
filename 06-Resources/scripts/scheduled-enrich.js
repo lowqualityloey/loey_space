@@ -73,7 +73,7 @@ async function shouldEnrich(file) {
 }
 async function markEnriched(file) {
   enrichedTimestamps[file] = Date.now();
-  fs.writeFileSync(ENRICHED_NOTES_FILE, JSON.stringify(enrichedTimestamps, null, 2));
+  await fs.promises.writeFile(ENRICHED_NOTES_FILE, JSON.stringify(enrichedTimestamps, null, 2));
 }
 async function processBatch(notes, batchSize = 5) {
   console.log(`Found ${notes.length} notes to check for enrichment`);
