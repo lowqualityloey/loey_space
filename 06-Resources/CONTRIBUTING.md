@@ -40,7 +40,10 @@ npm run build
 # 3. Run automated unit test suite
 npm test
 
-# 4. Validate vault templates against schema
+# 4. Audit vault wikilinks & graph connectivity
+npm run audit-links
+
+# 5. Validate vault templates against schema
 npm run validate-templates
 ```
 
