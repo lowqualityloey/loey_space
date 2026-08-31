@@ -43,7 +43,10 @@ npm test
 # 4. Audit vault wikilinks & graph connectivity
 npm run audit-links
 
-# 5. Validate vault templates against schema
+# 5. Sync GitHub Projects v2 Kanban boards (multi-project)
+npm run sync-kanban
+
+# 6. Validate vault templates against schema
 npm run validate-templates
 ```
 

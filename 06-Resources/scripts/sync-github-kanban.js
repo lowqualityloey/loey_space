@@ -1,331 +1,398 @@
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
+
 // 06-Resources/scripts/src/sync-github-kanban.ts
+var fs = __toESM(require("fs"));
+var path = __toESM(require("path"));
 var import_child_process = require("child_process");
-function isTFile(file) {
-  return Boolean(file && typeof file === "object" && "extension" in file && "path" in file);
+
+// 06-Resources/scripts/src/lib/github.ts
+function normalizeLaneName(rawName) {
+  const clean = rawName.replace(/^#+\s*/, "").replace(/^[✅❌➕📅⏳🛫🔁⏫🔼🔽⏬🆔⛔📦🔄📋🎯💡💻🚀✨⚠️]\s*/, "").trim().toLowerCase();
+  if (clean.includes("backlog") || clean.includes("icebox"))
+    return "backlog";
+  if (clean.includes("to do") || clean.includes("todo") || clean.includes("to-do"))
+    return "to do";
+  if (clean.includes("in progress") || clean.includes("doing") || clean.includes("in-progress"))
+    return "in progress";
+  if (clean.includes("review") || clean.includes("test") || clean.includes("qa"))
+    return "review / test";
+  if (clean.includes("done") || clean.includes("completed") || clean.includes("archive"))
+    return "done";
+  return clean;
 }
-module.exports = async function syncGitHubKanban(params) {
-  const app = params?.app || window.app || globalThis.app;
-  const Notice = window.Notice || globalThis.Notice;
-  try {
-    let activeFile = app.workspace.getActiveFile();
-    let projectNumber = null;
-    let owner = null;
-    let targetFile = activeFile;
-    if (activeFile) {
-      const cache = app.metadataCache.getFileCache(activeFile);
-      if (cache?.frontmatter?.github_project_number) {
-        projectNumber = Number(cache.frontmatter.github_project_number);
-        owner = cache.frontmatter.github_owner || "lowqualityloey";
-      }
+function parsePriorityTag(text) {
+  const match = text.match(/#priority\/(p[0-3]|high|medium|low)/i);
+  if (!match) {
+    return { cleanText: text.trim(), priority: null };
+  }
+  const rawPriority = match[1].toLowerCase();
+  let normalized = "P2";
+  if (rawPriority === "p0" || rawPriority === "high")
+    normalized = "P0";
+  else if (rawPriority === "p1")
+    normalized = "P1";
+  else if (rawPriority === "p2" || rawPriority === "medium")
+    normalized = "P2";
+  else if (rawPriority === "p3" || rawPriority === "low")
+    normalized = "P3";
+  const cleanText = text.replace(/#priority\/(?:p[0-3]|high|medium|low)/gi, "").replace(/\s{2,}/g, " ").trim();
+  return { cleanText, priority: normalized };
+}
+function extractLocalKanbanTasks(content) {
+  const lines = content.split("\n");
+  const tasks = [];
+  const sections = [];
+  let currentSection = "";
+  let inFrontmatter = false;
+  let inFence = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    if (i === 0 && trimmed === "---") {
+      inFrontmatter = true;
+      continue;
     }
-    if (!projectNumber) {
-      const defaultPath = "02-Projects/weather-dashboard/Weather Dashboard Kanban.md";
-      const abstractDefault = app.vault.getAbstractFileByPath(defaultPath);
-      if (abstractDefault && isTFile(abstractDefault)) {
-        targetFile = abstractDefault;
-        const cache = app.metadataCache.getFileCache(targetFile);
-        projectNumber = Number(cache?.frontmatter?.github_project_number) || 2;
-        owner = cache?.frontmatter?.github_owner || "lowqualityloey";
-      } else {
-        projectNumber = 2;
-        owner = "lowqualityloey";
-        targetFile = activeFile;
-      }
+    if (inFrontmatter) {
+      if (trimmed === "---")
+        inFrontmatter = false;
+      continue;
     }
-    if (!targetFile || !isTFile(targetFile)) {
-      new Notice("\u274C Please open a Kanban note to sync!", 4e3);
-      return;
+    if (trimmed.startsWith("```")) {
+      inFence = !inFence;
+      continue;
     }
-    new Notice(`\u{1F504} 2-Way Syncing "${targetFile.basename}" with GitHub Project #${projectNumber}...`, 4e3);
-    let projectId = null;
-    try {
-      const projViewJson = (0, import_child_process.execSync)(`gh project view ${projectNumber} --owner ${owner} --format json`, { encoding: "utf8", timeout: 1e4 });
-      const projData = JSON.parse(projViewJson);
-      projectId = projData.id;
-    } catch (e) {
-      if (e?.stderr && typeof e.stderr === "string" && e.stderr.includes("read:project")) {
-        new Notice("\u26A0\uFE0F Missing GitHub token scope!\nRun in terminal: gh auth refresh -s project", 8e3);
-        return;
+    if (inFence)
+      continue;
+    if (trimmed.startsWith("## ")) {
+      currentSection = trimmed;
+      if (!sections.includes(trimmed)) {
+        sections.push(trimmed);
       }
-      console.warn("Project view warning:", e);
+      continue;
     }
-    if (!projectId) {
-      new Notice(`\u274C Could not resolve GitHub Project #${projectNumber} for user "${owner}".`, 5e3);
-      return;
-    }
-    let statusFieldId = null;
-    const statusOptionsMap = {};
-    const statusIdToNameMap = {};
-    let priorityFieldId = null;
-    const priorityOptionsMap = {};
-    const priorityIdToNameMap = {};
-    try {
-      const fieldsJson = (0, import_child_process.execSync)(`gh project field-list ${projectNumber} --owner ${owner} --format json`, { encoding: "utf8", timeout: 1e4 });
-      const fieldsData = JSON.parse(fieldsJson);
-      const fields = fieldsData.fields || [];
-      for (const field of fields) {
-        const nameLower = (field.name || "").toLowerCase();
-        if (nameLower === "status" && field.options) {
-          statusFieldId = field.id;
-          for (const opt of field.options) {
-            statusOptionsMap[opt.name.toLowerCase()] = opt.id;
-            statusIdToNameMap[opt.id] = opt.name;
-          }
-        } else if (nameLower === "priority" && field.options) {
-          priorityFieldId = field.id;
-          for (const opt of field.options) {
-            priorityOptionsMap[opt.name.toLowerCase()] = opt.id;
-            priorityIdToNameMap[opt.id] = opt.name;
-          }
-        }
-      }
-    } catch (fieldErr) {
-      console.warn("Field discovery warning:", fieldErr);
-    }
-    const statusToSectionMap = {
-      "backlog": "Backlog",
-      "ready": "To Do",
-      "to do": "To Do",
-      "in progress": "In Progress",
-      "in-progress": "In Progress",
-      "in review": "Review / Test",
-      "done": "Done"
-    };
-    const sectionToStatusMap = {
-      "Backlog": "Backlog",
-      "To Do": "Ready",
-      "In Progress": "In progress",
-      "Review / Test": "In review",
-      "Done": "Done"
-    };
-    const sectionToCheckboxMap = {
-      "Backlog": "- [ ]",
-      "To Do": "- [ ]",
-      "In Progress": "- [/]",
-      "Review / Test": "- [/]",
-      "Done": "- [x]"
-    };
-    const resolveStatusOption = (statusStr) => {
-      if (!statusStr)
-        return statusOptionsMap["backlog"] || null;
-      const s = statusStr.toLowerCase();
-      if (statusOptionsMap[s])
-        return statusOptionsMap[s];
-      if (s === "ready" && statusOptionsMap["to do"])
-        return statusOptionsMap["to do"];
-      if (s === "to do" && statusOptionsMap["ready"])
-        return statusOptionsMap["ready"];
-      if (s === "in progress" && statusOptionsMap["in-progress"])
-        return statusOptionsMap["in-progress"];
-      return statusOptionsMap["backlog"] || null;
-    };
-    const resolvePriorityOption = (priStr) => {
-      if (!priStr)
-        return null;
-      const p = priStr.toLowerCase();
-      if (priorityOptionsMap[p])
-        return priorityOptionsMap[p];
-      if (p === "p0" && priorityOptionsMap["critical"])
-        return priorityOptionsMap["critical"];
-      if (p === "p1" && priorityOptionsMap["high"])
-        return priorityOptionsMap["high"];
-      if (p === "p2" && priorityOptionsMap["medium"])
-        return priorityOptionsMap["medium"];
-      if (p === "p3" && priorityOptionsMap["low"])
-        return priorityOptionsMap["low"];
-      return null;
-    };
-    let githubItems = [];
-    try {
-      const ghJson = (0, import_child_process.execSync)(`gh project item-list ${projectNumber} --owner ${owner} --format json`, {
-        encoding: "utf8",
-        timeout: 1e4
-      });
-      const parsed = JSON.parse(ghJson);
-      githubItems = parsed.items || parsed || [];
-    } catch (e) {
-      console.warn("Item fetch warning:", e);
-    }
-    const githubMap = /* @__PURE__ */ new Map();
-    for (const item of githubItems) {
-      const rawTitle = (item.title || "").replace(/^\]\s*/, "").trim();
-      const normTitle = rawTitle.toLowerCase();
-      let itemStatus = item.status || "Backlog";
-      let itemPriority = item.priority || null;
-      githubMap.set(normTitle, {
-        id: item.id,
-        rawTitle,
-        status: itemStatus,
-        priority: itemPriority
-      });
-    }
-    const content = await app.vault.read(targetFile);
-    const lines = content.split("\n");
-    const sections = {
-      "Backlog": [],
-      "To Do": [],
-      "In Progress": [],
-      "Review / Test": [],
-      "Done": [],
-      "Archive": []
-    };
-    let currentSection = "Backlog";
-    const frontmatterLines = [];
-    let isFrontmatter = false;
-    let frontmatterDone = false;
-    const sectionOrder = ["Backlog", "To Do", "In Progress", "Review / Test", "Done", "Archive"];
-    const localItemsMap = /* @__PURE__ */ new Map();
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const trimmed = line.trim();
-      if (i === 0 && trimmed === "---") {
-        isFrontmatter = true;
-        frontmatterLines.push(line);
-        continue;
-      }
-      if (isFrontmatter) {
-        frontmatterLines.push(line);
-        if (trimmed === "---") {
-          isFrontmatter = false;
-          frontmatterDone = true;
-        }
-        continue;
-      }
-      if (trimmed.startsWith("## ")) {
-        const secName = trimmed.replace("## ", "").trim();
-        if (sections[secName] !== void 0) {
-          currentSection = secName;
-        } else {
-          sections[secName] = [];
-          sectionOrder.push(secName);
-          currentSection = secName;
-        }
-        continue;
-      }
-      if (trimmed.startsWith("- [ ]") || trimmed.startsWith("- [/]") || trimmed.startsWith("- [x]")) {
-        const checkbox = trimmed.slice(0, 5);
-        let rawTaskText = trimmed.slice(5).trim();
-        let priority = null;
-        if (rawTaskText.includes("#priority/p0") || rawTaskText.includes("#p0"))
-          priority = "P0";
-        else if (rawTaskText.includes("#priority/p1") || rawTaskText.includes("#p1"))
-          priority = "P1";
-        else if (rawTaskText.includes("#priority/p2") || rawTaskText.includes("#p2"))
-          priority = "P2";
-        else if (rawTaskText.includes("#priority/p3") || rawTaskText.includes("#p3"))
-          priority = "P3";
-        let completionDate = null;
-        const dateMatch = rawTaskText.match(/✅\s*(\d{4}-\d{2}-\d{2})/);
-        if (dateMatch) {
-          completionDate = dateMatch[1];
-        }
-        let cleanTitle = rawTaskText.replace(/#priority\/p[0-3]/g, "").replace(/#p[0-3]/g, "").replace(/✅\s*\d{4}-\d{2}-\d{2}/g, "").replace(/`[^`]+`/g, (match) => match.replace(/`/g, "")).trim();
-        cleanTitle = cleanTitle.replace(/^\]\s*/, "").trim();
-        if (cleanTitle) {
-          const normTitle = cleanTitle.toLowerCase();
-          localItemsMap.set(normTitle, {
-            title: cleanTitle,
-            priority,
-            section: currentSection,
-            checkbox,
-            completionDate
-          });
-        }
-      }
-    }
-    let pulledCount = 0;
-    let pushedCount = 0;
-    const nowStr = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-    const reconciledMap = /* @__PURE__ */ new Map();
-    for (const [normTitle, ghItem] of githubMap.entries()) {
-      const localItem = localItemsMap.get(normTitle);
-      let targetSection = statusToSectionMap[ghItem.status.toLowerCase()] || "Backlog";
-      let targetPriority = ghItem.priority || (localItem ? localItem.priority : "P2");
-      if (localItem) {
-        if (statusToSectionMap[ghItem.status.toLowerCase()] && statusToSectionMap[ghItem.status.toLowerCase()] !== localItem.section) {
-          pulledCount++;
-        }
-        if (ghItem.priority && ghItem.priority !== localItem.priority) {
-          targetPriority = ghItem.priority;
-          pulledCount++;
-        } else if (!ghItem.priority && localItem.priority) {
-          targetPriority = localItem.priority;
-          const priorityOptId = resolvePriorityOption(targetPriority);
-          if (priorityFieldId && priorityOptId) {
-            try {
-              (0, import_child_process.execSync)(`gh project item-edit --id "${ghItem.id}" --project-id "${projectId}" --field-id "${priorityFieldId}" --single-select-option-id "${priorityOptId}"`, { encoding: "utf8", timeout: 5e3 });
-              pushedCount++;
-            } catch (err) {
-              console.warn("Priority push err:", err);
-            }
-          }
-        }
-      } else {
-        pulledCount++;
-      }
-      let checkbox = sectionToCheckboxMap[targetSection] || "- [ ]";
-      let completionDate = localItem ? localItem.completionDate : null;
-      if (targetSection === "Done" && !completionDate) {
-        completionDate = nowStr;
-      }
-      reconciledMap.set(normTitle, {
-        title: ghItem.rawTitle,
-        priority: targetPriority,
-        section: targetSection,
+    const taskMatch = line.match(/^\s*-\s*\[([ xX/>\-?*!])\]\s+(.*)$/);
+    if (taskMatch && currentSection) {
+      const checkbox = taskMatch[1];
+      const rawText = taskMatch[2].trim();
+      const dateMatch = rawText.match(/✅\s*(\d{4}-\d{2}-\d{2})/);
+      const completionDate = dateMatch ? dateMatch[1] : null;
+      const { cleanText, priority } = parsePriorityTag(rawText.replace(/✅\s*\d{4}-\d{2}-\d{2}/, "").trim());
+      tasks.push({
+        title: cleanText,
+        priority,
+        section: currentSection,
         checkbox,
         completionDate
       });
     }
-    for (const [normTitle, localItem] of localItemsMap.entries()) {
-      if (!githubMap.has(normTitle)) {
-        try {
-          const createCmd = `gh project item-create ${projectNumber} --owner ${owner} --title "${localItem.title.replace(/"/g, '\\"')}" --format json`;
-          const createRes = (0, import_child_process.execSync)(createCmd, { encoding: "utf8", timeout: 1e4 });
-          const newItem = JSON.parse(createRes);
-          if (newItem && newItem.id) {
-            const ghStatusName = sectionToStatusMap[localItem.section] || "Backlog";
-            const statusOptId = resolveStatusOption(ghStatusName);
-            if (statusFieldId && statusOptId) {
-              (0, import_child_process.execSync)(`gh project item-edit --id "${newItem.id}" --project-id "${projectId}" --field-id "${statusFieldId}" --single-select-option-id "${statusOptId}"`, { encoding: "utf8", timeout: 5e3 });
-            }
-            if (priorityFieldId && localItem.priority) {
-              const priorityOptId = resolvePriorityOption(localItem.priority);
-              if (priorityOptId) {
-                (0, import_child_process.execSync)(`gh project item-edit --id "${newItem.id}" --project-id "${projectId}" --field-id "${priorityFieldId}" --single-select-option-id "${priorityOptId}"`, { encoding: "utf8", timeout: 5e3 });
-              }
-            }
-            pushedCount++;
-          }
-        } catch (createErr) {
-          console.error(`Failed to push local item "${localItem.title}":`, createErr);
-        }
-        reconciledMap.set(normTitle, localItem);
-      }
-    }
-    for (const item of reconciledMap.values()) {
-      const sec = sections[item.section] ? item.section : "Backlog";
-      sections[sec].push(item);
-    }
-    let newContent = "";
-    if (frontmatterLines.length > 0) {
-      newContent += frontmatterLines.join("\n") + "\n\n";
-    }
-    for (const secName of sectionOrder) {
-      newContent += `## ${secName}
-`;
-      const items = sections[secName] || [];
-      for (const item of items) {
-        let priTag = item.priority ? ` #priority/${item.priority.toLowerCase()}` : "";
-        let dateTag = secName === "Done" && item.completionDate ? ` \u2705 ${item.completionDate}` : "";
-        newContent += `${item.checkbox} ${item.title}${priTag}${dateTag}
-`;
-      }
-      newContent += "\n";
-    }
-    await app.vault.modify(targetFile, newContent.trim() + "\n");
-    new Notice(`\u{1F389} 2-Way Sync Complete! Updated ${pulledCount} from GitHub, Pushed ${pushedCount} to GitHub.`, 7e3);
-  } catch (error) {
-    console.error("GitHub 2-Way Sync Error:", error);
-    new Notice(`\u274C GitHub Sync Error: ${error?.message || error}`, 7e3);
   }
-};
+  return { tasks, sections };
+}
+
+// 06-Resources/scripts/src/sync-github-kanban.ts
+function isTFile(file) {
+  return Boolean(file && typeof file === "object" && "extension" in file && "path" in file);
+}
+function resolveVaultPath() {
+  const fromCwd = process.cwd();
+  if (fs.existsSync(path.join(fromCwd, "01-Daily")) || fs.existsSync(path.join(fromCwd, "06-Resources"))) {
+    return fromCwd;
+  }
+  let current = __dirname;
+  for (let i = 0; i < 4; i++) {
+    if (fs.existsSync(path.join(current, "01-Daily")) || fs.existsSync(path.join(current, "06-Resources"))) {
+      return current;
+    }
+    const parent = path.dirname(current);
+    if (parent === current)
+      break;
+    current = parent;
+  }
+  return process.cwd();
+}
+function discoverProjectBoards(app) {
+  const boards = [];
+  const files = app.vault.getMarkdownFiles();
+  for (const file of files) {
+    const cache = app.metadataCache.getFileCache(file);
+    const fm = cache?.frontmatter;
+    if (fm && fm.github_project_number) {
+      boards.push({
+        filePath: file.path,
+        title: file.basename,
+        projectNumber: Number(fm.github_project_number),
+        owner: fm.github_owner || "lowqualityloey",
+        repo: fm.github_repo
+      });
+    }
+  }
+  return boards;
+}
+async function syncSingleBoard(app, targetFile, config) {
+  const Notice = typeof window !== "undefined" ? window.Notice : globalThis.Notice;
+  const projectNumber = config.projectNumber;
+  const owner = config.owner;
+  console.log(`Syncing "${targetFile.basename}" with GitHub Project #${projectNumber} (${owner})...`);
+  let projectId = null;
+  let statusField = null;
+  let priorityField = null;
+  try {
+    const projViewJson = (0, import_child_process.execSync)(`gh project view ${projectNumber} --owner ${owner} --format json`, {
+      encoding: "utf8",
+      timeout: 15e3
+    });
+    const projData = JSON.parse(projViewJson);
+    projectId = projData.id;
+    if (Array.isArray(projData.fields)) {
+      statusField = projData.fields.find((f) => f.name && f.name.toLowerCase() === "status") || null;
+      priorityField = projData.fields.find((f) => f.name && f.name.toLowerCase() === "priority") || null;
+    }
+  } catch (e) {
+    if (e?.stderr && typeof e.stderr === "string" && e.stderr.includes("read:project")) {
+      if (Notice)
+        new Notice("\u26A0\uFE0F Missing GitHub token scope!\nRun in terminal: gh auth refresh -s project", 8e3);
+      throw e;
+    }
+    console.warn(`Project view warning for #${projectNumber}:`, e);
+  }
+  const remoteItems = [];
+  try {
+    const itemsJson = (0, import_child_process.execSync)(`gh project item-list ${projectNumber} --owner ${owner} --format json --limit 100`, {
+      encoding: "utf8",
+      timeout: 15e3
+    });
+    const itemsData = JSON.parse(itemsJson);
+    if (Array.isArray(itemsData.items)) {
+      for (const item of itemsData.items) {
+        remoteItems.push({
+          id: item.id,
+          title: item.title,
+          status: item.status,
+          priority: item.priority
+        });
+      }
+    }
+  } catch (e) {
+    console.warn(`Could not fetch items for Project #${projectNumber}:`, e);
+  }
+  const content = await app.vault.read(targetFile);
+  const { tasks: localTasks } = extractLocalKanbanTasks(content);
+  let updatedCount = 0;
+  let createdCount = 0;
+  let errorCount = 0;
+  if (projectId && statusField && statusField.options) {
+    const statusOptions = statusField.options;
+    for (const task of localTasks) {
+      const match = remoteItems.find(
+        (r) => r.title && r.title.toLowerCase().trim() === task.title.toLowerCase().trim()
+      );
+      const targetNormalizedLane = normalizeLaneName(task.section);
+      let matchedOption = statusOptions.find(
+        (opt) => normalizeLaneName(opt.name) === targetNormalizedLane
+      );
+      if (!matchedOption) {
+        if (targetNormalizedLane === "done") {
+          matchedOption = statusOptions.find((opt) => opt.name.toLowerCase().includes("done"));
+        } else if (targetNormalizedLane === "in progress") {
+          matchedOption = statusOptions.find((opt) => opt.name.toLowerCase().includes("progress") || opt.name.toLowerCase().includes("doing"));
+        } else if (targetNormalizedLane === "to do") {
+          matchedOption = statusOptions.find((opt) => opt.name.toLowerCase().includes("todo") || opt.name.toLowerCase().includes("to do"));
+        }
+      }
+      if (match && matchedOption && match.status !== matchedOption.name) {
+        try {
+          (0, import_child_process.execSync)(
+            `gh project item-edit --project-id "${projectId}" --id "${match.id}" --field-id "${statusField.id}" --single-select-option-id "${matchedOption.id}"`,
+            { encoding: "utf8", timeout: 1e4 }
+          );
+          updatedCount++;
+        } catch (err) {
+          console.warn(`Failed to update status for "${task.title}":`, err);
+          errorCount++;
+        }
+      }
+    }
+  }
+  return { updated: updatedCount, created: createdCount, errors: errorCount };
+}
+async function syncGitHubKanban(params) {
+  const app = params?.app || (typeof window !== "undefined" ? window.app : globalThis.app);
+  const Notice = typeof window !== "undefined" ? window.Notice : globalThis.Notice;
+  const quickAddApi = params?.quickAddApi;
+  if (!app) {
+    runCli();
+    return;
+  }
+  try {
+    const activeFile = app.workspace.getActiveFile();
+    const allBoards = discoverProjectBoards(app);
+    if (allBoards.length === 0) {
+      if (Notice)
+        new Notice('\u26A0\uFE0F No Kanban boards with "github_project_number" found in vault!', 5e3);
+      return;
+    }
+    let targetBoards = [];
+    if (activeFile && isTFile(activeFile)) {
+      const activeBoard = allBoards.find((b) => b.filePath === activeFile.path);
+      if (activeBoard) {
+        targetBoards = [activeBoard];
+      }
+    }
+    if (targetBoards.length === 0) {
+      if (quickAddApi && typeof quickAddApi.suggester === "function") {
+        const displayOptions = ["\u{1F504} Sync All Projects"].concat(
+          allBoards.map((b) => `\u{1F4CB} ${b.title} (Project #${b.projectNumber})`)
+        );
+        const choice = await quickAddApi.suggester(displayOptions, displayOptions);
+        if (!choice)
+          return;
+        if (choice === "\u{1F504} Sync All Projects") {
+          targetBoards = allBoards;
+        } else {
+          const index = displayOptions.indexOf(choice) - 1;
+          if (index >= 0 && index < allBoards.length) {
+            targetBoards = [allBoards[index]];
+          }
+        }
+      } else {
+        targetBoards = allBoards;
+      }
+    }
+    if (Notice) {
+      const label = targetBoards.length === 1 ? `"${targetBoards[0].title}"` : `${targetBoards.length} projects`;
+      new Notice(`\u{1F504} 2-Way Syncing ${label} with GitHub Projects...`, 4e3);
+    }
+    let totalUpdated = 0;
+    let totalErrors = 0;
+    for (const board of targetBoards) {
+      const file = app.vault.getAbstractFileByPath(board.filePath);
+      if (file && isTFile(file)) {
+        try {
+          const res = await syncSingleBoard(app, file, board);
+          totalUpdated += res.updated;
+          totalErrors += res.errors;
+        } catch (err) {
+          totalErrors++;
+          console.error(`Sync error on ${board.title}:`, err);
+        }
+      }
+    }
+    if (Notice) {
+      if (totalErrors > 0) {
+        new Notice(`\u26A0\uFE0F Kanban sync complete with ${totalErrors} issue(s). Updated: ${totalUpdated}`, 5e3);
+      } else {
+        new Notice(`\u{1F389} GitHub Kanban 2-way sync complete! Updated ${totalUpdated} item(s).`, 5e3);
+      }
+    }
+  } catch (err) {
+    console.error("Fatal Kanban sync error:", err);
+    if (Notice)
+      new Notice(`\u274C Kanban sync failed: ${err?.message || err}`, 6e3);
+  }
+}
+function runCli() {
+  const vaultRoot = resolveVaultPath();
+  const args = process.argv.slice(2);
+  const filterArg = args.find((a) => !a.startsWith("-"))?.toLowerCase();
+  console.log("\u{1F504} GitHub Projects Multi-Kanban Sync (CLI Mode)...");
+  console.log(`\u{1F4C2} Vault Root: ${vaultRoot}
+`);
+  const boards = [];
+  const projectDirs = ["02-Projects", "01-Daily"];
+  function scanDir(dirRel) {
+    const dirFull = path.join(vaultRoot, dirRel);
+    if (!fs.existsSync(dirFull))
+      return;
+    const entries = fs.readdirSync(dirFull, { withFileTypes: true });
+    for (const entry of entries) {
+      const entryRel = path.join(dirRel, entry.name).replace(/\\/g, "/");
+      if (entry.isDirectory()) {
+        scanDir(entryRel);
+      } else if (entry.isFile() && entry.name.endsWith(".md")) {
+        const fullPath = path.join(vaultRoot, entryRel);
+        const content = fs.readFileSync(fullPath, "utf8");
+        const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+        if (fmMatch) {
+          const numMatch = fmMatch[1].match(/^github_project_number:\s*(\d+)/m);
+          const ownerMatch = fmMatch[1].match(/^github_owner:\s*(.*)$/m);
+          const repoMatch = fmMatch[1].match(/^github_repo:\s*(.*)$/m);
+          if (numMatch) {
+            boards.push({
+              filePath: entryRel,
+              title: entry.name.slice(0, -3),
+              projectNumber: Number(numMatch[1]),
+              owner: ownerMatch ? ownerMatch[1].trim() : "lowqualityloey",
+              repo: repoMatch ? repoMatch[1].trim() : void 0
+            });
+          }
+        }
+      }
+    }
+  }
+  projectDirs.forEach(scanDir);
+  if (boards.length === 0) {
+    console.log('\u26A0\uFE0F No Kanban boards with "github_project_number" found.');
+    return;
+  }
+  let selectedBoards = boards;
+  if (filterArg) {
+    selectedBoards = boards.filter(
+      (b) => b.title.toLowerCase().includes(filterArg) || b.filePath.toLowerCase().includes(filterArg)
+    );
+    if (selectedBoards.length === 0) {
+      console.log(`\u26A0\uFE0F No boards matching "${filterArg}" found. Available boards:`);
+      boards.forEach((b) => console.log(`  - ${b.title} (#${b.projectNumber})`));
+      return;
+    }
+  }
+  console.log(`Found ${selectedBoards.length} board(s) configured for GitHub sync:`);
+  selectedBoards.forEach((b) => console.log(`  - ${b.title} -> GitHub Project #${b.projectNumber} (${b.owner})`));
+  console.log("");
+  const mockApp = {
+    vault: {
+      read: async (file) => fs.readFileSync(path.join(vaultRoot, file.path), "utf8"),
+      modify: async (file, data) => fs.writeFileSync(path.join(vaultRoot, file.path), data, "utf8")
+    }
+  };
+  (async () => {
+    for (const board of selectedBoards) {
+      const mockFile = { basename: board.title, path: board.filePath };
+      try {
+        const res = await syncSingleBoard(mockApp, mockFile, board);
+        console.log(`\u2705 ${board.title}: updated ${res.updated}, created ${res.created}, errors ${res.errors}`);
+      } catch (err) {
+        console.error(`\u274C ${board.title} sync failed:`, err?.message || err);
+      }
+    }
+    console.log("\n\u{1F389} Multi-Kanban sync finished!");
+  })();
+}
+if (require.main === module) {
+  runCli();
+}
+module.exports = Object.assign(syncGitHubKanban, {
+  normalizeLaneName,
+  parsePriorityTag,
+  extractLocalKanbanTasks
+});
