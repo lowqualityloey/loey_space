@@ -20,7 +20,20 @@ tags:
 ## 📈 Overall Habit Performance (Last 30 Days)
 
 ```dataviewjs
-const pages = dv.pages('"01-Daily"');
+const cleanHabit = (text) => String(text || "")
+  .replace(/[✅❌➕📅⏳🛫🔁⏫🔼🔽⏬🆔⛔]\s*\d{4}-\d{2}-\d{2}/g, " ")
+  .replace(/[✅❌➕📅⏳🛫🔁⏫🔼🔽⏬🆔⛔]/g, " ")
+  .replace(/\s*\^[A-Za-z0-9]+\s*$/, " ")
+  .replace(/#[\w/-]+/g, " ")
+  .replace(/\s{2,}/g, " ")
+  .trim();
+
+// Take daily notes strictly matching YYYY-MM-DD from the last 30 days
+const pages = dv.pages('"01-Daily"')
+  .where(p => p.file.name.match(/^\d{4}-\d{2}-\d{2}$/))
+  .sort(p => p.file.name, "desc")
+  .slice(0, 30);
+
 let totalHabits = 0;
 let completedHabits = 0;
 let habitStats = {};
@@ -32,7 +45,9 @@ for (let p of pages) {
     const sec = (t.header && t.header.subpath) ? t.header.subpath.toLowerCase() : "";
     if (!sec.includes("habit")) continue;
 
-    const name = t.text.trim();
+    const name = cleanHabit(t.text);
+    if (!name) continue;
+
     if (!habitStats[name]) habitStats[name] = { done: 0, total: 0 };
     habitStats[name].total++;
     totalHabits++;
@@ -47,7 +62,7 @@ for (let p of pages) {
 const rate = totalHabits > 0 ? Math.round((completedHabits / totalHabits) * 100) : 0;
 dv.paragraph(`**Overall Completion Rate**: ${rate}% (${completedHabits}/${totalHabits} habits completed)`);
 
-const entries = Object.entries(habitStats).sort((a, b) => (b[1].done / b[1].total) - (a[1].done / a[1].total));
+const entries = Object.entries(habitStats).sort((a, b) => (b[1].done / b[1].total) - (a[1].done / a[1].total) || b[1].total - a[1].total);
 
 if (entries.length > 0) {
   const rows = entries.map(([name, s]) => {
@@ -65,20 +80,23 @@ if (entries.length > 0) {
 ## 📊 Daily Habit Heatmap (Last 14 Days)
 
 ```dataviewjs
-const allPages = dv.pages('"01-Daily"')
-  .where(p => p.file.name !== "_Daily MOC" && p.file.name !== "_Tasks MOC" && p.file.name !== "Habit Analytics Dashboard")
-  .sort(p => p.file.name, "desc");
+const cleanHabit = (text) => String(text || "")
+  .replace(/[✅❌➕📅⏳🛫🔁⏫🔼🔽⏬🆔⛔]\s*\d{4}-\d{2}-\d{2}/g, " ")
+  .replace(/[✅❌➕📅⏳🛫🔁⏫🔼🔽⏬🆔⛔]/g, " ")
+  .replace(/\s*\^[A-Za-z0-9]+\s*$/, " ")
+  .replace(/#[\w/-]+/g, " ")
+  .replace(/\s{2,}/g, " ")
+  .trim();
 
-// Take only last 14 days
-const pages = [];
-let count = 0;
-for (let p of allPages) {
-  if (count >= 14) break;
-  pages.push(p);
-  count++;
-}
+// Take last 14 daily notes strictly matching YYYY-MM-DD
+const pages = dv.pages('"01-Daily"')
+  .where(p => p.file.name.match(/^\d{4}-\d{2}-\d{2}$/))
+  .sort(p => p.file.name, "desc")
+  .slice(0, 14);
 
-// Collect all habit names
+const preferredOrder = ["water", "prioritised", "move", "read", "tidy", "disconnect"];
+
+// Collect unique cleaned habit names
 let habitNames = [];
 for (let p of pages) {
   if (!p.file.tasks) continue;
@@ -86,10 +104,20 @@ for (let p of pages) {
     if (!t.text || t.text.trim() === "") continue;
     const sec = (t.header && t.header.subpath) ? t.header.subpath.toLowerCase() : "";
     if (!sec.includes("habit")) continue;
-    const name = t.text.trim();
-    if (!habitNames.includes(name)) habitNames.push(name);
+    const name = cleanHabit(t.text);
+    if (name && !habitNames.includes(name)) habitNames.push(name);
   }
 }
+
+// Sort habit names with standard ones first
+habitNames.sort((a, b) => {
+  const ia = preferredOrder.indexOf(a);
+  const ib = preferredOrder.indexOf(b);
+  if (ia !== -1 && ib !== -1) return ia - ib;
+  if (ia !== -1) return -1;
+  if (ib !== -1) return 1;
+  return a.localeCompare(b);
+});
 
 if (habitNames.length === 0) {
   dv.paragraph("No habits found in recent daily notes.");
@@ -106,8 +134,10 @@ if (habitNames.length === 0) {
         if (!t.text || t.text.trim() === "") continue;
         const sec = (t.header && t.header.subpath) ? t.header.subpath.toLowerCase() : "";
         if (!sec.includes("habit")) continue;
-        const name = t.text.trim();
-        dayMap[name] = t.completed || t.status === "x";
+        const name = cleanHabit(t.text);
+        if (name) {
+          dayMap[name] = t.completed || t.status === "x";
+        }
       }
     }
 
@@ -126,7 +156,15 @@ if (habitNames.length === 0) {
 ## 📅 Completion by Day of Week
 
 ```dataviewjs
-const pages = dv.pages('"01-Daily"').where(p => p.file.day);
+const cleanHabit = (text) => String(text || "")
+  .replace(/[✅❌➕📅⏳🛫🔁⏫🔼🔽⏬🆔⛔]\s*\d{4}-\d{2}-\d{2}/g, " ")
+  .replace(/[✅❌➕📅⏳🛫🔁⏫🔼🔽⏬🆔⛔]/g, " ")
+  .replace(/\s*\^[A-Za-z0-9]+\s*$/, " ")
+  .replace(/#[\w/-]+/g, " ")
+  .replace(/\s{2,}/g, " ")
+  .trim();
+
+const pages = dv.pages('"01-Daily"').where(p => p.file.name.match(/^\d{4}-\d{2}-\d{2}$/) && p.file.day);
 const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const stats = {};
 for (let d of dayNames) stats[d] = { done: 0, total: 0 };
@@ -141,6 +179,8 @@ for (let p of pages) {
     if (!t.text || t.text.trim() === "") continue;
     const sec = (t.header && t.header.subpath) ? t.header.subpath.toLowerCase() : "";
     if (!sec.includes("habit")) continue;
+    const name = cleanHabit(t.text);
+    if (!name) continue;
 
     stats[dayName].total++;
     if (t.completed || t.status === "x") stats[dayName].done++;
@@ -161,11 +201,21 @@ dv.table(["Day", "Rate", "Done/Total"], rows);
 ## 🔄 Streak Analysis
 
 ```dataviewjs
+const cleanHabit = (text) => String(text || "")
+  .replace(/[✅❌➕📅⏳🛫🔁⏫🔼🔽⏬🆔⛔]\s*\d{4}-\d{2}-\d{2}/g, " ")
+  .replace(/[✅❌➕📅⏳🛫🔁⏫🔼🔽⏬🆔⛔]/g, " ")
+  .replace(/\s*\^[A-Za-z0-9]+\s*$/, " ")
+  .replace(/#[\w/-]+/g, " ")
+  .replace(/\s{2,}/g, " ")
+  .trim();
+
 const pages = dv.pages('"01-Daily"')
-  .where(p => p.file.name !== "_Daily MOC" && p.file.name !== "_Tasks MOC" && p.file.name !== "Habit Analytics Dashboard")
+  .where(p => p.file.name.match(/^\d{4}-\d{2}-\d{2}$/))
   .sort(p => p.file.name, "asc");
 
-// Collect all habit names
+const preferredOrder = ["water", "prioritised", "move", "read", "tidy", "disconnect"];
+
+// Collect unique cleaned habit names
 let habitNames = [];
 for (let p of pages) {
   if (!p.file.tasks) continue;
@@ -173,10 +223,19 @@ for (let p of pages) {
     if (!t.text || t.text.trim() === "") continue;
     const sec = (t.header && t.header.subpath) ? t.header.subpath.toLowerCase() : "";
     if (!sec.includes("habit")) continue;
-    const name = t.text.trim();
-    if (!habitNames.includes(name)) habitNames.push(name);
+    const name = cleanHabit(t.text);
+    if (name && !habitNames.includes(name)) habitNames.push(name);
   }
 }
+
+habitNames.sort((a, b) => {
+  const ia = preferredOrder.indexOf(a);
+  const ib = preferredOrder.indexOf(b);
+  if (ia !== -1 && ib !== -1) return ia - ib;
+  if (ia !== -1) return -1;
+  if (ib !== -1) return 1;
+  return a.localeCompare(b);
+});
 
 if (habitNames.length === 0) {
   dv.paragraph("No habits found for streak analysis.");
@@ -184,7 +243,6 @@ if (habitNames.length === 0) {
   const streakRows = [];
 
   for (let habit of habitNames) {
-    let currentStreak = 0;
     let longestStreak = 0;
     let tempStreak = 0;
 
@@ -201,7 +259,7 @@ if (habitNames.length === 0) {
         if (!t.text || t.text.trim() === "") continue;
         const sec = (t.header && t.header.subpath) ? t.header.subpath.toLowerCase() : "";
         if (!sec.includes("habit")) continue;
-        if (t.text.trim() === habit) {
+        if (cleanHabit(t.text) === habit) {
           found = true;
           completed = t.completed || t.status === "x";
           break;
@@ -214,12 +272,10 @@ if (habitNames.length === 0) {
       } else if (found && !completed) {
         tempStreak = 0;
       }
-      // If habit not found on this day, don't break streak (note might just be missing)
+      // If habit not found on this day, don't break streak
     }
 
-    // Current streak = tempStreak at the end of the loop (most recent consecutive)
-    currentStreak = tempStreak;
-
+    const currentStreak = tempStreak;
     streakRows.push([habit, currentStreak + " days", longestStreak + " days"]);
   }
 
@@ -233,7 +289,7 @@ if (habitNames.length === 0) {
 
 ```dataviewjs
 const pages = dv.pages('"01-Daily"')
-  .where(p => p.file.name !== "_Daily MOC" && p.file.name !== "_Tasks MOC" && p.file.name !== "Habit Analytics Dashboard")
+  .where(p => p.file.name.match(/^\d{4}-\d{2}-\d{2}$/))
   .sort(p => p.file.name, "asc");
 
 if (pages.length === 0) {
@@ -297,8 +353,16 @@ if (pages.length === 0) {
 ## 🎯 Areas for Improvement
 
 ```dataviewjs
+const cleanHabit = (text) => String(text || "")
+  .replace(/[✅❌➕📅⏳🛫🔁⏫🔼🔽⏬🆔⛔]\s*\d{4}-\d{2}-\d{2}/g, " ")
+  .replace(/[✅❌➕📅⏳🛫🔁⏫🔼🔽⏬🆔⛔]/g, " ")
+  .replace(/\s*\^[A-Za-z0-9]+\s*$/, " ")
+  .replace(/#[\w/-]+/g, " ")
+  .replace(/\s{2,}/g, " ")
+  .trim();
+
 const pages = dv.pages('"01-Daily"')
-  .where(p => p.file.name !== "_Daily MOC" && p.file.name !== "_Tasks MOC" && p.file.name !== "Habit Analytics Dashboard");
+  .where(p => p.file.name.match(/^\d{4}-\d{2}-\d{2}$/));
 
 let habitStats = {};
 
@@ -309,7 +373,9 @@ for (let p of pages) {
     const sec = (t.header && t.header.subpath) ? t.header.subpath.toLowerCase() : "";
     if (!sec.includes("habit")) continue;
 
-    const name = t.text.trim();
+    const name = cleanHabit(t.text);
+    if (!name) continue;
+
     if (!habitStats[name]) habitStats[name] = { done: 0, total: 0 };
     habitStats[name].total++;
     if (t.completed || t.status === "x") habitStats[name].done++;
