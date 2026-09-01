@@ -9,9 +9,7 @@ import {
   normalizeWikiLink,
   wikiLinkTarget,
   replaceSectionBody,
-  stripTaskMetadata,
-  asSentence,
-  capitalise
+  stripTaskMetadata
 } from '../markdown';
 
 // Drops a leading clock time so a log line can be dropped into a sentence.
@@ -236,31 +234,21 @@ function buildDailyFallback(d: any) {
   };
 }
 
-export async function enrichDailyNote(app: App, file: TFile): Promise<void> {
-  const Notice = (window as any).Notice || (globalThis as any).Notice;
-  let content = await app.vault.read(file);
-  new Notice("🤖 Gemini is analyzing your day with Kiwi Dev Chief of Staff vibes...");
+export interface ParsedDailySections {
+  focusItems: string[];
+  completedTasks: string[];
+  unfinishedTasks: string[];
+  forwardedTasks: string[];
+  checkedHabits: string[];
+  dailyLog: string[];
+  ideas: string[];
+  winsLog: string[];
+  blockersLog: string[];
+  userReflectionLog: string[];
+  filledSectionCount: number;
+}
 
-  // 1. Extract Frontmatter Properties
-  const mood = readFrontmatterValue(content, "mood");
-  const energy = readFrontmatterValue(content, "energy");
-  const sleepHours = readFrontmatterValue(content, "sleep_hours");
-
-  const moodText = mood || "not logged";
-  const energyText = energy ? `${energy} out of 5` : "not logged";
-  const sleepText = sleepHours ? `${sleepHours} hours` : "not logged";
-
-  // 2. Collect existing markdown note titles
-  const existingNoteNames = app.vault.getMarkdownFiles()
-    .map((f: TFile) => f.basename)
-    .filter((name: string) => name && !name.startsWith('_') && name.length > 2 && !name.match(/^\d{4}-\d{2}-\d{2}/));
-
-  const existingNotesListStr = existingNoteNames.slice(0, 60).join(", ");
-
-  // 3. Extract GitHub callout table rows
-  const gitRows = parseGitHubCalloutFromNote(content);
-
-  // 4. Extract clean structured user data from Daily.md template sections
+export function parseDailyNoteSections(content: string, gitRowsCount: number = 0): ParsedDailySections {
   const lines = content.split('\n');
   const focusItems: string[] = [];
   const completedTasks: string[] = [];
@@ -272,8 +260,6 @@ export async function enrichDailyNote(app: App, file: TFile): Promise<void> {
   const winsLog: string[] = [];
   const blockersLog: string[] = [];
   const userReflectionLog: string[] = [];
-
-  const HABIT_RITUALS = ["water", "prioritised", "move", "read", "tidy", "disconnect"];
 
   let currentSec = "";
   let inFrontmatter = false;
@@ -350,43 +336,53 @@ export async function enrichDailyNote(app: App, file: TFile): Promise<void> {
     }
   }
 
-  // 5. Content completeness check
   const filledSectionCount = [
     focusItems.length,
     completedTasks.length + unfinishedTasks.length + forwardedTasks.length,
     checkedHabits.length,
-    dailyLog.length + gitRows.length,
+    dailyLog.length + gitRowsCount,
     ideas.length,
     winsLog.length,
     blockersLog.length,
     userReflectionLog.length
   ].filter(count => count > 0).length;
 
-  if (filledSectionCount < 1) {
-    new Notice("⚠️ Daily note is mostly empty! Log something in Focus, Tasks, Daily Log, Wins, Blockers or Reflection before generating the AI summary.", 7000);
-    return;
-  }
+  return {
+    focusItems,
+    completedTasks,
+    unfinishedTasks,
+    forwardedTasks,
+    checkedHabits,
+    dailyLog,
+    ideas,
+    winsLog,
+    blockersLog,
+    userReflectionLog,
+    filledSectionCount
+  };
+}
 
-  // 6. Compute Developer & Pacing Signals
-  const githubSummary = extractGitHubSummary(gitRows, dailyLog);
-  const highPriorityTasks = unfinishedTasks.filter(t => /#priority\/(p0|p1|high)/i.test(t));
-  const lateSession = detectLateSession(dailyLog, gitRows, checkedHabits);
+export interface DailyPromptParams {
+  moodText: string;
+  energyText: string;
+  sleepText: string;
+  sections: ParsedDailySections;
+  highPriorityTasks: string[];
+  githubSummary: string;
+  lateSession: { isLate: boolean; latestTime: string; missedDisconnect: boolean };
+  habitRituals: string[];
+  existingNotesListStr: string;
+  yesterdayDate: string;
+  isDepleted: boolean;
+  sleepDebt: boolean;
+}
 
-  // 7. Load Gemini API Key from .env
-  let geminiApiKey = "";
-  try {
-    const envContent = await app.vault.adapter.read(".env");
-    const geminiMatch = envContent.match(/GEMINI_API_KEY\s*=\s*([^\s]+)/);
-    if (geminiMatch && !geminiMatch[1].includes("your_gemini")) geminiApiKey = geminiMatch[1].trim();
-  } catch (e) {}
-
-  const noteDate = (file.basename.match(/^(\d{4}-\d{2}-\d{2})/) || [])[1] || formatDate(new Date());
-  const yesterdayDate = previousDateStr(noteDate);
-
-  const sleepNum = parseFloat(sleepHours);
-  const energyNum = parseFloat(energy);
-  const sleepDebt = !isNaN(sleepNum) && sleepNum < 6;
-  const isDepleted = sleepDebt && !isNaN(energyNum) && energyNum < 3;
+export function buildDailyPrompt(params: DailyPromptParams): { systemPrompt: string; userPromptText: string } {
+  const {
+    moodText, energyText, sleepText, sections, highPriorityTasks,
+    githubSummary, lateSession, habitRituals, existingNotesListStr,
+    yesterdayDate, isDepleted, sleepDebt
+  } = params;
 
   const systemPrompt = [
     "You are this person's Kiwi Chief of Staff & Dev Mate.",
@@ -405,16 +401,16 @@ Energy: ${energyText}
 Sleep: ${sleepText}
 
 TODAY'S FOCUS (intentions)
-${focusItems.length ? focusItems.map((f: string) => "- " + f).join("\n") : "- none written"}
+${sections.focusItems.length ? sections.focusItems.map((f: string) => "- " + f).join("\n") : "- none written"}
 
 TASKS
-Completed: ${completedTasks.join(" | ") || "none"}
-Still open: ${unfinishedTasks.join(" | ") || "none"}
+Completed: ${sections.completedTasks.join(" | ") || "none"}
+Still open: ${sections.unfinishedTasks.join(" | ") || "none"}
 High Priority Open Tasks: ${highPriorityTasks.join(" | ") || "none"}
-Forwarded from an earlier day: ${forwardedTasks.join(" | ") || "none"}
+Forwarded from an earlier day: ${sections.forwardedTasks.join(" | ") || "none"}
 
 DAILY LOG (personal notes)
-${dailyLog.length ? dailyLog.map((l: string) => "- " + l).join("\n") : "- none logged"}
+${sections.dailyLog.length ? sections.dailyLog.map((l: string) => "- " + l).join("\n") : "- none logged"}
 
 GITHUB DEVELOPER ACTIVITY (grouped by project)
 ${githubSummary || "- no GitHub events logged"}
@@ -424,15 +420,15 @@ Late evening coding session (>7:30 PM): ${lateSession.isLate ? `YES (latest at $
 Disconnect habit kept: ${!lateSession.missedDisconnect ? "YES" : "NO"}
 
 HABITS
-Kept ${checkedHabits.length} of ${HABIT_RITUALS.length}: ${checkedHabits.join(", ") || "none"}
+Kept ${sections.checkedHabits.length} of ${habitRituals.length}: ${sections.checkedHabits.join(", ") || "none"}
 
 IDEAS & FLEETING NOTES
-${ideas.length ? ideas.map((i: string) => "- " + i).join("\n") : "- none"}
+${sections.ideas.length ? sections.ideas.map((i: string) => "- " + i).join("\n") : "- none"}
 
 END OF DAY (written by them)
-Wins: ${winsLog.join(" | ") || "none"}
-Blockers: ${blockersLog.join(" | ") || "none"}
-Reflection: ${userReflectionLog.join(" | ") || "none"}
+Wins: ${sections.winsLog.join(" | ") || "none"}
+Blockers: ${sections.blockersLog.join(" | ") || "none"}
+Reflection: ${sections.userReflectionLog.join(" | ") || "none"}
 
 EXISTING VAULT NOTES (valid link targets)
 [${existingNotesListStr}]
@@ -469,6 +465,173 @@ JSON format:
 }
 `;
 
+  return { systemPrompt, userPromptText };
+}
+
+export interface ResolveConnectedOptions {
+  validTargets: Map<string, string>;
+  currentNoteName: string;
+  rawConnectedNotes: any[];
+  yesterdayDate: string;
+  userCorpus: string;
+}
+
+export function resolveConnectedNotes(options: ResolveConnectedOptions): string[] {
+  const { validTargets, currentNoteName, rawConnectedNotes, yesterdayDate, userCorpus } = options;
+
+  const isNamedByUser = (target: string): boolean => {
+    const lower = target.toLowerCase();
+    if (validTargets.has(lower) && userCorpus.includes(lower)) return true;
+    const tokens = lower.split(/[^\p{L}\p{N}]+/u).filter((word: string) => word.length >= 4);
+    if (tokens.length === 0) return false;
+    const hits = tokens.filter((word: string) => userCorpus.includes(word)).length;
+    return hits >= 2;
+  };
+
+  const connectedLinks: string[] = [];
+  const seenLinks = new Set<string>();
+
+  const addConnected = (rawLink: any, force: boolean) => {
+    const target = wikiLinkTarget(normalizeWikiLink(rawLink));
+    if (!target) return;
+    const key = target.toLowerCase();
+    if (key === currentNoteName.toLowerCase() || seenLinks.has(key)) return;
+    if (!force && (!validTargets.has(key) || !isNamedByUser(target))) {
+      console.warn(`Daily Enrich: dropped link "[[${target}]]" — not an existing vault note or not named in note`);
+      return;
+    }
+    seenLinks.add(key);
+    connectedLinks.push(`[[${validTargets.get(key) || target}]]`);
+  };
+
+  addConnected(`[[${yesterdayDate}]]`, true);
+  (Array.isArray(rawConnectedNotes) ? rawConnectedNotes : []).forEach((link: any) => addConnected(link, false));
+  while (connectedLinks.length > 5) connectedLinks.pop();
+
+  return connectedLinks;
+}
+
+export interface DailyEnrichmentData {
+  quote: string;
+  author: string;
+  debrief: string;
+  takeaway: string;
+  tomorrowMove: string;
+  connectedLinks: string[];
+}
+
+export function applyDailyEnrichment(content: string, data: DailyEnrichmentData): string {
+  let updated = content;
+
+  const authorText = data.author ? `\n> — **${data.author}**` : "";
+  const quoteCallout = `> [!QUOTE] 💡 Daily Spark\n> *"${data.quote}"*${authorText}`;
+
+  if (updated.includes("> [!QUOTE] 💡 Daily Spark")) {
+    updated = updated.replace(
+      /> \[!QUOTE\] 💡 Daily Spark[\s\S]*?(?=\r?\n\r?\n#{1,6} |\r?\n---[ \t]*\r?\n|(?![\s\S]))/,
+      escapeReplacement(quoteCallout)
+    );
+  }
+
+  const aiSummaryBlock = `## 🤖 AI Daily Summary
+
+### 📖 Daily Debrief
+${data.debrief || "Bit of a quiet one today — not much made it into the log."}
+
+### 🧠 Chief of Staff Takeaway
+${data.takeaway || "Keep things simple and plan before you build."}
+
+### 🎯 Tomorrow's Move
+${data.tomorrowMove || "Pick your main target first thing in the morning."}
+`;
+
+  const aiSectionRe = /^## 🤖 AI Daily Summary[\s\S]*?(?=^## |^---[ \t]*$|(?![\s\S]))/m;
+
+  if (aiSectionRe.test(updated)) {
+    updated = updated.replace(aiSectionRe, escapeReplacement(aiSummaryBlock));
+  } else {
+    updated = updated.replace(/\s*$/, "") + "\n\n" + aiSummaryBlock;
+  }
+
+  const connectedBlock = data.connectedLinks.map(link => `- ${link}`).join("\n");
+
+  if (/^##### 🔗 Connected Notes[ \t]*$/m.test(updated)) {
+    updated = replaceSectionBody(updated, "##### 🔗 Connected Notes", connectedBlock);
+  } else {
+    updated = updated.replace(/\s*$/, "") + `\n\n---\n\n##### 🔗 Connected Notes\n${connectedBlock}\n`;
+  }
+
+  return updated;
+}
+
+export async function enrichDailyNote(app: App, file: TFile): Promise<void> {
+  const Notice = (window as any).Notice || (globalThis as any).Notice;
+  let content = await app.vault.read(file);
+  new Notice("🤖 Gemini is analyzing your day with Kiwi Dev Chief of Staff vibes...");
+
+  // 1. Extract Frontmatter Properties
+  const mood = readFrontmatterValue(content, "mood");
+  const energy = readFrontmatterValue(content, "energy");
+  const sleepHours = readFrontmatterValue(content, "sleep_hours");
+
+  const moodText = mood || "not logged";
+  const energyText = energy ? `${energy} out of 5` : "not logged";
+  const sleepText = sleepHours ? `${sleepHours} hours` : "not logged";
+
+  // 2. Collect existing markdown note titles
+  const existingNoteNames = app.vault.getMarkdownFiles()
+    .map((f: TFile) => f.basename)
+    .filter((name: string) => name && !name.startsWith('_') && name.length > 2 && !name.match(/^\d{4}-\d{2}-\d{2}/));
+
+  const existingNotesListStr = existingNoteNames.slice(0, 60).join(", ");
+
+  // 3. Extract GitHub callout table rows & parse daily sections
+  const gitRows = parseGitHubCalloutFromNote(content);
+  const sections = parseDailyNoteSections(content, gitRows.length);
+
+  // 4. Content completeness check
+  if (sections.filledSectionCount < 1) {
+    new Notice("⚠️ Daily note is mostly empty! Log something in Focus, Tasks, Daily Log, Wins, Blockers or Reflection before generating the AI summary.", 7000);
+    return;
+  }
+
+  // 5. Compute Developer & Pacing Signals
+  const HABIT_RITUALS = ["water", "prioritised", "move", "read", "tidy", "disconnect"];
+  const githubSummary = extractGitHubSummary(gitRows, sections.dailyLog);
+  const highPriorityTasks = sections.unfinishedTasks.filter(t => /#priority\/(p0|p1|high)/i.test(t));
+  const lateSession = detectLateSession(sections.dailyLog, gitRows, sections.checkedHabits);
+
+  // 6. Load Gemini API Key from .env
+  let geminiApiKey = "";
+  try {
+    const envContent = await app.vault.adapter.read(".env");
+    const geminiMatch = envContent.match(/GEMINI_API_KEY\s*=\s*([^\s]+)/);
+    if (geminiMatch && !geminiMatch[1].includes("your_gemini")) geminiApiKey = geminiMatch[1].trim();
+  } catch (e) {}
+
+  const noteDate = (file.basename.match(/^(\d{4}-\d{2}-\d{2})/) || [])[1] || formatDate(new Date());
+  const yesterdayDate = previousDateStr(noteDate);
+
+  const sleepNum = parseFloat(sleepHours);
+  const energyNum = parseFloat(energy);
+  const sleepDebt = !isNaN(sleepNum) && sleepNum < 6;
+  const isDepleted = sleepDebt && !isNaN(energyNum) && energyNum < 3;
+
+  const { systemPrompt, userPromptText } = buildDailyPrompt({
+    moodText,
+    energyText,
+    sleepText,
+    sections,
+    highPriorityTasks,
+    githubSummary,
+    lateSession,
+    habitRituals: HABIT_RITUALS,
+    existingNotesListStr,
+    yesterdayDate,
+    isDepleted,
+    sleepDebt
+  });
+
   let responseData: any = null;
   let usedFallback = false;
   let failureReason = "";
@@ -488,10 +651,22 @@ JSON format:
   if (!responseData) {
     usedFallback = true;
     responseData = buildDailyFallback({
-      mood, energy, sleepHours, sleepDebt, isDepleted, focusItems, completedTasks,
-      unfinishedTasks, forwardedTasks, checkedHabits, habitTotal: HABIT_RITUALS.length,
-      dailyLog, ideas, winsLog, blockersLog, userReflectionLog, yesterdayDate,
-      gitRows, gitSummary: githubSummary, lateSession
+      mood, energy, sleepHours, sleepDebt, isDepleted,
+      focusItems: sections.focusItems,
+      completedTasks: sections.completedTasks,
+      unfinishedTasks: sections.unfinishedTasks,
+      forwardedTasks: sections.forwardedTasks,
+      checkedHabits: sections.checkedHabits,
+      habitTotal: HABIT_RITUALS.length,
+      dailyLog: sections.dailyLog,
+      ideas: sections.ideas,
+      winsLog: sections.winsLog,
+      blockersLog: sections.blockersLog,
+      userReflectionLog: sections.userReflectionLog,
+      yesterdayDate,
+      gitRows,
+      gitSummary: githubSummary,
+      lateSession
     });
   }
 
@@ -499,83 +674,33 @@ JSON format:
   const takeawayText = (responseData.takeaway || responseData.insight || responseData.pattern || "").trim();
   const tomorrowMoveText = (responseData.tomorrowMove || responseData.nextStep || "").trim();
 
-  responseData.quote = toSingleLine(responseData.quote) || "You do not rise to the level of your goals. You fall to the level of your systems.";
-  responseData.author = toSingleLine(responseData.author) || "James Clear";
+  const quote = toSingleLine(responseData.quote) || "You do not rise to the level of your goals. You fall to the level of your systems.";
+  const author = toSingleLine(responseData.author) || "James Clear";
 
   const validTargets = new Map<string, string>();
   app.vault.getMarkdownFiles().forEach((f: TFile) => validTargets.set(f.basename.toLowerCase(), f.basename));
 
   const userCorpus = ([] as string[]).concat(
-    focusItems, completedTasks, unfinishedTasks, forwardedTasks,
-    dailyLog, ideas, winsLog, blockersLog, userReflectionLog
+    sections.focusItems, sections.completedTasks, sections.unfinishedTasks, sections.forwardedTasks,
+    sections.dailyLog, sections.ideas, sections.winsLog, sections.blockersLog, sections.userReflectionLog
   ).join(" \n ").toLowerCase();
 
-  const isNamedByUser = (target: string): boolean => {
-    const lower = target.toLowerCase();
-    if (validTargets.has(lower) && userCorpus.includes(lower)) return true;
-    const tokens = lower.split(/[^\p{L}\p{N}]+/u).filter((word: string) => word.length >= 4);
-    if (tokens.length === 0) return false;
-    const hits = tokens.filter((word: string) => userCorpus.includes(word)).length;
-    return hits >= 2;
-  };
+  const connectedLinks = resolveConnectedNotes({
+    validTargets,
+    currentNoteName: file.basename,
+    rawConnectedNotes: responseData.connectedNotes,
+    yesterdayDate,
+    userCorpus
+  });
 
-  const connectedLinks: string[] = [];
-  const seenLinks = new Set<string>();
-
-  const addConnected = (rawLink: any, force: boolean) => {
-    const target = wikiLinkTarget(normalizeWikiLink(rawLink));
-    if (!target) return;
-    const key = target.toLowerCase();
-    if (key === file.basename.toLowerCase() || seenLinks.has(key)) return;
-    if (!force && (!validTargets.has(key) || !isNamedByUser(target))) {
-      console.warn(`Daily Enrich: dropped link "[[${target}]]" — not an existing vault note or not named in note`);
-      return;
-    }
-    seenLinks.add(key);
-    connectedLinks.push(`[[${validTargets.get(key) || target}]]`);
-  };
-
-  addConnected(`[[${yesterdayDate}]]`, true);
-  (Array.isArray(responseData.connectedNotes) ? responseData.connectedNotes : []).forEach((link: any) => addConnected(link, false));
-  while (connectedLinks.length > 5) connectedLinks.pop();
-
-  const authorText = responseData.author ? `\n> — **${responseData.author}**` : "";
-  const quoteCallout = `> [!QUOTE] 💡 Daily Spark\n> *"${responseData.quote}"*${authorText}`;
-
-  if (content.includes("> [!QUOTE] 💡 Daily Spark")) {
-    content = content.replace(
-      /> \[!QUOTE\] 💡 Daily Spark[\s\S]*?(?=\r?\n\r?\n#{1,6} |\r?\n---[ \t]*\r?\n|(?![\s\S]))/,
-      escapeReplacement(quoteCallout)
-    );
-  }
-
-  const aiSummaryBlock = `## 🤖 AI Daily Summary
-
-### 📖 Daily Debrief
-${debriefText || "Bit of a quiet one today — not much made it into the log."}
-
-### 🧠 Chief of Staff Takeaway
-${takeawayText || "Keep things simple and plan before you build."}
-
-### 🎯 Tomorrow's Move
-${tomorrowMoveText || "Pick your main target first thing in the morning."}
-`;
-
-  const aiSectionRe = /^## 🤖 AI Daily Summary[\s\S]*?(?=^## |^---[ \t]*$|(?![\s\S]))/m;
-
-  if (aiSectionRe.test(content)) {
-    content = content.replace(aiSectionRe, escapeReplacement(aiSummaryBlock));
-  } else {
-    content = content.replace(/\s*$/, "") + "\n\n" + aiSummaryBlock;
-  }
-
-  const connectedBlock = connectedLinks.map(link => `- ${link}`).join("\n");
-
-  if (/^##### 🔗 Connected Notes[ \t]*$/m.test(content)) {
-    content = replaceSectionBody(content, "##### 🔗 Connected Notes", connectedBlock);
-  } else {
-    content = content.replace(/\s*$/, "") + `\n\n---\n\n##### 🔗 Connected Notes\n${connectedBlock}\n`;
-  }
+  content = applyDailyEnrichment(content, {
+    quote,
+    author,
+    debrief: debriefText,
+    takeaway: takeawayText,
+    tomorrowMove: tomorrowMoveText,
+    connectedLinks
+  });
 
   await app.vault.modify(file, content);
 
