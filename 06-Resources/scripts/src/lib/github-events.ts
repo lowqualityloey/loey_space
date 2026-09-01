@@ -55,7 +55,7 @@ export function escapeTablePipes(text: string): string {
 
 export async function fetchCommitDetailsMap(
   pushes: Array<{ repo: string; head: string }>,
-  execFn?: (cmd: string) => Promise<{ stdout: string }>
+  execFn?: (cmd: string | string[]) => Promise<{ stdout: string }>
 ): Promise<Map<string, CommitInfo>> {
   const commitMap = new Map<string, CommitInfo>();
   const uniqueItems = new Map<string, string>(); // head -> repo
@@ -73,7 +73,14 @@ export async function fetchCommitDetailsMap(
     try {
       const cp = require('child_process');
       const util = require('util');
-      runner = util.promisify(cp.exec);
+      const execFileAsync = util.promisify(cp.execFile);
+      runner = async (cmd: string | string[]) => {
+        if (Array.isArray(cmd)) {
+          const [file, ...args] = cmd;
+          return execFileAsync(file, args, { encoding: 'utf8' });
+        }
+        return util.promisify(cp.exec)(cmd, { encoding: 'utf8' });
+      };
     } catch {
       return commitMap;
     }
@@ -81,9 +88,8 @@ export async function fetchCommitDetailsMap(
 
   const tasks = Array.from(uniqueItems.entries()).map(async ([head, repo]) => {
     try {
-      const { stdout } = await runner!(
-        `gh api repos/${repo}/commits/${head} -q "{message: .commit.message, url: .html_url}"`
-      );
+      const cmd = ['gh', 'api', `repos/${repo}/commits/${head}`, '-q', '{message: .commit.message, url: .html_url}'];
+      const { stdout } = await runner!(cmd as any);
       const data = JSON.parse(stdout);
       commitMap.set(head, {
         message: data.message ? data.message.split('\n')[0].trim() : '',

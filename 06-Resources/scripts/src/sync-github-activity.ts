@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import type { App, TFile } from 'obsidian';
 import type { QuickAddParams } from './types';
 import {
@@ -35,7 +35,7 @@ function resolveVaultPath(): string {
 
 function fetchUserEvents(username = 'lowqualityloey'): GitHubEventItem[] {
   try {
-    const raw = execSync(`gh api "users/${username}/events" -q "."`, {
+    const raw = execFileSync('gh', ['api', `users/${username}/events`, '-q', '.'], {
       encoding: 'utf8',
       timeout: 15000
     });
