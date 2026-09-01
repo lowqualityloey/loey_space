@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import type { App, TFile } from 'obsidian';
 import type { QuickAddParams } from './types';
 import {
@@ -101,8 +101,20 @@ async function startTaskAction(params?: QuickAddParams): Promise<void> {
   let issueNumber = 0;
 
   try {
-    const createCmd = `gh issue create --repo "${owner}/${repo}" --title "${cleanText.replace(/"/g, '\\"')}" --body "Created from Obsidian Kanban note [[${activeFile.basename}]]." ${priorityLabel}`;
-    issueUrl = execSync(createCmd, { encoding: 'utf8', timeout: 15000 }).trim();
+    const createArgs = [
+      'issue',
+      'create',
+      '--repo',
+      `${owner}/${repo}`,
+      '--title',
+      cleanText,
+      '--body',
+      `Created from Obsidian Kanban note [[${activeFile.basename}]].`
+    ];
+    if (priority) {
+      createArgs.push('--label', priority);
+    }
+    issueUrl = execFileSync('gh', createArgs, { encoding: 'utf8', timeout: 15000 }).trim();
 
     const match = issueUrl.match(/\/issues\/(\d+)/);
     if (match) {
@@ -198,8 +210,20 @@ function runCli() {
   let issueNumber = 0;
 
   try {
-    const createCmd = `gh issue create --repo "${owner}/${repo}" --title "${cleanText.replace(/"/g, '\\"')}" --body "Created from Obsidian Kanban note [[${path.basename(targetPath)}]]." ${priorityLabel}`;
-    issueUrl = execSync(createCmd, { encoding: 'utf8', timeout: 15000 }).trim();
+    const createArgs = [
+      'issue',
+      'create',
+      '--repo',
+      `${owner}/${repo}`,
+      '--title',
+      cleanText,
+      '--body',
+      `Created from Obsidian Kanban note [[${path.basename(targetPath)}]].`
+    ];
+    if (priority) {
+      createArgs.push('--label', priority);
+    }
+    issueUrl = execFileSync('gh', createArgs, { encoding: 'utf8', timeout: 15000 }).trim();
 
     const match = issueUrl.match(/\/issues\/(\d+)/);
     if (match) {
