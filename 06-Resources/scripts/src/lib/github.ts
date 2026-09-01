@@ -191,3 +191,79 @@ export function moveCardToInProgress(
 
   return filteredLines.join('\n') + `\n\n## In Progress\n\n${updatedCardText}\n`;
 }
+
+export interface GitHubIssueInfo {
+  number: number;
+  title: string;
+  url: string;
+  state?: string;
+}
+
+export function injectIssueBadgesIntoBoard(
+  content: string,
+  issues: GitHubIssueInfo[]
+): { updatedContent: string; injectedCount: number } {
+  const lines = content.split('\n');
+  let injectedCount = 0;
+  let inFrontmatter = false;
+  let inFence = false;
+
+  const issueMap = new Map<string, GitHubIssueInfo>();
+  for (const issue of issues) {
+    const clean = issue.title.toLowerCase().replace(/[^\w\s]/g, '').trim();
+    if (clean) {
+      issueMap.set(clean, issue);
+    }
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    if (i === 0 && trimmed === '---') {
+      inFrontmatter = true;
+      continue;
+    }
+    if (inFrontmatter) {
+      if (trimmed === '---') inFrontmatter = false;
+      continue;
+    }
+
+    if (trimmed.startsWith('```')) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence) continue;
+
+    const taskMatch = line.match(/^(\s*-\s*\[[ xX/>\-?*!]\]\s+)(.*)$/);
+    if (!taskMatch) continue;
+
+    const prefix = taskMatch[1];
+    const body = taskMatch[2];
+
+    if (/\[#\d+\]\([^)]+\)/.test(body) || /#\d+/.test(body)) continue;
+
+    const cleanBody = body
+      .replace(/#priority\/[^\s]+/gi, '')
+      .replace(/✅\s*\d{4}-\d{2}-\d{2}/, '')
+      .replace(/\[\[[^\]]+\]\]/g, '')
+      .replace(/[^\w\s]/g, '')
+      .trim()
+      .toLowerCase();
+
+    if (!cleanBody) continue;
+
+    const matchedIssue = issueMap.get(cleanBody) || Array.from(issueMap.values()).find((iss) => {
+      const issClean = iss.title.toLowerCase().replace(/[^\w\s]/g, '').trim();
+      return issClean.length > 5 && (cleanBody.includes(issClean) || issClean.includes(cleanBody));
+    });
+
+    if (matchedIssue) {
+      const newBody = `[#${matchedIssue.number}](${matchedIssue.url}) ${body.trim()}`;
+      lines[i] = `${prefix}${newBody}`;
+      injectedCount++;
+    }
+  }
+
+  return { updatedContent: lines.join('\n'), injectedCount };
+}
