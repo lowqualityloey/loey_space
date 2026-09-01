@@ -57,6 +57,7 @@ for (let p of pages) {
     if (!t.text || t.text.trim() === "") continue;
     const sec = (t.header && t.header.subpath) ? t.header.subpath.toLowerCase() : "";
     if (sec.includes("habit") || sec.includes("backlog") || sec.includes("archive")) continue;
+    if (t.parent !== undefined && t.parent !== null) continue;
 
     if (t.status === "/") {
       const key = getTaskKey(t.text);
@@ -109,6 +110,7 @@ for (let p of pages) {
     if (!t.text || t.text.trim() === "") continue;
     const sec = (t.header && t.header.subpath) ? t.header.subpath.toLowerCase() : "";
     if (sec.includes("habit") || sec.includes("backlog") || sec.includes("archive")) continue;
+    if (t.parent !== undefined && t.parent !== null) continue;
 
     if (t.status === " ") {
       const key = getTaskKey(t.text);
@@ -140,6 +142,7 @@ for (let p of pages) {
     if (!t.text || t.text.trim() === "") continue;
     const sec = (t.header && t.header.subpath) ? t.header.subpath.toLowerCase() : "";
     if (sec.includes("habit")) continue;
+    if (t.parent !== undefined && t.parent !== null) continue;
 
     if (t.completed || t.status === "x") {
       const fileName = p.file.name;
