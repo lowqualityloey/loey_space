@@ -151,26 +151,36 @@ function discoverProjectBoards(app) {
   }
   return boards;
 }
-async function syncSingleBoard(app, targetFile, config) {
+async function syncSingleBoard(app, targetFile, config, customExecFn) {
   const Notice = typeof window !== "undefined" ? window.Notice : globalThis.Notice;
   const projectNumber = config.projectNumber;
   const owner = config.owner;
+  const execFn = customExecFn || (async (cmd, opts) => {
+    const res = await execAsync(cmd, { encoding: "utf8", timeout: opts?.timeout || 15e3 });
+    return { stdout: res.stdout.toString(), stderr: res.stderr?.toString() };
+  });
   console.log(`Syncing "${targetFile.basename}" with GitHub Project #${projectNumber} (${owner})...`);
   let projectId = null;
   let statusField = null;
   let priorityField = null;
-  try {
-    const { stdout: projViewJson } = await execAsync(`gh project view ${projectNumber} --owner ${owner} --format json`, {
-      encoding: "utf8",
-      timeout: 15e3
-    });
-    const projData = JSON.parse(projViewJson);
-    projectId = projData.id;
-    if (Array.isArray(projData.fields)) {
-      statusField = projData.fields.find((f) => f.name && f.name.toLowerCase() === "status") || null;
-      priorityField = projData.fields.find((f) => f.name && f.name.toLowerCase() === "priority") || null;
+  const remoteItems = [];
+  const [projRes, itemsRes] = await Promise.allSettled([
+    execFn(`gh project view ${projectNumber} --owner ${owner} --format json`, { timeout: 15e3 }),
+    execFn(`gh project item-list ${projectNumber} --owner ${owner} --format json --limit 100`, { timeout: 15e3 })
+  ]);
+  if (projRes.status === "fulfilled") {
+    try {
+      const projData = JSON.parse(projRes.value.stdout);
+      projectId = projData.id;
+      if (Array.isArray(projData.fields)) {
+        statusField = projData.fields.find((f) => f.name && f.name.toLowerCase() === "status") || null;
+        priorityField = projData.fields.find((f) => f.name && f.name.toLowerCase() === "priority") || null;
+      }
+    } catch (e) {
+      console.warn(`Project view parsing error for #${projectNumber}:`, e);
     }
-  } catch (e) {
+  } else {
+    const e = projRes.reason;
     if (e?.stderr && typeof e.stderr === "string" && e.stderr.includes("read:project")) {
       if (Notice)
         new Notice("\u26A0\uFE0F Missing GitHub token scope!\nRun in terminal: gh auth refresh -s project", 8e3);
@@ -178,25 +188,24 @@ async function syncSingleBoard(app, targetFile, config) {
     }
     console.warn(`Project view warning for #${projectNumber}:`, e);
   }
-  const remoteItems = [];
-  try {
-    const { stdout: itemsJson } = await execAsync(`gh project item-list ${projectNumber} --owner ${owner} --format json --limit 100`, {
-      encoding: "utf8",
-      timeout: 15e3
-    });
-    const itemsData = JSON.parse(itemsJson);
-    if (Array.isArray(itemsData.items)) {
-      for (const item of itemsData.items) {
-        remoteItems.push({
-          id: item.id,
-          title: item.title,
-          status: item.status,
-          priority: item.priority
-        });
+  if (itemsRes.status === "fulfilled") {
+    try {
+      const itemsData = JSON.parse(itemsRes.value.stdout);
+      if (Array.isArray(itemsData.items)) {
+        for (const item of itemsData.items) {
+          remoteItems.push({
+            id: item.id,
+            title: item.title,
+            status: item.status,
+            priority: item.priority
+          });
+        }
       }
+    } catch (e) {
+      console.warn(`Could not parse items for Project #${projectNumber}:`, e);
     }
-  } catch (e) {
-    console.warn(`Could not fetch items for Project #${projectNumber}:`, e);
+  } else {
+    console.warn(`Could not fetch items for Project #${projectNumber}:`, itemsRes.reason);
   }
   const content = await app.vault.read(targetFile);
   const { tasks: localTasks } = extractLocalKanbanTasks(content);
@@ -205,7 +214,8 @@ async function syncSingleBoard(app, targetFile, config) {
   let errorCount = 0;
   if (projectId && statusField && statusField.options) {
     const statusOptions = statusField.options;
-    const updatePromises = localTasks.map(async (task) => {
+    const updateTasks = [];
+    for (const task of localTasks) {
       const match = remoteItems.find(
         (r) => r.title && r.title.toLowerCase().trim() === task.title.toLowerCase().trim()
       );
@@ -223,25 +233,26 @@ async function syncSingleBoard(app, targetFile, config) {
         }
       }
       if (match && matchedOption && match.status !== matchedOption.name) {
-        try {
-          await execAsync(
-            `gh project item-edit --project-id "${projectId}" --id "${match.id}" --field-id "${statusField.id}" --single-select-option-id "${matchedOption.id}"`,
-            { encoding: "utf8", timeout: 1e4 }
-          );
-          return { updated: true, error: false };
-        } catch (err) {
-          console.warn(`Failed to update status for "${task.title}":`, err);
-          return { updated: false, error: true };
-        }
+        const editCmd = `gh project item-edit --project-id "${projectId}" --id "${match.id}" --field-id "${statusField.id}" --single-select-option-id "${matchedOption.id}"`;
+        updateTasks.push(async () => {
+          try {
+            await execFn(editCmd, { timeout: 1e4 });
+            return true;
+          } catch (err) {
+            console.warn(`Failed to update status for "${task.title}":`, err);
+            return false;
+          }
+        });
       }
-      return { updated: false, error: false };
-    });
-    const results = await Promise.all(updatePromises);
-    for (const res of results) {
-      if (res.updated)
-        updatedCount++;
-      if (res.error)
-        errorCount++;
+    }
+    if (updateTasks.length > 0) {
+      const results = await Promise.all(updateTasks.map((fn) => fn()));
+      for (const ok of results) {
+        if (ok)
+          updatedCount++;
+        else
+          errorCount++;
+      }
     }
   }
   return { updated: updatedCount, created: createdCount, errors: errorCount };
