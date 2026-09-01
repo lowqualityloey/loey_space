@@ -21,7 +21,7 @@ This skill guides the agent in turning real-world code snippets, debugging fixes
 ## 📋 Procedure
 
 ### Step 1: Format Note Frontmatter
-Every dev note must adhere to `06-Resources/Tagging & Properties.md`:
+Every dev note must adhere to `06-Resources/Guides/Tagging & Properties.md`:
 
 ```yaml
 ---

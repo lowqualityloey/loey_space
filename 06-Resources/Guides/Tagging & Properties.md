@@ -18,7 +18,7 @@ status: active
 ## Core Principles
 
 1. **Namespaced Tags**: Use `namespace/value` format for all tags
-2. **Standardized Properties**: Consistent [[YAML]] frontmatter across all note types
+2. **Standardized Properties**: Consistent YAML frontmatter across all note types
 3. **Hierarchical Organization**: Clear relationships between categories
 4. **Minimal Required Fields**: Only essential properties for each note type
 5. **Automation Ready**: Structure supports automated workflows and queries
@@ -48,9 +48,9 @@ priority: low/medium/high        # For projects, tasks, learning
 last_reviewed: YYYY-MM-DD        # For evergreen notes
 review_cycle: 7d/14d/30d/90d     # Review frequency
 language: javascript/typescript  # For code snippets
-energy: 1-5                      # For daily notes (energy level)
-mood: 1-5                        # For daily notes (mood)
-sleep_hours: number              # For daily notes
+energy: 1-5                      # For daily notes (numeric energy level)
+mood: calm/focused/anxious/...   # For daily notes (mood description)
+sleep_hours: number              # For daily notes (sleep duration in hours)
 ```
 
 ---
@@ -335,7 +335,6 @@ SORT last_reviewed ASC
 
 ## 📚 Related Resources
 
-- [[Standardized Vault Tag Taxonomy in Home]]
+- [[Home|Home (Central Command Hub)]]
 - [[Vault Security Policy]]
 - [[Second Brain Guide]]
-- [[Dataview Query Library]]

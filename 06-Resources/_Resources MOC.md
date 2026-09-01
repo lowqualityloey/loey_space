@@ -21,11 +21,7 @@ updated: 2026-08-29
 TABLE 
   type AS "Type",
   choice(updated, updated, file.mtime) AS "Last Updated"
-FROM "06-Resources"
-WHERE file.name != "_Resources MOC" 
-  AND !contains(file.path, "Articles")
-  AND !contains(file.path, "APIs")
-  AND (type = "guide" OR contains(tags, "topic/guide") OR file.name = "Vault Security Policy" OR file.name = "Second Brain Guide" OR file.name = "Tagging & Properties" OR file.name = "CONTRIBUTING")
+FROM "06-Resources/Guides"
 SORT file.name ASC
 ```
 
@@ -39,15 +35,7 @@ TABLE
   author AS "Author / Source",
   source AS "URL",
   choice(published, published, file.ctime) AS "Published / Clipped"
-FROM "06-Resources"
-WHERE file.name != "_Resources MOC" 
-  AND !contains(file.path, "APIs")
-  AND (contains(file.path, "Articles") OR type = "resource" OR source != null)
-  AND type != "guide"
-  AND !contains(file.name, "Policy")
-  AND !contains(file.name, "Guide")
-  AND !contains(file.name, "CONTRIBUTING")
-  AND !contains(file.name, "Tagging")
+FROM "06-Resources/Articles"
 SORT file.ctime DESC
 ```
 

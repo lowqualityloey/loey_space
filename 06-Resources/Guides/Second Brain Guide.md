@@ -284,7 +284,7 @@ A healthy second brain requires periodic hygiene so notes remain actionable and 
 
 ## 🔒 7. Vault Security Policy
 
-Refer to [[06-Resources/Vault Security Policy|Vault Security Policy]] for complete operational guidelines:
+Refer to [[Vault Security Policy]] for complete operational guidelines:
 
 1. **`.env`**: Stores real API keys used by scripts (`GEMINI_API_KEY`, `OPENAI_API_KEY`). **Git-ignored, never committed**.
 2. **`.secrets/`**: Private human-readable credentials, financial, and personal logs. **Git-ignored, never committed**.
@@ -294,7 +294,7 @@ Refer to [[06-Resources/Vault Security Policy|Vault Security Policy]] for comple
 
 ## 🤖 8. AI Assistant Workflow ("Hey Loey") & Maintenance Rhythms
 
-For conversational management of the vault, the assistant acts as a digital Chief of Staff guided by [[AGENTS.md|AGENTS.md]].
+For conversational management of the vault, the assistant acts as a digital Chief of Staff guided by [[AGENTS|AGENTS.md]].
 
 ### 🎙️ The `"Hey Loey"` Command Catalog
 
@@ -334,8 +334,8 @@ The assistant interface is tool-agnostic:
 - 🏠 **[[Home|Central Command Hub (Home.md)]]**
 - 🤖 **[[AGENTS|Loey Space AI Assistant Spec (AGENTS.md)]]**
 - 🧹 **[[00-Inbox/_Triage MOC|Triage & Maintenance MOC]]**
-- 🏷️ **[[06-Resources/Tagging & Properties|Tagging & Properties System]]**
-- 📱 **[[06-Resources/Mobile Workflow Guide|Mobile Workflow Guide]]**
+- 🏷️ **[[Tagging & Properties|Tagging & Properties System]]**
+- 📱 **[[Mobile Workflow Guide|Mobile Workflow Guide]]**
 - 📊 **[[07-Reviews/Habit Analytics Dashboard|Habit Analytics Dashboard]]**
-- 🔒 **[[06-Resources/Vault Security Policy|Vault Security Policy]]**
+- 🔒 **[[Vault Security Policy|Vault Security Policy]]**
 
