@@ -1,11 +1,14 @@
 ---
+created: 2026-08-09
+updated: 2026-09-01
 type: moc
+status: active
+area: tasks
 cssclasses:
   - cards
 tags:
   - type/moc
   - area/tasks
-updated: 2026-08-31
 ---
 
 # 📋 Tasks MOC & History Dashboard
@@ -27,6 +30,7 @@ Central dashboard for active tasks, in-progress items, and completed task histor
 ---
 
 ## 🔄 Currently In Progress (`[/]`)
+
 ```dataviewjs
 const todayStr = window.moment().format("YYYY-MM-DD");
 let currentDailyDate = "";
@@ -46,7 +50,7 @@ for (let p of pages) {
   for (let t of p.file.tasks) {
     if (!t.text || t.text.trim() === "") continue;
     const sec = (t.header && t.header.subpath) ? t.header.subpath.toLowerCase() : "";
-    if (sec.includes("habit")) continue;
+    if (sec.includes("habit") || sec.includes("backlog") || sec.includes("archive")) continue;
 
     if (t.status === "/") {
       tasks.push(t);
@@ -60,6 +64,7 @@ else dv.paragraph("No tasks currently in progress.");
 ---
 
 ## 📌 Active To-Dos (`[ ]`)
+
 ```dataviewjs
 const todayStr = window.moment().format("YYYY-MM-DD");
 let currentDailyDate = "";
@@ -71,6 +76,14 @@ for (const p of dv.pages('"01-Daily"')) {
 const inScope = (p) => p.file.name !== "Tasks Kanban" && (!p.file.path.startsWith("01-Daily") ||
   (currentDailyDate !== "" && p.file.name.startsWith(currentDailyDate)));
 
+function getPriorityRank(text) {
+  if (/#priority\/(p0|urgent|high)/i.test(text)) return 0;
+  if (/#priority\/(p1|medium)/i.test(text)) return 1;
+  if (/#priority\/(p2|normal)/i.test(text)) return 2;
+  if (/#priority\/(p3|low)/i.test(text)) return 3;
+  return 4;
+}
+
 const pages = dv.pages('"01-Daily" or "02-Projects"');
 let tasks = [];
 for (let p of pages) {
@@ -79,14 +92,16 @@ for (let p of pages) {
   for (let t of p.file.tasks) {
     if (!t.text || t.text.trim() === "") continue;
     const sec = (t.header && t.header.subpath) ? t.header.subpath.toLowerCase() : "";
-    if (sec.includes("habit")) continue;
-    if (sec.includes("backlog") || sec.includes("archive")) continue;
+    if (sec.includes("habit") || sec.includes("backlog") || sec.includes("archive")) continue;
 
     if (t.status === " ") {
       tasks.push(t);
     }
   }
 }
+
+tasks.sort((a, b) => getPriorityRank(a.text) - getPriorityRank(b.text));
+
 if (tasks.length > 0) dv.taskList(tasks, true);
 else dv.paragraph("No active open tasks.");
 ```
@@ -171,10 +186,14 @@ for (let p of pages) {
   }
 }
 
+const totalCommitted = totalOpen + totalDoing + totalDone;
+const rate = totalCommitted > 0 ? Math.round((totalDone / totalCommitted) * 100) : 0;
+
 dv.paragraph(`
 - 📌 **Active Open Tasks**: **${totalOpen}**
 - 🔄 **Currently In Progress**: **${totalDoing}**
 - ✅ **Total Tasks Completed**: **${totalDone}**
+- 📈 **All-Time Completion Ratio**: **${rate}%** (${totalDone}/${totalCommitted})
 `);
 ```
 
@@ -183,7 +202,7 @@ dv.paragraph(`
 ## 📜 Daily Task History Log
 
 ```dataviewjs
-const dailyPages = dv.pages('"01-Daily"').where(p => p.file.name !== "_Daily MOC" && p.file.name !== "_Tasks MOC" && p.file.name !== "Tasks Kanban");
+const dailyPages = dv.pages('"01-Daily"').where(p => p.file.name.match(/^\d{4}-\d{2}-\d{2}$/));
 
 const rows = [];
 for (let p of dailyPages) {
