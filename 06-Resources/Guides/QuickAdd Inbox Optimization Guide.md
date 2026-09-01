@@ -268,10 +268,9 @@ Track these metrics to measure optimization success:
 
 ## 🔗 Related Resources
 
-- [[99-Templates/Enhanced Quick Capture.md|📥 Enhanced Quick Capture Template]]
+- [[Enhanced Quick Capture|📥 Enhanced Quick Capture Template]]
 - [[00-Inbox/_Triage MOC|🧹 Triage & Maintenance MOC]]
-- [[System Improvements.md|🚀 System Improvements Project]]
-- [[Second Brain Guide.md|🧠 Second Brain Workflow Guide]]
+- [[Second Brain Guide|🧠 Second Brain Workflow Guide]]
 
 ---
 

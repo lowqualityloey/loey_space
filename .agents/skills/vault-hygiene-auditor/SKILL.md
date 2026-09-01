@@ -21,7 +21,7 @@ This skill guides the agent in running routine health audits, ensuring metadata 
 ## 📋 Procedure
 
 ### Step 1: Frontmatter & Tag Taxonomy Validation
-1. Run or check against `06-Resources/scripts/validate-templates.js` and `06-Resources/Tagging & Properties.md`.
+1. Run or check against `06-Resources/scripts/validate-templates.js` and `06-Resources/Guides/Tagging & Properties.md`.
 2. Check that notes have required frontmatter fields:
    - Universal: `created`, `updated`, `type`, `area`, `status`, `tags`
    - Specific: `review_cycle` on concepts/learning, `priority` on projects.

@@ -26,7 +26,7 @@ This skill guides the agent in identifying, synthesizing, and filing atomic ever
 - Avoid omnibus notes; if an article discusses three distinct patterns, create three separate atomic notes.
 
 ### Step 2: Format Frontmatter & Metadata
-Every concept note must adhere to `06-Resources/Tagging & Properties.md`:
+Every concept note must adhere to `06-Resources/Guides/Tagging & Properties.md`:
 
 ```yaml
 ---

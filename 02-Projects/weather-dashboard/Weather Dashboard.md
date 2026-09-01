@@ -5,7 +5,9 @@ priority: high
 tags:
   - type/project
   - area/dev
-updated: 2026-08-24
+  - status/completed
+  - priority/high
+updated: 2026-09-01
 ---
 
 # Weather Dashboard
@@ -14,10 +16,10 @@ updated: 2026-08-24
 - A responsive weather dashboard built with React and TypeScript to search locations, view current and forecast weather, save favourite cities, and switch themes.
 
 ## Status
-- Done
+- Completed (Prototype Architecture & Code Review Milestone)
 
 ## Tech Stack
-- [[React]] 19, TypeScript 6, Vite 8
+- React 19, TypeScript 6, Vite 8
 - Tailwind CSS 4, shadcn/ui (Base UI + Nova preset)
 - Lucide React, Geist font
 - ESLint, Prettier
@@ -45,9 +47,8 @@ updated: 2026-08-24
 - Metric units (Celsius and km/h)
 
 ## API / Data
-- OpenWeather Geocoding API
-- OpenWeather One Call API 3.0
-- Requires `VITE_OPENWEATHER_API_KEY` environment variable.
+- [[OpenWeatherMap API]]: Geocoding API & 5-day / 3-hour Forecast API
+- Requires `VITE_OPENWEATHER_API_KEY` environment variable (stored in `.env`).
 
 ## Setup and Run
 - Install: `yarn install`
@@ -55,20 +56,15 @@ updated: 2026-08-24
 - Build: `yarn build`
 - Format/Lint: `yarn format`, `yarn lint`
 
-## Current Focus
-- Build out component UI stubs (`CurrentWeather`, `ForecastList`, `ForecastDay`) and connect state management (`WeatherContext` & `useWeather` hook).
+## 🛠️ Technical Debt & Future Roadmap
+- [ ] Connect `SearchBar` to `openWeather.ts` API via `WeatherContext`.
+- [ ] Build UI presentation components from stubs (`CurrentWeather`, `ForecastList`, `ForecastDay`).
+- [ ] Implement `localStorage` persistence and dark mode toggle.
+- [ ] Add loading/error UI states and screen reader accessibility support.
 
-## Bugs / Blockers
-- Component stubs returning `null`; data pipeline currently disconnected; missing state management layer and runtime API key validation.
-
-## Next Actions
-1. Connect `SearchBar` to `openWeather.ts` API via `WeatherContext`.
-2. Build UI presentation components from stubs.
-3. Implement `localStorage` persistence and dark mode toggle.
-4. Add loading/error UI states and screen reader accessibility support.
-
-## Progress Log
+## 📜 Progress Log
 - 2026-08-02: Kanban and project note aligned with repository roadmap.
 - 2026-08-11: Senior Frontend Code Review completed; technical debt register and refactoring roadmap established.
 - 2026-08-13: Updated Kanban board and project focus to reflect P0 data wiring and stub completion.
+- 2026-09-01: Reconciled milestone status and structured technical debt roadmap for future sprints.
 

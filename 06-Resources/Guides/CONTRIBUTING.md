@@ -124,7 +124,7 @@ Rules that apply to every contribution:
 
 * Secrets live in `.env` only, which is git-ignored. Commit `.env.example` instead.
 * `.secrets/` and `00-Private/` are never tracked.
-* The [pre-commit hook](.githooks/pre-commit) blocks key-shaped strings and forbidden paths. It is a local guard, not a net — see the [Vault Security Policy](06-Resources/Vault%20Security%20Policy.md).
+* The [pre-commit hook](.githooks/pre-commit) blocks key-shaped strings and forbidden paths. It is a local guard, not a net — see the [Vault Security Policy](Vault%20Security%20Policy.md).
 * A key that reached a public commit must be **rotated**. Rewriting history does not un-leak it.
 
 ---

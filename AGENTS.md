@@ -15,13 +15,13 @@ When the user starts a prompt with **`"hey loey"`** (case-insensitive), identify
 | Command                                    | Action & Workflow                                                                                                                                                                                                                                                                                                                                                   |
 | :----------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **`hey loey status`** (or just `hey loey`) | **Instant Pulse Check**: Count open items in [`00-Inbox/quick-capture-dump.md`](file:///c:/Users/jonel/Documents/loey_space/00-Inbox/quick-capture-dump.md), check today's daily note completion (`mood`, `energy`, habits), check recent GitHub pushes/PRs, and list active `[/]` project tasks.                                                                   |
-| **`hey loey morning`**                     | **Enhanced Morning Kick-off**: Verify/create today's note (`01-Daily/YYYY-MM/YYYY-MM-DD.md`), log morning vitals (`sleep_hours`, `mood`, `energy`), rotate an atomic concept into `> [!QUOTE] 💡 Daily Spark` from `08-Concepts/`, write top 3 `#priority/p1` tasks into `### 🎯 Today's Focus`, and propose 1-click triage for open quick captures. |
+| **`hey loey morning`**                     | **Enhanced Morning Kick-off**: Verify/create today's note (`01-Daily/YYYY-MM/YYYY-MM-DD.md`), log morning vitals (`sleep_hours`, `mood`, `energy`), rotate an atomic concept into `> [!QUOTE] 💡 Daily Spark` from `08-Concepts/`, write top 3 `#priority/p1` tasks into `### 🎯 Today's Focus`, and propose 1-click triage for open quick captures.                |
 | **`hey loey evening`**                     | **Evening Wind-down**: Run `npm run log-github` (pull today's commits/PRs with 12h `hh:mm A` timestamps into `## 📝 Daily Log`), walk through habit checks, append personal reflection bullets, and run AI Daily Enrichment (`Ctrl+Shift+A`).                                                                                                                       |
 | **`hey loey activity`** / **`github`**     | **GitHub Activity Sync**: Fetch today's GitHub commits, PRs, and issues for `lowqualityloey` and non-destructively merge them into `## 📝 Daily Log` in today's daily note (`npm run log-github`).                                                                                                                                                                  |
 | **`hey loey sweep`**                       | **Inbox Triage**: Inspect [`quick-capture-dump.md`](file:///c:/Users/jonel/Documents/loey_space/00-Inbox/quick-capture-dump.md), auto-tag untagged lines (`#do`, `#dev`, `#concept`, `#learn`, `#ref`, `#personal`, `#project`, `#bin`), and run or simulate [`triage-sweep.js`](file:///c:/Users/jonel/Documents/loey_space/06-Resources/scripts/triage-sweep.js). |
 | **`hey loey distill`**                     | **Knowledge Distillation**: Read recent daily notes or dev logs, extract atomic mental models or principles, create new notes in [`08-Concepts/`](file:///c:/Users/jonel/Documents/loey_space/08-Concepts/_Concepts%20MOC.md) (`type: concept`, `review_cycle: 90d`), and link backreferences.                                                                      |
 | **`hey loey weekly`**                      | **Weekly Review**: Review 7-day habit completion, project milestones & GitHub achievements, and generate the weekly retrospective note in [`07-Reviews/`](file:///c:/Users/jonel/Documents/loey_space/07-Reviews/_Reviews%20MOC.md).                                                                                                                                |
-| **`hey loey health`** / **`audit`**        | **Vault Hygiene**: Validate templates against [`Tagging & Properties.md`](file:///c:/Users/jonel/Documents/loey_space/06-Resources/Tagging%20&%20Properties.md), check for broken wikilinks, and verify no secrets exist in tracked files.                                                                                                                          |
+| **`hey loey health`** / **`audit`**        | **Vault Hygiene**: Validate templates against [`Tagging & Properties.md`](file:///c:/Users/jonel/Documents/loey_space/06-Resources/Guides/Tagging%20&%20Properties.md), check for broken wikilinks, and verify no secrets exist in tracked files.                                                                                                                          |
 | **`hey loey remind`**                      | **Proactive Reminders & Scheduling**: Set one-shot timers or recurring cron reminders for daily routines, project checks, or retrospectives via the scheduler tool.                                                                                                                                                                                                 |
 
 ---
@@ -39,7 +39,7 @@ loey_space/
 ├── 03-Dev/                      # Code snippets & technical patterns (type: snippet)
 ├── 04-Learning/                 # Active study notes (type: learning, review_cycle: 30d)
 ├── 05-Personal/                 # Life admin, fitness, personal goals (type: personal)
-├── 06-Resources/                # Documentation, APIs, web clips, system scripts
+├── 06-Resources/                # Guides/, APIs/, Articles/, clipper-templates/, scripts/
 ├── 07-Reviews/                  # Weekly (YYYY-[W]WW.md), Monthly, Habit Analytics Dashboard
 ├── 08-Concepts/                 # Atomic evergreen knowledge (type: concept, review_cycle: 90d)
 ├── 99-Attachments/YYYY-MM/      # Images & media assets
@@ -52,7 +52,7 @@ loey_space/
 
 ## 🏷️ Metadata & Frontmatter Standard
 
-Every created note must contain valid YAML frontmatter matching [`06-Resources/Tagging & Properties.md`](file:///c:/Users/jonel/Documents/loey_space/06-Resources/Tagging%20&%20Properties.md):
+Every created note must contain valid YAML frontmatter matching [`06-Resources/Guides/Tagging & Properties.md`](file:///c:/Users/jonel/Documents/loey_space/06-Resources/Guides/Tagging%20&%20Properties.md):
 
 ```yaml
 ---
@@ -83,6 +83,7 @@ tags:
 ## 🔗 Wikilinking & Connectivity
 
 - Connect related notes using standard `[[Note Name]]` wikilinks.
+- **Strict Link Safety**: NEVER invent wikilinks for uncreated notes, tasks, or external tools (e.g. `[[Task Description]]`, `[[loey_space]]`). Use plain text or hashtags (`#topic/*`) unless a corresponding `.md` file physically exists in the vault.
 - Avoid orphaned notes: when creating a note in `08-Concepts/` or `03-Dev/`, update its respective MOC or link to a parent concept.
 - Preserve Dataview and DataviewJS blocks; never disturb queries when updating note bodies.
 

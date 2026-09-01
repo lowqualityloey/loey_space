@@ -119,4 +119,4 @@ SORT file.ctime DESC
 
 - [[00-Inbox/_Inbox MOC|📥 Inbox MOC]]
 - [[00-Inbox/_Triage MOC|🧹 Triage & Maintenance MOC]]
-- [[06-Resources/Second Brain Guide|🧠 Second Brain Guide]]
+- [[Second Brain Guide|🧠 Second Brain Guide]]

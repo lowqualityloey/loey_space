@@ -127,7 +127,10 @@ export function extractWikilinks(content: string): Array<{ target: string; raw: 
     }
     if (inFence) continue;
 
-    const matches = line.matchAll(/!?\[\[([^\[\]]+)\]\]/g);
+    // Strip inline code blocks before scanning for wikilinks
+    const strippedLine = line.replace(/`[^`]+`/g, ' ');
+
+    const matches = strippedLine.matchAll(/!?\[\[([^\[\]]+)\]\]/g);
     for (const match of matches) {
       const raw = match[0];
       const inner = match[1].trim();

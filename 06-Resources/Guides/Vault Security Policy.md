@@ -12,13 +12,13 @@ tags:
 
 # 🛡️ Vault Security Policy
 
-Canonical security specification for secret handling, private data storage, and Git leak prevention across this [[Obsidian]] vault.
+Canonical security specification for secret handling, private data storage, and Git leak prevention across this Obsidian vault.
 
 ---
 
 ## 1. Purpose
 
-This policy defines the security standards for storing credentials, [[API]] keys, private notes, and sensitive personal information in this vault. Because this vault is backed up to a private remote repository via [[Git]], strict separation between **tracked knowledge notes** and **un-tracked private secrets** is mandatory to prevent accidental credential exposure.
+This policy defines the security standards for storing credentials, API keys, private notes, and sensitive personal information in this vault. Because this vault is backed up to a private remote repository via Git, strict separation between **tracked knowledge notes** and **un-tracked private secrets** is mandatory to prevent accidental credential exposure.
 
 ---
 
@@ -54,7 +54,7 @@ This policy defines the security standards for storing credentials, [[API]] keys
 ## 4. Practical Rules
 
 1. **No Hardcoded Secrets**: Never write real API keys, passwords, or PINs inside tracked Markdown notes, source code, or template files.
-2. **Environment Variables**: For technical scripts (e.g. `ai-enrich-action.js`), always consume credentials via [[Environment variables]] (`process.env.GEMINI_API_KEY`) loaded from `.env`.
+2. **Environment Variables**: For technical scripts (e.g. `ai-enrich-action.js`), always consume credentials via environment variables (`process.env.GEMINI_API_KEY`) loaded from `.env`.
 3. **Template Safe Placeholders**: Keep an `.env.example` file containing placeholder keys (e.g. `GEMINI_API_KEY=your_key_here`) for documentation purposes.
 4. **Password Manager Usage**: High-security credentials (master passwords, banking PINs) should primarily live in a dedicated password manager (Bitwarden / KeePass / 1Password).
 
@@ -87,7 +87,8 @@ loey_space/
 │   └── passwords.md        # Encrypted private note (Ignored by Git)
 ├── 03-Dev/                 # Code notes (Tracked, no secrets inside)
 └── 06-Resources/
-    └── Vault Security Policy.md  # This policy note
+    └── Guides/
+        └── Vault Security Policy.md  # This policy note
 ```
 
 ---
@@ -97,15 +98,11 @@ loey_space/
 - [ ] Check `git status` to verify `.secrets/` and `.env` are not listed under untracked files.
 - [ ] Ensure `.env.example` contains only dummy placeholder values.
 - [ ] Confirm no hardcoded API keys exist in `06-Resources/scripts/ai-enrich-action.js` or `99-Templates/`.
-- [ ] Perform periodic [[Secrets management]] audit before pushing major repository releases.
+- [ ] Perform periodic secrets management audit before pushing major repository releases.
 
 ---
 
 ## 🔗 Related References
 
-* [[Git]]
-* [[Obsidian]]
-* [[QuickAdd]]
-* [[Environment variables]]
-* [[Secrets management]]
-* [[06-Resources/Second Brain Guide|Second Brain Guide]]
+* [[Second Brain Guide]]
+* [[Tagging & Properties]]

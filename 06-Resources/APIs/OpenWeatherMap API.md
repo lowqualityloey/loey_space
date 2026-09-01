@@ -2,6 +2,7 @@
 created: 2026-08-02
 updated: 2026-08-02
 type: resource
+status: active
 url: https://openweathermap.org/api
 category: api
 area: dev
@@ -9,7 +10,8 @@ tags:
   - type/resource
   - area/dev
   - topic/api
-  - tool/openweather
+  - topic/openweather
+  - status/active
 ---
 
 # OpenWeatherMap API
@@ -42,8 +44,7 @@ Provides current weather conditions, 5-day / 3-hour forecasts, and geocoding cit
 
 ## Related
 - [[Weather Dashboard]]
-- [[08-Concepts/Fetch API|Fetch API]]
-- [[06-Resources/Vault Security Policy|Vault Security Policy]]
+- [[Vault Security Policy]]
 
 ## Risks / Limits
 - Rate limits: 60 calls/minute (Free Tier).
