@@ -27,7 +27,7 @@ test('parsePriorityTag: parses priority tokens correctly', () => {
   assert.strictEqual(tNone.priority, null);
 });
 
-test('extractLocalKanbanTasks: extracts structured tasks from markdown', () => {
+test('extractLocalKanbanTasks: extracts structured tasks from markdown and ignores nested subtasks', () => {
   const content = `---
 github_project_number: 4
 ---
@@ -39,7 +39,12 @@ github_project_number: 4
 
 ## In Progress
 
-- [/] Configure Auth0 React SDK #priority/p1
+- [/] [#11](https://github.com/lowqualityloey/shelf/issues/11) Configure Supabase Auth client & route guards #priority/p1
+  > 🌿 \`feat/issue-11-configure-supabase-auth\`
+  - [ ] Install \`@supabase/supabase-js\`
+  - [ ] Create authentication forms
+  - [ ] Implement layout guard
+  - [ ] Attach bearer token
 
 ## Done
 
@@ -57,8 +62,9 @@ github_project_number: 4
   assert.strictEqual(tasks[1].title, 'Configure Tailwind CSS');
   assert.strictEqual(tasks[1].priority, 'P1');
 
-  assert.strictEqual(tasks[2].title, 'Configure Auth0 React SDK');
+  assert.strictEqual(tasks[2].title, '[#11](https://github.com/lowqualityloey/shelf/issues/11) Configure Supabase Auth client & route guards');
   assert.strictEqual(tasks[2].checkbox, '/');
+  assert.strictEqual(tasks[2].priority, 'P1');
 
   assert.strictEqual(tasks[3].title, 'Initial project setup');
   assert.strictEqual(tasks[3].completionDate, '2026-08-24');

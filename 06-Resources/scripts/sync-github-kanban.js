@@ -92,7 +92,7 @@ function extractLocalKanbanTasks(content) {
       }
       continue;
     }
-    const taskMatch = line.match(/^\s*-\s*\[([ xX/>\-?*!])\]\s+(.*)$/);
+    const taskMatch = line.match(/^-\s*\[([ xX/>\-?*!])\]\s+(.*)$/);
     if (taskMatch && currentSection) {
       const checkbox = taskMatch[1];
       const rawText = taskMatch[2].trim();
