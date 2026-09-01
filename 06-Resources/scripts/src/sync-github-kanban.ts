@@ -1,10 +1,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { exec } from 'child_process';
+import { exec as cpExec } from 'child_process';
 import { promisify } from 'util';
 import type { App, TFile } from 'obsidian';
 
-const execAsync = promisify(exec);
+const execAsync = promisify(cpExec);
+
+type ExecFn = (cmd: string, opts?: { encoding?: string; timeout?: number }) => Promise<{ stdout: string; stderr?: string }>;
 import type { QuickAddParams } from './types';
 import {
   ProjectField,
@@ -61,32 +63,47 @@ function discoverProjectBoards(app: App): BoardSyncConfig[] {
 async function syncSingleBoard(
   app: App,
   targetFile: TFile,
-  config: BoardSyncConfig
+  config: BoardSyncConfig,
+  customExecFn?: ExecFn
 ): Promise<{ updated: number; created: number; errors: number }> {
   const Notice = typeof window !== 'undefined' ? (window as any).Notice : (globalThis as any).Notice;
   const projectNumber = config.projectNumber;
   const owner = config.owner;
 
+  const execFn: ExecFn =
+    customExecFn ||
+    (async (cmd, opts) => {
+      const res = await execAsync(cmd, { encoding: 'utf8', timeout: opts?.timeout || 15000 });
+      return { stdout: res.stdout.toString(), stderr: res.stderr?.toString() };
+    });
+
   console.log(`Syncing "${targetFile.basename}" with GitHub Project #${projectNumber} (${owner})...`);
 
-  // 1. Dynamic Project & Schema Discovery
+  // 1 & 2. Concurrent Dynamic Project & Schema Discovery and Item Fetching
   let projectId: string | null = null;
   let statusField: ProjectField | null = null;
   let priorityField: ProjectField | null = null;
+  const remoteItems: GitHubProjectItem[] = [];
 
-  try {
-    const { stdout: projViewJson } = await execAsync(`gh project view ${projectNumber} --owner ${owner} --format json`, {
-      encoding: 'utf8',
-      timeout: 15000
-    });
-    const projData = JSON.parse(projViewJson);
-    projectId = projData.id;
+  const [projRes, itemsRes] = await Promise.allSettled([
+    execFn(`gh project view ${projectNumber} --owner ${owner} --format json`, { timeout: 15000 }),
+    execFn(`gh project item-list ${projectNumber} --owner ${owner} --format json --limit 100`, { timeout: 15000 })
+  ]);
 
-    if (Array.isArray(projData.fields)) {
-      statusField = projData.fields.find((f: any) => f.name && f.name.toLowerCase() === 'status') || null;
-      priorityField = projData.fields.find((f: any) => f.name && f.name.toLowerCase() === 'priority') || null;
+  if (projRes.status === 'fulfilled') {
+    try {
+      const projData = JSON.parse(projRes.value.stdout);
+      projectId = projData.id;
+
+      if (Array.isArray(projData.fields)) {
+        statusField = projData.fields.find((f: any) => f.name && f.name.toLowerCase() === 'status') || null;
+        priorityField = projData.fields.find((f: any) => f.name && f.name.toLowerCase() === 'priority') || null;
+      }
+    } catch (e: any) {
+      console.warn(`Project view parsing error for #${projectNumber}:`, e);
     }
-  } catch (e: any) {
+  } else {
+    const e = projRes.reason;
     if (e?.stderr && typeof e.stderr === 'string' && e.stderr.includes('read:project')) {
       if (Notice) new Notice('⚠️ Missing GitHub token scope!\nRun in terminal: gh auth refresh -s project', 8000);
       throw e;
@@ -94,27 +111,24 @@ async function syncSingleBoard(
     console.warn(`Project view warning for #${projectNumber}:`, e);
   }
 
-  // 2. Fetch Project Items
-  const remoteItems: GitHubProjectItem[] = [];
-  try {
-    const { stdout: itemsJson } = await execAsync(`gh project item-list ${projectNumber} --owner ${owner} --format json --limit 100`, {
-      encoding: 'utf8',
-      timeout: 15000
-    });
-    const itemsData = JSON.parse(itemsJson);
-
-    if (Array.isArray(itemsData.items)) {
-      for (const item of itemsData.items) {
-        remoteItems.push({
-          id: item.id,
-          title: item.title,
-          status: item.status,
-          priority: item.priority
-        });
+  if (itemsRes.status === 'fulfilled') {
+    try {
+      const itemsData = JSON.parse(itemsRes.value.stdout);
+      if (Array.isArray(itemsData.items)) {
+        for (const item of itemsData.items) {
+          remoteItems.push({
+            id: item.id,
+            title: item.title,
+            status: item.status,
+            priority: item.priority
+          });
+        }
       }
+    } catch (e: any) {
+      console.warn(`Could not parse items for Project #${projectNumber}:`, e);
     }
-  } catch (e: any) {
-    console.warn(`Could not fetch items for Project #${projectNumber}:`, e);
+  } else {
+    console.warn(`Could not fetch items for Project #${projectNumber}:`, itemsRes.reason);
   }
 
   // 3. Read & Parse Local Kanban File
@@ -128,8 +142,9 @@ async function syncSingleBoard(
   // 4. Map Local Tasks to Remote Schema
   if (projectId && statusField && statusField.options) {
     const statusOptions = statusField.options;
+    const updateTasks: Array<() => Promise<boolean>> = [];
 
-    const updatePromises = localTasks.map(async (task) => {
+    for (const task of localTasks) {
       const match = remoteItems.find(
         (r) => r.title && r.title.toLowerCase().trim() === task.title.toLowerCase().trim()
       );
@@ -151,24 +166,25 @@ async function syncSingleBoard(
       }
 
       if (match && matchedOption && match.status !== matchedOption.name) {
-        try {
-          await execAsync(
-            `gh project item-edit --project-id "${projectId}" --id "${match.id}" --field-id "${statusField.id}" --single-select-option-id "${matchedOption.id}"`,
-            { encoding: 'utf8', timeout: 10000 }
-          );
-          return { updated: true, error: false };
-        } catch (err) {
-          console.warn(`Failed to update status for "${task.title}":`, err);
-          return { updated: false, error: true };
-        }
+        const editCmd = `gh project item-edit --project-id "${projectId}" --id "${match.id}" --field-id "${statusField.id}" --single-select-option-id "${matchedOption.id}"`;
+        updateTasks.push(async () => {
+          try {
+            await execFn(editCmd, { timeout: 10000 });
+            return true;
+          } catch (err) {
+            console.warn(`Failed to update status for "${task.title}":`, err);
+            return false;
+          }
+        });
       }
-      return { updated: false, error: false };
-    });
+    }
 
-    const results = await Promise.all(updatePromises);
-    for (const res of results) {
-      if (res.updated) updatedCount++;
-      if (res.error) errorCount++;
+    if (updateTasks.length > 0) {
+      const results = await Promise.all(updateTasks.map((fn) => fn()));
+      for (const ok of results) {
+        if (ok) updatedCount++;
+        else errorCount++;
+      }
     }
   }
 
