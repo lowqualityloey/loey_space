@@ -527,8 +527,8 @@ JSON format:
     if (!target) return;
     const key = target.toLowerCase();
     if (key === file.basename.toLowerCase() || seenLinks.has(key)) return;
-    if (!force && !isNamedByUser(target)) {
-      console.warn(`Daily Enrich: dropped link "[[${target}]]" — not named anywhere in the note`);
+    if (!force && (!validTargets.has(key) || !isNamedByUser(target))) {
+      console.warn(`Daily Enrich: dropped link "[[${target}]]" — not an existing vault note or not named in note`);
       return;
     }
     seenLinks.add(key);

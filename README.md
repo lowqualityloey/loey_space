@@ -51,7 +51,7 @@ That's it. Habit tracking, task dashboards and the MOC queries all come alive as
 > **Two things that will bite a fresh clone:**
 >
 > 1. **`homepulse` and `kanban-status-sync` are bundled custom builds** in `.obsidian/plugins/`. Do not install or update them from the Community Store — HomePulse would be replaced by stock code, and Kanban Status Sync isn't published there at all. Keep **Auto-update plugins: OFF**.
-> 2. **Secrets live only in `.env`**, which is git-ignored. Copy `.env.example`, never commit real keys, and read the [Vault Security Policy](06-Resources/Vault%20Security%20Policy.md).
+> 2. **Secrets live only in `.env`**, which is git-ignored. Copy `.env.example`, never commit real keys, and read the [Vault Security Policy](06-Resources/Guides/Vault%20Security%20Policy.md).
 
 ---
 
@@ -184,14 +184,8 @@ loey_space/
 │   ├── APIs/                    # API specs & integration documentation
 │   ├── Articles/                # Clipped web articles, blogs & media
 │   ├── clipper-templates/       # Obsidian Web Clipper JSON presets (articles, dev, snippets, AI)
-│   ├── scripts/                 # Automation (ai-enrich-action, triage-sweep, sync-github-kanban, weekly-ai-summary)
-│   ├── CONTRIBUTING.md          # Open/closed scope, Node testing, PR guidelines
-│   ├── Mobile Workflow Guide.md # Mobile capture setup & usage
-│   ├── QuickAdd Inbox Optimization Guide.md # Inbox blueprints & capture optimization
-│   ├── Second Brain Guide.md    # System usage, folder guidelines, maintenance & workflow rules
-│   ├── Tagging & Properties.md  # Standard frontmatter properties & tag taxonomy
-│   ├── Vault Security Policy.md # Secret management & Git safety rules
-│   └── Weekly AI Summary Guide.md # Weekly rollup workflow & data requirements
+│   ├── Guides/                  # System manuals, security policies & workflow guides
+│   └── scripts/                 # Automation (ai-enrich-action, triage-sweep, sync-github-kanban, weekly-ai-summary)
 ├── 07-Reviews/                  # Weekly & Monthly retrospectives (AI-generated)
 │   ├── _Reviews MOC.md          # Reviews & retrospectives navigation
 │   └── Habit Analytics Dashboard.md  # 30-day habit metrics, streaks, trends
@@ -220,12 +214,12 @@ Full reference lives **inside the vault** rather than a separate `docs/` tree, s
 | Guide | Covers |
 | :--- | :--- |
 | [AGENTS](AGENTS.md) | Master AI Agent persona, "Hey Loey" command dispatcher, daily/weekly maintenance routines |
-| [CONTRIBUTING](06-Resources/CONTRIBUTING.md) | Open/closed scope, testing without Obsidian, PR workflow, security rules |
-| [Second Brain Guide](06-Resources/Second%20Brain%20Guide.md) | Folder architecture, QuickAdd flows, the AI enricher contract, triage tokens, task rules, daily routine |
-| [Mobile Workflow Guide](06-Resources/Mobile%20Workflow%20Guide.md) | Mobile toolbar setup and the capture-fast / triage-later loop |
-| [Vault Security Policy](06-Resources/Vault%20Security%20Policy.md) | Secret management and Git safety rules |
-| [QuickAdd Inbox Optimization Guide](06-Resources/QuickAdd%20Inbox%20Optimization%20Guide.md) | Capture templates and inbox processing |
-| [Weekly AI Summary Guide](06-Resources/Weekly%20AI%20Summary%20Guide.md) | Weekly review generation and its data requirements |
+| [CONTRIBUTING](06-Resources/Guides/CONTRIBUTING.md) | Open/closed scope, testing without Obsidian, PR workflow, security rules |
+| [Second Brain Guide](06-Resources/Guides/Second%20Brain%20Guide.md) | Folder architecture, QuickAdd flows, the AI enricher contract, triage tokens, task rules, daily routine |
+| [Mobile Workflow Guide](06-Resources/Guides/Mobile%20Workflow%20Guide.md) | Mobile toolbar setup and the capture-fast / triage-later loop |
+| [Vault Security Policy](06-Resources/Guides/Vault%20Security%20Policy.md) | Secret management and Git safety rules |
+| [QuickAdd Inbox Optimization Guide](06-Resources/Guides/QuickAdd%20Inbox%20Optimization%20Guide.md) | Capture templates and inbox processing |
+| [Weekly AI Summary Guide](06-Resources/Guides/Weekly%20AI%20Summary%20Guide.md) | Weekly review generation and its data requirements |
 
 ---
 
@@ -402,7 +396,7 @@ Designed for **capture fast, triage later**. All mobile commands land in inbox w
 3. Add the `📱` QuickAdd commands
 4. Capture in < 10 seconds, batch-process on desktop
 
-See [`06-Resources/Mobile Workflow Guide.md`](06-Resources/Mobile%20Workflow%20Guide.md) for full setup instructions.
+See [`06-Resources/Guides/Mobile Workflow Guide.md`](06-Resources/Guides/Mobile%20Workflow%20Guide.md) for full setup instructions.
 
 ---
 
@@ -456,7 +450,7 @@ All data is automatically pulled from daily notes — no manual tracking require
 * **No Hardcoded API Keys**: All machine credentials and API tokens strictly reside in `.env` (git-ignored).
 * **Private Notes Directory**: The `.secrets/` directory is strictly excluded from Git tracking for storing sensitive personal documents.
 * **Runtime API Validation**: Scripts automatically validate `.env` configuration on execution and notify if required keys are missing.
-* **Vault Security Policy**: Read the official [Vault Security Policy](06-Resources/Vault%20Security%20Policy.md) for complete guidelines.
+* **Vault Security Policy**: Read the official [Vault Security Policy](06-Resources/Guides/Vault%20Security%20Policy.md) for complete guidelines.
 
 ### 🪝 Enabling the pre-commit guard
 
@@ -512,14 +506,14 @@ Placeholders such as `your_google_gemini_api_key_here` are allowed, so `.env.exa
 | **🌙 Monthly** *(30 min)* | `07-Reviews/` & `02-Projects/` | Review Habit Analytics trends $\rightarrow$ archive completed boards $\rightarrow$ review stale notes ($>30$d) |
 | **💡 Quarterly** *(45 min)* | `08-Concepts/` | Review evergreen concepts past their 90-day review cycle via `_Triage MOC` |
 
-*(See comprehensive operational specs in [Second Brain Guide](06-Resources/Second%20Brain%20Guide.md))*
+*(See comprehensive operational specs in [Second Brain Guide](06-Resources/Guides/Second%20Brain%20Guide.md))*
 
 #### ⚙️ Technical Maintenance & CLI Tooling
 * **TypeScript & Bundling Engine** — User scripts are authored in TypeScript under [`06-Resources/scripts/src/`](06-Resources/scripts/src/) (modularized under `src/lib/`) and bundled into single-file CommonJS via `npm run build` (`esbuild`) for seamless Obsidian QuickAdd & Node CLI compatibility.
 * **Automated CLI Commands**:
   - `npm run typecheck` — Strict TypeScript typecheck across all scripts.
   - `npm run build` — Bundles all 12 user scripts in under 50ms.
-  - `npm test` — Runs automated Node test suite (23 unit tests).
+  - `npm test` — Runs automated Node test suite (27 unit tests).
   - `npm run audit-links` — Scans vault for broken wikilinks, fuzzy fix suggestions, and orphan notes.
   - `npm run distill -- <file>` — Distills atomic evergreen concepts into `08-Concepts/`.
   - `npm run log-github` — Syncs today's GitHub activity into a collapsible table callout (`> [!NOTE]-`) sorted AM $\rightarrow$ PM with non-breaking timestamps.
@@ -536,7 +530,7 @@ Placeholders such as `your_google_gemini_api_key_here` are allowed, so `.env.exa
 
 The **system** is open to contributions; the **journal** isn't. PRs are welcome for the Kanban Status Sync plugin, the automation scripts, CSS snippets, the pre-commit hook, templates and docs. The numbered content folders are personal notes and are closed to PRs — though issues are welcome about anything.
 
-See [CONTRIBUTING.md](06-Resources/CONTRIBUTING.md) for the full scope, plus how to test any script under plain Node by mocking `app.vault` — no Obsidian install and no risk to real notes.
+See [CONTRIBUTING.md](06-Resources/Guides/CONTRIBUTING.md) for the full scope, plus how to test any script under plain Node by mocking `app.vault` — no Obsidian install and no risk to real notes.
 
 ---
 
