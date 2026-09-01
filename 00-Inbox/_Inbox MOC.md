@@ -1,13 +1,17 @@
 ---
+created: 2026-08-09
+updated: 2026-09-01
 type: moc
+status: active
+area: inbox
 tags:
   - type/moc
-updated: 2026-08-02
+  - area/inbox
 ---
 
-# 📥 Inbox Dashboard
+# 📥 Inbox Dashboard & Capture Hub
 
-> Capture everything here before sorting. Triage by tagging each line with a destination token, then run **Triage Sweep** to file them. **Rule: empty this weekly.**
+> *Capture everything here before sorting. Triage by tagging each line with a destination token, then run **Triage Sweep** to file them. Rule: empty this weekly.*
 
 ```dataviewjs
 // Single pressure line: how much is waiting, how old, how much is ready to file.
@@ -58,7 +62,7 @@ if (total === 0) {
 ```
 
 > [!TIP] Triage = tag the line, then sweep
-> Append one token to any capture line, then run **Triage Sweep** from the command palette.
+> Append one token to any capture line, then run **QuickAdd: 🧹 Triage Sweep** from the command palette (`Ctrl + P`).
 >
 > | Token | Goes to |
 > | :--- | :--- |
@@ -69,9 +73,11 @@ if (total === 0) {
 > | `#ref` | `06-Resources/` |
 > | `#personal` | `05-Personal/` |
 > | `#project` | `02-Projects/` |
-> | `#bin` | dropped (logged, not filed) |
+> | `#bin` | dropped (logged in Triaged, not filed) |
 >
-> Untagged lines are left alone. Swept lines move to the **Triaged** log at the bottom of the dump, so nothing is silently deleted.
+> Untagged lines stay put. Swept lines move to the **Triaged** log at the bottom of the dump, so nothing is silently deleted.
+
+---
 
 ## 📌 Unprocessed Notes
 
@@ -84,6 +90,9 @@ WHERE !startswith(file.name, "_") AND file.name != "quick-capture-dump"
 SORT file.ctime DESC
 ```
 
+---
+
 ## 📝 Quick Notes Dump
 
 ![[quick-capture-dump]]
+

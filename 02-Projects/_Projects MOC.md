@@ -1,5 +1,9 @@
 ---
+created: 2026-08-09
+updated: 2026-09-01
 type: moc
+status: active
+area: projects
 cssclasses:
   - cards
 tags:
@@ -7,22 +11,29 @@ tags:
   - area/projects
 ---
 
-# 🚀 Projects MOC
+# 🚀 Projects MOC & Engineering Hub
 
-> Outcomes with deadlines or defined endpoints. One subfolder per project, each with a project note and a Kanban board. Finished cards move to the board's own `## Archive` column — the retrospective goes to `07-Reviews/`.
+> *Outcomes with deadlines or defined endpoints. One subfolder per project, each with a project note and a Kanban board. Finished cards move to the board's own `## Archive` column — retrospectives live in `07-Reviews/`.*
+
+---
+
+## ⚡ Quick Navigation & Boards
+- [[Home|🏠 Central Command Hub]] — Master dashboard.
+- [[01-Daily/Tasks Kanban|📋 Live Tasks Kanban Board]] — Active drag-and-drop task board across all projects.
+- [[01-Daily/_Tasks MOC|📋 Tasks MOC & History]] — Central task matrix & completion analytics.
+
+---
 
 ## 🟢 Active Projects
 ```dataviewjs
 // Status is matched loosely: "in progress", "in-progress", "active" and "doing"
-// all count as active, so a space instead of a hyphen no longer hides a project.
 const ACTIVE_STATUSES = ["in progress", "active", "doing", "wip"];
 const normalize = (value) => String(value || "").toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
 
 const projects = dv.pages('"02-Projects"')
-    .where(p => p.type === "project" && ACTIVE_STATUSES.includes(normalize(p.status)));
+    .where(p => p.type === "project" && !p.file.name.includes("Kanban") && !p.file.name.includes("MOC") && ACTIVE_STATUSES.includes(normalize(p.status)));
 
 const rows = [];
-
 const priorityWeight = { "critical": 4, "high": 3, "medium": 2, "low": 1, "none": 0 };
 
 projects.forEach(p => {
@@ -66,18 +77,22 @@ rows.sort((a, b) => b.weight - a.weight);
 dv.table(["Project", "Progress", "Status", "Priority"], rows.map(r => [r.link, r.progress, r.status, r.priority]));
 ```
 
+---
+
 ## 📝 Planning & Backlog
 ```dataview
 TABLE area AS "Area", priority AS "Priority"
 FROM "02-Projects"
-WHERE type = "project" AND status = "planning"
+WHERE type = "project" AND status = "planning" AND !contains(file.name, "Kanban") AND !contains(file.name, "MOC")
 SORT priority DESC
 ```
 
+---
+
 ## ✅ Completed Projects
 ```dataview
-TABLE updated AS "Completed Date", area AS "Area"
+TABLE choice(updated, updated, file.mtime) AS "Completed Date", area AS "Area"
 FROM "02-Projects"
-WHERE type = "project" AND status = "completed"
+WHERE type = "project" AND status = "completed" AND !contains(file.name, "Kanban") AND !contains(file.name, "MOC")
 SORT file.mtime DESC
 ```
