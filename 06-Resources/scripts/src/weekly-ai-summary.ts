@@ -1,6 +1,7 @@
 import type { App, TFile } from 'obsidian';
 import type { QuickAddParams } from './types';
 import { parseGeminiError, formatGeminiFailure, type GeminiFailure } from './lib/gemini';
+import { stripTaskMetadata } from './lib/markdown';
 
 interface WeeklySummaryJson {
   weeklyTitle?: string;
@@ -381,8 +382,8 @@ function extractDailyData(content: string, noteDate: string) {
     if (currentSec.includes("habit")) {
       const habitMatch = trimmed.match(/^\s*-\s*\[x\]\s+(.*)$/i);
       if (habitMatch && habitMatch[1].trim()) {
-        const habitText = habitMatch[1].trim();
-        if (!checkedHabits.includes(habitText)) checkedHabits.push(habitText);
+        const habitText = stripTaskMetadata(habitMatch[1]);
+        if (habitText && !checkedHabits.includes(habitText)) checkedHabits.push(habitText);
       }
     }
 
