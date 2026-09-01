@@ -137,6 +137,7 @@ for (const page of dv.pages('"02-Projects"')) {
 
     const section = (t.header && t.header.subpath) ? t.header.subpath.toLowerCase() : "";
     if (section.includes("backlog") || section.includes("archive")) continue;
+    if (t.parent !== undefined && t.parent !== null) continue;
 
     const inProgress = t.status === "/";
     const finishedToday = (t.completed || t.status === "x") && noteDate && t.text.includes("✅ " + noteDate);

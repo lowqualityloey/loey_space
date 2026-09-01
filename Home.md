@@ -164,6 +164,7 @@ for (let p of pages) {
     if (!t.text || t.text.trim() === "") continue;
     const sec = (t.header && t.header.subpath) ? t.header.subpath.toLowerCase() : "";
     if (sec.includes("habit") || sec.includes("backlog") || sec.includes("archive")) continue;
+    if (t.parent !== undefined && t.parent !== null) continue;
 
     const dedupeKey = t.text.toLowerCase().replace(/#priority\/[^\s]+/gi, "").replace(/\[\[[^\]]+\]\]/g, "").replace(/[^\w\s]/g, "").trim();
     if (seenTasks.has(dedupeKey)) continue;
