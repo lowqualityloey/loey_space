@@ -88,6 +88,11 @@ function formatGeminiFailure(failure) {
   }
 }
 
+// 06-Resources/scripts/src/lib/markdown.ts
+function stripTaskMetadata(text) {
+  return String(text).replace(/[✅❌➕📅⏳🛫🔁⏫🔼🔽⏬🆔⛔]\s*\d{4}-\d{2}-\d{2}/g, " ").replace(/[✅❌➕📅⏳🛫🔁⏫🔼🔽⏬🆔⛔]/g, " ").replace(/\s*\^[A-Za-z0-9]+\s*$/, " ").replace(/\s{2,}/g, " ").trim();
+}
+
 // 06-Resources/scripts/src/weekly-ai-summary.ts
 function extractDailyData(content, noteDate) {
   const lines = content.split("\n");
@@ -133,8 +138,8 @@ function extractDailyData(content, noteDate) {
     if (currentSec.includes("habit")) {
       const habitMatch = trimmed.match(/^\s*-\s*\[x\]\s+(.*)$/i);
       if (habitMatch && habitMatch[1].trim()) {
-        const habitText = habitMatch[1].trim();
-        if (!checkedHabits.includes(habitText))
+        const habitText = stripTaskMetadata(habitMatch[1]);
+        if (habitText && !checkedHabits.includes(habitText))
           checkedHabits.push(habitText);
       }
     }
