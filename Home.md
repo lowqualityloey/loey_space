@@ -1,6 +1,6 @@
 ---
 created: 2026-08-09
-updated: 2026-09-01
+updated: 2026-09-02
 type: dashboard
 status: active
 area: general
@@ -51,8 +51,8 @@ if (dumpFile) {
       inTriaged = true;
       continue;
     }
-    if (!inTriaged && line.trim().startsWith("-") && !line.trim().startsWith("- [x]")) {
-      const item = line.replace(/^-\s*/, "").trim();
+    if (!inTriaged && /^\s*-\s+\S/.test(line) && !line.trim().startsWith("- [x]")) {
+      const item = line.replace(/^\s*-\s+/, "").trim();
       if (item && !item.startsWith("[") && item !== "...") {
         openCaptures++;
       }
@@ -207,8 +207,8 @@ if (dumpFile) {
       inTriaged = true;
       continue;
     }
-    if (!inTriaged && line.trim().startsWith("-") && !line.trim().startsWith("- [x]")) {
-      const item = line.replace(/^-\s*/, "").trim();
+    if (!inTriaged && /^\s*-\s+\S/.test(line) && !line.trim().startsWith("- [x]")) {
+      const item = line.replace(/^\s*-\s+/, "").trim();
       if (item && !item.startsWith("[") && item !== "...") {
         captureItems.push(item);
       }
