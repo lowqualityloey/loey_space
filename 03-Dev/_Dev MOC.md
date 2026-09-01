@@ -1,28 +1,51 @@
 ---
+created: 2026-08-09
+updated: 2026-09-01
 type: moc
+status: active
+area: dev
+cssclasses:
+  - cards
 tags:
   - type/moc
   - area/dev
 ---
 
-# 💻 Dev MOC
+# 💻 Dev MOC & Code Snippet Library
 
-> Technical work and code-related knowledge — snippets, patterns, debugging tips, and architecture decisions. ✨ AI-enrichable with `Ctrl + Shift + A`.
+> *Technical repository — reusable code snippets, architectural patterns, debugging notes, and language tricks.*
 
-## 🛠️ Code Snippets
-- [[Regex validation of email addresses according to RFC5321RFC5322|RFC 5321/5322 Email Validation Regex]]
+---
+
+## 🛠️ Code Snippets Library
 
 ```dataview
-TABLE language AS "Language", tags AS "Tags", updated AS "Last Updated"
+TABLE 
+  language AS "Language", 
+  tags AS "Tags", 
+  choice(updated, updated, file.mtime) AS "Last Updated"
 FROM "03-Dev"
 WHERE type = "snippet" OR contains(tags, "type/snippet")
-SORT file.name ASC
+SORT language ASC, file.name ASC
 ```
 
-## 📚 Technical Notes & Architecture
+---
+
+## 📚 Architecture Notes & Technical Patterns
+
 ```dataview
-TABLE tags AS "Tags", file.mtime AS "Modified"
+TABLE 
+  tags AS "Tags", 
+  choice(updated, updated, file.mtime) AS "Last Modified"
 FROM "03-Dev"
 WHERE file.name != "_Dev MOC" AND type != "snippet" AND !contains(tags, "type/snippet")
 SORT file.mtime DESC
 ```
+
+---
+
+## 💡 How to Add & Index Snippets
+
+- `Ctrl + P` → **QuickAdd: 💻 Create Snippet** — Generates a new code snippet with syntax highlighting templates.
+- **Inbox Quick Capture**: Append `#dev` to any line in [[00-Inbox/quick-capture-dump.md|quick-capture-dump]] and run `QuickAdd: 🧹 Triage Sweep`.
+- `hey loey snippet` — Ask your AI assistant to format and index any code pattern into `03-Dev/`.
