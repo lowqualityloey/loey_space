@@ -4,6 +4,8 @@
 .obsidian/workspace*
 .obsidian/cache/
 .obsidian/indexed*
+.obsidian/graph.json
+.obsidian/plugins/homepulse/data.json
 .trash/
 
 # 🤖 Local AI Indices & Plugin Caches
