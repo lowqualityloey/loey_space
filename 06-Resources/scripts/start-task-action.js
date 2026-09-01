@@ -230,8 +230,20 @@ async function startTaskAction(params) {
   let issueUrl = "";
   let issueNumber = 0;
   try {
-    const createCmd = `gh issue create --repo "${owner}/${repo}" --title "${cleanText.replace(/"/g, '\\"')}" --body "Created from Obsidian Kanban note [[${activeFile.basename}]]." ${priorityLabel}`;
-    issueUrl = (0, import_child_process.execSync)(createCmd, { encoding: "utf8", timeout: 15e3 }).trim();
+    const createArgs = [
+      "issue",
+      "create",
+      "--repo",
+      `${owner}/${repo}`,
+      "--title",
+      cleanText,
+      "--body",
+      `Created from Obsidian Kanban note [[${activeFile.basename}]].`
+    ];
+    if (priority) {
+      createArgs.push("--label", priority);
+    }
+    issueUrl = (0, import_child_process.execFileSync)("gh", createArgs, { encoding: "utf8", timeout: 15e3 }).trim();
     const match = issueUrl.match(/\/issues\/(\d+)/);
     if (match) {
       issueNumber = parseInt(match[1], 10);
@@ -309,8 +321,20 @@ function runCli() {
   let issueUrl = "";
   let issueNumber = 0;
   try {
-    const createCmd = `gh issue create --repo "${owner}/${repo}" --title "${cleanText.replace(/"/g, '\\"')}" --body "Created from Obsidian Kanban note [[${path.basename(targetPath)}]]." ${priorityLabel}`;
-    issueUrl = (0, import_child_process.execSync)(createCmd, { encoding: "utf8", timeout: 15e3 }).trim();
+    const createArgs = [
+      "issue",
+      "create",
+      "--repo",
+      `${owner}/${repo}`,
+      "--title",
+      cleanText,
+      "--body",
+      `Created from Obsidian Kanban note [[${path.basename(targetPath)}]].`
+    ];
+    if (priority) {
+      createArgs.push("--label", priority);
+    }
+    issueUrl = (0, import_child_process.execFileSync)("gh", createArgs, { encoding: "utf8", timeout: 15e3 }).trim();
     const match = issueUrl.match(/\/issues\/(\d+)/);
     if (match) {
       issueNumber = parseInt(match[1], 10);

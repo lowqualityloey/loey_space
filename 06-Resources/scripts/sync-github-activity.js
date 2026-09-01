@@ -67,16 +67,22 @@ async function fetchCommitDetailsMap(pushes, execFn) {
     try {
       const cp = require("child_process");
       const util = require("util");
-      runner = util.promisify(cp.exec);
+      const execFileAsync = util.promisify(cp.execFile);
+      runner = async (cmd) => {
+        if (Array.isArray(cmd)) {
+          const [file, ...args] = cmd;
+          return execFileAsync(file, args, { encoding: "utf8" });
+        }
+        return util.promisify(cp.exec)(cmd, { encoding: "utf8" });
+      };
     } catch {
       return commitMap;
     }
   }
   const tasks = Array.from(uniqueItems.entries()).map(async ([head, repo]) => {
     try {
-      const { stdout } = await runner(
-        `gh api repos/${repo}/commits/${head} -q "{message: .commit.message, url: .html_url}"`
-      );
+      const cmd = ["gh", "api", `repos/${repo}/commits/${head}`, "-q", "{message: .commit.message, url: .html_url}"];
+      const { stdout } = await runner(cmd);
       const data = JSON.parse(stdout);
       commitMap.set(head, {
         message: data.message ? data.message.split("\n")[0].trim() : "",
@@ -268,7 +274,7 @@ function resolveVaultPath() {
 }
 function fetchUserEvents(username = "lowqualityloey") {
   try {
-    const raw = (0, import_child_process.execSync)(`gh api "users/${username}/events" -q "."`, {
+    const raw = (0, import_child_process.execFileSync)("gh", ["api", `users/${username}/events`, "-q", "."], {
       encoding: "utf8",
       timeout: 15e3
     });
