@@ -81,3 +81,115 @@ test('syncSingleBoard: executes asynchronously without blocking', async () => {
   assert.ok(typeof result.created === 'number');
   assert.ok(typeof result.errors === 'number');
 });
+
+test('syncSingleBoard: creates new project items safely with execFn array arguments', async () => {
+  const executedCalls = [];
+  const mockExecFn = async (cmd, opts) => {
+    executedCalls.push(cmd);
+    if (cmd.includes('project view')) {
+      return {
+        stdout: JSON.stringify({
+          id: 'proj_123',
+          fields: [
+            { id: 'f_status', name: 'Status', options: [{ id: 'opt_todo', name: 'To Do' }] }
+          ]
+        })
+      };
+    }
+    if (cmd.includes('project item-list')) {
+      return {
+        stdout: JSON.stringify({ items: [] })
+      };
+    }
+    if (cmd.includes('project item-create')) {
+      return {
+        stdout: JSON.stringify({ id: 'item_new_123' })
+      };
+    }
+    if (cmd.includes('project item-edit')) {
+      return { stdout: 'Updated' };
+    }
+    return { stdout: '' };
+  };
+
+  const localMarkdown = `---
+github_project_number: 100
+---
+
+## To Do
+
+- [ ] New Task with "$(calc)" and \`whoami\`
+`;
+
+  const mockApp = {
+    vault: {
+      read: async () => localMarkdown
+    }
+  };
+  const mockFile = { basename: 'Test Board', path: '02-Projects/Test.md' };
+  const mockConfig = { filePath: '02-Projects/Test.md', title: 'Test Board', projectNumber: 100, owner: 'testowner' };
+
+  const result = await syncSingleBoard(mockApp, mockFile, mockConfig, mockExecFn);
+  assert.strictEqual(result.created, 1);
+  assert.strictEqual(result.errors, 0);
+
+  const createCall = executedCalls.find((c) => c.includes('item-create'));
+  assert.ok(createCall);
+  assert.ok(createCall.includes('New Task with "$(calc)" and `whoami`'));
+});
+
+test('syncSingleBoard: handles tasks with shell injection payloads safely', async () => {
+  const executedCalls = [];
+  const mockExecFn = async (cmd, opts) => {
+    executedCalls.push(cmd);
+    if (cmd.includes('project view')) {
+      return {
+        stdout: JSON.stringify({
+          id: 'proj_123',
+          fields: [
+            { id: 'f_status', name: 'Status', options: [{ id: 'opt_todo', name: 'To Do' }, { id: 'opt_done', name: 'Done' }] }
+          ]
+        })
+      };
+    }
+    if (cmd.includes('project item-list')) {
+      return {
+        stdout: JSON.stringify({
+          items: [
+            { id: 'item_injection', title: 'Injection Task $(whoami) `id` ; rm -rf /', status: 'To Do' }
+          ]
+        })
+      };
+    }
+    if (cmd.includes('project item-edit')) {
+      return { stdout: 'Updated' };
+    }
+    return { stdout: '' };
+  };
+
+  const localMarkdown = `---
+github_project_number: 100
+---
+
+## Done
+
+- [x] Injection Task $(whoami) \`id\` ; rm -rf /
+`;
+
+  const mockApp = {
+    vault: {
+      read: async () => localMarkdown
+    }
+  };
+  const mockFile = { basename: 'Test Board', path: '02-Projects/Test.md' };
+  const mockConfig = { filePath: '02-Projects/Test.md', title: 'Test Board', projectNumber: 100, owner: 'testowner' };
+
+  const result = await syncSingleBoard(mockApp, mockFile, mockConfig, mockExecFn);
+  assert.strictEqual(result.updated, 1);
+  assert.strictEqual(result.errors, 0);
+
+  const editCall = executedCalls.find((c) => c.includes('item-edit'));
+  assert.ok(editCall);
+  assert.ok(editCall.includes('--id item_injection'));
+  assert.ok(editCall.includes('--single-select-option-id opt_done'));
+});

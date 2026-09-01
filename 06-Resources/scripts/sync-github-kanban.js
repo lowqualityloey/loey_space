@@ -113,6 +113,7 @@ function extractLocalKanbanTasks(content) {
 
 // 06-Resources/scripts/src/sync-github-kanban.ts
 var execAsync = (0, import_util.promisify)(import_child_process.exec);
+var execFileAsync = (0, import_util.promisify)(import_child_process.execFile);
 function isTFile(file) {
   return Boolean(file && typeof file === "object" && "extension" in file && "path" in file);
 }
@@ -155,18 +156,29 @@ async function syncSingleBoard(app, targetFile, config, customExecFn) {
   const Notice = typeof window !== "undefined" ? window.Notice : globalThis.Notice;
   const projectNumber = config.projectNumber;
   const owner = config.owner;
-  const execFn = customExecFn || (async (cmd, opts) => {
-    const res = await execAsync(cmd, { encoding: "utf8", timeout: opts?.timeout || 15e3 });
-    return { stdout: res.stdout.toString(), stderr: res.stderr?.toString() };
-  });
+  const execFn = async (cmd, opts) => {
+    if (customExecFn) {
+      const cmdStr = Array.isArray(cmd) ? cmd.join(" ") : cmd;
+      return customExecFn(cmdStr, opts);
+    }
+    const timeout = opts?.timeout || 15e3;
+    if (Array.isArray(cmd)) {
+      const [file, ...args] = cmd;
+      const res = await execFileAsync(file, args, { encoding: "utf8", timeout });
+      return { stdout: res.stdout.toString(), stderr: res.stderr?.toString() };
+    } else {
+      const res = await execAsync(cmd, { encoding: "utf8", timeout });
+      return { stdout: res.stdout.toString(), stderr: res.stderr?.toString() };
+    }
+  };
   console.log(`Syncing "${targetFile.basename}" with GitHub Project #${projectNumber} (${owner})...`);
   let projectId = null;
   let statusField = null;
   let priorityField = null;
   const remoteItems = [];
   const [projRes, itemsRes] = await Promise.allSettled([
-    execFn(`gh project view ${projectNumber} --owner ${owner} --format json`, { timeout: 15e3 }),
-    execFn(`gh project item-list ${projectNumber} --owner ${owner} --format json --limit 100`, { timeout: 15e3 })
+    execFn(["gh", "project", "view", String(projectNumber), "--owner", owner, "--format", "json"], { timeout: 15e3 }),
+    execFn(["gh", "project", "item-list", String(projectNumber), "--owner", owner, "--format", "json", "--limit", "100"], { timeout: 15e3 })
   ]);
   if (projRes.status === "fulfilled") {
     try {
@@ -215,6 +227,7 @@ async function syncSingleBoard(app, targetFile, config, customExecFn) {
   if (projectId && statusField && statusField.options) {
     const statusOptions = statusField.options;
     const updateTasks = [];
+    const createTasks = [];
     for (const task of localTasks) {
       const match = remoteItems.find(
         (r) => r.title && r.title.toLowerCase().trim() === task.title.toLowerCase().trim()
@@ -233,13 +246,64 @@ async function syncSingleBoard(app, targetFile, config, customExecFn) {
         }
       }
       if (match && matchedOption && match.status !== matchedOption.name) {
-        const editCmd = `gh project item-edit --project-id "${projectId}" --id "${match.id}" --field-id "${statusField.id}" --single-select-option-id "${matchedOption.id}"`;
+        const editCmd = [
+          "gh",
+          "project",
+          "item-edit",
+          "--project-id",
+          projectId,
+          "--id",
+          match.id,
+          "--field-id",
+          statusField.id,
+          "--single-select-option-id",
+          matchedOption.id
+        ];
         updateTasks.push(async () => {
           try {
             await execFn(editCmd, { timeout: 1e4 });
             return true;
           } catch (err) {
             console.warn(`Failed to update status for "${task.title}":`, err);
+            return false;
+          }
+        });
+      } else if (!match) {
+        createTasks.push(async () => {
+          try {
+            const createCmd = [
+              "gh",
+              "project",
+              "item-create",
+              String(projectNumber),
+              "--owner",
+              owner,
+              "--title",
+              task.title,
+              "--format",
+              "json"
+            ];
+            const createRes = await execFn(createCmd, { timeout: 1e4 });
+            const newItem = JSON.parse(createRes.stdout);
+            if (newItem && newItem.id && matchedOption) {
+              const editCmd = [
+                "gh",
+                "project",
+                "item-edit",
+                "--project-id",
+                projectId,
+                "--id",
+                newItem.id,
+                "--field-id",
+                statusField.id,
+                "--single-select-option-id",
+                matchedOption.id
+              ];
+              await execFn(editCmd, { timeout: 5e3 });
+            }
+            return true;
+          } catch (err) {
+            console.warn(`Failed to create project item for "${task.title}":`, err);
             return false;
           }
         });
@@ -250,6 +314,15 @@ async function syncSingleBoard(app, targetFile, config, customExecFn) {
       for (const ok of results) {
         if (ok)
           updatedCount++;
+        else
+          errorCount++;
+      }
+    }
+    if (createTasks.length > 0) {
+      const results = await Promise.all(createTasks.map((fn) => fn()));
+      for (const ok of results) {
+        if (ok)
+          createdCount++;
         else
           errorCount++;
       }
