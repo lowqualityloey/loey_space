@@ -277,11 +277,9 @@ Track these to measure system effectiveness:
 ---
 
 ## 🔗 Related Resources
-
-- [[06-Resources/scripts/weekly-ai-summary.js|📊 Weekly AI Summary Script]]
-- [[07-Reviews/_Reviews MOC.md|📋 Reviews MOC]]
-- [[System Improvements.md|🚀 System Improvements Project]]
-- [[06-Resources/scripts/ai-enrich-action.js|🤖 Multi-Domain AI Enricher]]
+- [[_Reviews MOC|📋 Reviews MOC]]
+- `06-Resources/scripts/weekly-ai-summary.js` (Weekly AI Summary Automation Script)
+- `06-Resources/scripts/ai-enrich-action.js` (Multi-Domain AI Daily Enricher)
 
 ---
 

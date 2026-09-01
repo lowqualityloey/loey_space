@@ -129,7 +129,8 @@ function extractWikilinks(content) {
     }
     if (inFence)
       continue;
-    const matches = line.matchAll(/!?\[\[([^\[\]]+)\]\]/g);
+    const strippedLine = line.replace(/`[^`]+`/g, " ");
+    const matches = strippedLine.matchAll(/!?\[\[([^\[\]]+)\]\]/g);
     for (const match of matches) {
       const raw = match[0];
       const inner = match[1].trim();

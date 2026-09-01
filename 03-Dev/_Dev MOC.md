@@ -10,6 +10,8 @@ tags:
 > Technical work and code-related knowledge — snippets, patterns, debugging tips, and architecture decisions. ✨ AI-enrichable with `Ctrl + Shift + A`.
 
 ## 🛠️ Code Snippets
+- [[Regex validation of email addresses according to RFC5321RFC5322|RFC 5321/5322 Email Validation Regex]]
+
 ```dataview
 TABLE language AS "Language", tags AS "Tags", updated AS "Last Updated"
 FROM "03-Dev"
