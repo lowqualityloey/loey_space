@@ -1,5 +1,9 @@
 ---
+created: 2026-08-09
+updated: 2026-09-01
 type: moc
+status: active
+area: learning
 cssclasses:
   - cards
 tags:
