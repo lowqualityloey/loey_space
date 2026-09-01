@@ -42,8 +42,14 @@ for (const p of dv.pages('"01-Daily"')) {
 const inScope = (p) => p.file.name !== "Tasks Kanban" && (!p.file.path.startsWith("01-Daily") ||
   (currentDailyDate !== "" && p.file.name.startsWith(currentDailyDate)));
 
-const pages = dv.pages('"01-Daily" or "02-Projects"');
+function getTaskKey(txt) {
+  return String(txt || "").toLowerCase().replace(/#priority\/[^\s]+/gi, "").replace(/\[\[[^\]]+\]\]/g, "").replace(/[^\w\s]/g, "").trim();
+}
+
+const pages = dv.pages('"02-Projects" or "01-Daily"');
 let tasks = [];
+let seen = new Set();
+
 for (let p of pages) {
   if (!p.file.tasks || p.file.name === "Tasks Kanban") continue;
   if (!inScope(p)) continue;
@@ -53,7 +59,11 @@ for (let p of pages) {
     if (sec.includes("habit") || sec.includes("backlog") || sec.includes("archive")) continue;
 
     if (t.status === "/") {
-      tasks.push(t);
+      const key = getTaskKey(t.text);
+      if (!seen.has(key)) {
+        seen.add(key);
+        tasks.push(t);
+      }
     }
   }
 }
@@ -84,8 +94,14 @@ function getPriorityRank(text) {
   return 4;
 }
 
-const pages = dv.pages('"01-Daily" or "02-Projects"');
+function getTaskKey(txt) {
+  return String(txt || "").toLowerCase().replace(/#priority\/[^\s]+/gi, "").replace(/\[\[[^\]]+\]\]/g, "").replace(/[^\w\s]/g, "").trim();
+}
+
+const pages = dv.pages('"02-Projects" or "01-Daily"');
 let tasks = [];
+let seen = new Set();
+
 for (let p of pages) {
   if (!p.file.tasks || p.file.name === "Tasks Kanban") continue;
   if (!inScope(p)) continue;
@@ -95,7 +111,11 @@ for (let p of pages) {
     if (sec.includes("habit") || sec.includes("backlog") || sec.includes("archive")) continue;
 
     if (t.status === " ") {
-      tasks.push(t);
+      const key = getTaskKey(t.text);
+      if (!seen.has(key)) {
+        seen.add(key);
+        tasks.push(t);
+      }
     }
   }
 }

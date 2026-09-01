@@ -214,6 +214,16 @@ function insertCard(body, line) {
   body.splice(at, 0, line);
 }
 
+function findBestMatchingLane(lanes, desiredMarker) {
+  for (const lane of lanes) {
+    const key = laneKey(lane.name);
+    if (UNMANAGED_LANES.indexOf(key) !== -1) continue;
+    const marker = resolveMarker(lane.name, LANE_MARKERS);
+    if (marker === desiredMarker) return lane;
+  }
+  return null;
+}
+
 /**
  * Applies both rules to a board.
  *
@@ -365,7 +375,13 @@ class KanbanStatusSyncPlugin extends obsidian.Plugin {
       if (!this.settings.autoSync) return;
       if (!file || typeof file.path !== "string" || !file.path.endsWith(".md")) return;
       if (this.writing.has(file.path)) return;
-      this.scheduleSync(file);
+      if (file.name.endsWith("Kanban.md") || file.name === "Tasks Kanban.md") {
+        this.scheduleSync(file);
+      } else if (file.path.startsWith("01-Daily/")) {
+        this.scheduleDailySync(file);
+      } else {
+        this.scheduleSync(file);
+      }
     }));
 
     this.registerEvent(this.app.vault.on("rename", (file, oldPath) => {
@@ -435,6 +451,148 @@ class KanbanStatusSyncPlugin extends obsidian.Plugin {
     }, 400);
 
     this.timers.set(file.path, timer);
+  }
+
+  scheduleDailySync(file) {
+    if (this.timers.has(file.path)) window.clearTimeout(this.timers.get(file.path));
+
+    const timer = window.setTimeout(() => {
+      this.timers.delete(file.path);
+      this.syncDailyNoteToKanban(file);
+    }, 400);
+
+    this.timers.set(file.path, timer);
+  }
+
+  async syncDailyNoteToKanban(dailyFile) {
+    let content = "";
+    try {
+      content = await this.app.vault.read(dailyFile);
+    } catch (e) {
+      return;
+    }
+    if (isKanbanBoard(content)) return;
+
+    const kanbanFile = this.app.vault.getAbstractFileByPath("01-Daily/Tasks Kanban.md");
+    if (!kanbanFile || this.writing.has(kanbanFile.path)) return;
+
+    let kanbanContent = "";
+    try {
+      kanbanContent = await this.app.vault.read(kanbanFile);
+    } catch (e) {
+      return;
+    }
+    if (!isKanbanBoard(kanbanContent)) return;
+
+    const board = parseBoard(kanbanContent);
+    const lines = content.split(/\r?\n/);
+    let boardChanged = false;
+
+    let currentSec = "";
+    const dailyTasks = new Map();
+    for (const line of lines) {
+      if (/^#+\s+/.test(line)) {
+        currentSec = line.replace(/^#+\s+/, "").trim().toLowerCase();
+        continue;
+      }
+      if (currentSec.includes("habit")) continue;
+
+      const match = line.match(/^(\s*[-*]\s+\[)( |\^|\/|x|-|>|<|\?|!)(\]\s+)(.*)$/);
+      if (!match) continue;
+      const marker = match[2];
+      const body = match[4].trim();
+      if (!body) continue;
+      const key = cardKey(body);
+      dailyTasks.set(key, { marker, body });
+    }
+
+    const dailyBaseName = dailyFile.basename;
+    const dailyLinkSuffix = `[[${dailyBaseName}]]`;
+
+    // 1. Prune cards linked to this daily note that no longer exist in the daily note
+    for (const lane of board.lanes) {
+      for (let bi = lane.body.length - 1; bi >= 0; bi--) {
+        const cardLine = lane.body[bi];
+        const cardMatch = cardLine.match(CARD_PATTERN);
+        if (!cardMatch) continue;
+        const cardBody = cardMatch[2];
+        
+        if (cardBody.includes(dailyLinkSuffix)) {
+          const key = cardKey(cardBody);
+          if (!dailyTasks.has(key)) {
+            lane.body.splice(bi, 1);
+            boardChanged = true;
+            console.log(`Kanban Status Sync: pruned deleted daily task "${key}" from Tasks Kanban`);
+          }
+        }
+      }
+    }
+
+    // 2. Sync existing cards or add newly created daily tasks
+    for (const [key, { marker, body }] of dailyTasks.entries()) {
+      const desiredMarker = marker === "/" ? "/" : marker === "x" ? "x" : " ";
+      let foundCard = false;
+
+      for (const lane of board.lanes) {
+        for (let bi = 0; bi < lane.body.length; bi++) {
+          const cardLine = lane.body[bi];
+          const cardMatch = cardLine.match(CARD_PATTERN);
+          if (!cardMatch) continue;
+          const cardBody = cardMatch[2];
+          if (cardKey(cardBody) === key) {
+            foundCard = true;
+            const currentMarker = resolveMarker(lane.name, LANE_MARKERS);
+            if (currentMarker !== desiredMarker) {
+              const destLane = findBestMatchingLane(board.lanes, desiredMarker);
+              if (destLane && destLane !== lane) {
+                lane.body.splice(bi, 1);
+                let newBody = cardBody;
+                if (desiredMarker === "x" && this.settings.manageCompletionDate) {
+                  if (!HAS_COMPLETION_DATE.test(newBody)) {
+                    newBody = withCompletionDate(newBody, formatDate(new Date()));
+                  }
+                } else if (desiredMarker !== "x") {
+                  newBody = newBody.replace(COMPLETION_DATE, "").replace(/\s+$/, "");
+                }
+                const newLine = `- [${desiredMarker}] ${newBody}`;
+                insertCard(destLane.body, newLine);
+                boardChanged = true;
+                console.log(`Kanban Status Sync: synced task "${key}" from daily note to ${destLane.name} in Tasks Kanban`);
+              }
+            }
+          }
+        }
+      }
+
+      if (!foundCard) {
+        const destLane = findBestMatchingLane(board.lanes, desiredMarker);
+        if (destLane) {
+          let cardText = body;
+          if (!cardText.includes(dailyLinkSuffix)) {
+            cardText = `${cardText} ${dailyLinkSuffix}`;
+          }
+          if (desiredMarker === "x" && this.settings.manageCompletionDate && !HAS_COMPLETION_DATE.test(cardText)) {
+            cardText = withCompletionDate(cardText, formatDate(new Date()));
+          }
+          const newLine = `- [${desiredMarker}] ${cardText}`;
+          insertCard(destLane.body, newLine);
+          boardChanged = true;
+          console.log(`Kanban Status Sync: added new task "${key}" to ${destLane.name} in Tasks Kanban`);
+        }
+      }
+    }
+
+    if (boardChanged) {
+      const nextText = serializeBoard(board);
+      this.writing.add(kanbanFile.path);
+      try {
+        await this.app.vault.modify(kanbanFile, nextText);
+      } catch (err) {
+        console.error(`Kanban Status Sync: failed to write Tasks Kanban`, err);
+      } finally {
+        window.setTimeout(() => this.writing.delete(kanbanFile.path), 800);
+      }
+    }
   }
 
   async syncFile(file, options) {
@@ -513,71 +671,115 @@ class KanbanStatusSyncPlugin extends obsidian.Plugin {
     const allFiles = this.app.vault.getMarkdownFiles();
     const targetFiles = allFiles.filter((f) => f.path !== sourceFile.path && !f.name.startsWith("_"));
 
-    for (const tFile of targetFiles) {
-      if (this.writing.has(tFile.path)) continue;
+    for (const sLane of sourceBoard.lanes) {
+      const desiredMarker = resolveMarker(sLane.name, LANE_MARKERS);
+      if (!desiredMarker) continue;
 
-      let targetContent = "";
-      try {
-        targetContent = await this.app.vault.read(tFile);
-      } catch (e) {
-        continue;
-      }
-      if (!isKanbanBoard(targetContent)) continue;
+      for (const line of sLane.body) {
+        const match = line.match(CARD_PATTERN);
+        if (!match) continue;
+        const body = match[2];
+        const key = cardKey(body);
 
-      const targetBoard = parseBoard(targetContent);
-      let targetChanged = false;
+        const linkMatch = body.match(/\[\[([^|\]#]+)(?:#[^|\]]*)?(?:\|[^\]]*)?\]\]/);
+        const linkedName = linkMatch ? linkMatch[1].trim() : null;
 
-      for (const sLane of sourceBoard.lanes) {
-        const desiredMarker = resolveMarker(sLane.name, LANE_MARKERS);
-        if (!desiredMarker) continue;
+        for (const tFile of targetFiles) {
+          if (this.writing.has(tFile.path)) continue;
 
-        for (const line of sLane.body) {
-          const match = line.match(CARD_PATTERN);
-          if (!match) continue;
-          const body = match[2];
-          const key = cardKey(body);
+          const isLinkedTarget = linkedName && (tFile.basename === linkedName || tFile.name === linkedName + ".md");
 
-          for (const tLane of targetBoard.lanes) {
-            for (let bi = 0; bi < tLane.body.length; bi++) {
-              const tLine = tLane.body[bi];
-              const tMatch = tLine.match(CARD_PATTERN);
-              if (!tMatch) continue;
-              const tKey = cardKey(tMatch[2]);
-              if (tKey === key) {
-                const currentMarker = resolveMarker(tLane.name, LANE_MARKERS);
-                if (currentMarker !== desiredMarker) {
-                  const destLane = findBestMatchingLane(targetBoard.lanes, desiredMarker);
-                  if (destLane && destLane !== tLane) {
-                    tLane.body.splice(bi, 1);
-                    let newBody = tMatch[2];
-                    if (desiredMarker === "x" && this.settings.manageCompletionDate) {
-                      if (!HAS_COMPLETION_DATE.test(newBody)) {
-                        newBody = withCompletionDate(newBody, formatDate(new Date()));
+          let targetContent = "";
+          try {
+            targetContent = await this.app.vault.read(tFile);
+          } catch (e) {
+            continue;
+          }
+
+          if (isKanbanBoard(targetContent)) {
+            const targetBoard = parseBoard(targetContent);
+            let targetChanged = false;
+
+            for (const tLane of targetBoard.lanes) {
+              for (let bi = 0; bi < tLane.body.length; bi++) {
+                const tLine = tLane.body[bi];
+                const tMatch = tLine.match(CARD_PATTERN);
+                if (!tMatch) continue;
+                const tKey = cardKey(tMatch[2]);
+                if (tKey === key) {
+                  const currentMarker = resolveMarker(tLane.name, LANE_MARKERS);
+                  if (currentMarker !== desiredMarker) {
+                    const destLane = findBestMatchingLane(targetBoard.lanes, desiredMarker);
+                    if (destLane && destLane !== tLane) {
+                      tLane.body.splice(bi, 1);
+                      let newBody = tMatch[2];
+                      if (desiredMarker === "x" && this.settings.manageCompletionDate) {
+                        if (!HAS_COMPLETION_DATE.test(newBody)) {
+                          newBody = withCompletionDate(newBody, formatDate(new Date()));
+                        }
+                      } else if (desiredMarker !== "x") {
+                        newBody = newBody.replace(COMPLETION_DATE, "").replace(/\s+$/, "");
                       }
-                    } else if (desiredMarker !== "x") {
-                      newBody = newBody.replace(COMPLETION_DATE, "").replace(/\s+$/, "");
+                      const newLine = `- [${desiredMarker}] ${newBody}`;
+                      insertCard(destLane.body, newLine);
+                      targetChanged = true;
+                      console.log(`Kanban Status Sync: cross-synced "${key}" to ${destLane.name} in ${tFile.basename}`);
                     }
-                    const newLine = `- [${desiredMarker}] ${newBody}`;
-                    insertCard(destLane.body, newLine);
-                    targetChanged = true;
-                    console.log(`Kanban Status Sync: cross-synced "${key}" to ${destLane.name} in ${tFile.basename}`);
                   }
                 }
               }
             }
-          }
-        }
-      }
 
-      if (targetChanged) {
-        const nextText = serializeBoard(targetBoard);
-        this.writing.add(tFile.path);
-        try {
-          await this.app.vault.modify(tFile, nextText);
-        } catch (err) {
-          console.error(`Kanban Status Sync: failed to write ${tFile.path}`, err);
-        } finally {
-          window.setTimeout(() => this.writing.delete(tFile.path), 800);
+            if (targetChanged) {
+              const nextText = serializeBoard(targetBoard);
+              this.writing.add(tFile.path);
+              try {
+                await this.app.vault.modify(tFile, nextText);
+              } catch (err) {
+                console.error(`Kanban Status Sync: failed to write ${tFile.path}`, err);
+              } finally {
+                window.setTimeout(() => this.writing.delete(tFile.path), 800);
+              }
+            }
+          } else if (isLinkedTarget || tFile.path.startsWith("01-Daily/")) {
+            const lines = targetContent.split(/\r?\n/);
+            let noteChanged = false;
+
+            for (let li = 0; li < lines.length; li++) {
+              const tLine = lines[li];
+              const tMatch = tLine.match(/^(\s*[-*]\s+\[)( |\^|\/|x|-|>|<|\?|!)(\]\s+)(.*)$/);
+              if (!tMatch) continue;
+              const lineBody = tMatch[4];
+              if (cardKey(lineBody) === key) {
+                const currentMarker = tMatch[2];
+                if (currentMarker !== desiredMarker && PRESERVED_MARKERS.indexOf(currentMarker) === -1) {
+                  let newLineBody = lineBody;
+                  if (desiredMarker === "x" && this.settings.manageCompletionDate) {
+                    if (!HAS_COMPLETION_DATE.test(newLineBody)) {
+                      newLineBody = withCompletionDate(newLineBody, formatDate(new Date()));
+                    }
+                  } else if (desiredMarker !== "x") {
+                    newLineBody = newLineBody.replace(COMPLETION_DATE, "").replace(/\s+$/, "");
+                  }
+                  lines[li] = `${tMatch[1]}${desiredMarker}${tMatch[3]}${newLineBody}`;
+                  noteChanged = true;
+                  console.log(`Kanban Status Sync: synced daily task "${key}" marker from [${currentMarker}] to [${desiredMarker}] in ${tFile.basename}`);
+                }
+              }
+            }
+
+            if (noteChanged) {
+              const nextText = lines.join("\n");
+              this.writing.add(tFile.path);
+              try {
+                await this.app.vault.modify(tFile, nextText);
+              } catch (err) {
+                console.error(`Kanban Status Sync: failed to write note ${tFile.path}`, err);
+              } finally {
+                window.setTimeout(() => this.writing.delete(tFile.path), 800);
+              }
+            }
+          }
         }
       }
     }

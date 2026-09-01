@@ -151,6 +151,7 @@ const todayStr = moment().format("YYYY-MM-DD");
 const pages = dv.pages('"01-Daily" or "02-Projects"');
 let inProgressTasks = [];
 let priorityTasks = [];
+let seenTasks = new Set();
 
 for (let p of pages) {
   if (!p.file.tasks || p.file.name === "Tasks Kanban") continue;
@@ -163,6 +164,10 @@ for (let p of pages) {
     if (!t.text || t.text.trim() === "") continue;
     const sec = (t.header && t.header.subpath) ? t.header.subpath.toLowerCase() : "";
     if (sec.includes("habit") || sec.includes("backlog") || sec.includes("archive")) continue;
+
+    const dedupeKey = t.text.toLowerCase().replace(/#priority\/[^\s]+/gi, "").replace(/\[\[[^\]]+\]\]/g, "").replace(/[^\w\s]/g, "").trim();
+    if (seenTasks.has(dedupeKey)) continue;
+    seenTasks.add(dedupeKey);
 
     const fileName = p.file.name;
     const formattedText = `${t.text} ${dv.fileLink(p.file.path, false, fileName)}`;

@@ -2,12 +2,8 @@
 type: project
 status: completed
 priority: high
-tags:
-  - type/project
-  - area/dev
-  - status/completed
-  - priority/high
-updated: 2026-09-01
+tags: [type/project, area/dev, status/completed, priority/high]
+updated: 2026-09-02
 ---
 
 # Weather Dashboard
@@ -56,11 +52,6 @@ updated: 2026-09-01
 - Build: `yarn build`
 - Format/Lint: `yarn format`, `yarn lint`
 
-## 🛠️ Technical Debt & Future Roadmap
-- [ ] Connect `SearchBar` to `openWeather.ts` API via `WeatherContext`.
-- [ ] Build UI presentation components from stubs (`CurrentWeather`, `ForecastList`, `ForecastDay`).
-- [ ] Implement `localStorage` persistence and dark mode toggle.
-- [ ] Add loading/error UI states and screen reader accessibility support.
 
 ## 📜 Progress Log
 - 2026-08-02: Kanban and project note aligned with repository roadmap.

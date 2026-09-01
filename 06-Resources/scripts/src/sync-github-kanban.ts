@@ -14,9 +14,11 @@ import {
   GitHubProjectItem,
   LocalTaskItem,
   BoardSyncConfig,
+  GitHubIssueInfo,
   normalizeLaneName,
   parsePriorityTag,
-  extractLocalKanbanTasks
+  extractLocalKanbanTasks,
+  injectIssueBadgesIntoBoard
 } from './lib/github';
 
 function isTFile(file: any): file is TFile {
@@ -95,10 +97,21 @@ async function syncSingleBoard(
   let priorityField: ProjectField | null = null;
   const remoteItems: GitHubProjectItem[] = [];
 
-  const [projRes, itemsRes] = await Promise.allSettled([
+  const remotePromises: Array<Promise<{ stdout: string; stderr?: string }>> = [
     execFn(['gh', 'project', 'view', String(projectNumber), '--owner', owner, '--format', 'json'], { timeout: 15000 }),
     execFn(['gh', 'project', 'item-list', String(projectNumber), '--owner', owner, '--format', 'json', '--limit', '100'], { timeout: 15000 })
-  ]);
+  ];
+
+  if (config.repo) {
+    remotePromises.push(
+      execFn(['gh', 'issue', 'list', '--repo', `${owner}/${config.repo}`, '--state', 'all', '--limit', '100', '--json', 'number,title,url,state'], { timeout: 15000 })
+    );
+  }
+
+  const results = await Promise.allSettled(remotePromises);
+  const projRes = results[0];
+  const itemsRes = results[1];
+  const issuesRes = config.repo && results[2] ? results[2] : null;
 
   if (projRes.status === 'fulfilled') {
     try {
@@ -141,8 +154,37 @@ async function syncSingleBoard(
     console.warn(`Could not fetch items for Project #${projectNumber}:`, itemsRes.reason);
   }
 
+  const repoIssues: GitHubIssueInfo[] = [];
+  if (issuesRes && issuesRes.status === 'fulfilled') {
+    try {
+      const parsedIssues = JSON.parse(issuesRes.value.stdout);
+      if (Array.isArray(parsedIssues)) {
+        for (const iss of parsedIssues) {
+          repoIssues.push({
+            number: iss.number,
+            title: iss.title,
+            url: iss.url,
+            state: iss.state
+          });
+        }
+      }
+    } catch (e: any) {
+      console.warn(`Could not parse issues for ${owner}/${config.repo}:`, e);
+    }
+  }
+
   // 3. Read & Parse Local Kanban File
-  const content = await app.vault.read(targetFile);
+  let content = await app.vault.read(targetFile);
+
+  if (repoIssues.length > 0) {
+    const { updatedContent, injectedCount } = injectIssueBadgesIntoBoard(content, repoIssues);
+    if (injectedCount > 0) {
+      content = updatedContent;
+      await app.vault.modify(targetFile, content);
+      console.log(`Injected ${injectedCount} issue badges into ${targetFile.basename}`);
+    }
+  }
+
   const { tasks: localTasks } = extractLocalKanbanTasks(content);
 
   let updatedCount = 0;
