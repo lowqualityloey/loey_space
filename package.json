@@ -7,7 +7,7 @@
     "build": "node build.mjs",
     "watch": "node build.mjs --watch",
     "typecheck": "tsc --noEmit",
-    "test": "node --test \"06-Resources/scripts/tests/*.test.mjs\"",
+    "test": "npx tsx --test \"06-Resources/scripts/tests/*.test.mjs\"",
     "audit-links": "node 06-Resources/scripts/audit-links.js",
     "distill": "node 06-Resources/scripts/distill-concept-action.js",
     "log-github": "node 06-Resources/scripts/sync-github-activity.js",
