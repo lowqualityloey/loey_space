@@ -85,14 +85,15 @@ patterns=(
   '(GEMINI|OPENAI|OPENWEATHER|VITE_OPENWEATHER|ANTHROPIC)_API_KEY[[:space:]]*=[[:space:]]*[A-Za-z0-9_-]{16,}'
 )
 
-# Obvious non-secrets: docs, examples, and the enricher's own regex literals.
-allowlist='your_|_here|example|placeholder|dummy|sample|redacted|xxxx|<your|\[A-Za-z0-9|\[\^|\\s\*'
+# Obvious non-secrets: docs, examples, base64 fonts/images, and regex literals.
+allowlist='your_|_here|example|placeholder|dummy|sample|redacted|xxxx|<your|\[A-Za-z0-9|\[\^|\\s\*|data:font|data:image'
 
 for file in "${staged[@]}"; do
   [ -n "$file" ] || continue
   case "$file" in
     .env.example|*/.env.example) continue ;;
     .githooks/*) continue ;;   # this file documents the patterns it looks for
+    .obsidian/themes/*) continue ;; # community themes contain embedded webfonts
   esac
 
   # Added lines only, minus the +++ header.
