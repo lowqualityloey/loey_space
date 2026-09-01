@@ -12,30 +12,27 @@ updated: 2026-08-29
 
 ---
 
-## 📚 Table of Contents
+## 📚 Jump To
 
 - [⚡ Quickstart](#-quickstart)
 - [🖼️ Screenshots](#️-screenshots)
-- [✨ Main Features](#-main-features)
-- [🤖 AI Assistant & "Hey Loey" Dispatcher](#-ai-assistant--hey-loey-dispatcher)
-- [⚡ HomePulse Command Center](#-homepulse-command-center)
-- [🗂️ Vault Directory Architecture](#️-vault-directory-architecture)
+- [🚀 Hero Features](#-hero-features)
+- [🤖 AI Assistant & "Hey Loey"](#-ai-assistant--hey-loey-dispatcher)
 - [📖 Documentation](#-documentation)
-- [🛠️ Installation \& Setup Guide](#️-installation--setup-guide)
-- [💡 Daily Workflows \& Keyboard Shortcuts](#-daily-workflows--keyboard-shortcuts)
-- [📱 Mobile Workflow](#-mobile-workflow)
-- [📊 Habit Analytics](#-habit-analytics)
-- [📋 Task System Rules \& Conventions](#-task-system-rules--conventions)
-- [🎨 Styling \& Aesthetics](#-styling--aesthetics)
-- [🔒 Security \& Git Safety](#-security--git-safety)
+- [🛠️ Installation & Setup](#️-installation--setup-guide)
 - [🧯 Troubleshooting](#-troubleshooting)
 - [🤝 Contributing](#-contributing)
-- [🙏 Credits \& Acknowledgements](#-credits--acknowledgements)
-- [📄 License](#-license)
+
+*Full technical specifications and operational manuals live inside the vault (see [📖 Documentation](#-documentation)).*
 
 ---
 
 ## ⚡ Quickstart
+
+> [!IMPORTANT]
+> **Critical Pre-Setup Rules:**
+> 1. **`homepulse` and `kanban-status-sync` are bundled custom builds** in `.obsidian/plugins/`. Do not install or update them from the Community Store — keep **Auto-update plugins: OFF**.
+> 2. **Secrets live only in `.env`**, which is git-ignored. Copy `.env.example`, never commit real keys, and read the [Vault Security Policy](06-Resources/Guides/Vault%20Security%20Policy.md).
 
 Five minutes from clone to a working dashboard:
 
@@ -46,12 +43,6 @@ Five minutes from clone to a working dashboard:
 5. **Start today** — `Ctrl + P` → **HomePulse: Open Dashboard View**, then `Ctrl + P` → **QuickAdd: Create Daily Note**.
 
 That's it. Habit tracking, task dashboards and the MOC queries all come alive as soon as a daily note exists.
-
-> [!IMPORTANT]
-> **Two things that will bite a fresh clone:**
->
-> 1. **`homepulse` and `kanban-status-sync` are bundled custom builds** in `.obsidian/plugins/`. Do not install or update them from the Community Store — HomePulse would be replaced by stock code, and Kanban Status Sync isn't published there at all. Keep **Auto-update plugins: OFF**.
-> 2. **Secrets live only in `.env`**, which is git-ignored. Copy `.env.example`, never commit real keys, and read the [Vault Security Policy](06-Resources/Guides/Vault%20Security%20Policy.md).
 
 ---
 
@@ -77,30 +68,14 @@ Each project gets a board. Card checkboxes follow their lane automatically — `
 
 ---
 
-## ✨ Main Features
+## 🚀 Hero Features
 
-| Feature | Description |
-| :--- | :--- |
-| **Loey Space AI Assistant** | Conversational Second Brain Chief of Staff & Digital Librarian triggered via `"hey loey"` (`AGENTS.md`) |
-| **HomePulse Dashboard** | Custom native plugin with real-time widgets — habits, tasks, pomodoro, focus, projects, tech tree, activity heatmap, all in one view |
-| **2-Way Habit Sync** | Toggle habits in the dashboard and they instantly update in today's daily note (and vice versa) |
-| **Multi-Domain AI Enrichment** | One shortcut (`Ctrl+Shift+A`) analyzes any note — generates summaries for daily notes, explanations for concepts, code breakdowns for dev notes, study quizzes & concept extraction for learning notes |
-| **Automatic Concept Distiller** | Extracts atomic evergreen mental models and principles from articles or dev notes into `08-Concepts/` with 90-day review cycles (`QuickAdd` / `npm run distill`) |
-| **Kanban Issue & Branch Generator** | Converts Kanban cards into real GitHub Issues, switches git branch, and moves cards to In Progress (`QuickAdd` / `npm run start-task`) |
-| **Vault Link & Graph Auditor** | Vault-wide scanner for broken wikilinks, fuzzy match fix suggestions, and orphan note discovery (`npm run audit-links`) |
-| **Weekly AI Summaries** | Automated 7-day analysis of mood, energy, tasks, and habits with actionable recommendations |
-| **Habit Analytics Dashboard** | 30-day rolling metrics, streak tracking, day-of-week patterns, and improvement recommendations |
-| **Smart Task Management** | Tasks live in daily notes and project kanbans, aggregated in real-time via `_Tasks MOC.md` with status indicators (`[ ]`, `[/]`, `[x]`) |
-| **Project Kanban Integration** | Each project gets a visual kanban board; tasks from To Do/In Progress/Review flow into the central task hub (Backlog excluded) |
-| **Multi-Project GitHub Sync** | 2-way sync between Obsidian Kanbans and GitHub Projects v2 (`github_project_number`) via QuickAdd picker & CLI (`npm run sync-kanban`) |
-| **Kanban Status Sync** | Drag a card between lanes and its checkbox follows automatically — To Do `[ ]`, In Progress `[/]`, Done `[x]` with a completion date |
-| **Mobile Quick Capture** | 4 mobile-optimized commands for instant capture on the go — process later on desktop |
-| **Inbox Auto-Classification** | Quick captures tagged with type/area/priority suggestions based on content analysis |
-| **Token Triage Sweep** | Tag a capture line `#do` / `#dev` / `#concept` / `#learn` / `#ref` / `#personal` / `#project` / `#bin`, then file the whole inbox in one pass — swept lines are logged, never silently deleted |
-| **Dynamic Tech Tree** | Auto-generated capability map scanning projects, concepts, and resources across the vault |
-| **Execution Pulse** | Live productivity analytics — habit %, focus minutes, note rhythm, task completion ratios |
-| **PARA/MOC Architecture** | Clean folder separation with Maps of Content for navigation — scales without friction |
-| **Ultra-Dark Command Center** | Glassmorphic `#0C0D13` theme with JetBrains Mono, Inter, and custom CSS snippets |
+- **🧠 AI Chief of Staff** – Trigger `"hey loey"` for instant pulse checks, morning setups, inbox token triage, and weekly retrospectives (`AGENTS.md`).
+- **⚡ HomePulse Command Center** – Real-time 2-way habit sync with today's daily note, live execution pulse analytics, and dynamic tech tree visualization.
+- **🔄 Bi-Directional GitHub Sync** – Keep Obsidian Kanban boards in lockstep with GitHub Projects v2 and convert cards to GitHub issues/branches in one click.
+- **🧹 Zero-Friction Inbox Triage** – Route captures instantly with inline tokens (`#do`, `#concept`, `#dev`, `#learn`, `#ref`, `#personal`, `#project`, `#bin`).
+- **📊 Automated Habit Analytics** – 30-day rolling metrics, streak tracking, day-of-week heatmap patterns, and personalized improvement insights.
+- **🔒 Security-First Architecture** – Local Git pre-commit hooks and `.env` credential isolation prevent accidental secret exposure.
 
 ---
 
@@ -209,17 +184,19 @@ loey_space/
 
 ## 📖 Documentation
 
-Full reference lives **inside the vault** rather than a separate `docs/` tree, so every guide stays searchable, linkable and enrichable in Obsidian:
+Full operational guides and architecture specifications live **inside the vault** (searchable, linkable, and enrichable in Obsidian):
 
-| Guide | Covers |
-| :--- | :--- |
-| [AGENTS](AGENTS.md) | Master AI Agent persona, "Hey Loey" command dispatcher, daily/weekly maintenance routines |
-| [CONTRIBUTING](06-Resources/Guides/CONTRIBUTING.md) | Open/closed scope, testing without Obsidian, PR workflow, security rules |
-| [Second Brain Guide](06-Resources/Guides/Second%20Brain%20Guide.md) | Folder architecture, QuickAdd flows, the AI enricher contract, triage tokens, task rules, daily routine |
-| [Mobile Workflow Guide](06-Resources/Guides/Mobile%20Workflow%20Guide.md) | Mobile toolbar setup and the capture-fast / triage-later loop |
-| [Vault Security Policy](06-Resources/Guides/Vault%20Security%20Policy.md) | Secret management and Git safety rules |
-| [QuickAdd Inbox Optimization Guide](06-Resources/Guides/QuickAdd%20Inbox%20Optimization%20Guide.md) | Capture templates and inbox processing |
-| [Weekly AI Summary Guide](06-Resources/Guides/Weekly%20AI%20Summary%20Guide.md) | Weekly review generation and its data requirements |
+- [`AGENTS.md`](AGENTS.md) — Master AI Agent persona, "Hey Loey" command dispatcher, and daily/weekly routines.
+- [`CONTRIBUTING.md`](06-Resources/Guides/CONTRIBUTING.md) — Open/closed scope, plain Node test mocking, and PR guidelines.
+- [`Second Brain Guide.md`](06-Resources/Guides/Second%20Brain%20Guide.md) — Folder architecture, QuickAdd flows, AI enricher contract, triage tokens, and task rules.
+- [`Mobile Workflow Guide.md`](06-Resources/Guides/Mobile%20Workflow%20Guide.md) — Mobile toolbar configuration and capture-fast / triage-later loop.
+- [`Vault Security Policy.md`](06-Resources/Guides/Vault%20Security%20Policy.md) — Secret management and Git safety rules.
+- [`Tagging & Properties.md`](06-Resources/Guides/Tagging%20&%20Properties.md) — Standard YAML properties, frontmatter schema, and tag taxonomy.
+- [`QuickAdd Inbox Optimization Guide.md`](06-Resources/Guides/QuickAdd%20Inbox%20Optimization%20Guide.md) — Capture blueprints and automated inbox processing.
+- [`Weekly AI Summary Guide.md`](06-Resources/Guides/Weekly%20AI%20Summary%20Guide.md) — Weekly AI review generation and data requirements.
+- [`TypeScript Migration Feasibility Assessment.md`](06-Resources/Guides/TypeScript%20Migration%20Feasibility%20Assessment.md) — Architecture and build pipeline for TypeScript automation scripts.
+
+*(All guides are located in [`06-Resources/Guides/`](06-Resources/Guides/) or the vault root).*
 
 ---
 
@@ -318,63 +295,9 @@ If you want to synchronize your Obsidian Kanban boards bi-directionally with **G
 
 ## 💡 Daily Workflows & Keyboard Shortcuts
 
-### 1-Click Note Creation Shortcuts
-Use QuickAdd ribbon buttons or command palette (`Ctrl + P` -> `QuickAdd: Run...`):
-* `⏳ Create Daily Note` — Generates today's daily log (`01-Daily/YYYY-MM-DD.md`) with habits, energy tracking, and task lists.
-* `💡 Create Concept Note` — Creates a structured evergreen note in `08-Concepts/`.
-* `💻 Create Dev Note` — Creates a technical code pattern in `03-Dev/`.
-* `📥 Quick Capture to Inbox` — Appends a quick note to the inbox dump (timestamped).
-* `🧹 Archive & Clear Quick Capture Dump` — Archives processed entries to `00-Inbox/Archives/` and resets the dump note.
-* `🚀 Create Project Note` — Scaffolds a new project with folder and kanban.
-* `💡 Distill Evergreen Concepts` — Extracts atomic mental models into `08-Concepts/` with backlinks.
-* `🚀 Start Work on Kanban Task` — Converts a card into a GitHub Issue, creates git branch, and moves to In Progress.
-* `🐙 Sync GitHub Activity to Daily Log` — Fetches today's commits, PRs, and closed issues with 12h `hh:mm A` timestamps into `## 📝 Daily Log`.
-* `🔄 Sync GitHub Project Kanban` — Multi-project 2-way sync with GitHub Projects v2 (`github_project_number`).
+**One-Click Note Creation & Automation**: Use `Ctrl + P` → `QuickAdd` for instant note creation (Daily, Concept, Dev, Project). Press `Ctrl + Shift + A` on any active note to trigger multi-domain AI enrichment. Append triage tokens (`#do`, `#concept`, `#dev`, `#learn`, `#ref`, `#personal`, `#project`, `#bin`) in `quick-capture-dump.md` and run `🧹 Triage Sweep` to file your entire inbox in one pass. Generate 7-day retrospectives with `📊 Weekly AI Summary`.
 
-### Multi-Domain AI Enricher (`Ctrl + Shift + A`)
-Position your cursor inside any active note and press `Ctrl + Shift + A` (or run `QuickAdd: AI Enrich Note`):
-1. **Daily Notes (`01-Daily/`)**: Generates a narrative summary, AI reflection, inspirational quote, and suggested next step. Unfinished tasks carry into Tomorrow Setup.
-2. **Concept Notes (`08-Concepts/`)**: Detects topic domain and generates technical explanations, real-world utility, runnable code snippets, or media lore.
-3. **Dev Notes (`03-Dev/`)**: Analyzes code snippets and updates language, tags, context, explanation, and wikilink references.
-4. **Learning Notes (`04-Learning/`)**: Extracts evergreen concepts, reusable patterns, study objectives, and active-recall self-quiz flashcards.
-
-### Inbox Triage (token sweep)
-
-Triage is a decision, not a form. Append a token to any line in `00-Inbox/quick-capture-dump.md`:
-
-```markdown
-- i have to do laundry #do
-- https://app.lofi.town/ #ref
-- semantic commit messages #concept
-- lemme test #bin
-```
-
-Then run `QuickAdd: 🧹 Triage Sweep` once. `#do` becomes a task in today's daily note; `#dev` / `#concept` / `#learn` / `#ref` / `#personal` become real notes with the right frontmatter; `#project` scaffolds a project folder plus Kanban board; `#bin` is dropped. Untagged lines stay put, and swept lines are logged (struck through, with their destination) in a `## ✅ Triaged` section rather than deleted.
-
-Run `06-Resources/scripts/inbox-status.ps1` or check `_Inbox MOC.md` anytime to view pending capture counts and tagged items.
-
-### Weekly AI Summary
-Run `QuickAdd: 📊 Weekly AI Summary` (or bind to `Ctrl+Shift+W`):
-- Aggregates 7 days of daily notes (mood, energy, tasks, habits, wins, blockers)
-- Generates executive summary, patterns, and recommendations via Gemini AI
-- Creates a structured review note in `07-Reviews/YYYY-W[week].md`
-
-### 🌐 Obsidian Web Clipper Integration
-
-The vault ships with 8 pre-configured **Web Clipper presets** (`06-Resources/clipper-templates/`):
-
-| Preset | Target Folder | Description |
-| :--- | :--- | :--- |
-| `inbox-quick-clip.json` | `00-Inbox/` | Fast unformatted capture ready for token triage sweep |
-| `inbox-quick-clip-ai.json` | `00-Inbox/` | Captures web clip with instant 2–3 bullet AI summary for rapid inbox processing |
-| `resource-article.json` | `06-Resources/Articles/` | Standardized web article clipping with author, source, and metadata |
-| `resource-article-ai.json` | `06-Resources/Articles/` | Deep article capture with automated AI synthesis, takeaways & highlights |
-| `dev-guide.json` | `06-Resources/Articles/` | Developer tutorials and deep-dives formatted for technical reading |
-| `dev-snippet.json` | `03-Dev/` | Formats reusable code snippets with syntax highlighting and tags |
-| `github-repo.json` | `06-Resources/` | Captures GitHub repo stats, star counts, license, and repository URL |
-| `youtube-video.json` | `06-Resources/Articles/` | Captures YouTube video metadata, channel name, and timestamped notes |
-
-*Import any preset into the [Obsidian Web Clipper extension](https://obsidian.md/clipper) (Settings → Templates → Import).*
+> 📘 For the complete keyboard shortcut catalog, mobile toolbar commands, and Web Clipper presets, see the [Second Brain Guide](06-Resources/Guides/Second%20Brain%20Guide.md) and [Mobile Workflow Guide](06-Resources/Guides/Mobile%20Workflow%20Guide.md).
 
 ---
 
@@ -417,21 +340,9 @@ All data is automatically pulled from daily notes — no manual tracking require
 
 ## 📋 Task System Rules & Conventions
 
-* **Source of Truth & Visual Boards**: All tasks are logged directly inside daily notes (`01-Daily`) or project notes (`02-Projects`). `01-Daily/Tasks Kanban.md` provides an interactive drag-and-drop board for active to-dos and in-progress items, while `_Tasks MOC.md` provides automated aggregation and completion analytics.
-* **Task Status Hierarchy**:
-  * `- [ ] task` => **Active To-Do** (Visible in Open Tasks widget & `_Tasks MOC.md`)
-  * `- [/] task` => **In Progress** (Sorted to top, focus anchor)
-  * `- [x] task` => **Completed** (Logged in task analytics)
-* **Habit Isolation**: Routine checkboxes under `## 🔁 Habits` are strictly isolated from task command centers.
-* **Kanban Filtering**: Tasks under `## Backlog` and `## Archive` in project kanbans are excluded from the Open Tasks widget and `_Tasks MOC.md`.
-* **Lane-Driven Status**: Card markers are set automatically from the lane a card sits in (`To Do` -> `[ ]`, `In Progress` / `Review / Test` -> `[/]`, `Done` -> `[x]` + `✅ date`). Cancelled/forwarded markers (`[-]`, `[>]`, `[<]`) are preserved.
-* **Tick Anywhere to Complete**: Ticking a project card from the board, `_Tasks MOC.md`, or the daily note's project query moves that card to the **Done** lane with today's date.
-* **Project Tasks in Daily Notes**: Daily notes show in-progress project work through a live Dataview query (`#### 🎯 In Progress from Projects`), not copied text — so nothing is double-counted in the Open Tasks widget and nothing leaks into the next day's carry-over. A CSS snippet (`project-tasks.css`) draws these `[/]` cards as empty checkboxes inside daily notes, so they read as ordinary open tasks you can tick; cards completed that day stay listed, checked.
-* **Project Status Matching**: `_Projects MOC.md` accepts `in progress`, `in-progress`, `active`, `doing` and `wip` as active, so a space instead of a hyphen no longer hides a project. Progress bars count committed work only — Backlog and Archive are excluded.
-* **Daily Carry-Over**: Unfinished `- [ ]` tasks under `### ✅ Tasks` roll forward into tomorrow's daily note. Completed and in-progress items do not.
-* **Forwarded, Not Duplicated**: When tasks carry forward, the previous note marks its copies `- [>]` (forwarded, shown as a faint `→`). Each task is therefore open in exactly one note, so it is counted once in the Open Tasks widget, `_Tasks MOC.md`, and the analytics.
-* **GitHub Project v2 Sync**: Project Kanbans with `github_project_number` frontmatter sync cards, status columns, and priority tags (`#priority/p0` Red 🔴, `#priority/p1` Yellow 🟡, `#priority/p2` Blue 🔵, `#priority/p3` Green 🟢) bi-directionally with GitHub Projects v2.
-* **Today-Scoped Dashboards**: `_Tasks MOC.md` counts daily tasks from the current daily note only; project board tasks are always included. Completed totals stay all-time.
+**Source of Truth & Visual Boards**: Tasks live directly inside daily notes (`01-Daily`) and project kanbans (`02-Projects`). `_Tasks MOC.md` dynamically aggregates active to-dos with status indicators (`[ ]` To Do, `[/]` In Progress, `[x]` Done). Unfinished tasks roll forward (`[>]`) without double-counting, while Backlog and Archive remain filtered from active dashboards.
+
+> 📘 For the complete task lifecycle specification, habit isolation rules, lane-driven status markers, tick-anywhere mechanics, and GitHub Project sync conventions, see the [Second Brain Guide](06-Resources/Guides/Second%20Brain%20Guide.md#5-task-management-system) and [`01-Daily/_Tasks MOC.md`](01-Daily/_Tasks%20MOC.md).
 
 ---
 
@@ -539,6 +450,33 @@ See [CONTRIBUTING.md](06-Resources/Guides/CONTRIBUTING.md) for the full scope, p
 * **[HomePulse](https://github.com/jukkau/HomePulse)** by [@jukkau](https://github.com/jukkau) — The foundational dashboard plugin architecture powering the real-time command center interface in this vault.
 * **[Obsidian Kanban](https://github.com/mgmeyers/obsidian-kanban)** by [@mgmeyers](https://github.com/mgmeyers) — Visual markdown Kanban boards and card management.
 * **[Dataview](https://github.com/blacksmithgu/obsidian-dataview)** by [@blacksmithgu](https://github.com/blacksmithgu) & **[QuickAdd](https://github.com/chhoumann/quickadd)** by [@chhoumann](https://github.com/chhoumann) — Core query and automation engines.
+
+---
+
+## 📋 Full Feature Reference
+
+| Feature | Description |
+| :--- | :--- |
+| **Loey Space AI Assistant** | Conversational Second Brain Chief of Staff & Digital Librarian triggered via `"hey loey"` (`AGENTS.md`) |
+| **HomePulse Dashboard** | Custom native plugin with real-time widgets — habits, tasks, pomodoro, focus, projects, tech tree, activity heatmap, all in one view |
+| **2-Way Habit Sync** | Toggle habits in the dashboard and they instantly update in today's daily note (and vice versa) |
+| **Multi-Domain AI Enrichment** | One shortcut (`Ctrl+Shift+A`) analyzes any note — generates summaries for daily notes, explanations for concepts, code breakdowns for dev notes, study quizzes & concept extraction for learning notes |
+| **Automatic Concept Distiller** | Extracts atomic evergreen mental models and principles from articles or dev notes into `08-Concepts/` with 90-day review cycles (`QuickAdd` / `npm run distill`) |
+| **Kanban Issue & Branch Generator** | Converts Kanban cards into real GitHub Issues, switches git branch, and moves cards to In Progress (`QuickAdd` / `npm run start-task`) |
+| **Vault Link & Graph Auditor** | Vault-wide scanner for broken wikilinks, fuzzy match fix suggestions, and orphan note discovery (`npm run audit-links`) |
+| **Weekly AI Summaries** | Automated 7-day analysis of mood, energy, tasks, and habits with actionable recommendations |
+| **Habit Analytics Dashboard** | 30-day rolling metrics, streak tracking, day-of-week patterns, and improvement recommendations |
+| **Smart Task Management** | Tasks live in daily notes and project kanbans, aggregated in real-time via `_Tasks MOC.md` with status indicators (`[ ]`, `[/]`, `[x]`) |
+| **Project Kanban Integration** | Each project gets a visual kanban board; tasks from To Do/In Progress/Review flow into the central task hub (Backlog excluded) |
+| **Multi-Project GitHub Sync** | 2-way sync between Obsidian Kanbans and GitHub Projects v2 (`github_project_number`) via QuickAdd picker & CLI (`npm run sync-kanban`) |
+| **Kanban Status Sync** | Drag a card between lanes and its checkbox follows automatically — To Do `[ ]`, In Progress `[/]`, Done `[x]` with a completion date |
+| **Mobile Quick Capture** | 4 mobile-optimized commands for instant capture on the go — process later on desktop |
+| **Inbox Auto-Classification** | Quick captures tagged with type/area/priority suggestions based on content analysis |
+| **Token Triage Sweep** | Tag a capture line `#do` / `#dev` / `#concept` / `#learn` / `#ref` / `#personal` / `#project` / `#bin`, then file the whole inbox in one pass — swept lines are logged, never silently deleted |
+| **Dynamic Tech Tree** | Auto-generated capability map scanning projects, concepts, and resources across the vault |
+| **Execution Pulse** | Live productivity analytics — habit %, focus minutes, note rhythm, task completion ratios |
+| **PARA/MOC Architecture** | Clean folder separation with Maps of Content for navigation — scales without friction |
+| **Ultra-Dark Command Center** | Glassmorphic `#0C0D13` theme with JetBrains Mono, Inter, and custom CSS snippets |
 
 ---
 
