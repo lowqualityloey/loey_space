@@ -110,6 +110,58 @@ function extractLocalKanbanTasks(content) {
   }
   return { tasks, sections };
 }
+function injectIssueBadgesIntoBoard(content, issues) {
+  const lines = content.split("\n");
+  let injectedCount = 0;
+  let inFrontmatter = false;
+  let inFence = false;
+  const issueMap = /* @__PURE__ */ new Map();
+  for (const issue of issues) {
+    const clean = issue.title.toLowerCase().replace(/[^\w\s]/g, "").trim();
+    if (clean) {
+      issueMap.set(clean, issue);
+    }
+  }
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    if (i === 0 && trimmed === "---") {
+      inFrontmatter = true;
+      continue;
+    }
+    if (inFrontmatter) {
+      if (trimmed === "---")
+        inFrontmatter = false;
+      continue;
+    }
+    if (trimmed.startsWith("```")) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence)
+      continue;
+    const taskMatch = line.match(/^(\s*-\s*\[[ xX/>\-?*!]\]\s+)(.*)$/);
+    if (!taskMatch)
+      continue;
+    const prefix = taskMatch[1];
+    const body = taskMatch[2];
+    if (/\[#\d+\]\([^)]+\)/.test(body) || /#\d+/.test(body))
+      continue;
+    const cleanBody = body.replace(/#priority\/[^\s]+/gi, "").replace(/✅\s*\d{4}-\d{2}-\d{2}/, "").replace(/\[\[[^\]]+\]\]/g, "").replace(/[^\w\s]/g, "").trim().toLowerCase();
+    if (!cleanBody)
+      continue;
+    const matchedIssue = issueMap.get(cleanBody) || Array.from(issueMap.values()).find((iss) => {
+      const issClean = iss.title.toLowerCase().replace(/[^\w\s]/g, "").trim();
+      return issClean.length > 5 && (cleanBody.includes(issClean) || issClean.includes(cleanBody));
+    });
+    if (matchedIssue) {
+      const newBody = `[#${matchedIssue.number}](${matchedIssue.url}) ${body.trim()}`;
+      lines[i] = `${prefix}${newBody}`;
+      injectedCount++;
+    }
+  }
+  return { updatedContent: lines.join("\n"), injectedCount };
+}
 
 // 06-Resources/scripts/src/sync-github-kanban.ts
 var execAsync = (0, import_util.promisify)(import_child_process.exec);
@@ -176,10 +228,19 @@ async function syncSingleBoard(app, targetFile, config, customExecFn) {
   let statusField = null;
   let priorityField = null;
   const remoteItems = [];
-  const [projRes, itemsRes] = await Promise.allSettled([
+  const remotePromises = [
     execFn(["gh", "project", "view", String(projectNumber), "--owner", owner, "--format", "json"], { timeout: 15e3 }),
     execFn(["gh", "project", "item-list", String(projectNumber), "--owner", owner, "--format", "json", "--limit", "100"], { timeout: 15e3 })
-  ]);
+  ];
+  if (config.repo) {
+    remotePromises.push(
+      execFn(["gh", "issue", "list", "--repo", `${owner}/${config.repo}`, "--state", "all", "--limit", "100", "--json", "number,title,url,state"], { timeout: 15e3 })
+    );
+  }
+  const results = await Promise.allSettled(remotePromises);
+  const projRes = results[0];
+  const itemsRes = results[1];
+  const issuesRes = config.repo && results[2] ? results[2] : null;
   if (projRes.status === "fulfilled") {
     try {
       const projData = JSON.parse(projRes.value.stdout);
@@ -219,7 +280,33 @@ async function syncSingleBoard(app, targetFile, config, customExecFn) {
   } else {
     console.warn(`Could not fetch items for Project #${projectNumber}:`, itemsRes.reason);
   }
-  const content = await app.vault.read(targetFile);
+  const repoIssues = [];
+  if (issuesRes && issuesRes.status === "fulfilled") {
+    try {
+      const parsedIssues = JSON.parse(issuesRes.value.stdout);
+      if (Array.isArray(parsedIssues)) {
+        for (const iss of parsedIssues) {
+          repoIssues.push({
+            number: iss.number,
+            title: iss.title,
+            url: iss.url,
+            state: iss.state
+          });
+        }
+      }
+    } catch (e) {
+      console.warn(`Could not parse issues for ${owner}/${config.repo}:`, e);
+    }
+  }
+  let content = await app.vault.read(targetFile);
+  if (repoIssues.length > 0) {
+    const { updatedContent, injectedCount } = injectIssueBadgesIntoBoard(content, repoIssues);
+    if (injectedCount > 0) {
+      content = updatedContent;
+      await app.vault.modify(targetFile, content);
+      console.log(`Injected ${injectedCount} issue badges into ${targetFile.basename}`);
+    }
+  }
   const { tasks: localTasks } = extractLocalKanbanTasks(content);
   let updatedCount = 0;
   let createdCount = 0;
@@ -310,8 +397,8 @@ async function syncSingleBoard(app, targetFile, config, customExecFn) {
       }
     }
     if (updateTasks.length > 0) {
-      const results = await Promise.all(updateTasks.map((fn) => fn()));
-      for (const ok of results) {
+      const results2 = await Promise.all(updateTasks.map((fn) => fn()));
+      for (const ok of results2) {
         if (ok)
           updatedCount++;
         else
@@ -319,8 +406,8 @@ async function syncSingleBoard(app, targetFile, config, customExecFn) {
       }
     }
     if (createTasks.length > 0) {
-      const results = await Promise.all(createTasks.map((fn) => fn()));
-      for (const ok of results) {
+      const results2 = await Promise.all(createTasks.map((fn) => fn()));
+      for (const ok of results2) {
         if (ok)
           createdCount++;
         else
