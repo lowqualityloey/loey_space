@@ -101,7 +101,7 @@ export function extractLocalKanbanTasks(content: string): { tasks: LocalTaskItem
       continue;
     }
 
-    const taskMatch = line.match(/^\s*-\s*\[([ xX/>\-?*!])\]\s+(.*)$/);
+    const taskMatch = line.match(/^-\s*\[([ xX/>\-?*!])\]\s+(.*)$/);
     if (taskMatch && currentSection) {
       const checkbox = taskMatch[1];
       const rawText = taskMatch[2].trim();
@@ -162,11 +162,14 @@ export function moveCardToInProgress(
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const taskMatch = line.match(/^\s*-\s*\[[ xX/>\-?*!]\]\s+(.*)$/);
+    const taskMatch = line.match(/^-\s*\[[ xX/>\-?*!]\]\s+(.*)$/);
     if (taskMatch && !removedLine) {
       const lineClean = taskMatch[1].toLowerCase().trim();
       if (lineClean.includes(cleanTarget) || cleanTarget.includes(lineClean)) {
         removedLine = true;
+        while (i + 1 < lines.length && (/^\s{2,}|\t/.test(lines[i + 1]) || /^\s*>\s/.test(lines[i + 1]))) {
+          i++;
+        }
         continue;
       }
     }

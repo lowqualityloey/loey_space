@@ -36,7 +36,7 @@
     "02-Projects/shelf/shelf Kanban.md": {
       "export personal library to json/csv": "backlog",
       "configure tailwind css and design tokens #priority/p1": "backlog",
-      "test auth0 token validation on protected backend routes #priority/p1": "backlog",
+      "test supabase token validation on protected backend routes #priority/p1": "backlog",
       "verify tanstack query cache invalidation on mutations #priority/p2": "backlog",
       "audit open library api fallback for missing cover images": "backlog",
       "dark mode toggle with persisted preference": "backlog",
@@ -48,7 +48,7 @@
       "create core ui components (bookcard, shelfselector, starrating) #priority/p2": "to do",
       "add optimistic update logic for reading status toggles #priority/p2": "to do",
       "build book details view with notes editor #priority/p2": "to do",
-      "configure auth0 react sdk & auth route guards #priority/p1": "in progress",
+      "[#11](https://github.com/lowqualityloey/shelf/issues/11) configure supabase auth client & route guards #priority/p1": "in progress",
       "initialize vite + react + typescript repository": "done",
       "design ux wireframes and screen mockups": "done",
       "define rest api contracts and postgresql schema #priority/p2": "done",
