@@ -495,5 +495,119 @@ strong span.cm-inline-code {
   padding: 1px 5px !important;
 }
 
+/* ==========================================================================
+   🌳 HOMEPULSE: FLAWLESS CONTINUOUS PIXEL-PERFECT TREE CONNECTORS
+   ========================================================================== */
+
+/* 1. Turn off buggy container-level vertical line that causes dangling overshoots */
+.yh-tech-children::before {
+  display: none !important;
+  border-left: none !important;
+}
+
+/* 2. Consistent layout spacing */
+.yh-tech-tree {
+  gap: 28px !important;
+}
+
+.yh-tech-lane {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  margin-bottom: 12px !important;
+}
+
+/* 3. Children container: gap MUST be 0 so vertical connector line never breaks */
+.yh-tech-children {
+  position: relative !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 0 !important;
+  margin-left: 20px !important;
+  padding-left: 20px !important;
+}
+
+.yh-tech-subtree {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* 4. Button breathing room without separating subtree line boundaries */
+.yh-tech-node {
+  margin: 4px 0 !important;
+}
+
+/* 5. Horizontal branch connecting into each node */
+.yh-tech-subtree::before {
+  content: "" !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: -20px !important;
+  width: 20px !important;
+  height: 0 !important;
+  border-top: 1px solid rgba(14, 210, 247, 0.3) !important;
+  transform: translateY(-50%) !important;
+  pointer-events: none !important;
+}
+
+/* 6. Horizontal branch extending from parent node to child group */
+.yh-tech-children::after {
+  content: "" !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: -20px !important;
+  width: 20px !important;
+  height: 0 !important;
+  border-top: 1px solid rgba(14, 210, 247, 0.3) !important;
+  transform: translateY(-50%) !important;
+  pointer-events: none !important;
+}
+
+/* 7. Precise continuous per-node vertical trunk line with ZERO overhang or gaps */
+.yh-tech-subtree::after {
+  content: "" !important;
+  position: absolute !important;
+  left: -20px !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  width: 0 !important;
+  border-left: 1px solid rgba(14, 210, 247, 0.3) !important;
+  pointer-events: none !important;
+}
+
+/* First child: vertical line starts exactly at middle (50%) and goes down */
+.yh-tech-subtree:first-child::after {
+  top: 50% !important;
+  bottom: 0 !important;
+}
+
+/* Last child: vertical line starts at top and stops exactly at middle (50%) */
+.yh-tech-subtree:last-child::after {
+  top: 0 !important;
+  bottom: 50% !important;
+}
+
+/* Middle children: span from top to bottom seamlessly */
+.yh-tech-subtree:not(:first-child):not(:last-child)::after {
+  top: 0 !important;
+  bottom: 0 !important;
+}
+
+/* Only child: no vertical trunk needed */
+.yh-tech-subtree:only-child::after {
+  display: none !important;
+}
+
+/* Visual highlights */
+.yh-tech-node.is-in-progress {
+  border-color: var(--interactive-accent-hover, #0ed2f7) !important;
+  box-shadow: 0 0 10px rgba(14, 210, 247, 0.3) !important;
+}
+
+
 
 

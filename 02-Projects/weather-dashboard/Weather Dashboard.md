@@ -43,8 +43,13 @@ updated: 2026-09-02
 - Metric units (Celsius and km/h)
 
 ## API / Data
-- [[OpenWeatherMap API]]: Geocoding API & 5-day / 3-hour Forecast API
+- [[06-Resources/APIs/OpenWeatherMap API|OpenWeatherMap API]]: Geocoding API & 5-day / 3-hour Forecast API
 - Requires `VITE_OPENWEATHER_API_KEY` environment variable (stored in `.env`).
+
+## 💡 Applied Architectural Concepts & Knowledge Links
+- [[08-Concepts/Parse, Don't Validate|Parse, Don't Validate]] — Parsing raw OpenWeather JSON API payloads into strict application types at the API adapter layer.
+- [[08-Concepts/Build-Time Optimization|Build-Time Optimization]] — Vite build tree shaking and Tailwind CSS asset minification.
+- [[08-Concepts/Make Illegal States Unrepresentable|Make Illegal States Unrepresentable]] — Explicit forecast data structures preventing undefined weather condition crashes.
 
 ## Setup and Run
 - Install: `yarn install`

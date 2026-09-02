@@ -98,10 +98,7 @@ var mt=Object.defineProperty;var ss=Object.getOwnPropertyDescriptor;var os=Objec
         return acc;
       }, new Set());
 
-    // Add area node for Development
-    nodes.push({ id: "area:dev", title: "Development", group: "dev", status: "active", level: 1, kind: "area", link: "03-Dev/_Dev MOC.md", dependsOn: [] });
-
-    // Add each project folder as a project node
+    // 1. PROJECTS (02-Projects/) - Direct Root Nodes under Development
     for (let folder of projectFolders) {
       let folderPath = "02-Projects/" + folder + "/";
       let folderFiles = allFiles.filter(f => f.path.replace(/\\/g, "/").startsWith(folderPath));
@@ -117,13 +114,13 @@ var mt=Object.defineProperty;var ss=Object.getOwnPropertyDescriptor;var os=Objec
         title: cleanName(mainNote || { basename: folder }),
         group: "dev",
         status: projectStatus,
-        level: 2,
+        level: 1,
         kind: "project",
         link: mainNote ? mainNote.path : folderPath,
-        dependsOn: ["area:dev"]
+        dependsOn: []
       });
 
-      // Add Kanban tasks as children
+      // Add Kanban tasks as children of the project
       if (kanbanNote) {
         try {
           let content = await s.vault.cachedRead(kanbanNote);
@@ -135,11 +132,12 @@ var mt=Object.defineProperty;var ss=Object.getOwnPropertyDescriptor;var os=Objec
               currentSec = l.replace(/^#+\s+/, "").trim().toLowerCase();
               continue;
             }
-            // Only include To Do, In Progress, Review/Test tasks
             if (currentSec === "backlog" || currentSec === "done" || currentSec === "archive") continue;
             let m = /^\s*[-*]\s+\[( |\/)\]\s+([^\r\n]+)$/.exec(l);
             if (m) {
               let txt = m[2].trim().replace(/✅.*$/, "").trim();
+              // Clean markdown links like [#11](https://...) -> #11
+              txt = txt.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1").trim();
               if (txt) {
                 taskIdx++;
                 nodes.push({
@@ -147,7 +145,7 @@ var mt=Object.defineProperty;var ss=Object.getOwnPropertyDescriptor;var os=Objec
                   title: txt,
                   group: "dev",
                   status: m[1] === "/" ? "in-progress" : "active",
-                  level: 3,
+                  level: 2,
                   kind: "concept",
                   link: kanbanNote.path,
                   dependsOn: [projectId]
@@ -164,8 +162,8 @@ var mt=Object.defineProperty;var ss=Object.getOwnPropertyDescriptor;var os=Objec
       let norm = f.path.replace(/\\/g, "/");
       if (!norm.startsWith("02-Projects/")) return false;
       let rel = norm.replace("02-Projects/", "");
-      if (rel.includes("/")) return false; // skip subfolder files
-      if (f.basename.startsWith("_")) return false; // skip MOCs
+      if (rel.includes("/")) return false;
+      if (f.basename.startsWith("_")) return false;
       return true;
     });
 
@@ -177,30 +175,42 @@ var mt=Object.defineProperty;var ss=Object.getOwnPropertyDescriptor;var os=Objec
         title: cleanName(file),
         group: "dev",
         status: getStatus(file),
-        level: 2,
+        level: 1,
         kind: "project",
         link: file.path,
-        dependsOn: ["area:dev"]
+        dependsOn: []
       });
     }
 
-    // --- 2. DEV NOTES (03-Dev/) ---
+    // --- 2. DEV CODE PATTERNS (03-Dev/) ---
     let devNotes = allFiles.filter(f => {
       let norm = f.path.replace(/\\/g, "/");
       return norm.startsWith("03-Dev/") && !f.basename.startsWith("_");
     });
 
-    for (let file of devNotes) {
+    if (devNotes.length > 0) {
       nodes.push({
-        id: "dev:" + file.basename,
-        title: cleanName(file),
+        id: "area:snippets",
+        title: "Code Snippets",
         group: "dev",
-        status: getStatus(file),
-        level: 2,
-        kind: "concept",
-        link: file.path,
-        dependsOn: ["area:dev"]
+        status: "active",
+        level: 1,
+        kind: "area",
+        link: "03-Dev/_Dev MOC.md",
+        dependsOn: []
       });
+      for (let file of devNotes) {
+        nodes.push({
+          id: "dev:" + file.basename,
+          title: cleanName(file),
+          group: "dev",
+          status: getStatus(file),
+          level: 2,
+          kind: "concept",
+          link: file.path,
+          dependsOn: ["area:snippets"]
+        });
+      }
     }
 
     // --- 3. CONCEPTS (08-Concepts/) ---
@@ -225,14 +235,14 @@ var mt=Object.defineProperty;var ss=Object.getOwnPropertyDescriptor;var os=Objec
       }
     }
 
-    // --- 4. LEARNING (04-Learning/) ---
+    // --- 4. LEARNING TRACKS (04-Learning/) ---
     let learningNotes = allFiles.filter(f => {
       let norm = f.path.replace(/\\/g, "/");
       return norm.startsWith("04-Learning/") && !f.basename.startsWith("_");
     });
 
     if (learningNotes.length > 0) {
-      nodes.push({ id: "area:learning", title: "Learning", group: "learning", status: "active", level: 1, kind: "area", link: "04-Learning/_Learning MOC.md", dependsOn: [] });
+      nodes.push({ id: "area:learning", title: "Study Tracks", group: "learning", status: "active", level: 1, kind: "area", link: "04-Learning/_Learning MOC.md", dependsOn: [] });
       for (let file of learningNotes) {
         nodes.push({
           id: "learning:" + file.basename,
@@ -250,13 +260,11 @@ var mt=Object.defineProperty;var ss=Object.getOwnPropertyDescriptor;var os=Objec
     // --- 5. RESOURCES (06-Resources/) ---
     let resourceNotes = allFiles.filter(f => {
       let norm = f.path.replace(/\\/g, "/");
-      return norm.startsWith("06-Resources/") && !f.basename.startsWith("_") && !norm.includes("/scripts/");
+      return norm.startsWith("06-Resources/") && !f.basename.startsWith("_") && !norm.includes("/scripts/") && !norm.includes("/Guides/") && !norm.includes("/clipper-templates/");
     });
 
     if (resourceNotes.length > 0) {
-      if (!nodes.find(n => n.id === "area:learning")) {
-        nodes.push({ id: "area:learning", title: "Learning", group: "learning", status: "active", level: 1, kind: "area", link: "04-Learning/_Learning MOC.md", dependsOn: [] });
-      }
+      nodes.push({ id: "area:resources", title: "Resources", group: "learning", status: "active", level: 1, kind: "area", link: "06-Resources/_Resources MOC.md", dependsOn: [] });
       for (let file of resourceNotes) {
         nodes.push({
           id: "resource:" + file.basename,
@@ -266,7 +274,7 @@ var mt=Object.defineProperty;var ss=Object.getOwnPropertyDescriptor;var os=Objec
           level: 2,
           kind: "concept",
           link: file.path,
-          dependsOn: ["area:learning"]
+          dependsOn: ["area:resources"]
         });
       }
     }
