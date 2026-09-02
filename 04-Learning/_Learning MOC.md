@@ -28,7 +28,7 @@ TABLE
   source_url AS "Source",
   file.mtime AS "Last Active"
 FROM "04-Learning"
-WHERE file.name != "_Learning MOC" AND (status = "in-progress" OR status = "planning")
+WHERE file.name != "_Learning MOC" AND (status = "in-progress" OR status = "planning" OR status = "active")
 SORT file.mtime DESC
 ```
 
