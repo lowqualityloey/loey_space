@@ -94,7 +94,7 @@ tags:
 The agent has 5 custom skills available in `.agents/skills/`:
 
 1. **`vault-concept-distiller`**: Extracts atomic evergreen concepts into `08-Concepts/` with 90d review cycles.
-2. **`kanban-project-planner`**: Decomposes features into priority-tagged Kanban cards (`shelf`, `weather-dashboard`) and manages GitHub Project sync.
+2. **`kanban-project-planner`**: Decomposes features into priority-tagged Kanban cards (`#priority/p0-p3`) and manages GitHub Project sync.
 3. **`vault-hygiene-auditor`**: Validates frontmatter taxonomy, scans for broken wikilinks, and checks for secret leaks.
 4. **`habit-trend-analyzer`**: Correlates multi-day mood/energy/sleep metrics with habits and generates weekly retrospectives in `07-Reviews/`.
 5. **`dev-snippet-indexer`**: Formats reusable technical snippets into `03-Dev/` with syntax highlighting and language tags.

@@ -17,12 +17,11 @@ tags:
 # OpenWeatherMap API
 
 ## Purpose
-Provides current weather conditions, 5-day / 3-hour forecasts, and geocoding city search for the [[Weather Dashboard]] project.
+Provides current weather conditions, 5-day / 3-hour forecasts, and geocoding city search API specifications.
 
-## Project
-- Related project: [[Weather Dashboard]]
-- Owner: Loey
-- Status: Active (Production Integration)
+## Scope
+- Category: Weather & Geocoding Integrations
+- Status: Active (Reference Specification)
 
 ## Setup
 - Base URL: `https://api.openweathermap.org/data/2.5/`
@@ -43,7 +42,6 @@ Provides current weather conditions, 5-day / 3-hour forecasts, and geocoding cit
 - **Client Implementation**: API service helper located in `src/lib/api.ts` in the `weather-dashboard` repository.
 
 ## Related
-- [[Weather Dashboard]]
 - [[Vault Security Policy]]
 
 ## Risks / Limits

@@ -17,11 +17,6 @@ tags:
 
 ---
 
-## 💼 Developer Career & Professional Hub
-- [[05-Personal/Developer Career/_Developer Career MOC|Developer Career Hub]] — Targeted graduate/junior NZ job applications, portfolio strategy, interview prep, outreach templates, and weekly review workflows.
-
----
-
 ## 🎮 Hobbies, Gaming & Media
 ```dataview
 TABLE category AS "Category", file.mtime AS "Last Touched"
