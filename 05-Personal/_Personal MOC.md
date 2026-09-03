@@ -1,6 +1,6 @@
 ---
 created: 2026-08-09
-updated: 2026-09-01
+updated: 2026-09-03
 type: moc
 status: active
 area: personal
@@ -14,6 +14,11 @@ tags:
 # 🧘 Personal Life Command Hub
 
 > Private life administration — health & fitness, personal goals, hobbies, travel, and deep reflections. Truly sensitive credentials and confidential records belong in `.secrets/`.
+
+---
+
+## 💼 Developer Career & Professional Hub
+- [[05-Personal/Developer Career/_Developer Career MOC|Developer Career Hub]] — Targeted graduate/junior NZ job applications, portfolio strategy, interview prep, outreach templates, and weekly review workflows.
 
 ---
 

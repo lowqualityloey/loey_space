@@ -15,7 +15,6 @@ tags:
 
 ## 📌 Active To-Dos ([ ])
 
-- [ ] [#12](https://github.com/lowqualityloey/shelf/issues/12) Build TanStack Router layouts (/, _authenticated, /library/$bookId) #priority/p1 [[shelf Kanban]]
 - [ ] [#13](https://github.com/lowqualityloey/shelf/issues/13) Implement debounced Open Library search hook (useBookSearch) #priority/p1 [[shelf Kanban]]
 - [ ] [#14](https://github.com/lowqualityloey/shelf/issues/14) Create core UI components (BookCard, ShelfSelector, StarRating) #priority/p2 [[shelf Kanban]]
 - [ ] [#15](https://github.com/lowqualityloey/shelf/issues/15) Add optimistic update logic for reading status toggles #priority/p2 [[shelf Kanban]]
@@ -23,12 +22,13 @@ tags:
 
 ## 🔄 Currently In Progress ([/])
 
-- [/] [#11](https://github.com/lowqualityloey/shelf/issues/11) Configure Supabase Auth client & route guards #priority/p1 [[shelf Kanban]]
-	  > 🌿 `feat/issue-11-configure-supabase-auth`
-	  - [ ] Install `@supabase/supabase-js` and initialize Supabase client with project URL and anon key in `client`
-	  - [ ] Create authentication forms/components (`LoginForm`, `SignUpForm`, `UserProfile`)
-	  - [ ] Implement an authenticated layout guard that redirects unauthenticated users to login
-	  - [ ] Attach Supabase session access token to outgoing API requests in `Authorization: Bearer <token>` header
+- [/] [#12](https://github.com/lowqualityloey/shelf/issues/12) Build TanStack Router layouts (/, _authenticated, /library/$bookId) #priority/p1 [[shelf Kanban]]
+	  > 🌿 `feat/issue-12-build-tanstack-router-layouts-_auth`
+	  - [x] Install and configure `@tanstack/react-router`.
+	  - [ ] Create root layout (`/`) with navigation bar and footer.
+	  - [ ] Create authenticated shell layout (`_authenticated`) for protected views.
+	  - [ ] Implement routes: `/` (Landing/Search), `/library` (User Shelves), `/library/$bookId` (Book Details).
+	  - [ ] Enable type-safe navigation and route parameter validation.
 
 
 ## ✅ Recently Completed Tasks
@@ -50,6 +50,7 @@ tags:
 - [x] Add search input debouncing (useDebounce) #priority/p2 ✅ 2026-08-22 [[Weather Dashboard Kanban]]
 - [x] Add browser geolocation weather detection #priority/p2 ✅ 2026-08-22 [[Weather Dashboard Kanban]]
 - [x] Implement API response caching with TTL #priority/p3 ✅ 2026-08-22 [[Weather Dashboard Kanban]]
+- [x] [#11](https://github.com/lowqualityloey/shelf/issues/11) Configure Supabase Auth client & route guards #priority/p1 [[shelf Kanban]] ✅ 2026-09-03
 
 
 

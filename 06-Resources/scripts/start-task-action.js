@@ -31,7 +31,7 @@ function normalizeLaneName(rawName) {
   const clean = rawName.replace(/^#+\s*/, "").replace(/^[✅❌➕📅⏳🛫🔁⏫🔼🔽⏬🆔⛔📦🔄📋🎯💡💻🚀✨⚠️]\s*/, "").trim().toLowerCase();
   if (clean.includes("backlog") || clean.includes("icebox"))
     return "backlog";
-  if (clean.includes("to do") || clean.includes("todo") || clean.includes("to-do"))
+  if (clean.includes("to do") || clean.includes("todo") || clean.includes("to-do") || clean.includes("ready"))
     return "to do";
   if (clean.includes("in progress") || clean.includes("doing") || clean.includes("in-progress"))
     return "in progress";
