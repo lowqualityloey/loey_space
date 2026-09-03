@@ -18,7 +18,10 @@ import {
   normalizeLaneName,
   parsePriorityTag,
   extractLocalKanbanTasks,
-  injectIssueBadgesIntoBoard
+  injectIssueBadgesIntoBoard,
+  extractSubtasksFromIssueBody,
+  syncBoardSubtasksWithGitHubIssues,
+  syncBoardLanesWithRemoteItems
 } from './lib/github';
 
 function isTFile(file: any): file is TFile {
@@ -104,7 +107,7 @@ async function syncSingleBoard(
 
   if (config.repo) {
     remotePromises.push(
-      execFn(['gh', 'issue', 'list', '--repo', `${owner}/${config.repo}`, '--state', 'all', '--limit', '100', '--json', 'number,title,url,state'], { timeout: 15000 })
+      execFn(['gh', 'issue', 'list', '--repo', `${owner}/${config.repo}`, '--state', 'all', '--limit', '100', '--json', 'number,title,url,state,body'], { timeout: 15000 })
     );
   }
 
@@ -142,6 +145,9 @@ async function syncSingleBoard(
           remoteItems.push({
             id: item.id,
             title: item.title,
+            contentTitle: item.content?.title,
+            number: item.content?.number,
+            url: item.content?.url,
             status: item.status,
             priority: item.priority
           });
@@ -164,7 +170,8 @@ async function syncSingleBoard(
             number: iss.number,
             title: iss.title,
             url: iss.url,
-            state: iss.state
+            state: iss.state,
+            body: iss.body
           });
         }
       }
@@ -175,14 +182,35 @@ async function syncSingleBoard(
 
   // 3. Read & Parse Local Kanban File
   let content = await app.vault.read(targetFile);
+  let fileNeedsUpdate = false;
 
   if (repoIssues.length > 0) {
-    const { updatedContent, injectedCount } = injectIssueBadgesIntoBoard(content, repoIssues);
+    const { updatedContent: badgedContent, injectedCount } = injectIssueBadgesIntoBoard(content, repoIssues);
     if (injectedCount > 0) {
-      content = updatedContent;
-      await app.vault.modify(targetFile, content);
+      content = badgedContent;
+      fileNeedsUpdate = true;
       console.log(`Injected ${injectedCount} issue badges into ${targetFile.basename}`);
     }
+
+    const { updatedContent: subtaskSyncedContent, updatedCount: subtasksUpdated } = syncBoardSubtasksWithGitHubIssues(content, repoIssues);
+    if (subtasksUpdated > 0) {
+      content = subtaskSyncedContent;
+      fileNeedsUpdate = true;
+      console.log(`Synced ${subtasksUpdated} subtask checkbox states from GitHub into ${targetFile.basename}`);
+    }
+  }
+
+  if (remoteItems.length > 0 || repoIssues.length > 0) {
+    const { updatedContent: laneSyncedContent, movedCount } = syncBoardLanesWithRemoteItems(content, remoteItems, repoIssues);
+    if (movedCount > 0) {
+      content = laneSyncedContent;
+      fileNeedsUpdate = true;
+      console.log(`Moved ${movedCount} card(s) to matching lanes from GitHub in ${targetFile.basename}`);
+    }
+  }
+
+  if (fileNeedsUpdate && typeof app?.vault?.modify === 'function') {
+    await app.vault.modify(targetFile, content);
   }
 
   const { tasks: localTasks } = extractLocalKanbanTasks(content);
@@ -486,5 +514,8 @@ export = Object.assign(syncGitHubKanban, {
   normalizeLaneName,
   parsePriorityTag,
   extractLocalKanbanTasks,
-  syncSingleBoard
+  syncSingleBoard,
+  extractSubtasksFromIssueBody,
+  syncBoardSubtasksWithGitHubIssues,
+  syncBoardLanesWithRemoteItems
 });

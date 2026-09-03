@@ -64,11 +64,9 @@ pnpm-debug.log*
 
 01-Daily/*
 !01-Daily/_*.md
-!01-Daily/Tasks Kanban.md
 
 02-Projects/*
 !02-Projects/_*.md
-!02-Projects/weather-dashboard/
 
 03-Dev/*
 !03-Dev/_*.md

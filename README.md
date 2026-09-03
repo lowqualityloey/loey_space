@@ -88,7 +88,7 @@ Prefix any prompt with **`"hey loey"`** in your AI interface to trigger fast, co
 | Trigger | Action & Workflow |
 | :--- | :--- |
 | **`hey loey status`** (or `hey loey`) | **Pulse Check**: Counts inbox items, checks daily note/habits, and lists active project tasks |
-| **`hey loey morning`** | **Morning Setup**: Initializes today's note, surfaces 3 priority tasks from active Kanbans (`shelf`) |
+| **`hey loey morning`** | **Morning Setup**: Initializes today's note, surfaces 3 priority tasks from active Kanbans |
 | **`hey loey evening`** | **Evening Wind-down**: Walks through habit checks, logs wins/blockers, prepares for AI summary |
 | **`hey loey sweep`** | **Inbox Triage**: Analyzes `quick-capture-dump.md`, tags tokens, and runs triage sweep |
 | **`hey loey distill`** | **Concept Extraction**: Distills raw notes/dev logs into atomic concepts in `08-Concepts/` (90d review) |
@@ -147,11 +147,10 @@ loey_space/
 │   └── _Triage MOC.md           # Stale notes & overdue reviews
 ├── 01-Daily/                    # Daily logs, habits, energy/sleep tracking, AI reflections
 │   ├── _Daily MOC.md            # Daily notes navigation & monthly overview
-│   ├── _Tasks MOC.md            # Task command center, in-progress, completion history & analytics
-│   └── Tasks Kanban.md          # Visual drag-and-drop daily task board
+│   └── _Tasks MOC.md            # Task command center, in-progress, completion history & analytics
 ├── 02-Projects/                 # Active development projects & build specifications
 │   ├── _Projects MOC.md         # Project dashboard with progress bars
-│   └── weather-dashboard/       # Example project (notes + Kanban board)
+│   └── <project-name>/          # [GIT-IGNORED] Individual project notes & Kanban boards
 ├── 03-Dev/                      # Code snippets, technical patterns, debugging notes
 ├── 04-Learning/                 # Courses, tutorials, & study notes
 ├── 05-Personal/                 # Personal goals, life & fitness logs
@@ -221,7 +220,7 @@ Then edit `.env` with your real credentials:
 # Required for AI enrichment (daily summaries, concept analysis, dev note analysis)
 GEMINI_API_KEY=your_google_gemini_api_key_here
 
-# Optional - Weather Dashboard project
+# Optional - Weather API integration
 VITE_OPENWEATHER_API_KEY=your_openweather_api_key_here
 
 # Optional - OpenAI fallback
