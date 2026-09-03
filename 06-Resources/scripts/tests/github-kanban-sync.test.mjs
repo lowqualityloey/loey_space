@@ -184,7 +184,8 @@ github_project_number: 100
 
   const mockApp = {
     vault: {
-      read: async () => localMarkdown
+      read: async () => localMarkdown,
+      modify: async () => {}
     }
   };
   const mockFile = { basename: 'Test Board', path: '02-Projects/Test.md' };
@@ -198,4 +199,104 @@ github_project_number: 100
   assert.ok(editCall);
   assert.ok(editCall.includes('--id item_injection'));
   assert.ok(editCall.includes('--single-select-option-id opt_done'));
+});
+
+test('extractSubtasksFromIssueBody: extracts checked and unchecked criteria correctly', () => {
+  const { extractSubtasksFromIssueBody } = syncGitHubKanban;
+  const body = `## Overview
+Some overview description.
+
+## Tasks / Acceptance Criteria
+- [x] Install \`@supabase/supabase-js\` and initialize client.
+- [x] Create authentication forms/components (\`LoginForm\`, \`SignUpForm\`).
+- [ ] Implement an authenticated layout guard.
+- [ ] Attach bearer token header.
+`;
+
+  const subtasks = extractSubtasksFromIssueBody(body);
+  assert.strictEqual(subtasks.length, 4);
+  assert.strictEqual(subtasks[0].checked, true);
+  assert.strictEqual(subtasks[0].cleanText, 'install supabase supabase js and initialize client');
+  assert.strictEqual(subtasks[1].checked, true);
+  assert.strictEqual(subtasks[2].checked, false);
+  assert.strictEqual(subtasks[3].checked, false);
+});
+
+test('syncBoardSubtasksWithGitHubIssues: updates Kanban card nested checkboxes from GitHub issue body', () => {
+  const { syncBoardSubtasksWithGitHubIssues } = syncGitHubKanban;
+  const boardMarkdown = `## In Progress
+
+- [/] [#11](https://github.com/lowqualityloey/shelf/issues/11) Configure Supabase Auth client & route guards #priority/p1
+	  > 🌿 \`feat/issue-11-configure-supabase-auth\`
+	  - [ ] Install \`@supabase/supabase-js\` and initialize client
+	  - [ ] Create authentication forms/components (\`LoginForm\`, \`SignUpForm\`)
+	  - [ ] Implement an authenticated layout guard
+	  - [ ] Attach bearer token header
+`;
+
+  const issues = [
+    {
+      number: 11,
+      title: 'Configure Supabase Auth client & route guards',
+      url: 'https://github.com/lowqualityloey/shelf/issues/11',
+      body: `## Tasks
+- [x] Install \`@supabase/supabase-js\` and initialize client
+- [x] Create authentication forms/components (\`LoginForm\`, \`SignUpForm\`)
+- [ ] Implement an authenticated layout guard
+- [ ] Attach bearer token header`
+    }
+  ];
+
+  const { updatedContent, updatedCount } = syncBoardSubtasksWithGitHubIssues(boardMarkdown, issues);
+  assert.strictEqual(updatedCount, 2);
+  assert.ok(updatedContent.includes('- [x] Install `@supabase/supabase-js` and initialize client'));
+  assert.ok(updatedContent.includes('- [x] Create authentication forms/components (`LoginForm`, `SignUpForm`)'));
+  assert.ok(updatedContent.includes('- [ ] Implement an authenticated layout guard'));
+  assert.ok(updatedContent.includes('- [ ] Attach bearer token header'));
+});
+
+test('syncBoardLanesWithRemoteItems: moves card from In Progress to Done when remote status is Done', () => {
+  const { syncBoardLanesWithRemoteItems } = syncGitHubKanban;
+  const boardMarkdown = `---
+github_project_number: 4
+---
+
+## In Progress
+
+- [/] [#11](https://github.com/lowqualityloey/shelf/issues/11) Configure Supabase Auth client & route guards #priority/p1
+	  > 🌿 \`feat/issue-11-configure-supabase-auth\`
+	  - [x] Install \`@supabase/supabase-js\`
+	  - [ ] Implement layout guard
+
+## Done
+
+- [x] Previous Done Task ✅ 2026-08-24
+`;
+
+  const remoteItems = [
+    {
+      id: 'item_11',
+      title: 'Configure Auth0 React SDK & auth route guards',
+      contentTitle: 'Configure Supabase Auth client & route guards',
+      number: 11,
+      status: 'Done',
+      priority: 'P1'
+    }
+  ];
+
+  const repoIssues = [
+    {
+      number: 11,
+      title: 'Configure Supabase Auth client & route guards',
+      url: 'https://github.com/lowqualityloey/shelf/issues/11',
+      state: 'OPEN'
+    }
+  ];
+
+  const { updatedContent, movedCount } = syncBoardLanesWithRemoteItems(boardMarkdown, remoteItems, repoIssues, '2026-09-03');
+  assert.strictEqual(movedCount, 1);
+  assert.ok(!updatedContent.includes('## In Progress\n\n- [/] [#11]'));
+  assert.ok(updatedContent.includes('## Done'));
+  assert.ok(updatedContent.includes('- [x] [#11](https://github.com/lowqualityloey/shelf/issues/11) Configure Supabase Auth client & route guards #priority/p1 ✅ 2026-09-03'));
+  assert.ok(updatedContent.includes('- [x] Implement layout guard'));
 });

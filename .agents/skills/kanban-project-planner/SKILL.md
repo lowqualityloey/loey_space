@@ -13,7 +13,7 @@ This skill guides the agent in breaking down project specifications into actiona
 ---
 
 ## 🎯 When to Activate
-- The user asks to plan, breakdown, or add new tasks/features for a project in `02-Projects/` (e.g. `shelf`, `weather-dashboard`).
+- The user asks to plan, breakdown, or add new tasks/features for a project in `02-Projects/`.
 - The user asks to reorganize Kanban lanes or check task statuses across active boards.
 - The user requests synchronizing Obsidian Kanban cards with GitHub Projects v2.
 

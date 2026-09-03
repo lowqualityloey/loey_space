@@ -43,12 +43,11 @@
       "[#19](https://github.com/lowqualityloey/shelf/issues/19) annual reading goal tracker & progress ring": "backlog",
       "[#20](https://github.com/lowqualityloey/shelf/issues/20) isbn barcode scanner via device camera": "backlog",
       "[#21](https://github.com/lowqualityloey/shelf/issues/21) custom shelf tags and categories #priority/p2": "backlog",
-      "[#12](https://github.com/lowqualityloey/shelf/issues/12) build tanstack router layouts (/, _authenticated, /library/$bookid) #priority/p1": "to do",
       "[#13](https://github.com/lowqualityloey/shelf/issues/13) implement debounced open library search hook (usebooksearch) #priority/p1": "to do",
       "[#14](https://github.com/lowqualityloey/shelf/issues/14) create core ui components (bookcard, shelfselector, starrating) #priority/p2": "to do",
       "[#15](https://github.com/lowqualityloey/shelf/issues/15) add optimistic update logic for reading status toggles #priority/p2": "to do",
       "[#16](https://github.com/lowqualityloey/shelf/issues/16) build book details view with notes editor #priority/p2": "to do",
-      "[#11](https://github.com/lowqualityloey/shelf/issues/11) configure supabase auth client & route guards #priority/p1": "in progress",
+      "[#12](https://github.com/lowqualityloey/shelf/issues/12) build tanstack router layouts (/, _authenticated, /library/$bookid) #priority/p1": "in progress",
       "[#1](https://github.com/lowqualityloey/shelf/issues/1) initialize vite + react + typescript repository": "done",
       "[#3](https://github.com/lowqualityloey/shelf/issues/3) design ux wireframes and screen mockups": "done",
       "[#4](https://github.com/lowqualityloey/shelf/issues/4) define rest api contracts and postgresql schema #priority/p2": "done",
@@ -56,17 +55,17 @@
       "[#6](https://github.com/lowqualityloey/shelf/issues/6) build express rest api endpoints (/api/library) #priority/p1": "done",
       "[#7](https://github.com/lowqualityloey/shelf/issues/7) configure express-oauth2-jwt-bearer auth middleware #priority/p1": "done",
       "feat(db): scaffold postgresql schema and drizzle migrations #priority/p2": "done",
-      "define rest api contracts and postgresql schema design": "done",
+      "[#4](https://github.com/lowqualityloey/shelf/issues/4) define rest api contracts and postgresql schema design": "done",
       "feat(auth): implement authentication middleware and add protected route #priority/p2": "done",
-      "feat(api): implement full crud library rest endpoints with zod validation and drizzle relations (#6) #priority/p2": "done"
+      "feat(api): implement full crud library rest endpoints with zod validation and drizzle relations (#6) #priority/p2": "done",
+      "[#11](https://github.com/lowqualityloey/shelf/issues/11) configure supabase auth client & route guards #priority/p1": "done"
     },
     "01-Daily/Tasks Kanban.md": {
-      "[#12](https://github.com/lowqualityloey/shelf/issues/12) build tanstack router layouts (/, _authenticated, /library/$bookid) #priority/p1": "active to-dos",
       "[#13](https://github.com/lowqualityloey/shelf/issues/13) implement debounced open library search hook (usebooksearch) #priority/p1": "active to-dos",
       "[#14](https://github.com/lowqualityloey/shelf/issues/14) create core ui components (bookcard, shelfselector, starrating) #priority/p2": "active to-dos",
       "[#15](https://github.com/lowqualityloey/shelf/issues/15) add optimistic update logic for reading status toggles #priority/p2": "active to-dos",
       "[#16](https://github.com/lowqualityloey/shelf/issues/16) build book details view with notes editor #priority/p2": "active to-dos",
-      "[#11](https://github.com/lowqualityloey/shelf/issues/11) configure supabase auth client & route guards #priority/p1": "currently in progress /",
+      "[#12](https://github.com/lowqualityloey/shelf/issues/12) build tanstack router layouts (/, _authenticated, /library/$bookid) #priority/p1": "currently in progress /",
       "feat(api): implement full crud library rest endpoints with zod validation and drizzle relations (#6) #priority/p2": "recently completed tasks",
       "[#6](https://github.com/lowqualityloey/shelf/issues/6) build express rest api endpoints (/api/library) #priority/p1": "recently completed tasks",
       "[#5](https://github.com/lowqualityloey/shelf/issues/5) scaffold postgresql schema (users, books, user_books) #priority/p1": "recently completed tasks",
@@ -83,7 +82,8 @@
       "unit test weathermapper utilities and useweather hook #priority/p2": "recently completed tasks",
       "add search input debouncing (usedebounce) #priority/p2": "recently completed tasks",
       "add browser geolocation weather detection #priority/p2": "recently completed tasks",
-      "implement api response caching with ttl #priority/p3": "recently completed tasks"
+      "implement api response caching with ttl #priority/p3": "recently completed tasks",
+      "[#11](https://github.com/lowqualityloey/shelf/issues/11) configure supabase auth client & route guards #priority/p1": "recently completed tasks"
     },
     "99-Templates/Kanban.md": {}
   }

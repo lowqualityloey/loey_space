@@ -13,7 +13,7 @@
     "homepulse-mobile",
     "dashboard-cards"
   ],
-  "baseFontSize": 15,
+  "baseFontSize": 16,
   "nativeMenus": false,
   "baseFontSizeAction": false
 }

@@ -32,7 +32,7 @@ function normalizeLaneName(rawName) {
   const clean = rawName.replace(/^#+\s*/, "").replace(/^[✅❌➕📅⏳🛫🔁⏫🔼🔽⏬🆔⛔📦🔄📋🎯💡💻🚀✨⚠️]\s*/, "").trim().toLowerCase();
   if (clean.includes("backlog") || clean.includes("icebox"))
     return "backlog";
-  if (clean.includes("to do") || clean.includes("todo") || clean.includes("to-do"))
+  if (clean.includes("to do") || clean.includes("todo") || clean.includes("to-do") || clean.includes("ready"))
     return "to do";
   if (clean.includes("in progress") || clean.includes("doing") || clean.includes("in-progress"))
     return "in progress";
@@ -110,6 +110,154 @@ function extractLocalKanbanTasks(content) {
   }
   return { tasks, sections };
 }
+function createBranchSlug(issueNumber, title, prefix = "feat") {
+  const clean = title.toLowerCase().replace(/#priority\/[^\s]+/gi, "").replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "-").replace(/-+/g, "-").slice(0, 35).replace(/^-|-$/g, "");
+  return `${prefix}/issue-${issueNumber}-${clean || "task"}`;
+}
+function normalizeSubtaskText(text) {
+  return text.toLowerCase().replace(/[`_*~]/g, "").replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
+}
+function extractSubtasksFromIssueBody(body) {
+  const subtasks = [];
+  if (!body)
+    return subtasks;
+  const lines = body.split(/\r?\n/);
+  for (const line of lines) {
+    const match = line.match(/^\s*[-*]\s*\[([ xX])\]\s+(.+)$/);
+    if (match) {
+      const checked = match[1].toLowerCase() === "x";
+      const rawText = match[2].trim();
+      const cleanText = normalizeSubtaskText(rawText);
+      if (cleanText) {
+        subtasks.push({ checked, rawText, cleanText });
+      }
+    }
+  }
+  return subtasks;
+}
+function syncBoardSubtasksWithGitHubIssues(content, issues) {
+  const lines = content.split("\n");
+  let updatedCount = 0;
+  let inFrontmatter = false;
+  let inFence = false;
+  const issueByNumber = /* @__PURE__ */ new Map();
+  const issueByTitle = /* @__PURE__ */ new Map();
+  for (const issue of issues) {
+    const subtasks = extractSubtasksFromIssueBody(issue.body || "");
+    const entry = { issue, subtasks };
+    issueByNumber.set(issue.number, entry);
+    const cleanTitle = normalizeSubtaskText(issue.title);
+    if (cleanTitle) {
+      issueByTitle.set(cleanTitle, entry);
+    }
+  }
+  const newLines = [];
+  let currentSection = "";
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    if (i === 0 && trimmed === "---") {
+      inFrontmatter = true;
+      newLines.push(line);
+      continue;
+    }
+    if (inFrontmatter) {
+      newLines.push(line);
+      if (trimmed === "---")
+        inFrontmatter = false;
+      continue;
+    }
+    if (trimmed.startsWith("```")) {
+      inFence = !inFence;
+      newLines.push(line);
+      continue;
+    }
+    if (inFence) {
+      newLines.push(line);
+      continue;
+    }
+    if (trimmed.startsWith("## ")) {
+      currentSection = trimmed;
+      newLines.push(line);
+      continue;
+    }
+    const topCardMatch = line.match(/^([ \t]*-\s*\[)([ xX/>\-?*!])(\]\s+)(.*)$/);
+    const isIndented = /^[ \t]{2,}|\t/.test(line);
+    if (topCardMatch && !isIndented) {
+      newLines.push(line);
+      const cardCheckbox = topCardMatch[2];
+      const cardBody = topCardMatch[4];
+      let cardEntry = null;
+      const issueNumMatch = cardBody.match(/\[#(\d+)\]|#(\d+)/);
+      if (issueNumMatch) {
+        const num = Number(issueNumMatch[1] || issueNumMatch[2]);
+        if (issueByNumber.has(num)) {
+          cardEntry = issueByNumber.get(num);
+        }
+      }
+      if (!cardEntry) {
+        const cleanCardTitle = normalizeSubtaskText(
+          cardBody.replace(/#priority\/[^\s]+/gi, "").replace(/✅\s*\d{4}-\d{2}-\d{2}/, "")
+        );
+        if (issueByTitle.has(cleanCardTitle)) {
+          cardEntry = issueByTitle.get(cleanCardTitle);
+        }
+      }
+      const childLines = [];
+      let j = i + 1;
+      while (j < lines.length && (/^[ \t]{2,}|\t/.test(lines[j]) || /^\s*>\s/.test(lines[j]))) {
+        childLines.push(lines[j]);
+        j++;
+      }
+      if (cardEntry && cardEntry.subtasks.length > 0) {
+        const existingSubtaskIndices = childLines.map((cl, idx) => ({ cl, idx })).filter((item) => /^\s*-\s*\[[ xX]\]/.test(item.cl));
+        if (existingSubtaskIndices.length === 0 && (cardCheckbox === "/" || normalizeLaneName(currentSection) === "in progress")) {
+          const hasBranch = childLines.some((cl) => /^\s*>\s*🌿/.test(cl));
+          if (!hasBranch) {
+            const cleanTitle = cardBody.replace(/\[#\d+\]\([^)]+\)/g, "").replace(/#\d+/g, "").trim();
+            childLines.push(`	  > \u{1F33F} \`${createBranchSlug(cardEntry.issue.number, cleanTitle)}\``);
+          }
+          for (const sub of cardEntry.subtasks) {
+            childLines.push(`	  - [${sub.checked ? "x" : " "}] ${sub.rawText}`);
+          }
+          updatedCount++;
+        } else if (existingSubtaskIndices.length > 0) {
+          for (let k = 0; k < childLines.length; k++) {
+            const cl = childLines[k];
+            const subtaskMatch = cl.match(/^(\s*-\s*\[)([ xX])(\]\s+)(.*)$/);
+            if (subtaskMatch) {
+              const prefix = subtaskMatch[1];
+              const currentCheck = subtaskMatch[2];
+              const suffix = subtaskMatch[3];
+              const subtaskBody = subtaskMatch[4];
+              const cleanLocalText = normalizeSubtaskText(subtaskBody);
+              const matchedRemote = cardEntry.subtasks.find((rem) => {
+                if (rem.cleanText === cleanLocalText)
+                  return true;
+                if (rem.cleanText.length > 10 && cleanLocalText.length > 10) {
+                  return rem.cleanText.includes(cleanLocalText) || cleanLocalText.includes(rem.cleanText);
+                }
+                return false;
+              });
+              if (matchedRemote) {
+                const targetCheck = matchedRemote.checked ? "x" : " ";
+                if (currentCheck !== targetCheck) {
+                  childLines[k] = `${prefix}${targetCheck}${suffix}${subtaskBody}`;
+                  updatedCount++;
+                }
+              }
+            }
+          }
+        }
+      }
+      newLines.push(...childLines);
+      i = j - 1;
+      continue;
+    }
+    newLines.push(line);
+  }
+  return { updatedContent: newLines.join("\n"), updatedCount };
+}
 function injectIssueBadgesIntoBoard(content, issues) {
   const lines = content.split("\n");
   let injectedCount = 0;
@@ -161,6 +309,241 @@ function injectIssueBadgesIntoBoard(content, issues) {
     }
   }
   return { updatedContent: lines.join("\n"), injectedCount };
+}
+function syncBoardLanesWithRemoteItems(content, remoteItems, repoIssues, todayDate = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10)) {
+  let inFrontmatter = false;
+  const frontmatterLines = [];
+  const bodyLines = [];
+  const settingsLines = [];
+  let inSettings = false;
+  const rawLines = content.split(/\r?\n/);
+  for (let i = 0; i < rawLines.length; i++) {
+    const line = rawLines[i];
+    const trimmed = line.trim();
+    if (i === 0 && trimmed === "---") {
+      inFrontmatter = true;
+      frontmatterLines.push(line);
+      continue;
+    }
+    if (inFrontmatter) {
+      frontmatterLines.push(line);
+      if (trimmed === "---") {
+        inFrontmatter = false;
+      }
+      continue;
+    }
+    if (trimmed.startsWith("%% kanban:settings")) {
+      inSettings = true;
+    }
+    if (inSettings) {
+      settingsLines.push(line);
+    } else {
+      bodyLines.push(line);
+    }
+  }
+  const lanes = [];
+  let currentLane = null;
+  let currentCard = null;
+  const preambleLines = [];
+  for (const line of bodyLines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("## ")) {
+      if (currentCard && currentLane) {
+        currentLane.cards.push(currentCard);
+        currentCard = null;
+      }
+      const normalizedName = normalizeLaneName(trimmed);
+      currentLane = {
+        headingLine: line,
+        normalizedName,
+        cards: []
+      };
+      lanes.push(currentLane);
+      continue;
+    }
+    if (!currentLane) {
+      preambleLines.push(line);
+      continue;
+    }
+    const taskMatch = line.match(/^([ \t]*-\s*\[)([ xX/>\-?*!])(\]\s+)(.*)$/);
+    const isIndented = /^[ \t]{2,}|\t/.test(line);
+    if (taskMatch && !isIndented) {
+      if (currentCard) {
+        currentLane.cards.push(currentCard);
+      }
+      const checkbox = taskMatch[2];
+      const rawTitle = taskMatch[4];
+      const issueNumMatch = rawTitle.match(/\[#(\d+)\]|#(\d+)/);
+      const issueNumber = issueNumMatch ? Number(issueNumMatch[1] || issueNumMatch[2]) : null;
+      const urlMatch = rawTitle.match(/\((https?:\/\/[^\s)]+)\)/);
+      const issueUrl = urlMatch ? urlMatch[1] : null;
+      const dateMatch = rawTitle.match(/✅\s*(\d{4}-\d{2}-\d{2})/);
+      const completionDate = dateMatch ? dateMatch[1] : null;
+      const { cleanText, priority } = parsePriorityTag(rawTitle.replace(/✅\s*\d{4}-\d{2}-\d{2}/, "").trim());
+      currentCard = {
+        headerLine: line,
+        checkbox,
+        rawTitle,
+        cleanTitle: cleanText.replace(/\[#\d+\]\([^)]+\)/g, "").replace(/#\d+/g, "").trim(),
+        issueNumber,
+        issueUrl,
+        priority,
+        completionDate,
+        childrenLines: []
+      };
+      continue;
+    }
+    if (currentCard && (isIndented || /^\s*>\s/.test(line))) {
+      currentCard.childrenLines.push(line);
+      continue;
+    }
+  }
+  if (currentCard && currentLane) {
+    currentLane.cards.push(currentCard);
+    currentCard = null;
+  }
+  const remoteByNumber = /* @__PURE__ */ new Map();
+  const remoteByTitle = /* @__PURE__ */ new Map();
+  for (const item of remoteItems) {
+    if (item.number) {
+      remoteByNumber.set(item.number, item);
+    }
+    const cleanTitle = normalizeSubtaskText(item.title || "");
+    if (cleanTitle)
+      remoteByTitle.set(cleanTitle, item);
+    const cleanContentTitle = normalizeSubtaskText(item.contentTitle || "");
+    if (cleanContentTitle)
+      remoteByTitle.set(cleanContentTitle, item);
+  }
+  const issuesByNumber = /* @__PURE__ */ new Map();
+  for (const iss of repoIssues) {
+    issuesByNumber.set(iss.number, iss);
+  }
+  let movedCount = 0;
+  for (const lane of lanes) {
+    const remainingCards = [];
+    for (const card of lane.cards) {
+      let targetStatus = null;
+      if (card.issueNumber && remoteByNumber.has(card.issueNumber)) {
+        const item = remoteByNumber.get(card.issueNumber);
+        if (item.status)
+          targetStatus = item.status;
+      } else {
+        const cleanCard = normalizeSubtaskText(card.cleanTitle);
+        if (remoteByTitle.has(cleanCard)) {
+          const item = remoteByTitle.get(cleanCard);
+          if (item.status)
+            targetStatus = item.status;
+        }
+      }
+      if (!targetStatus && card.issueNumber && issuesByNumber.has(card.issueNumber)) {
+        const iss = issuesByNumber.get(card.issueNumber);
+        if (iss.state === "CLOSED") {
+          targetStatus = "Done";
+        }
+      }
+      if (!targetStatus) {
+        remainingCards.push(card);
+        continue;
+      }
+      const targetLaneNorm = normalizeLaneName(targetStatus);
+      if (lane.normalizedName === "done" || card.checkbox === "x") {
+        remainingCards.push(card);
+        continue;
+      }
+      if (targetLaneNorm !== lane.normalizedName) {
+        movedCount++;
+        if (targetLaneNorm === "done") {
+          card.checkbox = "x";
+          if (!card.completionDate) {
+            card.completionDate = todayDate;
+            if (!card.headerLine.includes("\u2705")) {
+              card.headerLine = card.headerLine.replace(/^([ \t]*-\s*\[)[ xX/>\-?*!](\]\s+)(.*)$/, `$1x$2$3 \u2705 ${todayDate}`);
+            } else {
+              card.headerLine = card.headerLine.replace(/^([ \t]*-\s*\[)[ xX/>\-?*!](\]\s+)/, "$1x$2");
+            }
+          } else {
+            card.headerLine = card.headerLine.replace(/^([ \t]*-\s*\[)[ xX/>\-?*!](\]\s+)/, "$1x$2");
+          }
+          card.childrenLines = card.childrenLines.map(
+            (ch) => ch.replace(/^(\s*-\s*\[)[ ](\]\s+)/, "$1x$2")
+          );
+        } else if (targetLaneNorm === "in progress") {
+          card.checkbox = "/";
+          card.headerLine = card.headerLine.replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/, "").replace(/^([ \t]*-\s*\[)[ xX/>\-?*!](\]\s+)/, "$1/$2");
+          const hasSubtasks = card.childrenLines.some((l) => /^\s*-\s*\[[ xX]\]/.test(l));
+          if (!hasSubtasks && card.issueNumber && issuesByNumber.has(card.issueNumber)) {
+            const iss = issuesByNumber.get(card.issueNumber);
+            const subtasks = extractSubtasksFromIssueBody(iss.body || "");
+            if (subtasks.length > 0) {
+              const hasBranch = card.childrenLines.some((l) => /^\s*>\s*🌿/.test(l));
+              if (!hasBranch) {
+                card.childrenLines.push(`	  > \u{1F33F} \`${createBranchSlug(iss.number, card.cleanTitle)}\``);
+              }
+              for (const sub of subtasks) {
+                card.childrenLines.push(`	  - [${sub.checked ? "x" : " "}] ${sub.rawText}`);
+              }
+            }
+          }
+        } else {
+          card.checkbox = " ";
+          card.headerLine = card.headerLine.replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/, "").replace(/^([ \t]*-\s*\[)[ xX/>\-?*!](\]\s+)/, "$1 $2");
+        }
+        let destLane = lanes.find((l) => l.normalizedName === targetLaneNorm);
+        if (!destLane) {
+          let title = targetStatus.charAt(0).toUpperCase() + targetStatus.slice(1);
+          if (targetLaneNorm === "to do")
+            title = "To Do";
+          if (targetLaneNorm === "in progress")
+            title = "In Progress";
+          if (targetLaneNorm === "review / test")
+            title = "Review / Test";
+          destLane = {
+            headingLine: `## ${title}`,
+            normalizedName: targetLaneNorm,
+            cards: []
+          };
+          const archiveIdx = lanes.findIndex((l) => l.normalizedName === "archive");
+          if (archiveIdx !== -1) {
+            lanes.splice(archiveIdx, 0, destLane);
+          } else {
+            lanes.push(destLane);
+          }
+        }
+        destLane.cards.push(card);
+      } else {
+        remainingCards.push(card);
+      }
+    }
+    lane.cards = remainingCards;
+  }
+  if (movedCount === 0) {
+    return { updatedContent: content, movedCount: 0 };
+  }
+  const outLines = [];
+  if (frontmatterLines.length > 0) {
+    outLines.push(...frontmatterLines);
+    outLines.push("");
+  }
+  for (const p of preambleLines) {
+    if (p.trim())
+      outLines.push(p);
+  }
+  for (const lane of lanes) {
+    outLines.push(lane.headingLine);
+    outLines.push("");
+    for (const card of lane.cards) {
+      outLines.push(card.headerLine);
+      for (const ch of card.childrenLines) {
+        outLines.push(ch);
+      }
+    }
+    outLines.push("");
+  }
+  if (settingsLines.length > 0) {
+    outLines.push(...settingsLines);
+  }
+  return { updatedContent: outLines.join("\n").replace(/\n{3,}/g, "\n\n").trim() + "\n", movedCount };
 }
 
 // 06-Resources/scripts/src/sync-github-kanban.ts
@@ -234,7 +617,7 @@ async function syncSingleBoard(app, targetFile, config, customExecFn) {
   ];
   if (config.repo) {
     remotePromises.push(
-      execFn(["gh", "issue", "list", "--repo", `${owner}/${config.repo}`, "--state", "all", "--limit", "100", "--json", "number,title,url,state"], { timeout: 15e3 })
+      execFn(["gh", "issue", "list", "--repo", `${owner}/${config.repo}`, "--state", "all", "--limit", "100", "--json", "number,title,url,state,body"], { timeout: 15e3 })
     );
   }
   const results = await Promise.allSettled(remotePromises);
@@ -269,6 +652,9 @@ async function syncSingleBoard(app, targetFile, config, customExecFn) {
           remoteItems.push({
             id: item.id,
             title: item.title,
+            contentTitle: item.content?.title,
+            number: item.content?.number,
+            url: item.content?.url,
             status: item.status,
             priority: item.priority
           });
@@ -290,7 +676,8 @@ async function syncSingleBoard(app, targetFile, config, customExecFn) {
             number: iss.number,
             title: iss.title,
             url: iss.url,
-            state: iss.state
+            state: iss.state,
+            body: iss.body
           });
         }
       }
@@ -299,13 +686,31 @@ async function syncSingleBoard(app, targetFile, config, customExecFn) {
     }
   }
   let content = await app.vault.read(targetFile);
+  let fileNeedsUpdate = false;
   if (repoIssues.length > 0) {
-    const { updatedContent, injectedCount } = injectIssueBadgesIntoBoard(content, repoIssues);
+    const { updatedContent: badgedContent, injectedCount } = injectIssueBadgesIntoBoard(content, repoIssues);
     if (injectedCount > 0) {
-      content = updatedContent;
-      await app.vault.modify(targetFile, content);
+      content = badgedContent;
+      fileNeedsUpdate = true;
       console.log(`Injected ${injectedCount} issue badges into ${targetFile.basename}`);
     }
+    const { updatedContent: subtaskSyncedContent, updatedCount: subtasksUpdated } = syncBoardSubtasksWithGitHubIssues(content, repoIssues);
+    if (subtasksUpdated > 0) {
+      content = subtaskSyncedContent;
+      fileNeedsUpdate = true;
+      console.log(`Synced ${subtasksUpdated} subtask checkbox states from GitHub into ${targetFile.basename}`);
+    }
+  }
+  if (remoteItems.length > 0 || repoIssues.length > 0) {
+    const { updatedContent: laneSyncedContent, movedCount } = syncBoardLanesWithRemoteItems(content, remoteItems, repoIssues);
+    if (movedCount > 0) {
+      content = laneSyncedContent;
+      fileNeedsUpdate = true;
+      console.log(`Moved ${movedCount} card(s) to matching lanes from GitHub in ${targetFile.basename}`);
+    }
+  }
+  if (fileNeedsUpdate && typeof app?.vault?.modify === "function") {
+    await app.vault.modify(targetFile, content);
   }
   const { tasks: localTasks } = extractLocalKanbanTasks(content);
   let updatedCount = 0;
@@ -576,5 +981,8 @@ module.exports = Object.assign(syncGitHubKanban, {
   normalizeLaneName,
   parsePriorityTag,
   extractLocalKanbanTasks,
-  syncSingleBoard
+  syncSingleBoard,
+  extractSubtasksFromIssueBody,
+  syncBoardSubtasksWithGitHubIssues,
+  syncBoardLanesWithRemoteItems
 });
