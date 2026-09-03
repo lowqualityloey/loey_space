@@ -68,7 +68,8 @@ github_project_number: 100
 
   const mockApp = {
     vault: {
-      read: async () => localMarkdown
+      read: async () => localMarkdown,
+      modify: async () => {}
     }
   };
 

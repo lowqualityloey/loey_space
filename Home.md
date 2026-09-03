@@ -93,18 +93,18 @@ if (alerts.length > 0) {
 
 ## ⚡ Quick Navigation
 
-| Area | Hub Link | Purpose |
-| :--- | :--- | :--- |
-| 📥 **Inbox** | [[00-Inbox/_Inbox MOC\|Inbox MOC]] · [[00-Inbox/quick-capture-dump\|Quick Capture]] | Raw capture stream & triage processing |
-| 📅 **Daily Logs** | [[01-Daily/_Daily MOC\|Daily MOC]] | Daily journal, habits, vitals & AI reflections |
-| 📋 **Tasks Hub** | [[01-Daily/_Tasks MOC\|Tasks MOC]] · [[01-Daily/Tasks Kanban\|Tasks Kanban]] | Aggregated active tasks & drag-and-drop board |
-| 🚀 **Projects** | [[02-Projects/_Projects MOC\|Projects MOC]] | Active software builds & project kanbans |
-| 💻 **Dev Notes** | [[03-Dev/_Dev MOC\|Dev MOC]] | Code snippets, technical patterns & bug fixes |
-| 📖 **Learning** | [[04-Learning/_Learning MOC\|Learning MOC]] | Active study notes, flashcards & courses |
-| 🧘 **Personal** | [[05-Personal/_Personal MOC\|Personal MOC]] | Life admin, health, fitness, goals & lore |
-| 📚 **Resources** | [[06-Resources/_Resources MOC\|Resources MOC]] | Reference guides, APIs, manuals & automation |
-| 📊 **Reviews** | [[07-Reviews/_Reviews MOC\|Reviews MOC]] · [[07-Reviews/Habit Analytics Dashboard\|Habit Analytics]] | Weekly reviews, habit heatmap & retrospectives |
-| 💡 **Concepts** | [[08-Concepts/_Concepts MOC\|Concepts MOC]] · [[00-Inbox/_Triage MOC\|Triage MOC]] | Evergreen mental models & spaced review |
+| Area              | Hub Link                                                                                             | Purpose                                        |
+| :---------------- | :--------------------------------------------------------------------------------------------------- | :--------------------------------------------- |
+| 📥 **Inbox**      | [[00-Inbox/_Inbox MOC\|Inbox MOC]] · [[00-Inbox/quick-capture-dump\|Quick Capture]]                  | Raw capture stream & triage processing         |
+| 📅 **Daily Logs** | [[01-Daily/_Daily MOC\|Daily MOC]]                                                                   | Daily journal, habits, vitals & AI reflections |
+| 📋 **Tasks Hub**  | [[01-Daily/_Tasks MOC\|Tasks MOC]] · [[01-Daily/Tasks Kanban\|Tasks Kanban]]                         | Aggregated active tasks & drag-and-drop board  |
+| 🚀 **Projects**   | [[02-Projects/_Projects MOC\|Projects MOC]]                                                          | Active software builds & project kanbans       |
+| 💻 **Dev Notes**  | [[03-Dev/_Dev MOC\|Dev MOC]]                                                                         | Code snippets, technical patterns & bug fixes  |
+| 📖 **Learning**   | [[04-Learning/_Learning MOC\|Learning MOC]]                                                          | Active study notes, flashcards & courses       |
+| 🧘 **Personal**   | [[05-Personal/_Personal MOC\|Personal MOC]]                                                          | Life admin, health, fitness, goals & lore      |
+| 📚 **Resources**  | [[06-Resources/_Resources MOC\|Resources MOC]]                                                       | Reference guides, APIs, manuals & automation   |
+| 📊 **Reviews**    | [[07-Reviews/_Reviews MOC\|Reviews MOC]] · [[07-Reviews/Habit Analytics Dashboard\|Habit Analytics]] | Weekly reviews, habit heatmap & retrospectives |
+| 💡 **Concepts**   | [[08-Concepts/_Concepts MOC\|Concepts MOC]] · [[00-Inbox/_Triage MOC\|Triage MOC]]                   | Evergreen mental models & spaced review        |
 
 ---
 

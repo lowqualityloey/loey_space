@@ -22,7 +22,7 @@ updated: 2026-09-02
 
 ## Key Links
 - Repository: https://github.com/lowqualityloey/weather-dashboard.git
-- Live demo: Not documented
+- Live demo: https://weather-dashboard.itsjonellmb.workers.dev/
 - Design: Not documented
 - Documentation: README.md
 
