@@ -2,7 +2,6 @@
 created: <% tp.date.now("YYYY-MM-DD", 0, tp.file.title, "YYYY-MM-DD") %>
 updated: <% tp.date.now("YYYY-MM-DD") %>
 type: daily
-status: active
 area: personal
 mood: 
 energy: 
@@ -10,7 +9,6 @@ sleep_hours:
 tags:
   - type/daily
   - area/personal
-  - status/active
 ---
 # <% tp.date.now("dddd, MMMM D, YYYY", 0, tp.file.title, "YYYY-MM-DD") %>
 
@@ -25,7 +23,7 @@ tags:
 > 
 
 ### 🎯 Today's Focus
->_What's the 1-3 things I want to accomplish today? _
+> _What's the 1-3 things I want to accomplish today?_
 
 
 ### ✅ Tasks
@@ -174,10 +172,6 @@ else dv.paragraph("No project tasks in progress.");
 > _A running timestamp of what happened today._
 - 
 
-### 💡 Ideas & Fleeting Notes
-> _Spark: What random idea popped into my head today? _
-- 
-
 ---
 
 ## 🌇 End of the Day...
@@ -194,20 +188,27 @@ else dv.paragraph("No project tasks in progress.");
 > _What did I learn? What could I have done better? What surprised me today?_
 - 
 
+### 💡 Ideas & Fleeting Notes
+> _Spark: What random idea popped into my head today?_
+- 
+
 ---
 
 ## 🤖 AI Daily Summary
 
 ### 📖 Daily Debrief
->_What did I do today? The day's story and key outcomes._
+> _What did I do today? The day's story and key outcomes._
+
 - 
 
 ### 🧠 Chief of Staff Takeaway
->_What's the high-signal lesson, pattern, or blind spot from today?_
+> _What's the high-signal lesson, pattern, or blind spot from today?_
+
 - 
 
 ### 🎯 Tomorrow's Move
->_Based on today, what's the smartest priority to tackle first?_
+> _Based on today, what's the smartest priority to tackle first?_
+
 - 
 
 

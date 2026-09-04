@@ -118,15 +118,17 @@ When executing `hey loey evening`:
 2. **Focus Reconciliation & Briefing**:
    - Recall this morning's intentions from `### 🎯 Today's Focus`.
    - Surface today's GitHub achievements, closed issues, and merged PRs for quick celebration.
-3. **Interactive 3-Question Check-In**:
+3. **Interactive Evening Check-In**:
    - Prompt the user for:
      1. **Focus & Reflections**: How did morning focus go? Any specific wins, blockers/friction, or lessons?
-     2. **Habit Checks**: Which habits were kept today? (`water`, `move`, `read`, `tidy`, `disconnect`)
-     3. **Sign-off Status**: Are you knocking off for the night, or still hacking?
+     2. **💡 Sparks & Fleeting Ideas**: Did any random thoughts, technical sparks, or new project ideas pop up today?
+     3. **Habit Checks**: Which habits were kept today? (`water`, `move`, `read`, `tidy`, `disconnect`)
+     4. **Sign-off Status**: Are you knocking off for the night, or still hacking?
 4. **Post-Response Finalization**:
    - Write reflections into `### Wins`, `### Blockers`, and `### Reflection` as clean bullets.
+   - Write any captured ideas into `### 💡 Ideas & Fleeting Notes` inside `## 🌇 End of the Day...` as clean polished bullets.
    - Update `## 🔁 Habits` checkboxes (`- [x]`) and calculate total kept (e.g. `5/6`). Auto-tick `disconnect` if the user is signing off.
-   - Directly synthesize and write the **AI Daily Summary** into today's note in authentic Kiwi Chief of Staff style:
+   - Directly synthesize and write the **AI Daily Summary** into today's note in authentic Kiwi Chief of Staff style (ALWAYS separate the blockquote prompt from the body text with an empty blank line so the theme's green quote line does not stretch across the paragraph):
      - `### 📖 Daily Debrief`: Narrative prose of the day's events, friction, and outcomes.
      - `### 🧠 Chief of Staff Takeaway`: High-signal pattern, architectural insight, or blind spot.
      - `### 🎯 Tomorrow's Move`: Priority-first anchor recommending the top `#priority/p0` or `#priority/p1` task for tomorrow morning.

@@ -99,7 +99,8 @@ function validateTemplate(templateName, content) {
     const namespace = tag.split("/")[0];
     tagNamespaces.add(namespace);
   }
-  for (const namespace of requiredTagNamespaces) {
+  const requiredNamespaces = type === "daily" ? ["type", "area"] : requiredTagNamespaces;
+  for (const namespace of requiredNamespaces) {
     if (!tagNamespaces.has(namespace)) {
       console.log(`\u26A0\uFE0F Missing ${namespace}/* tag`);
     }

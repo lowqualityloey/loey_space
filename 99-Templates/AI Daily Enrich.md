@@ -159,16 +159,19 @@ if (content.includes("> [!QUOTE] 💡 Daily Spark")) {
 
 const aiSummaryBlock = `## 🤖 AI Daily Summary
 
-### Summary
->_What did I do today? Key activities, progress, and outcomes._
+### 📖 Daily Debrief
+> _What did I do today? The day's story and key outcomes._
+
 ${responseData.summary}
 
-### AI Reflection
->_What patterns do I notice? What could I improve? Any insights or blind spots?_
+### 🧠 Chief of Staff Takeaway
+> _What's the high-signal lesson, pattern, or blind spot from today?_
+
 ${responseData.reflection}
 
-### **Suggested Next Step**
->_Based on today, what's the smartest move for tomorrow?_
+### 🎯 Tomorrow's Move
+> _Based on today, what's the smartest priority to tackle first?_
+
 ${responseData.nextStep}`;
 
 if (content.includes("## 🤖 AI Daily Summary")) {
