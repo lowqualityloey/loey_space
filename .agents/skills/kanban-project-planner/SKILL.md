@@ -13,13 +13,25 @@ This skill guides the agent in breaking down project specifications into actiona
 ---
 
 ## 🎯 When to Activate
-- The user asks to plan, breakdown, or add new tasks/features for a project in `02-Projects/`.
+- The user prompts with **`hey loey plan <name>`** or **`hey loey project <name>`**.
+- The user asks to plan, breakdown, scaffold, or add new tasks/features for a project in `02-Projects/`.
 - The user asks to reorganize Kanban lanes or check task statuses across active boards.
 - The user requests synchronizing Obsidian Kanban cards with GitHub Projects v2.
 
 ---
 
 ## 📋 Procedure
+
+### Step 0: New Project Scaffolding (`hey loey plan`)
+When scaffolding a new project from scratch:
+1. **Create Folder**: `02-Projects/<name>/`
+2. **Master Note**: Create `02-Projects/<name>/<name>.md` from `99-Templates/Project.md` with:
+   - `status: planning` (The **Graduation Rule**: incubated in `_Projects MOC.md` Planning table until ready for active coding).
+   - `type: project`, `priority: medium`, `area: dev` (or `personal`).
+3. **Visual Board**: Create `02-Projects/<name>/<name> Kanban.md` with standard lanes:
+   - `## Backlog` (The **Backlog Shield**: all uncommitted cards start here, isolated from daily dashboards).
+   - `## To Do`, `## In Progress`, `## Review / Test`, `## Done`, `## Archive`.
+4. **GitHub Hook (Optional)**: If a repository exists, add `github_project_number`, `github_owner`, and `github_repo` to the Kanban board's frontmatter.
 
 ### Step 1: Feature Decomposition & Task Sizing
 - Break large features into independent, deliverable sub-tasks taking 1–4 hours of work.
