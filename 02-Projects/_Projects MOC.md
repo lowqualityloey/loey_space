@@ -1,6 +1,6 @@
 ---
 created: 2026-08-09
-updated: 2026-09-01
+updated: 2026-09-05
 type: moc
 status: active
 area: projects
@@ -10,7 +10,7 @@ tags:
   - type/moc
   - area/projects
 ---
-
+	
 # 🚀 Projects MOC & Engineering Hub
 
 > *Outcomes with deadlines or defined endpoints. One subfolder per project, each with a project note and a Kanban board. Finished cards move to the board's own `## Archive` column — retrospectives live in `07-Reviews/`.*
