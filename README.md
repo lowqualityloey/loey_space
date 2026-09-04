@@ -88,8 +88,8 @@ Prefix any prompt with **`"hey loey"`** in your AI interface to trigger fast, co
 | Trigger | Action & Workflow |
 | :--- | :--- |
 | **`hey loey status`** (or `hey loey`) | **Pulse Check**: Counts inbox items, checks daily note/habits, and lists active project tasks |
-| **`hey loey morning`** | **Morning Setup**: Initializes today's note, surfaces 3 priority tasks from active Kanbans |
-| **`hey loey evening`** | **Evening Wind-down**: Walks through habit checks, logs wins/blockers, prepares for AI summary |
+| **`hey loey morning`** | **Morning Kick-off**: Preps today's note with an inspirational quote, surfaces in-flight tasks, and prompts for intentions & vitals |
+| **`hey loey evening`** | **Evening Wind-down**: Auto-syncs GitHub, reconciles morning focus, logs reflections & habits, and generates AI summary |
 | **`hey loey sweep`** | **Inbox Triage**: Analyzes `quick-capture-dump.md`, tags tokens, and runs triage sweep |
 | **`hey loey distill`** | **Concept Extraction**: Distills raw notes/dev logs into atomic concepts in `08-Concepts/` (90d review) |
 | **`hey loey weekly`** | **Weekly Review**: Aggregates 7-day habits and project progress into `07-Reviews/YYYY-[W]WW.md` |
@@ -423,7 +423,7 @@ Placeholders such as `your_google_gemini_api_key_here` are allowed, so `.env.exa
 * **Automated CLI Commands**:
   - `npm run typecheck` — Strict TypeScript typecheck across all scripts.
   - `npm run build` — Bundles all 12 user scripts in under 50ms.
-  - `npm test` — Runs automated Node test suite (27 unit tests).
+  - `npm test` — Runs automated Node test suite (45 unit tests).
   - `npm run audit-links` — Scans vault for broken wikilinks, fuzzy fix suggestions, and orphan notes.
   - `npm run distill -- <file>` — Distills atomic evergreen concepts into `08-Concepts/`.
   - `npm run log-github` — Syncs today's GitHub activity into a collapsible table callout (`> [!NOTE]-`) sorted AM $\rightarrow$ PM with non-breaking timestamps.
