@@ -121,7 +121,7 @@ if (carried.length > 0) {
 -%>
 
 #### 🎯 In Progress from Projects
->_Live from your project boards. 
+> _Live from your project boards._
 
 ```dataviewjs
 // Shows project cards that are in progress (on today's note only), plus any completed on this note's
@@ -173,6 +173,7 @@ else dv.paragraph("No project tasks in progress.");
 ## 📝 Daily Log
 > _A running timestamp of what happened today._
 - 
+
 ### 💡 Ideas & Fleeting Notes
 > _Spark: What random idea popped into my head today? _
 - 

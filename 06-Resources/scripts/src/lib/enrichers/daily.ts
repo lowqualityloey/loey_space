@@ -443,7 +443,11 @@ WHAT TO PRODUCE
   Be specific about project names (loey_space, shelf) and features built. Never use bullet points inside debrief — write natural prose.",
 "takeaway": "ONE sharp Kiwi Chief of Staff takeaway paragraph on why the system worked (e.g. why planning before coding saved the day, preventing muck-around and decision fatigue even when knackered).",
 "tomorrowMove": "ONE clear, regular paragraph (1-2 sentences) anchored on high priority open tasks (#priority/p0 or p1). Phrased in Kiwi English: 'Get stuck into [[Task]] first thing...'.${sleepDebt ? ` Acknowledge the sleep debt honestly.` : ''}",
-"connectedNotes": "start with '[[${yesterdayDate}]]' (always). Then 2-4 notes explicitly named in tasks, log, or ideas."
+"connectedNotes": "start with '[[${yesterdayDate}]]' (always). Then 2-4 notes explicitly named in tasks, log, or ideas.",
+"polishedWins": "Array of strings. Lightly polished, typo-free versions of the user's Wins bullets. Return [] if none written.",
+"polishedBlockers": "Array of strings. Lightly polished, typo-free versions of the user's Blockers bullets. Return [] if none written.",
+"polishedReflection": "Array of strings. Lightly polished, typo-free versions of the user's Reflection bullets. Return [] if none written.",
+"polishedFocus": "Array of strings. Lightly polished, typo-free versions of the user's Focus bullets. Return [] if none written."
 
 HARD RULES
 1. Never invent meetings, people, projects or tasks that are not written above.
@@ -453,6 +457,12 @@ HARD RULES
 5. ${isDepleted ? `Sleep was under 6 hours AND energy under 3 — say plainly that capacity was capped, without turning it into a lecture.` : `Do not speculate about sleep or energy unless the numbers are notable.`}
 6. Conversational, warm, sharp Kiwi English. No corporate jargon.
 7. Always provide a REAL, historical/famous author for the quote.
+8. AUTO-POLISHING SAFEGUARDS:
+   - When generating polishedWins, polishedBlockers, polishedReflection, or polishedFocus:
+     - ONLY polish items the user actually wrote. If a section was empty, return [].
+     - STRICT LINK & CODE PROTECTION: NEVER strip, alter, or drop markdown links (e.g. [#12](url)), wikilinks ([[Note]]), issue numbers (#12), repository names, or code in backticks (\`code\`).
+     - Tone must remain relaxed, concise, grounded developer English. NEVER use stiff corporate or clinical phrasing.
+     - NEVER touch or modify ## 📝 Daily Log (chronological timestamps and git logs stay untouched).
 
 JSON format:
 {
@@ -461,7 +471,11 @@ JSON format:
   "debrief": "paragraph 1\n\nparagraph 2",
   "takeaway": "one sharp paragraph",
   "tomorrowMove": "Get stuck into [[Task]] ...",
-  "connectedNotes": ["[[${yesterdayDate}]]"]
+  "connectedNotes": ["[[${yesterdayDate}]]"],
+  "polishedWins": [],
+  "polishedBlockers": [],
+  "polishedReflection": [],
+  "polishedFocus": []
 }
 `;
 
@@ -518,6 +532,45 @@ export interface DailyEnrichmentData {
   takeaway: string;
   tomorrowMove: string;
   connectedLinks: string[];
+  polishedWins?: string[];
+  polishedBlockers?: string[];
+  polishedReflection?: string[];
+  polishedFocus?: string[];
+}
+
+export function replaceSectionBullets(content: string, headingLiteral: string, newBullets: string[]): string {
+  if (!newBullets || newBullets.length === 0) return content;
+
+  const lines = content.split('\n');
+  const headingIdx = lines.findIndex(l => {
+    const t = l.trim();
+    return t === headingLiteral || t.startsWith(headingLiteral + ' ') || t.startsWith(headingLiteral + '\t');
+  });
+  if (headingIdx === -1) return content;
+
+  let insertIdx = headingIdx + 1;
+  while (insertIdx < lines.length && (lines[insertIdx].trim().startsWith('>') || lines[insertIdx].trim() === '')) {
+    insertIdx++;
+  }
+
+  let sectionEnd = lines.length;
+  for (let i = insertIdx; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    if (/^#{1,6}\s+/.test(trimmed) || /^---+$/.test(trimmed)) {
+      sectionEnd = i;
+      break;
+    }
+  }
+
+  const formattedBullets = newBullets
+    .map(b => b.trim().replace(/^[-*+]\s*/, ''))
+    .filter(Boolean)
+    .map(b => `- ${b}`);
+
+  if (formattedBullets.length === 0) return content;
+
+  lines.splice(insertIdx, sectionEnd - insertIdx, ...formattedBullets, '');
+  return lines.join('\n');
 }
 
 export function applyDailyEnrichment(content: string, data: DailyEnrichmentData): string {
@@ -531,6 +584,19 @@ export function applyDailyEnrichment(content: string, data: DailyEnrichmentData)
       /> \[!QUOTE\] 💡 Daily Spark[\s\S]*?(?=\r?\n\r?\n#{1,6} |\r?\n---[ \t]*\r?\n|(?![\s\S]))/,
       escapeReplacement(quoteCallout)
     );
+  }
+
+  if (data.polishedFocus && data.polishedFocus.length > 0) {
+    updated = replaceSectionBullets(updated, "### 🎯 Today's Focus", data.polishedFocus);
+  }
+  if (data.polishedWins && data.polishedWins.length > 0) {
+    updated = replaceSectionBullets(updated, "### Wins", data.polishedWins);
+  }
+  if (data.polishedBlockers && data.polishedBlockers.length > 0) {
+    updated = replaceSectionBullets(updated, "### Blockers", data.polishedBlockers);
+  }
+  if (data.polishedReflection && data.polishedReflection.length > 0) {
+    updated = replaceSectionBullets(updated, "### Reflection", data.polishedReflection);
   }
 
   const aiSummaryBlock = `## 🤖 AI Daily Summary
@@ -693,13 +759,22 @@ export async function enrichDailyNote(app: App, file: TFile): Promise<void> {
     userCorpus
   });
 
+  const polishedWins = Array.isArray(responseData.polishedWins) && responseData.polishedWins.length > 0 ? responseData.polishedWins : undefined;
+  const polishedBlockers = Array.isArray(responseData.polishedBlockers) && responseData.polishedBlockers.length > 0 ? responseData.polishedBlockers : undefined;
+  const polishedReflection = Array.isArray(responseData.polishedReflection) && responseData.polishedReflection.length > 0 ? responseData.polishedReflection : undefined;
+  const polishedFocus = Array.isArray(responseData.polishedFocus) && responseData.polishedFocus.length > 0 ? responseData.polishedFocus : undefined;
+
   content = applyDailyEnrichment(content, {
     quote,
     author,
     debrief: debriefText,
     takeaway: takeawayText,
     tomorrowMove: tomorrowMoveText,
-    connectedLinks
+    connectedLinks,
+    polishedWins,
+    polishedBlockers,
+    polishedReflection,
+    polishedFocus
   });
 
   await app.vault.modify(file, content);
