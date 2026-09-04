@@ -15,8 +15,8 @@ When the user starts a prompt with **`"hey loey"`** (case-insensitive), identify
 | Command                                    | Action & Workflow                                                                                                                                                                                                                                                                                                                                                   |
 | :----------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **`hey loey status`** (or just `hey loey`) | **Instant Pulse Check**: Count open items in [`00-Inbox/quick-capture-dump.md`](file:///c:/Users/jonel/Documents/loey_space/00-Inbox/quick-capture-dump.md), check today's daily note completion (`mood`, `energy`, habits), check recent GitHub pushes/PRs, and list active `[/]` project tasks.                                                                   |
-| **`hey loey morning`**                     | **Enhanced Morning Kick-off**: Verify/create today's note (`01-Daily/YYYY-MM/YYYY-MM-DD.md`), log morning vitals (`sleep_hours`, `mood`, `energy`), rotate an atomic concept into `> [!QUOTE] 💡 Daily Spark` from `08-Concepts/`, write top 3 `#priority/p1` tasks into `### 🎯 Today's Focus`, and propose 1-click triage for open quick captures.                |
-| **`hey loey evening`**                     | **Evening Wind-down**: Run `npm run log-github` (pull today's commits/PRs with 12h `hh:mm A` timestamps into `## 📝 Daily Log`), walk through habit checks, append personal reflection bullets, and run AI Daily Enrichment (`Ctrl+Shift+A`).                                                                                                                       |
+| **`hey loey morning`**                     | **Morning Kick-off Briefing**: Verify/create today's note (`01-Daily/YYYY-MM/YYYY-MM-DD.md`), populate `> [!QUOTE] 💡 Daily Spark` with a real quote from an iconic thinker/author/personality, recall yesterday's `🎯 Tomorrow's Move` (if present), surface in-flight project tasks for awareness, check inbox triage, and actively prompt the user for their 1–3 focus intentions (`Today's Focus` defaults empty, not a task list) and morning vitals. Once answered, write focus as plain bullets (`- `), log vitals, and auto-check `- [x] prioritised`. |
+| **`hey loey evening`**                     | **Evening Wind-down Retrospective**: Auto-run `npm run log-github` to pull today's code events into `## 📝 Daily Log`, reconcile morning's `Today's Focus`, walk through habit checks & reflections, and synthesize the Kiwi Chief of Staff AI Daily Summary (`Debrief`, `Takeaway`, `Tomorrow's Move`) directly into the daily note. |
 | **`hey loey activity`** / **`github`**     | **GitHub Activity Sync**: Fetch today's GitHub commits, PRs, and issues for `lowqualityloey` and non-destructively merge them into `## 📝 Daily Log` in today's daily note (`npm run log-github`).                                                                                                                                                                  |
 | **`hey loey sweep`**                       | **Inbox Triage**: Inspect [`quick-capture-dump.md`](file:///c:/Users/jonel/Documents/loey_space/00-Inbox/quick-capture-dump.md), auto-tag untagged lines (`#do`, `#dev`, `#concept`, `#learn`, `#ref`, `#personal`, `#project`, `#bin`), and run or simulate [`triage-sweep.js`](file:///c:/Users/jonel/Documents/loey_space/06-Resources/scripts/triage-sweep.js). |
 | **`hey loey distill`**                     | **Knowledge Distillation**: Read recent daily notes or dev logs, extract atomic mental models or principles, create new notes in [`08-Concepts/`](file:///c:/Users/jonel/Documents/loey_space/08-Concepts/_Concepts%20MOC.md) (`type: concept`, `review_cycle: 90d`), and link backreferences.                                                                      |
@@ -86,6 +86,59 @@ tags:
 - **Strict Link Safety**: NEVER invent wikilinks for uncreated notes, tasks, or external tools (e.g. `[[Task Description]]`, `[[loey_space]]`). Use plain text or hashtags (`#topic/*`) unless a corresponding `.md` file physically exists in the vault.
 - Avoid orphaned notes: when creating a note in `08-Concepts/` or `03-Dev/`, update its respective MOC or link to a parent concept.
 - Preserve Dataview and DataviewJS blocks; never disturb queries when updating note bodies.
+
+---
+
+## 🌅 Morning Kick-off Protocol (`hey loey morning`)
+
+When executing `hey loey morning`:
+1. **Daily Note Preparation**: Ensure today's note exists (`01-Daily/YYYY-MM/YYYY-MM-DD.md`).
+2. **💡 Daily Spark**: Write an inspirational quote from a notable real-world thinker, author, engineer, or cultural icon into `> [!QUOTE] 💡 Daily Spark` with author attribution (e.g. `> *"Quote"* \n > — **Author**`). Do NOT rotate internal `08-Concepts/` notes.
+3. **🎯 Today's Focus Rules**:
+   - `Today's Focus` must ALWAYS remain defaulted empty upon note creation.
+   - NEVER populate `Today's Focus` with task checkboxes or Kanban cards. Focus is high-level daily intention, NOT a task list.
+   - Surface in-flight project tasks only as read-only context inside the AI chat briefing (including subtask completion ratio and the immediate next step, e.g. `(0/5 subtasks) ↳ Next step: ...`).
+4. **Interactive Check-In**:
+   - Surface yesterday's `🎯 Tomorrow's Move` (if present) to help prime the user's direction.
+   - Prompt the user for:
+     1. Their 1–3 focus intentions for today.
+     2. Their morning vitals (`sleep_hours`, `mood`, `energy` 1–5).
+5. **Post-Response Logging**:
+   - Write the user's focus intentions under `### 🎯 Today's Focus` as plain bullet points (`- Intention`), NEVER checkboxes (`- [ ]`).
+   - Automatically mark `- [x] prioritised` in `## 🔁 Habits`.
+   - Update frontmatter properties (`mood`, `energy`, `sleep_hours`).
+   - Calibrate pacing feedback based on reported sleep/energy (acknowledge sleep debt if < 6h).
+
+---
+
+## 🌇 Evening Wind-down Protocol (`hey loey evening`)
+
+When executing `hey loey evening`:
+1. **GitHub Activity Auto-Sync**: Automatically execute `npm run log-github` in the background to non-destructively merge today's commits/PRs with 12h timestamps into `## 📝 Daily Log`.
+2. **Focus Reconciliation & Briefing**:
+   - Recall this morning's intentions from `### 🎯 Today's Focus`.
+   - Surface today's GitHub achievements, closed issues, and merged PRs for quick celebration.
+3. **Interactive 3-Question Check-In**:
+   - Prompt the user for:
+     1. **Focus & Reflections**: How did morning focus go? Any specific wins, blockers/friction, or lessons?
+     2. **Habit Checks**: Which habits were kept today? (`water`, `move`, `read`, `tidy`, `disconnect`)
+     3. **Sign-off Status**: Are you knocking off for the night, or still hacking?
+4. **Post-Response Finalization**:
+   - Write reflections into `### Wins`, `### Blockers`, and `### Reflection` as clean bullets.
+   - Update `## 🔁 Habits` checkboxes (`- [x]`) and calculate total kept (e.g. `5/6`). Auto-tick `disconnect` if the user is signing off.
+   - Directly synthesize and write the **AI Daily Summary** into today's note in authentic Kiwi Chief of Staff style:
+     - `### 📖 Daily Debrief`: Narrative prose of the day's events, friction, and outcomes.
+     - `### 🧠 Chief of Staff Takeaway`: High-signal pattern, architectural insight, or blind spot.
+     - `### 🎯 Tomorrow's Move`: Priority-first anchor recommending the top `#priority/p0` or `#priority/p1` task for tomorrow morning.
+     - `##### 🔗 Connected Notes`: Relevant wikilinks to touched projects/notes.
+   - Provide warm sign-off and pacing advice, acknowledging late sessions (>9 PM) to protect sleep.
+
+---
+
+## ✍️ Communication & Note Polishing Policy
+
+1. **Effortless Input**: Accept user prompts and replies with casual phrasing, typos, shorthand, and imperfect grammar with zero friction or unsolicited correction. Understand intent natively.
+2. **Automatic Polishing on Write**: When recording user focus intentions, wins, blockers, reflections, or fleeting ideas into markdown notes, automatically polish and refine the phrasing into clear, concise, well-structured bullets while strictly preserving the user's authentic meaning and personal tone.
 
 ---
 

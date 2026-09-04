@@ -26,9 +26,10 @@ This policy defines the security standards for storing credentials, API keys, pr
 
 | Storage Location | Target Data Type | Git Status | Description |
 | :--- | :--- | :--- | :--- |
-| **`.secrets/`** | Private human-readable notes (passwords, bank info, private logs) | 🚫 **Ignored** | Vault-local directory at root. Completely excluded from Git commits. |
+| **`.secrets/` & `00-Private/`** | Private human-readable sensitive notes (passwords, bank info, private logs) | 🚫 **Ignored** | Vault-local directory at root. Completely excluded from Git commits. |
 | **`.env`** | Machine-readable credentials (API keys, tokens, DB connections) | 🚫 **Ignored** | Environment file loaded by integration scripts like [[06-Resources/scripts/ai-enrich-action.js\|ai-enrich-action.js]]. |
-| **Normal Vault Folders** | Knowledge notes, projects, dev docs, learning | ✅ **Tracked** | Safe for public/private Git repo backup. MUST NOT contain secrets. |
+| **Personal Vault Content (`01-Daily/*`, `04-Learning/*`, `05-Personal/*`, etc.)** | Daily notes, study tracks, personal projects, journals, learning cohorts | 🚫 **Ignored** | Excluded structurally by `.gitignore`. Notes stay strictly local on your machine. |
+| **System Blueprints, MOCs & Scripts** | MOC dashboards (`_*.md`), templates (`99-Templates/`), scripts, and guides | ✅ **Tracked** | Safe for public/private Git repo backup. Defines the vault system without personal data. |
 
 ---
 
@@ -36,8 +37,9 @@ This policy defines the security standards for storing credentials, API keys, pr
 
 ### Level 1: Git Exclusion (`.gitignore`)
 * Configured in `.gitignore` at the vault root.
+* **Structural Boundary**: The system is shareable, the personal content is not. All numbered content folders (`00-Inbox/*`, `01-Daily/*`, `02-Projects/*`, `03-Dev/*`, `04-Learning/*`, `05-Personal/*`, `07-Reviews/*`, `08-Concepts/*`) ignore note files by default, tracking only structural `_*.md` MOC dashboards.
 * Automatically ignores `.secrets/`, `00-Private/`, `*.env`, `*_secret*`, and `*_private*`.
-* Ensures un-tracked secrets are never committed during `git add .` or background syncs.
+* Ensures personal materials, study curricula, and un-tracked secrets are never staged during `git add .` or background syncs.
 
 ### Level 2: Note Encryption (AES-256)
 * Used for notes requiring password-level protection on screen or local disk.
