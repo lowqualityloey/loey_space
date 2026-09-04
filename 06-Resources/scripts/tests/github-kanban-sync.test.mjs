@@ -247,12 +247,65 @@ test('syncBoardSubtasksWithGitHubIssues: updates Kanban card nested checkboxes f
     }
   ];
 
-  const { updatedContent, updatedCount } = syncBoardSubtasksWithGitHubIssues(boardMarkdown, issues);
+  const { updatedContent, updatedCount } = syncBoardSubtasksWithGitHubIssues(boardMarkdown, issues, '2026-09-04');
   assert.strictEqual(updatedCount, 2);
-  assert.ok(updatedContent.includes('- [x] Install `@supabase/supabase-js` and initialize client'));
-  assert.ok(updatedContent.includes('- [x] Create authentication forms/components (`LoginForm`, `SignUpForm`)'));
+  assert.ok(updatedContent.includes('- [x] Install `@supabase/supabase-js` and initialize client ✅ 2026-09-04'));
+  assert.ok(updatedContent.includes('- [x] Create authentication forms/components (`LoginForm`, `SignUpForm`) ✅ 2026-09-04'));
   assert.ok(updatedContent.includes('- [ ] Implement an authenticated layout guard'));
   assert.ok(updatedContent.includes('- [ ] Attach bearer token header'));
+});
+
+test('syncBoardSubtasksWithGitHubIssues: preserves existing completion date stamps on subtasks', () => {
+  const { syncBoardSubtasksWithGitHubIssues } = syncGitHubKanban;
+  const boardMarkdown = `## In Progress
+
+- [/] [#11](https://github.com/lowqualityloey/shelf/issues/11) Configure Supabase Auth client & route guards #priority/p1
+	  > 🌿 \`feat/issue-11-configure-supabase-auth\`
+	  - [x] Install \`@supabase/supabase-js\` and initialize client ✅ 2026-09-03
+	  - [ ] Create authentication forms/components (\`LoginForm\`, \`SignUpForm\`)
+`;
+
+  const issues = [
+    {
+      number: 11,
+      title: 'Configure Supabase Auth client & route guards',
+      url: 'https://github.com/lowqualityloey/shelf/issues/11',
+      body: `## Tasks
+- [x] Install \`@supabase/supabase-js\` and initialize client
+- [x] Create authentication forms/components (\`LoginForm\`, \`SignUpForm\`)`
+    }
+  ];
+
+  // Sync with date 2026-09-04: existing 2026-09-03 MUST be preserved, new check gets 2026-09-04
+  const { updatedContent, updatedCount } = syncBoardSubtasksWithGitHubIssues(boardMarkdown, issues, '2026-09-04');
+  assert.strictEqual(updatedCount, 1);
+  assert.ok(updatedContent.includes('- [x] Install `@supabase/supabase-js` and initialize client ✅ 2026-09-03'));
+  assert.ok(updatedContent.includes('- [x] Create authentication forms/components (`LoginForm`, `SignUpForm`) ✅ 2026-09-04'));
+});
+
+test('syncBoardSubtasksWithGitHubIssues: removes date stamp when subtask is unchecked', () => {
+  const { syncBoardSubtasksWithGitHubIssues } = syncGitHubKanban;
+  const boardMarkdown = `## In Progress
+
+- [/] [#11](https://github.com/lowqualityloey/shelf/issues/11) Configure Supabase Auth client & route guards #priority/p1
+	  > 🌿 \`feat/issue-11-configure-supabase-auth\`
+	  - [x] Install \`@supabase/supabase-js\` and initialize client ✅ 2026-09-03
+`;
+
+  const issues = [
+    {
+      number: 11,
+      title: 'Configure Supabase Auth client & route guards',
+      url: 'https://github.com/lowqualityloey/shelf/issues/11',
+      body: `## Tasks
+- [ ] Install \`@supabase/supabase-js\` and initialize client`
+    }
+  ];
+
+  const { updatedContent, updatedCount } = syncBoardSubtasksWithGitHubIssues(boardMarkdown, issues, '2026-09-04');
+  assert.strictEqual(updatedCount, 1);
+  assert.ok(updatedContent.includes('- [ ] Install `@supabase/supabase-js` and initialize client'));
+  assert.ok(!updatedContent.includes('✅'));
 });
 
 test('syncBoardLanesWithRemoteItems: moves card from In Progress to Done when remote status is Done', () => {

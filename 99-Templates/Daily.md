@@ -142,7 +142,12 @@ for (const page of dv.pages('"02-Projects"')) {
     if (t.parent !== undefined && t.parent !== null) continue;
 
     const inProgress = isToday && t.status === "/";
-    const finishedToday = (t.completed || t.status === "x") && noteDate && t.text.includes("✅ " + noteDate);
+    const hasSubtaskFinishedToday = Boolean(
+      noteDate &&
+      t.children &&
+      t.children.some(c => c.text && c.text.includes("✅ " + noteDate))
+    );
+    const finishedToday = ((t.completed || t.status === "x") && noteDate && t.text.includes("✅ " + noteDate)) || hasSubtaskFinishedToday;
 
     if (inProgress || finishedToday) tasks.push(t);
   }
