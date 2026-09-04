@@ -21,6 +21,7 @@ When the user starts a prompt with **`"hey loey"`** (case-insensitive), identify
 | **`hey loey sweep`**                       | **Inbox Triage**: Inspect [`quick-capture-dump.md`](file:///c:/Users/jonel/Documents/loey_space/00-Inbox/quick-capture-dump.md), auto-tag untagged lines (`#do`, `#dev`, `#concept`, `#learn`, `#ref`, `#personal`, `#project`, `#bin`), and run or simulate [`triage-sweep.js`](file:///c:/Users/jonel/Documents/loey_space/06-Resources/scripts/triage-sweep.js). |
 | **`hey loey distill`**                     | **Knowledge Distillation**: Read recent daily notes or dev logs, extract atomic mental models or principles, create new notes in [`08-Concepts/`](file:///c:/Users/jonel/Documents/loey_space/08-Concepts/_Concepts%20MOC.md) (`type: concept`, `review_cycle: 90d`), and link backreferences.                                                                      |
 | **`hey loey weekly`**                      | **Weekly Review**: Review 7-day habit completion, project milestones & GitHub achievements, and generate the weekly retrospective note in [`07-Reviews/`](file:///c:/Users/jonel/Documents/loey_space/07-Reviews/_Reviews%20MOC.md).                                                                                                                                |
+| **`hey loey plan`** / **`project`**        | **Project Planning & Scaffolding**: Scaffold `02-Projects/<name>/` via `99-Templates/Project.md` with `status: planning`, create `<name> Kanban.md`, decompose features into `#priority/p0-p3` cards in `## Backlog` (leveraging the Backlog Shield), and register in `_Projects MOC.md`. |
 | **`hey loey health`** / **`audit`**        | **Vault Hygiene**: Validate templates against [`Tagging & Properties.md`](file:///c:/Users/jonel/Documents/loey_space/06-Resources/Guides/Tagging%20&%20Properties.md), check for broken wikilinks, and verify no secrets exist in tracked files.                                                                                                                          |
 | **`hey loey remind`**                      | **Proactive Reminders & Scheduling**: Set one-shot timers or recurring cron reminders for daily routines, project checks, or retrospectives via the scheduler tool.                                                                                                                                                                                                 |
 
@@ -134,6 +135,27 @@ When executing `hey loey evening`:
      - `### 🎯 Tomorrow's Move`: Priority-first anchor recommending the top `#priority/p0` or `#priority/p1` task for tomorrow morning.
      - `##### 🔗 Connected Notes`: Relevant wikilinks to touched projects/notes.
    - Provide warm sign-off and pacing advice, acknowledging late sessions (>9 PM) to protect sleep.
+
+---
+
+## 🏗️ Project Planning Protocol (`hey loey plan`)
+
+When executing `hey loey plan <name>` or `hey loey project <name>`:
+1. **Interactive Scoping & Architecture**:
+   - Extract the project name, core outcome, target domain (`dev` or `personal`), and proposed tech stack.
+   - If key constraints or requirements are missing, ask at most 1–2 high-signal questions; otherwise proceed with pragmatic, battle-tested defaults.
+2. **Vault Scaffolding (PARA Standard)**:
+   - Create the project folder: `02-Projects/<name>/`.
+   - Create the project master note: `02-Projects/<name>/<name>.md` using the [`99-Templates/Project.md`](file:///c:/Users/jonel/Documents/loey_space/99-Templates/Project.md) blueprint with `status: planning`, `type: project`, `priority: medium`, and `area: dev|personal`.
+   - Create the companion visual board: `02-Projects/<name>/<name> Kanban.md` with standard lanes (`## Backlog`, `## To Do`, `## In Progress`, `## Review / Test`, `## Done`, `## Archive`).
+3. **Backlog Decomposition & Sizing**:
+   - Decompose project deliverables into bite-sized tasks (1–4 hours each) tagged `#priority/p0` to `#priority/p3`.
+   - Break complex features into nested subtask criteria checklists.
+   - Populate tasks into **`## Backlog`** by default.
+4. **The Three Core Principles**:
+   - **The Graduation Rule (`planning` $\rightarrow$ `active`)**: Newly scaffolded projects remain in `status: planning` (indexed under `## 📝 Planning & Backlog` in `_Projects MOC.md`) until active development starts. When ready to build, switch to `status: active` and promote initial foundation cards to `## To Do`.
+   - **The Backlog Shield**: Tasks in `## Backlog` are completely shielded from Daily Note mirror blocks, `_Tasks MOC.md`, and `Tasks Kanban.md`, protecting daily headspace from clutter.
+   - **The GitHub Projects Hook**: If a GitHub repository is specified, inject `github_project_number`, `github_owner`, and `github_repo` into Kanban frontmatter for seamless two-way sync via `npm run sync-kanban`.
 
 ---
 
