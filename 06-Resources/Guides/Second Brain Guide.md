@@ -303,8 +303,8 @@ Start any prompt in your AI agent interface with `"hey loey"` to trigger fast wo
 | Trigger Command        | Workflow Executed                                                                                                                |
 | :--------------------- | :------------------------------------------------------------------------------------------------------------------------------- |
 | **`hey loey status`**  | **Vault Pulse Check**: Summarizes inbox dump status, daily note/habit completeness, and active project tasks.                    |
-| **`hey loey morning`** | **Morning Setup**: Ensures today's note exists and surfaces 3 high-priority tasks from active project Kanbans.                   |
-| **`hey loey evening`** | **Evening Reflection**: Checks off completed habits, logs brief wins/blockers, and formats for `Ctrl+Shift+A` AI summary.        |
+| **`hey loey morning`** | **Morning Kick-off**: Preps today's note with a real inspirational quote (`Daily Spark`), surfaces in-flight project tasks for awareness, prompts for personal focus intentions & vitals, and auto-ticks `prioritised`. |
+| **`hey loey evening`** | **Evening Wind-down**: Auto-syncs GitHub events, reconciles morning focus, prompts for reflections & habits, and generates the AI Daily Summary. |
 | **`hey loey sweep`**   | **Inbox Triage**: Analyzes `quick-capture-dump.md`, appends routing tokens, and runs triage sweep.                               |
 | **`hey loey distill`** | **Concept Extraction**: Converts raw notes and dev logs into atomic evergreen concepts in `08-Concepts/` with 90d review cycles. |
 | **`hey loey weekly`**  | **Weekly Retrospective**: Aggregates 7-day habit trends and project progress into `07-Reviews/YYYY-[W]WW.md`.                    |

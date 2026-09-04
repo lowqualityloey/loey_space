@@ -147,3 +147,58 @@ type: daily
   assert.ok(updated.includes('### 🎯 Tomorrow\'s Move\nGet stuck into next task.'));
   assert.ok(updated.includes('##### 🔗 Connected Notes\n- [[2026-08-30]]\n- [[Concept Distiller Engine]]'));
 });
+
+test('applyDailyEnrichment: polishes Wins, Blockers, Reflection, and Today\'s Focus while preserving blockquotes', () => {
+  const initialContent = `---
+type: daily
+---
+
+> [!QUOTE] 💡 Daily Spark
+> *"Old quote"*
+
+### 🎯 Today's Focus
+>_What's the 1-3 things I want to accomplish today? _
+- rough focus on shelf search
+
+### Wins
+> *Something positive from today, even if small.*
+- got pr 30 merged fast
+
+### Blockers
+> _What got in my way? Distractions, low energy, unclear priorities, external delays?_
+- stuck on supabase token expire
+
+### Reflection
+> _What did I learn? What could I have done better? What surprised me today?_
+- dont rush coding without reading docs
+
+## 📝 Daily Log
+> _A running timestamp of what happened today._
+- 11:34 AM - [shelf] PR #30 merged
+
+##### 🔗 Connected Notes
+- [[2026-08-30]]
+`;
+
+  const data = {
+    quote: 'Simplicity is prerequisite for reliability.',
+    author: 'Edsger W. Dijkstra',
+    debrief: 'Solid afternoon.',
+    takeaway: 'Plan before you code.',
+    tomorrowMove: 'Ship feature.',
+    connectedLinks: ['[[2026-08-30]]'],
+    polishedFocus: ['Deep work on Shelf search hook implementation'],
+    polishedWins: ['Merged PR #30 smoothly for TanStack Router layout'],
+    polishedBlockers: ['Encountered friction with Supabase token expiration'],
+    polishedReflection: ['Review architecture and docs thoroughly before writing code']
+  };
+
+  const updated = applyDailyEnrichment(initialContent, data);
+
+  assert.ok(updated.includes('>_What\'s the 1-3 things I want to accomplish today? _\n- Deep work on Shelf search hook implementation'));
+  assert.ok(updated.includes('> *Something positive from today, even if small.*\n- Merged PR #30 smoothly for TanStack Router layout'));
+  assert.ok(updated.includes('> _What got in my way? Distractions, low energy, unclear priorities, external delays?_\n- Encountered friction with Supabase token expiration'));
+  assert.ok(updated.includes('> _What did I learn? What could I have done better? What surprised me today?_\n- Review architecture and docs thoroughly before writing code'));
+  assert.ok(updated.includes('- 11:34 AM - [shelf] PR #30 merged'));
+});
+

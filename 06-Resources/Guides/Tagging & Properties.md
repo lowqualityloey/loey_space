@@ -45,12 +45,15 @@ tags:                            # Tag collection
 ### Optional Properties (Type-Specific)
 ```yaml
 priority: low/medium/high        # For projects, tasks, learning
-last_reviewed: YYYY-MM-DD        # For evergreen notes
+last_reviewed: YYYY-MM-DD        # For evergreen and learning notes
 review_cycle: 7d/14d/30d/90d     # Review frequency
 language: javascript/typescript  # For code snippets
 energy: 1-5                      # For daily notes (numeric energy level)
 mood: calm/focused/anxious/...   # For daily notes (mood description)
 sleep_hours: number              # For daily notes (sleep duration in hours)
+source_url: string              # For learning notes & web references
+platform_author: string         # Platform, instructor, or author for learning notes
+progress: string                # Completion progress (e.g. "85%", "100%", "2/4 Weeks")
 ```
 
 ---
@@ -237,6 +240,28 @@ tags:
   - type/concept
   - area/general
   - status/active
+---
+```
+
+### Learning Template (`type/learning`)
+```yaml
+---
+created: 2026-08-06
+updated: 2026-08-06
+last_reviewed: 2026-08-06
+review_cycle: 30d
+type: learning
+status: in-progress
+area: dev
+topic: routing
+source_url: "https://example.com/docs"
+platform_author: "Platform / Author"
+progress: "50%"
+tags:
+  - type/learning
+  - area/dev
+  - status/in-progress
+  - topic/routing
 ---
 ```
 

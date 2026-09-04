@@ -112,13 +112,6 @@
       {
         "name": "",
         "active": true,
-        "type": "FILES",
-        "pattern": "01-Daily/Tasks Kanban.md",
-        "patternType": "STRICT"
-      },
-      {
-        "name": "",
-        "active": true,
         "type": "DIRECTORIES",
         "pattern": "06-Resources/Articles",
         "patternType": "STRICT"
