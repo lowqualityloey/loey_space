@@ -115,7 +115,7 @@ function createBranchSlug(issueNumber, title, prefix = "feat") {
   return `${prefix}/issue-${issueNumber}-${clean || "task"}`;
 }
 function normalizeSubtaskText(text) {
-  return text.toLowerCase().replace(/[`_*~]/g, "").replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
+  return text.replace(/✅\s*\d{4}-\d{2}-\d{2}/g, "").toLowerCase().replace(/[`_*~]/g, "").replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
 }
 function extractSubtasksFromIssueBody(body) {
   const subtasks = [];
@@ -135,7 +135,9 @@ function extractSubtasksFromIssueBody(body) {
   }
   return subtasks;
 }
-function syncBoardSubtasksWithGitHubIssues(content, issues) {
+function syncBoardSubtasksWithGitHubIssues(content, issues, todayDate) {
+  const defaultDate = /* @__PURE__ */ new Date();
+  const todayStr = todayDate || `${defaultDate.getFullYear()}-${String(defaultDate.getMonth() + 1).padStart(2, "0")}-${String(defaultDate.getDate()).padStart(2, "0")}`;
   const lines = content.split("\n");
   let updatedCount = 0;
   let inFrontmatter = false;
@@ -218,7 +220,9 @@ function syncBoardSubtasksWithGitHubIssues(content, issues) {
             childLines.push(`	  > \u{1F33F} \`${createBranchSlug(cardEntry.issue.number, cleanTitle)}\``);
           }
           for (const sub of cardEntry.subtasks) {
-            childLines.push(`	  - [${sub.checked ? "x" : " "}] ${sub.rawText}`);
+            const hasDate = /✅\s*\d{4}-\d{2}-\d{2}/.test(sub.rawText);
+            const dateSuffix = sub.checked && !hasDate ? ` \u2705 ${todayStr}` : "";
+            childLines.push(`	  - [${sub.checked ? "x" : " "}] ${sub.rawText}${dateSuffix}`);
           }
           updatedCount++;
         } else if (existingSubtaskIndices.length > 0) {
@@ -241,9 +245,26 @@ function syncBoardSubtasksWithGitHubIssues(content, issues) {
               });
               if (matchedRemote) {
                 const targetCheck = matchedRemote.checked ? "x" : " ";
-                if (currentCheck !== targetCheck) {
-                  childLines[k] = `${prefix}${targetCheck}${suffix}${subtaskBody}`;
-                  updatedCount++;
+                const hasDate = /✅\s*\d{4}-\d{2}-\d{2}/.test(subtaskBody);
+                if (targetCheck === "x") {
+                  if (currentCheck !== "x") {
+                    const updatedBody = hasDate ? subtaskBody : `${subtaskBody} \u2705 ${todayStr}`;
+                    childLines[k] = `${prefix}x${suffix}${updatedBody}`;
+                    updatedCount++;
+                  } else if (!hasDate) {
+                    childLines[k] = `${prefix}x${suffix}${subtaskBody} \u2705 ${todayStr}`;
+                    updatedCount++;
+                  }
+                } else {
+                  if (currentCheck !== " ") {
+                    const updatedBody = subtaskBody.replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/g, "").trimEnd();
+                    childLines[k] = `${prefix} ${suffix}${updatedBody}`;
+                    updatedCount++;
+                  } else if (hasDate) {
+                    const updatedBody = subtaskBody.replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/g, "").trimEnd();
+                    childLines[k] = `${prefix} ${suffix}${updatedBody}`;
+                    updatedCount++;
+                  }
                 }
               }
             }
@@ -310,7 +331,9 @@ function injectIssueBadgesIntoBoard(content, issues) {
   }
   return { updatedContent: lines.join("\n"), injectedCount };
 }
-function syncBoardLanesWithRemoteItems(content, remoteItems, repoIssues, todayDate = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10)) {
+function syncBoardLanesWithRemoteItems(content, remoteItems, repoIssues, todayDate) {
+  const defaultDate = /* @__PURE__ */ new Date();
+  const todayStr = todayDate || `${defaultDate.getFullYear()}-${String(defaultDate.getMonth() + 1).padStart(2, "0")}-${String(defaultDate.getDate()).padStart(2, "0")}`;
   let inFrontmatter = false;
   const frontmatterLines = [];
   const bodyLines = [];
@@ -456,18 +479,24 @@ function syncBoardLanesWithRemoteItems(content, remoteItems, repoIssues, todayDa
         if (targetLaneNorm === "done") {
           card.checkbox = "x";
           if (!card.completionDate) {
-            card.completionDate = todayDate;
+            card.completionDate = todayStr;
             if (!card.headerLine.includes("\u2705")) {
-              card.headerLine = card.headerLine.replace(/^([ \t]*-\s*\[)[ xX/>\-?*!](\]\s+)(.*)$/, `$1x$2$3 \u2705 ${todayDate}`);
+              card.headerLine = card.headerLine.replace(/^([ \t]*-\s*\[)[ xX/>\-?*!](\]\s+)(.*)$/, `$1x$2$3 \u2705 ${todayStr}`);
             } else {
               card.headerLine = card.headerLine.replace(/^([ \t]*-\s*\[)[ xX/>\-?*!](\]\s+)/, "$1x$2");
             }
           } else {
             card.headerLine = card.headerLine.replace(/^([ \t]*-\s*\[)[ xX/>\-?*!](\]\s+)/, "$1x$2");
           }
-          card.childrenLines = card.childrenLines.map(
-            (ch) => ch.replace(/^(\s*-\s*\[)[ ](\]\s+)/, "$1x$2")
-          );
+          card.childrenLines = card.childrenLines.map((ch) => {
+            const match = ch.match(/^(\s*-\s*\[)[ ](\]\s+)(.*)$/);
+            if (match) {
+              const hasDate = /✅\s*\d{4}-\d{2}-\d{2}/.test(match[3]);
+              const dateSuffix = hasDate ? "" : ` \u2705 ${todayStr}`;
+              return `${match[1]}x${match[2]}${match[3]}${dateSuffix}`;
+            }
+            return ch;
+          });
         } else if (targetLaneNorm === "in progress") {
           card.checkbox = "/";
           card.headerLine = card.headerLine.replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/, "").replace(/^([ \t]*-\s*\[)[ xX/>\-?*!](\]\s+)/, "$1/$2");
@@ -481,7 +510,9 @@ function syncBoardLanesWithRemoteItems(content, remoteItems, repoIssues, todayDa
                 card.childrenLines.push(`	  > \u{1F33F} \`${createBranchSlug(iss.number, card.cleanTitle)}\``);
               }
               for (const sub of subtasks) {
-                card.childrenLines.push(`	  - [${sub.checked ? "x" : " "}] ${sub.rawText}`);
+                const hasDate = /✅\s*\d{4}-\d{2}-\d{2}/.test(sub.rawText);
+                const dateSuffix = sub.checked && !hasDate ? ` \u2705 ${todayStr}` : "";
+                card.childrenLines.push(`	  - [${sub.checked ? "x" : " "}] ${sub.rawText}${dateSuffix}`);
               }
             }
           }

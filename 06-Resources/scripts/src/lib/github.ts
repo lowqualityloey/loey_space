@@ -211,6 +211,7 @@ export interface RemoteSubtask {
 
 function normalizeSubtaskText(text: string): string {
   return text
+    .replace(/✅\s*\d{4}-\d{2}-\d{2}/g, '')
     .toLowerCase()
     .replace(/[`_*~]/g, '')
     .replace(/[^\w\s]/g, ' ')
@@ -239,8 +240,13 @@ export function extractSubtasksFromIssueBody(body: string): RemoteSubtask[] {
 
 export function syncBoardSubtasksWithGitHubIssues(
   content: string,
-  issues: GitHubIssueInfo[]
+  issues: GitHubIssueInfo[],
+  todayDate?: string
 ): { updatedContent: string; updatedCount: number } {
+  const defaultDate = new Date();
+  const todayStr =
+    todayDate ||
+    `${defaultDate.getFullYear()}-${String(defaultDate.getMonth() + 1).padStart(2, '0')}-${String(defaultDate.getDate()).padStart(2, '0')}`;
   const lines = content.split('\n');
   let updatedCount = 0;
   let inFrontmatter = false;
@@ -339,7 +345,9 @@ export function syncBoardSubtasksWithGitHubIssues(
             childLines.push(`\t  > 🌿 \`${createBranchSlug(cardEntry.issue.number, cleanTitle)}\``);
           }
           for (const sub of cardEntry.subtasks) {
-            childLines.push(`\t  - [${sub.checked ? 'x' : ' '}] ${sub.rawText}`);
+            const hasDate = /✅\s*\d{4}-\d{2}-\d{2}/.test(sub.rawText);
+            const dateSuffix = sub.checked && !hasDate ? ` ✅ ${todayStr}` : '';
+            childLines.push(`\t  - [${sub.checked ? 'x' : ' '}] ${sub.rawText}${dateSuffix}`);
           }
           updatedCount++;
         } else if (existingSubtaskIndices.length > 0) {
@@ -363,9 +371,27 @@ export function syncBoardSubtasksWithGitHubIssues(
 
               if (matchedRemote) {
                 const targetCheck = matchedRemote.checked ? 'x' : ' ';
-                if (currentCheck !== targetCheck) {
-                  childLines[k] = `${prefix}${targetCheck}${suffix}${subtaskBody}`;
-                  updatedCount++;
+                const hasDate = /✅\s*\d{4}-\d{2}-\d{2}/.test(subtaskBody);
+
+                if (targetCheck === 'x') {
+                  if (currentCheck !== 'x') {
+                    const updatedBody = hasDate ? subtaskBody : `${subtaskBody} ✅ ${todayStr}`;
+                    childLines[k] = `${prefix}x${suffix}${updatedBody}`;
+                    updatedCount++;
+                  } else if (!hasDate) {
+                    childLines[k] = `${prefix}x${suffix}${subtaskBody} ✅ ${todayStr}`;
+                    updatedCount++;
+                  }
+                } else {
+                  if (currentCheck !== ' ') {
+                    const updatedBody = subtaskBody.replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/g, '').trimEnd();
+                    childLines[k] = `${prefix} ${suffix}${updatedBody}`;
+                    updatedCount++;
+                  } else if (hasDate) {
+                    const updatedBody = subtaskBody.replace(/\s*✅\s*\d{4}-\d{2}-\d{2}/g, '').trimEnd();
+                    childLines[k] = `${prefix} ${suffix}${updatedBody}`;
+                    updatedCount++;
+                  }
                 }
               }
             }
@@ -475,8 +501,12 @@ export function syncBoardLanesWithRemoteItems(
   content: string,
   remoteItems: GitHubProjectItem[],
   repoIssues: GitHubIssueInfo[],
-  todayDate = new Date().toISOString().slice(0, 10)
+  todayDate?: string
 ): { updatedContent: string; movedCount: number } {
+  const defaultDate = new Date();
+  const todayStr =
+    todayDate ||
+    `${defaultDate.getFullYear()}-${String(defaultDate.getMonth() + 1).padStart(2, '0')}-${String(defaultDate.getDate()).padStart(2, '0')}`;
   let inFrontmatter = false;
   const frontmatterLines: string[] = [];
   const bodyLines: string[] = [];
@@ -651,18 +681,24 @@ export function syncBoardLanesWithRemoteItems(
         if (targetLaneNorm === 'done') {
           card.checkbox = 'x';
           if (!card.completionDate) {
-            card.completionDate = todayDate;
+            card.completionDate = todayStr;
             if (!card.headerLine.includes('✅')) {
-              card.headerLine = card.headerLine.replace(/^([ \t]*-\s*\[)[ xX/>\-?*!](\]\s+)(.*)$/, `$1x$2$3 ✅ ${todayDate}`);
+              card.headerLine = card.headerLine.replace(/^([ \t]*-\s*\[)[ xX/>\-?*!](\]\s+)(.*)$/, `$1x$2$3 ✅ ${todayStr}`);
             } else {
               card.headerLine = card.headerLine.replace(/^([ \t]*-\s*\[)[ xX/>\-?*!](\]\s+)/, '$1x$2');
             }
           } else {
             card.headerLine = card.headerLine.replace(/^([ \t]*-\s*\[)[ xX/>\-?*!](\]\s+)/, '$1x$2');
           }
-          card.childrenLines = card.childrenLines.map((ch) =>
-            ch.replace(/^(\s*-\s*\[)[ ](\]\s+)/, '$1x$2')
-          );
+          card.childrenLines = card.childrenLines.map((ch) => {
+            const match = ch.match(/^(\s*-\s*\[)[ ](\]\s+)(.*)$/);
+            if (match) {
+              const hasDate = /✅\s*\d{4}-\d{2}-\d{2}/.test(match[3]);
+              const dateSuffix = hasDate ? '' : ` ✅ ${todayStr}`;
+              return `${match[1]}x${match[2]}${match[3]}${dateSuffix}`;
+            }
+            return ch;
+          });
         } else if (targetLaneNorm === 'in progress') {
           card.checkbox = '/';
           card.headerLine = card.headerLine
@@ -679,7 +715,9 @@ export function syncBoardLanesWithRemoteItems(
                 card.childrenLines.push(`\t  > 🌿 \`${createBranchSlug(iss.number, card.cleanTitle)}\``);
               }
               for (const sub of subtasks) {
-                card.childrenLines.push(`\t  - [${sub.checked ? 'x' : ' '}] ${sub.rawText}`);
+                const hasDate = /✅\s*\d{4}-\d{2}-\d{2}/.test(sub.rawText);
+                const dateSuffix = sub.checked && !hasDate ? ` ✅ ${todayStr}` : '';
+                card.childrenLines.push(`\t  - [${sub.checked ? 'x' : ' '}] ${sub.rawText}${dateSuffix}`);
               }
             }
           }
