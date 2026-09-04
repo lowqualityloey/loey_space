@@ -124,10 +124,12 @@ if (carried.length > 0) {
 >_Live from your project boards. 
 
 ```dataviewjs
-// Shows project cards that are in progress, plus any completed on this note's
+// Shows project cards that are in progress (on today's note only), plus any completed on this note's
 // date so a task you tick stays visible as done. Tasks are pushed unmodified so
 // their checkboxes still write back to the Kanban card.
 const noteDate = String(dv.current() && dv.current().file ? dv.current().file.name : "").slice(0, 10);
+const todayStr = window.moment ? window.moment().format("YYYY-MM-DD") : new Date().toISOString().slice(0, 10);
+const isToday = noteDate === todayStr;
 const tasks = [];
 
 for (const page of dv.pages('"02-Projects"')) {
@@ -139,7 +141,7 @@ for (const page of dv.pages('"02-Projects"')) {
     if (section.includes("backlog") || section.includes("archive")) continue;
     if (t.parent !== undefined && t.parent !== null) continue;
 
-    const inProgress = t.status === "/";
+    const inProgress = isToday && t.status === "/";
     const finishedToday = (t.completed || t.status === "x") && noteDate && t.text.includes("✅ " + noteDate);
 
     if (inProgress || finishedToday) tasks.push(t);
