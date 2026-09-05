@@ -81,10 +81,10 @@ dv.table(["Project", "Progress", "Status", "Priority"], rows.map(r => [r.link, r
 
 ## 📝 Planning & Backlog
 ```dataview
-TABLE area AS "Area", priority AS "Priority"
+TABLE area AS "Area", priority AS "Priority", choice(updated, updated, created) AS "Last Touched"
 FROM "02-Projects"
 WHERE type = "project" AND status = "planning" AND !contains(file.name, "Kanban") AND !contains(file.name, "MOC")
-SORT priority DESC
+SORT priority DESC, file.mtime DESC
 ```
 
 ---
