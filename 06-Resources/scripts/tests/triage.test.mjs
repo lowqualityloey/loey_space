@@ -68,11 +68,48 @@ test("parseDumpLines & updateDumpContent: parses dump lines and updates dump his
     { item: items[0], destination: "01-Daily/2026-08-31.md", ok: true },
     { item: items[1], destination: "04-Learning/boot.dev.md", ok: true }
   ];
-  const sweptIndexes = new Set([items[0].index, items[1].index]);
 
-  const nextDump = updateDumpContent(dumpLines, results, sweptIndexes, "2026-08-31");
+  const { content: nextDump, archived, unresolved } = updateDumpContent(
+    dumpLines.join("\n"),
+    results,
+    "2026-08-31"
+  );
+
   assert.ok(nextDump.includes("## ✅ Triaged"));
   assert.ok(nextDump.includes("~~laundry~~ → [[2026-08-31]] `#do`"));
   assert.ok(nextDump.includes("~~https://boot.dev/~~ → [[boot.dev]] `#learn`"));
   assert.ok(nextDump.includes("- unhandled note"));
+  assert.deepStrictEqual(archived, results);
+  assert.deepStrictEqual(unresolved, []);
+});
+
+test("updateDumpContent: archives captures that survive to the current content and leaves reworded ones", () => {
+  const dumpLines = [
+    "### 📅 2026-08-31",
+    "- laundry #do",
+    "- https://boot.dev/ #learn"
+  ];
+  const items = parseDumpLines(dumpLines);
+  const results = [
+    { item: items[0], destination: "01-Daily/2026-08-31.md", ok: true },
+    { item: items[1], destination: "04-Learning/boot.dev.md", ok: true },
+    { item: { index: 99, token: "concept", text: "gone already", capturedDate: "" }, destination: "08-Concepts/x.md", ok: true }
+  ];
+
+  // "laundry" was reworded mid-sweep; the third capture was deleted outright.
+  const current = [
+    "### 📅 2026-08-31",
+    "- do the laundry now #do",
+    "- https://boot.dev/ #learn",
+    "- appended mid sweep #concept"
+  ].join("\n");
+
+  const { content, archived, unresolved } = updateDumpContent(current, results, "2026-08-31");
+
+  assert.ok(content.includes("- do the laundry now #do"), "a reworded capture is left alone");
+  assert.ok(content.includes("- appended mid sweep #concept"), "an appended capture is left alone");
+  assert.ok(!content.includes("- https://boot.dev/ #learn"), "an untouched filed capture is swept");
+  assert.strictEqual(archived.length, 1);
+  assert.strictEqual(archived[0].item.text, "https://boot.dev/");
+  assert.strictEqual(unresolved.length, 2, "reworded and deleted captures are reported, not dropped");
 });

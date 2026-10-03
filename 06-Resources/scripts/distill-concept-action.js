@@ -224,12 +224,15 @@ function toSingleLine(value) {
   const raw = Array.isArray(value) ? value.filter(Boolean).join(" ") : String(value);
   return raw.replace(/\r?\n+/g, " ").replace(/^\s*>+\s*/, "").replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "").replace(/^\s*#{1,6}\s*/, "").replace(/\s{2,}/g, " ").trim();
 }
-function replaceSectionBody(content, headingLiteral, bodyText) {
+function sectionPattern(headingLiteral) {
   const heading = headingLiteral.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const re = new RegExp(
-    "(^" + heading + "[ \\t]*\\r?\\n)[\\s\\S]*?(?=^#{1,6} |^```|^---[ \\t]*$|(?![\\s\\S]))",
+  return new RegExp(
+    "(^" + heading + "[ \\t]*\\r?\\n)([\\s\\S]*?)(?=^#{1,6} |^```|^---[ \\t]*$|(?![\\s\\S]))",
     "m"
   );
+}
+function replaceSectionBody(content, headingLiteral, bodyText) {
+  const re = sectionPattern(headingLiteral);
   if (!re.test(content))
     return content;
   return content.replace(re, (match, headingLine) => headingLine + bodyText + "\n\n");

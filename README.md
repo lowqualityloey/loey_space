@@ -397,6 +397,7 @@ Placeholders such as `your_google_gemini_api_key_here` are allowed, so `.env.exa
 | `⚠️ GEMINI_API_KEY missing in .env!` | No key configured. Run `cp .env.example .env` and paste a key from [Google AI Studio](https://aistudio.google.com/app/apikey). |
 | AI summary reads flat, with a notice about quota | Gemini refused with HTTP 429 and the offline fallback wrote the text. The notice names which limit: a **per-minute** limit clears in about a minute; a **daily** limit does not, and resets at midnight Pacific. Re-run `Ctrl + Shift + A` afterwards to replace it. |
 | A bundled plugin or CSS change has no effect | Obsidian loads plugins, snippets and hooks at startup. Run `Ctrl + P` → **Reload app without saving**. |
+| `npm run build` fails with *"you installed esbuild for another platform"* | `node_modules/` was installed on a different OS than the one you're running in — the usual case is a Windows tree reused from WSL. `esbuild` ships one native binary per platform. Delete `node_modules/` and reinstall **in the shell you're building from**: `rm -rf node_modules && npm ci`. Don't share that directory between Windows and WSL; see [Clean install](06-Resources/Guides/CONTRIBUTING.md#clean-install-first). |
 | `🧹 Triage Sweep` missing from the palette | Register it once: Settings → QuickAdd → Manage Macros → new macro → **Add User Script** → `triage-sweep.js`, then add it as a Macro choice. |
 | Sweep says *"no daily note for &lt;date&gt;"* | `#do` files into **today's** note, which must already exist. Run **QuickAdd: Create Daily Note** first. |
 | HomePulse lost its custom behaviour | It was updated from the Community Store. Restore `.obsidian/plugins/homepulse/` from Git history and set **Auto-update plugins: OFF**. |
@@ -416,11 +417,12 @@ Placeholders such as `your_google_gemini_api_key_here` are allowed, so `.env.exa
 *(See comprehensive operational specs in [Second Brain Guide](06-Resources/Guides/Second%20Brain%20Guide.md))*
 
 #### ⚙️ Technical Maintenance & CLI Tooling
+* **Clean install required first** — `node_modules/` holds **platform-specific native binaries** (`esbuild`, which both `npm run build` and the `tsx` test runner depend on, ships one binary per OS/arch). Never reuse a `node_modules/` directory across operating systems, and never share one between Windows and WSL. Install per platform from a clean tree: `rm -rf node_modules && npm ci`. `package-lock.json` pins every version, including the test runner, so `npm ci` needs no network guesses and `npm test` never downloads a runner on demand. Changing a dependency? Update `package.json` and `package-lock.json` in the same commit. Full notes in [CONTRIBUTING.md](06-Resources/Guides/CONTRIBUTING.md#clean-install-first).
 * **TypeScript & Bundling Engine** — User scripts are authored in TypeScript under [`06-Resources/scripts/src/`](06-Resources/scripts/src/) (modularized under `src/lib/`) and bundled into single-file CommonJS via `npm run build` (`esbuild`) for seamless Obsidian QuickAdd & Node CLI compatibility.
 * **Automated CLI Commands**:
   - `npm run typecheck` — Strict TypeScript typecheck across all scripts.
   - `npm run build` — Bundles all 12 user scripts in under 50ms.
-  - `npm test` — Runs automated Node test suite (45 unit tests).
+  - `npm test` — Runs the Node test suite via the pinned `tsx` runner (imports `src/**/*.ts` directly, so no separate compile step).
   - `npm run audit-links` — Scans vault for broken wikilinks, fuzzy fix suggestions, and orphan notes.
   - `npm run distill -- <file>` — Distills atomic evergreen concepts into `08-Concepts/`.
   - `npm run log-github` — Syncs today's GitHub activity into a collapsible table callout (`> [!NOTE]-`) sorted AM $\rightarrow$ PM with non-breaking timestamps.
