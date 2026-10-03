@@ -1,12 +1,3 @@
-# Claude Adapter for loey_space
-
-Read `AGENTS.md` as the canonical Chief of Staff router.
-Consult `memory.md` for durable truths, user profile, and active external repository paths.
-Consult `handoff.md` for current in-flight objectives before taking action.
-Follow the Johnny Decimal / PARA directory architecture strictly.
-Do not read or output files inside `.secrets/` or `.env`.
-
-
 <!-- PROMPTKIT_START -->
 ## PromptKit OS: Engineering Operating System
 PromptKit OS is active in this workspace (`./.promptkit`). Follow these protocols, workflows, and quality gates during pair-programming, design, code generation, and review:
