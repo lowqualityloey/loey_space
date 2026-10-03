@@ -1,10 +1,71 @@
 import type { App, TFile } from 'obsidian';
 import { callGeminiJson, formatGeminiFailure } from '../gemini';
-import { addFrontmatterTag, readFrontmatterValue, replaceSectionBody, normalizeWikiLink, toSingleLine } from '../markdown';
+import { addFrontmatterTag, readFrontmatterValue, replaceSectionBody, normalizeWikiLink, toSingleLine, applyEnrichmentToCurrentContent, formatConflictNotice } from '../markdown';
+
+const LEARNING_OWNED_SECTIONS = [
+  "## 🎯 Learning Objectives & Motivation",
+  "## 💡 Extracted Evergreen Concepts",
+  "## 💻 Reusable Code Patterns & Snippets",
+  "## ❓ Active Recall & Self-Quiz"
+];
+
+function applyLearningEnrichment(source: string, data: any): string {
+  let content = source;
+
+  if (data.topicTag) {
+    content = addFrontmatterTag(content, data.topicTag);
+  }
+  if (data.topicName && (readFrontmatterValue(content, "topic") === "general" || !readFrontmatterValue(content, "topic"))) {
+    if (/^topic:\s*.*$/m.test(content)) {
+      content = content.replace(/^topic:\s*.*$/m, `topic: ${toSingleLine(data.topicName)}`);
+    }
+  }
+
+  if (data.objectives) {
+    const why = toSingleLine(data.objectives.why);
+    const outcome = toSingleLine(data.objectives.targetOutcome);
+    if (why || outcome) {
+      const objText = `- **Why am I learning this?**: ${why || ""}\n- **Target Outcome**: ${outcome || ""}`;
+      content = replaceSectionBody(content, "## 🎯 Learning Objectives & Motivation", objText);
+    }
+  }
+
+  if (Array.isArray(data.extractedConcepts) && data.extractedConcepts.length > 0) {
+    const links = data.extractedConcepts.map(normalizeWikiLink).filter(Boolean);
+    if (links.length) {
+      const text = "*Atomic concepts distilled into `08-Concepts/`:*\n" + links.map((l: string) => `- ${l}`).join("\n");
+      content = replaceSectionBody(content, "## 💡 Extracted Evergreen Concepts", text);
+    }
+  }
+
+  if (Array.isArray(data.extractedSnippets) && data.extractedSnippets.length > 0) {
+    const snippets = data.extractedSnippets.map(normalizeWikiLink).filter(Boolean);
+    if (snippets.length) {
+      const text = "*Practical snippets & solutions saved to `03-Dev/`:*\n" + snippets.map((s: string) => `- ${s}`).join("\n");
+      content = replaceSectionBody(content, "## 💻 Reusable Code Patterns & Snippets", text);
+    }
+  }
+
+  if (Array.isArray(data.activeRecall) && data.activeRecall.length > 0) {
+    const quizLines: string[] = [];
+    data.activeRecall.forEach((item: any) => {
+      const q = toSingleLine(item.q);
+      const a = toSingleLine(item.a);
+      if (q && a) {
+        quizLines.push(`- **Q**: ${q}\n  - **A**: ${a}`);
+      }
+    });
+    if (quizLines.length) {
+      content = replaceSectionBody(content, "## ❓ Active Recall & Self-Quiz", quizLines.join("\n"));
+    }
+  }
+
+  return content;
+}
 
 export async function enrichLearningNote(app: App, file: TFile): Promise<void> {
   const Notice = (window as any).Notice || (globalThis as any).Notice;
-  let content = await app.vault.read(file);
+  const snapshot = await app.vault.read(file);
   const noteTitle = file.basename;
 
   new Notice(`🤖 Analyzing & enriching Learning Note: "${noteTitle}"...`);
@@ -39,7 +100,7 @@ export async function enrichLearningNote(app: App, file: TFile): Promise<void> {
 Existing vault notes (valid link candidates): [${existingNotesStr}]
 
 Note Content:
-${content.slice(0, 3000)}
+${snapshot.slice(0, 3000)}
 
 INSTRUCTIONS:
 1. Objectives: Identify why someone would learn this and the concrete target outcome.
@@ -75,64 +136,13 @@ JSON format:
     return;
   }
 
-  try {
-    const data = result.data;
+try {
+    const conflicts = await applyEnrichmentToCurrentContent(
+      app.vault, file, snapshot, LEARNING_OWNED_SECTIONS,
+      (current) => applyLearningEnrichment(current, result.data)
+    );
 
-    // Update topic tag
-    if (data.topicTag) {
-      content = addFrontmatterTag(content, data.topicTag);
-    }
-    if (data.topicName && (readFrontmatterValue(content, "topic") === "general" || !readFrontmatterValue(content, "topic"))) {
-      if (/^topic:\s*.*$/m.test(content)) {
-        content = content.replace(/^topic:\s*.*$/m, `topic: ${toSingleLine(data.topicName)}`);
-      }
-    }
-
-    // Update Learning Objectives & Motivation
-    if (data.objectives) {
-      const why = toSingleLine(data.objectives.why);
-      const outcome = toSingleLine(data.objectives.targetOutcome);
-      if (why || outcome) {
-        const objText = `- **Why am I learning this?**: ${why || ""}\n- **Target Outcome**: ${outcome || ""}`;
-        content = replaceSectionBody(content, "## 🎯 Learning Objectives & Motivation", objText);
-      }
-    }
-
-    // Update Extracted Evergreen Concepts
-    if (Array.isArray(data.extractedConcepts) && data.extractedConcepts.length > 0) {
-      const links = data.extractedConcepts.map(normalizeWikiLink).filter(Boolean);
-      if (links.length) {
-        const text = "*Atomic concepts distilled into `08-Concepts/`:*\n" + links.map((l: string) => `- ${l}`).join("\n");
-        content = replaceSectionBody(content, "## 💡 Extracted Evergreen Concepts", text);
-      }
-    }
-
-    // Update Reusable Code Patterns
-    if (Array.isArray(data.extractedSnippets) && data.extractedSnippets.length > 0) {
-      const snippets = data.extractedSnippets.map(normalizeWikiLink).filter(Boolean);
-      if (snippets.length) {
-        const text = "*Practical snippets & solutions saved to `03-Dev/`:*\n" + snippets.map((s: string) => `- ${s}`).join("\n");
-        content = replaceSectionBody(content, "## 💻 Reusable Code Patterns & Snippets", text);
-      }
-    }
-
-    // Update Active Recall & Self-Quiz
-    if (Array.isArray(data.activeRecall) && data.activeRecall.length > 0) {
-      const quizLines: string[] = [];
-      data.activeRecall.forEach((item: any) => {
-        const q = toSingleLine(item.q);
-        const a = toSingleLine(item.a);
-        if (q && a) {
-          quizLines.push(`- **Q**: ${q}\n  - **A**: ${a}`);
-        }
-      });
-      if (quizLines.length) {
-        content = replaceSectionBody(content, "## ❓ Active Recall & Self-Quiz", quizLines.join("\n"));
-      }
-    }
-
-    await app.vault.modify(file, content);
-    new Notice(`✨ Learning note "${noteTitle}" enriched with AI! (${result.model})`);
+    new Notice(`✨ Learning note "${noteTitle}" enriched with AI! (${result.model})${formatConflictNotice(conflicts)}`);
 
   } catch (err) {
     console.error("Failed to apply Learning enrichment:", err);

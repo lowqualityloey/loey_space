@@ -1,10 +1,55 @@
 import type { App, TFile } from 'obsidian';
 import { callGeminiJson, formatGeminiFailure } from '../gemini';
-import { addFrontmatterTag, replaceSectionBody, normalizeWikiLink, wikiLinkTarget, toSingleLine } from '../markdown';
+import { addFrontmatterTag, replaceSectionBody, normalizeWikiLink, wikiLinkTarget, toSingleLine, applyEnrichmentToCurrentContent, formatConflictNotice } from '../markdown';
+
+const DEV_OWNED_SECTIONS = ["## Context", "## Code Explanation", "## Related"];
+
+function applyDevEnrichment(source: string, data: any): string {
+  let content = source;
+
+  if (data.type) content = content.replace(/^type:\s*.*$/m, `type: ${data.type}`);
+  if (data.area) content = content.replace(/^area:\s*.*$/m, `area: ${data.area}`);
+  if (data.language) content = content.replace(/^language:\s*.*$/m, `language: ${data.language}`);
+
+  if (Array.isArray(data.tags)) {
+    data.tags.forEach((t: string) => { content = addFrontmatterTag(content, t); });
+  }
+
+  if (data.context) {
+    const ctxLines: string[] = [];
+    const system = toSingleLine(data.context.system);
+    const stack = toSingleLine(data.context.stack);
+    const fits = toSingleLine(data.context.whereItFits);
+    if (system) ctxLines.push(`- System: ${system}`);
+    if (stack) ctxLines.push(`- Stack: ${stack}`);
+    if (fits) ctxLines.push(`- Where this fits: ${fits}`);
+    if (ctxLines.length) content = replaceSectionBody(content, "## Context", ctxLines.join("\n"));
+  }
+
+  if (Array.isArray(data.codeExplanation)) {
+    const items = data.codeExplanation.map(toSingleLine).filter(Boolean);
+    if (items.length) content = replaceSectionBody(content, "## Code Explanation", items.map((e: string) => `- ${e}`).join("\n"));
+  }
+
+  if (Array.isArray(data.related)) {
+    const seen = new Set<string>();
+    const links: string[] = [];
+    data.related.forEach((r: any) => {
+      const normalized = normalizeWikiLink(r);
+      const target = wikiLinkTarget(normalized);
+      if (!target || seen.has(target.toLowerCase())) return;
+      seen.add(target.toLowerCase());
+      links.push(normalized);
+    });
+    if (links.length) content = replaceSectionBody(content, "## Related", links.map((l: string) => `- ${l}`).join("\n"));
+  }
+
+  return content;
+}
 
 export async function enrichDevNote(app: App, file: TFile): Promise<void> {
   const Notice = (window as any).Notice || (globalThis as any).Notice;
-  let content = await app.vault.read(file);
+  const snapshot = await app.vault.read(file);
   const noteTitle = file.basename;
 
   new Notice(`🤖 Analyzing & enriching Dev Note: "${noteTitle}"...`);
@@ -36,7 +81,7 @@ Title: "${noteTitle}"
 Existing Notes: [${existingNotesStr}]
 
 Content:
-${content}
+${snapshot}
 
 JSON format:
 {
@@ -61,52 +106,13 @@ JSON format:
     return;
   }
 
-  try {
-    const data = devResult.data;
+try {
+    const conflicts = await applyEnrichmentToCurrentContent(
+      app.vault, file, snapshot, DEV_OWNED_SECTIONS,
+      (current) => applyDevEnrichment(current, devResult.data)
+    );
 
-    // Update frontmatter properties
-    if (data.type) content = content.replace(/^type:\s*.*$/m, `type: ${data.type}`);
-    if (data.area) content = content.replace(/^area:\s*.*$/m, `area: ${data.area}`);
-    if (data.language) content = content.replace(/^language:\s*.*$/m, `language: ${data.language}`);
-
-    if (Array.isArray(data.tags)) {
-      data.tags.forEach((t: string) => { content = addFrontmatterTag(content, t); });
-    }
-
-    // Update Context
-    if (data.context) {
-      const ctxLines: string[] = [];
-      const system = toSingleLine(data.context.system);
-      const stack = toSingleLine(data.context.stack);
-      const fits = toSingleLine(data.context.whereItFits);
-      if (system) ctxLines.push(`- System: ${system}`);
-      if (stack) ctxLines.push(`- Stack: ${stack}`);
-      if (fits) ctxLines.push(`- Where this fits: ${fits}`);
-      if (ctxLines.length) content = replaceSectionBody(content, "## Context", ctxLines.join("\n"));
-    }
-
-    // Update Code Explanation
-    if (Array.isArray(data.codeExplanation)) {
-      const items = data.codeExplanation.map(toSingleLine).filter(Boolean);
-      if (items.length) content = replaceSectionBody(content, "## Code Explanation", items.map((e: string) => `- ${e}`).join("\n"));
-    }
-
-    // Update Related
-    if (Array.isArray(data.related)) {
-      const seen = new Set<string>();
-      const links: string[] = [];
-      data.related.forEach((r: any) => {
-        const normalized = normalizeWikiLink(r);
-        const target = wikiLinkTarget(normalized);
-        if (!target || seen.has(target.toLowerCase())) return;
-        seen.add(target.toLowerCase());
-        links.push(normalized);
-      });
-      if (links.length) content = replaceSectionBody(content, "## Related", links.map((l: string) => `- ${l}`).join("\n"));
-    }
-
-    await app.vault.modify(file, content);
-    new Notice(`✨ Dev note "${noteTitle}" enriched with AI! (${devResult.model})`);
+    new Notice(`✨ Dev note "${noteTitle}" enriched with AI! (${devResult.model})${formatConflictNotice(conflicts)}`);
 
   } catch (err) {
     console.error("Failed to apply Dev enrichment:", err);

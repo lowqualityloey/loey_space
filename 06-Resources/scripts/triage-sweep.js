@@ -153,6 +153,20 @@ function insertTask(content, text) {
   lines.splice(insertAt, 0, `- [ ] ${text}`);
   return { content: lines.join("\n"), ok: true };
 }
+function parseCaptureLine(line) {
+  if (!/^\s*-\s+\S/.test(line))
+    return null;
+  const token = line.match(TOKEN_RE);
+  if (!token)
+    return null;
+  const text = line.replace(/^\s*-\s+/, "").replace(TOKEN_RE, "").replace(TIME_CODE_RE, "").replace(/\s+/g, " ").trim();
+  if (!text)
+    return null;
+  return { token: token[1].toLowerCase(), text };
+}
+function captureIdentity(token, text) {
+  return `${token}\0${text}`;
+}
 function parseDumpLines(dumpLines) {
   const picked = [];
   let inTriaged = false;
@@ -172,36 +186,51 @@ function parseDumpLines(dumpLines) {
       capturedDate = heading[1];
       continue;
     }
-    if (!/^\s*-\s+\S/.test(line))
+    const parsed = parseCaptureLine(line);
+    if (!parsed)
       continue;
-    const token = line.match(TOKEN_RE);
-    if (!token)
-      continue;
-    const text = line.replace(/^\s*-\s+/, "").replace(TOKEN_RE, "").replace(TIME_CODE_RE, "").replace(/\s+/g, " ").trim();
-    if (!text)
-      continue;
-    picked.push({ index: i, token: token[1].toLowerCase(), text, capturedDate });
+    picked.push({ index: i, token: parsed.token, text: parsed.text, capturedDate });
   }
   return picked;
 }
-function updateDumpContent(dumpLines, results, sweptIndexes, todayStr = getTodayStr(), archiveSwept = ARCHIVE_SWEPT_LINES) {
-  const kept = [];
-  const logEntries = [];
-  for (let i = 0; i < dumpLines.length; i++) {
-    if (!sweptIndexes.has(i)) {
-      kept.push(dumpLines[i]);
-      continue;
-    }
-    const result = results.find((r) => r.item.index === i && r.ok);
-    if (!result) {
-      kept.push(dumpLines[i]);
-      continue;
-    }
-    if (archiveSwept) {
-      const target = result.destination === "dropped" ? "dropped" : `[[${(result.destination || "").replace(/^.*\//, "").replace(/\.md$/, "")}]]`;
-      logEntries.push(`- ~~${result.item.text}~~ \u2192 ${target} \`#${result.item.token}\``);
-    }
+function formatArchiveEntry(result) {
+  const target = result.destination === "dropped" ? "dropped" : `[[${(result.destination || "").replace(/^.*\//, "").replace(/\.md$/, "")}]]`;
+  return `- ~~${result.item.text}~~ \u2192 ${target} \`#${result.item.token}\``;
+}
+function updateDumpContent(currentDump, results, todayStr = getTodayStr(), archiveSwept = ARCHIVE_SWEPT_LINES) {
+  const filed = results.filter((r) => r.ok);
+  const pending = /* @__PURE__ */ new Map();
+  for (const result of filed) {
+    const key = captureIdentity(result.item.token, result.item.text);
+    const queue = pending.get(key);
+    if (queue)
+      queue.push(result);
+    else
+      pending.set(key, [result]);
   }
+  const archived = [];
+  const kept = [];
+  let inTriaged = false;
+  for (const line of currentDump.split("\n")) {
+    if (/^##\s+.*Triaged/i.test(line)) {
+      inTriaged = true;
+      kept.push(line);
+      continue;
+    } else if (/^##\s+/.test(line)) {
+      inTriaged = false;
+    }
+    if (!inTriaged) {
+      const parsed = parseCaptureLine(line);
+      const queue = parsed ? pending.get(captureIdentity(parsed.token, parsed.text)) : void 0;
+      if (queue && queue.length > 0) {
+        archived.push(queue.shift());
+        continue;
+      }
+    }
+    kept.push(line);
+  }
+  const unresolved = filed.filter((r) => !archived.includes(r));
+  const logEntries = archiveSwept ? filed.map(formatArchiveEntry) : [];
   const pruned = [];
   for (let i = 0; i < kept.length; i++) {
     const isDateHeading = /^###\s+.*?\d{4}-\d{2}-\d{2}/.test(kept[i]);
@@ -238,7 +267,7 @@ ${TRIAGED_HEADING}
 ` + block + "\n";
     }
   }
-  return nextDump;
+  return { content: nextDump, archived, unresolved };
 }
 
 // 06-Resources/scripts/src/lib/daily-note.ts
@@ -305,13 +334,13 @@ async function ensureFolder(app, folderPath) {
 }
 async function fileItem(app, item, route, todayStr, dailyNotePath) {
   if (route.kind === "drop") {
-    return { result: { item, destination: "dropped", ok: true }, sweptIndex: item.index };
+    return { item, destination: "dropped", ok: true };
   }
   if (route.kind === "task") {
     const dailyPath = dailyNotePath;
     const dailyFile = app.vault.getAbstractFileByPath(dailyPath);
     if (!dailyFile || !isTFile(dailyFile)) {
-      return { result: { item, ok: false, reason: `no daily note at ${dailyPath} for ${todayStr}` } };
+      return { item, ok: false, reason: `no daily note at ${dailyPath} for ${todayStr}` };
     }
     let inserted = false;
     if (typeof app.vault.process === "function") {
@@ -328,9 +357,9 @@ async function fileItem(app, item, route, todayStr, dailyNotePath) {
         await app.vault.modify(dailyFile, out.content);
     }
     if (!inserted) {
-      return { result: { item, ok: false, reason: "no Tasks section in today's note" } };
+      return { item, ok: false, reason: "no Tasks section in today's note" };
     }
-    return { result: { item, destination: dailyPath, ok: true }, sweptIndex: item.index };
+    return { item, destination: dailyPath, ok: true };
   }
   const title = deriveTitle(item.text, todayStr);
   if (route.kind === "project") {
@@ -342,15 +371,15 @@ async function fileItem(app, item, route, todayStr, dailyNotePath) {
     if (!app.vault.getAbstractFileByPath(kanbanPath)) {
       await app.vault.create(kanbanPath, buildKanban(todayStr));
     }
-    return { result: { item, destination: notePath, ok: true, extra: "+ Kanban" }, sweptIndex: item.index };
+    return { item, destination: notePath, ok: true, extra: "+ Kanban" };
   }
   if (route.folder) {
     await ensureFolder(app, route.folder);
     const notePath = await uniquePath(app, route.folder, title);
     await app.vault.create(notePath, buildNote(route, title, item.text, item.capturedDate, todayStr));
-    return { result: { item, destination: notePath, ok: true }, sweptIndex: item.index };
+    return { item, destination: notePath, ok: true };
   }
-  return { result: { item, ok: false, reason: "invalid route" } };
+  return { item, ok: false, reason: "invalid route" };
 }
 module.exports = async function triageSweep(params) {
   const app = params?.app || window.app || globalThis.app;
@@ -377,7 +406,6 @@ module.exports = async function triageSweep(params) {
   }
   new Notice(`\u{1F9F9} Triage Sweep: filing ${picked.length} item${picked.length === 1 ? "" : "s"}\u2026`);
   const results = [];
-  const sweptIndexes = /* @__PURE__ */ new Set();
   const dailyNotesConfig = await readDailyNotesConfig(async (configPath) => {
     const file = app.vault.getAbstractFileByPath(configPath);
     if (!file || !isTFile(file))
@@ -394,22 +422,23 @@ module.exports = async function triageSweep(params) {
     if (!route)
       continue;
     try {
-      const { result, sweptIndex } = await fileItem(app, item, route, todayStr, dailyNotePath);
-      results.push(result);
-      if (sweptIndex !== void 0) {
-        sweptIndexes.add(sweptIndex);
-      }
+      results.push(await fileItem(app, item, route, todayStr, dailyNotePath));
     } catch (e) {
       console.error(`Triage Sweep: failed on "${item.text}"`, e);
       results.push({ item, ok: false, reason: e?.message ? e.message : String(e) });
     }
   }
-  if (sweptIndexes.size > 0) {
-    const nextDump = updateDumpContent(dumpLines, results, sweptIndexes, todayStr);
+  let unresolved = [];
+  if (results.some((r) => r.ok)) {
+    const rewrite = (current) => {
+      const out = updateDumpContent(current, results, todayStr);
+      unresolved = out.unresolved;
+      return out.content;
+    };
     if (typeof app.vault.process === "function") {
-      await app.vault.process(dumpFile, () => nextDump);
+      await app.vault.process(dumpFile, rewrite);
     } else {
-      await app.vault.modify(dumpFile, nextDump);
+      await app.vault.modify(dumpFile, rewrite(await app.vault.read(dumpFile)));
     }
   }
   const filed = results.filter((r) => r.ok && r.destination !== "dropped");
@@ -434,7 +463,9 @@ module.exports = async function triageSweep(params) {
   new Notice(
     `\u2728 Triage Sweep: ${parts.join(", ")}.` + (failed.length ? `
 
-Skipped: ${failed.map((f) => f.reason).join("; ")}` : ""),
-    failed.length ? 12e3 : 7e3
+Skipped: ${failed.map((f) => f.reason).join("; ")}` : "") + (unresolved.length ? `
+
+\u26A0\uFE0F Filed but left in the inbox (its capture line changed during the sweep): ${unresolved.map((u) => u.item.text).join("; ")}. Re-tag or delete them, or the next sweep files them again.` : ""),
+    failed.length || unresolved.length ? 12e3 : 7e3
   );
 };

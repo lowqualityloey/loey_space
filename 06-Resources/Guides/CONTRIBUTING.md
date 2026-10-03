@@ -30,6 +30,23 @@ This repository is two things in one: a **reusable Obsidian system** (plugins, s
 
 Vault user scripts are authored in TypeScript under [`06-Resources/scripts/src/`](06-Resources/scripts/src/) and bundled to CommonJS in [`06-Resources/scripts/`](06-Resources/scripts/) for Obsidian QuickAdd compatibility:
 
+### Clean install first
+
+`node_modules/` contains **platform-specific native binaries**. `esbuild` — which `npm run build` drives, and which the `tsx` test runner also depends on — ships exactly one binary per OS/arch, selected at install time. So a tree installed on Windows holds only `@esbuild/win32-x64`, and every later `npm run build` from WSL or Linux fails with *"You installed esbuild for another platform"*.
+
+**Never share a `node_modules/` directory between operating systems**, including between Windows and WSL. Install per platform, from a clean tree:
+
+```bash
+rm -rf node_modules     # Windows PowerShell: Remove-Item -Recurse -Force node_modules
+npm ci                  # exact versions from package-lock.json, this platform's binaries
+```
+
+`npm ci` is the supported command because `package-lock.json` pins every version — including the test runner, so `npm test` never downloads anything on demand. If you change a dependency, update `package.json` and `package-lock.json` together (`npm install --save-dev <pkg>`) and commit both.
+
+Working from WSL against a vault on a Windows drive? Run `npm ci` from the WSL shell before your first build of the session, and again from PowerShell before the first Windows build. One shared directory means one of the two platforms is always broken.
+
+Then:
+
 ```bash
 # 1. Typecheck TypeScript source
 npm run typecheck

@@ -1,10 +1,90 @@
 import type { App, TFile } from 'obsidian';
 import { callGeminiJson, formatGeminiFailure } from '../gemini';
-import { addFrontmatterTag, replaceSectionBody, normalizeWikiLink, wikiLinkTarget, toSingleLine } from '../markdown';
+import { addFrontmatterTag, replaceSectionBody, normalizeWikiLink, wikiLinkTarget, toSingleLine, applyEnrichmentToCurrentContent, formatConflictNotice } from '../markdown';
+
+const CONCEPT_OWNED_SECTIONS = [
+  "## Summary",
+  "## Why it matters",
+  "## Examples",
+  "## Questions",
+  "## Next steps",
+  "## 🔗 Related References",
+  "## Related concepts"
+];
+
+function applyConceptEnrichment(source: string, data: any, existingNotes: string[], existingLinksInNote: string[]): string {
+  let content = source;
+
+  if (Array.isArray(data.tags)) {
+    data.tags.forEach((t: string) => { content = addFrontmatterTag(content, t); });
+  }
+
+  const summary = toSingleLine(data.summary);
+  if (summary) content = replaceSectionBody(content, "## Summary", summary);
+
+  if (Array.isArray(data.whyItMatters)) {
+    const items = data.whyItMatters.map(toSingleLine).filter(Boolean);
+    if (items.length) content = replaceSectionBody(content, "## Why it matters", items.map((w: string) => `- ${w}`).join("\n"));
+  }
+
+  if (Array.isArray(data.examples)) {
+    const items = data.examples.map(toSingleLine).filter(Boolean);
+    if (items.length) content = replaceSectionBody(content, "## Examples", items.map((e: string) => `- ${e}`).join("\n"));
+  }
+
+  if (Array.isArray(data.questions)) {
+    const items = data.questions.map(toSingleLine).filter(Boolean);
+    if (items.length) content = replaceSectionBody(content, "## Questions", items.map((q: string) => `- ${q}`).join("\n"));
+  }
+
+  if (Array.isArray(data.nextSteps)) {
+    const items = data.nextSteps
+      .map((s: any) => toSingleLine(s).replace(/^\[[ xX]\]\s*/, "").trim())
+      .filter(Boolean);
+    if (items.length) content = replaceSectionBody(content, "## Next steps", items.map((s: string) => `- [ ] ${s}`).join("\n"));
+  }
+
+  if (Array.isArray(data.relatedConcepts)) {
+    const validTargets = new Map<string, string>();
+    existingNotes.forEach((n: string) => validTargets.set(n.toLowerCase(), n));
+
+    const links: string[] = [];
+    const seen = new Set<string>();
+
+    const addLink = (candidate: any) => {
+      const normalized = normalizeWikiLink(candidate);
+      const target = wikiLinkTarget(normalized);
+      if (!target) return;
+      const resolved = validTargets.get(target.toLowerCase());
+      if (!resolved) {
+        console.warn(`Concept Enrich: dropped link to non-existent note "${target}"`);
+        return;
+      }
+      const key = resolved.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      links.push(normalized.startsWith("==") ? `==[[${resolved}]]==` : `[[${resolved}]]`);
+    };
+
+    existingLinksInNote.forEach(addLink);
+    data.relatedConcepts.forEach(addLink);
+
+    if (links.length) {
+      const rcText = links.map(l => `- ${l}`).join("\n");
+      if (/^## 🔗 Related References[ \t]*$/m.test(content)) {
+        content = replaceSectionBody(content, "## 🔗 Related References", rcText);
+      } else if (/^## Related concepts[ \t]*$/m.test(content)) {
+        content = replaceSectionBody(content, "## Related concepts", rcText);
+      }
+    }
+  }
+
+  return content;
+}
 
 export async function enrichConceptNote(app: App, file: TFile): Promise<void> {
   const Notice = (window as any).Notice || (globalThis as any).Notice;
-  let content = await app.vault.read(file);
+  const snapshot = await app.vault.read(file);
   const conceptName = file.basename;
 
   new Notice(`🤖 Analyzing & enriching Concept: "${conceptName}"...`);
@@ -30,7 +110,7 @@ export async function enrichConceptNote(app: App, file: TFile): Promise<void> {
 
   // 3. Links the user already wrote in the note, including highlighted ones
   const existingLinksInNote: string[] = [];
-  const linkMatches = content.match(/(?:==)?\[\[[^\[\]]+\]\](?:==)?/g) || [];
+  const linkMatches = snapshot.match(/(?:==)?\[\[[^\[\]]+\]\](?:==)?/g) || [];
   for (const rawLink of linkMatches) {
     const normalized = normalizeWikiLink(rawLink);
     const target = wikiLinkTarget(normalized);
@@ -49,7 +129,7 @@ Existing notes in this vault (the ONLY valid link targets): [${existingNotesStr}
 Links already used in this note: ${existingLinksInNote.join(", ") || "none"}
 
 Current note content:
-${content.slice(0, 2000)}
+${snapshot.slice(0, 2000)}
 
 HOW TO WRITE
 1. Explain the concept properly, as if teaching someone who has not met it before. Be specific and concrete.
@@ -81,82 +161,13 @@ JSON format:
     return;
   }
 
-  try {
-    const data = result.data;
+try {
+    const conflicts = await applyEnrichmentToCurrentContent(
+      app.vault, file, snapshot, CONCEPT_OWNED_SECTIONS,
+      (current) => applyConceptEnrichment(current, result.data, existingNotes, existingLinksInNote)
+    );
 
-    // Update tags in frontmatter
-    if (Array.isArray(data.tags)) {
-      data.tags.forEach((t: string) => { content = addFrontmatterTag(content, t); });
-    }
-
-    // Update Summary
-    const summary = toSingleLine(data.summary);
-    if (summary) content = replaceSectionBody(content, "## Summary", summary);
-
-    // Update Why it matters
-    if (Array.isArray(data.whyItMatters)) {
-      const items = data.whyItMatters.map(toSingleLine).filter(Boolean);
-      if (items.length) content = replaceSectionBody(content, "## Why it matters", items.map((w: string) => `- ${w}`).join("\n"));
-    }
-
-    // Update Examples
-    if (Array.isArray(data.examples)) {
-      const items = data.examples.map(toSingleLine).filter(Boolean);
-      if (items.length) content = replaceSectionBody(content, "## Examples", items.map((e: string) => `- ${e}`).join("\n"));
-    }
-
-    // Update Questions
-    if (Array.isArray(data.questions)) {
-      const items = data.questions.map(toSingleLine).filter(Boolean);
-      if (items.length) content = replaceSectionBody(content, "## Questions", items.map((q: string) => `- ${q}`).join("\n"));
-    }
-
-    // Update Next steps
-    if (Array.isArray(data.nextSteps)) {
-      const items = data.nextSteps
-        .map((s: any) => toSingleLine(s).replace(/^\[[ xX]\]\s*/, "").trim())
-        .filter(Boolean);
-      if (items.length) content = replaceSectionBody(content, "## Next steps", items.map((s: string) => `- [ ] ${s}`).join("\n"));
-    }
-
-    // Update related links
-    if (Array.isArray(data.relatedConcepts)) {
-      const validTargets = new Map<string, string>();
-      existingNotes.forEach((n: string) => validTargets.set(n.toLowerCase(), n));
-
-      const links: string[] = [];
-      const seen = new Set<string>();
-
-      const addLink = (candidate: any) => {
-        const normalized = normalizeWikiLink(candidate);
-        const target = wikiLinkTarget(normalized);
-        if (!target) return;
-        const resolved = validTargets.get(target.toLowerCase());
-        if (!resolved) {
-          console.warn(`Concept Enrich: dropped link to non-existent note "${target}"`);
-          return;
-        }
-        const key = resolved.toLowerCase();
-        if (seen.has(key)) return;
-        seen.add(key);
-        links.push(normalized.startsWith("==") ? `==[[${resolved}]]==` : `[[${resolved}]]`);
-      };
-
-      existingLinksInNote.forEach(addLink);
-      data.relatedConcepts.forEach(addLink);
-
-      if (links.length) {
-        const rcText = links.map(l => `- ${l}`).join("\n");
-        if (/^## 🔗 Related References[ \t]*$/m.test(content)) {
-          content = replaceSectionBody(content, "## 🔗 Related References", rcText);
-        } else if (/^## Related concepts[ \t]*$/m.test(content)) {
-          content = replaceSectionBody(content, "## Related concepts", rcText);
-        }
-      }
-    }
-
-    await app.vault.modify(file, content);
-    new Notice(`✨ Concept note "${conceptName}" enriched with AI! (${result.model})`);
+    new Notice(`✨ Concept note "${conceptName}" enriched with AI! (${result.model})${formatConflictNotice(conflicts)}`);
 
   } catch (err) {
     console.error("Failed to apply concept enrichment:", err);
