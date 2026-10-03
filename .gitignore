@@ -19,13 +19,34 @@
 .claudian/
 
 # 🛠️ Agent & Tool Runtime (local-only, never commit)
-# .promptkit is a tracked git submodule (see .gitmodules) — do NOT ignore it.
-# Its internal scratch/ outputs are already ignored by .promptkit/.gitignore.
 .omo/
 .opencode/
 .codegraph/
 .opencode/node_modules/
 .clinerules/
+
+# 🧭 Local-only engineering layer — never published (owner decision 2026-10-04)
+#
+# This repository is the product for PKM users. The engineering control plane and
+# the vault's own development history stay on the owner's machine. PromptKit OS
+# ships from its own upstream repo (lowqualityloey/promptkit-os); vendoring it
+# here would make every public clone fetch a second repository for zero
+# consumer value, and the session/spec/task records are internal process, not
+# documentation a user needs.
+#
+# These rules are STRUCTURAL, not advisory. Deletion does not remove content from
+# git history, so the boundary has to hold before the commit rather than after
+# it — the same reasoning as the PERSONAL CONTENT block further down.
+#
+# Tracked on the local-only branch chore/promptkit-engine-and-state, never merged.
+.promptkit/
+PROMPTKIT.md
+docs/
+GEMINI.md
+#
+# ⚠️  AGENTS.md and CLAUDE.md ARE tracked, so ignore rules cannot protect them.
+#    The PromptKit directive block appended to them lives only on the local
+#    branch — strip it before opening any PR that touches either file.
 
 # GitButler state lives in .git/ (never tracked by definition) — belt-and-suspenders:
 .git/gitbutler/
