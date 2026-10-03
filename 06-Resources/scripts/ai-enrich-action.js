@@ -234,15 +234,46 @@ function wikiLinkTarget(link) {
     return "";
   return inner[1].split("|")[0].split("#")[0].trim();
 }
-function replaceSectionBody(content, headingLiteral, bodyText) {
+function sectionPattern(headingLiteral) {
   const heading = headingLiteral.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const re = new RegExp(
-    "(^" + heading + "[ \\t]*\\r?\\n)[\\s\\S]*?(?=^#{1,6} |^```|^---[ \\t]*$|(?![\\s\\S]))",
+  return new RegExp(
+    "(^" + heading + "[ \\t]*\\r?\\n)([\\s\\S]*?)(?=^#{1,6} |^```|^---[ \\t]*$|(?![\\s\\S]))",
     "m"
   );
+}
+function replaceSectionBody(content, headingLiteral, bodyText) {
+  const re = sectionPattern(headingLiteral);
   if (!re.test(content))
     return content;
   return content.replace(re, (match, headingLine) => headingLine + bodyText + "\n\n");
+}
+function readSectionBody(content, headingLiteral) {
+  const match = content.match(sectionPattern(headingLiteral));
+  return match ? match[2] : null;
+}
+async function applyEnrichmentToCurrentContent(vault, file, snapshot, ownedHeadings, transform) {
+  const conflicts = [];
+  const rewrite = (current) => {
+    for (const heading of ownedHeadings) {
+      if (readSectionBody(current, heading) !== readSectionBody(snapshot, heading)) {
+        conflicts.push(heading);
+      }
+    }
+    return transform(current);
+  };
+  if (typeof vault.process === "function") {
+    await vault.process(file, rewrite);
+  } else {
+    await vault.modify(file, rewrite(await vault.read(file)));
+  }
+  return conflicts;
+}
+function formatConflictNotice(conflicts) {
+  if (!conflicts.length)
+    return "";
+  return `
+
+\u26A0\uFE0F Edited while this was running, so the generated text replaced it: ${conflicts.join(", ")}.`;
 }
 function addFrontmatterTag(content, tag) {
   const clean = toSingleLine(tag).replace(/^#/, "").trim();
@@ -260,9 +291,82 @@ function stripTaskMetadata(text) {
 }
 
 // 06-Resources/scripts/src/lib/enrichers/concept.ts
+var CONCEPT_OWNED_SECTIONS = [
+  "## Summary",
+  "## Why it matters",
+  "## Examples",
+  "## Questions",
+  "## Next steps",
+  "## \u{1F517} Related References",
+  "## Related concepts"
+];
+function applyConceptEnrichment(source, data, existingNotes, existingLinksInNote) {
+  let content = source;
+  if (Array.isArray(data.tags)) {
+    data.tags.forEach((t) => {
+      content = addFrontmatterTag(content, t);
+    });
+  }
+  const summary = toSingleLine(data.summary);
+  if (summary)
+    content = replaceSectionBody(content, "## Summary", summary);
+  if (Array.isArray(data.whyItMatters)) {
+    const items = data.whyItMatters.map(toSingleLine).filter(Boolean);
+    if (items.length)
+      content = replaceSectionBody(content, "## Why it matters", items.map((w) => `- ${w}`).join("\n"));
+  }
+  if (Array.isArray(data.examples)) {
+    const items = data.examples.map(toSingleLine).filter(Boolean);
+    if (items.length)
+      content = replaceSectionBody(content, "## Examples", items.map((e) => `- ${e}`).join("\n"));
+  }
+  if (Array.isArray(data.questions)) {
+    const items = data.questions.map(toSingleLine).filter(Boolean);
+    if (items.length)
+      content = replaceSectionBody(content, "## Questions", items.map((q) => `- ${q}`).join("\n"));
+  }
+  if (Array.isArray(data.nextSteps)) {
+    const items = data.nextSteps.map((s) => toSingleLine(s).replace(/^\[[ xX]\]\s*/, "").trim()).filter(Boolean);
+    if (items.length)
+      content = replaceSectionBody(content, "## Next steps", items.map((s) => `- [ ] ${s}`).join("\n"));
+  }
+  if (Array.isArray(data.relatedConcepts)) {
+    const validTargets = /* @__PURE__ */ new Map();
+    existingNotes.forEach((n) => validTargets.set(n.toLowerCase(), n));
+    const links = [];
+    const seen = /* @__PURE__ */ new Set();
+    const addLink = (candidate) => {
+      const normalized = normalizeWikiLink(candidate);
+      const target = wikiLinkTarget(normalized);
+      if (!target)
+        return;
+      const resolved = validTargets.get(target.toLowerCase());
+      if (!resolved) {
+        console.warn(`Concept Enrich: dropped link to non-existent note "${target}"`);
+        return;
+      }
+      const key = resolved.toLowerCase();
+      if (seen.has(key))
+        return;
+      seen.add(key);
+      links.push(normalized.startsWith("==") ? `==[[${resolved}]]==` : `[[${resolved}]]`);
+    };
+    existingLinksInNote.forEach(addLink);
+    data.relatedConcepts.forEach(addLink);
+    if (links.length) {
+      const rcText = links.map((l) => `- ${l}`).join("\n");
+      if (/^## 🔗 Related References[ \t]*$/m.test(content)) {
+        content = replaceSectionBody(content, "## \u{1F517} Related References", rcText);
+      } else if (/^## Related concepts[ \t]*$/m.test(content)) {
+        content = replaceSectionBody(content, "## Related concepts", rcText);
+      }
+    }
+  }
+  return content;
+}
 async function enrichConceptNote(app, file) {
   const Notice = window.Notice || globalThis.Notice;
-  let content = await app.vault.read(file);
+  const snapshot = await app.vault.read(file);
   const conceptName = file.basename;
   new Notice(`\u{1F916} Analyzing & enriching Concept: "${conceptName}"...`);
   let geminiApiKey = "";
@@ -280,7 +384,7 @@ async function enrichConceptNote(app, file) {
   const existingNotes = app.vault.getMarkdownFiles().map((f) => f.basename).filter((n) => n && !n.startsWith("_") && n !== conceptName && !n.match(/^\d{4}-\d{2}-\d{2}/));
   const existingNotesStr = existingNotes.slice(0, 60).join(", ");
   const existingLinksInNote = [];
-  const linkMatches = content.match(/(?:==)?\[\[[^\[\]]+\]\](?:==)?/g) || [];
+  const linkMatches = snapshot.match(/(?:==)?\[\[[^\[\]]+\]\](?:==)?/g) || [];
   for (const rawLink of linkMatches) {
     const normalized = normalizeWikiLink(rawLink);
     const target = wikiLinkTarget(normalized);
@@ -298,7 +402,7 @@ Existing notes in this vault (the ONLY valid link targets): [${existingNotesStr}
 Links already used in this note: ${existingLinksInNote.join(", ") || "none"}
 
 Current note content:
-${content.slice(0, 2e3)}
+${snapshot.slice(0, 2e3)}
 
 HOW TO WRITE
 1. Explain the concept properly, as if teaching someone who has not met it before. Be specific and concrete.
@@ -329,69 +433,14 @@ The note was left unchanged. See the console for the full response.`,
     return;
   }
   try {
-    const data = result.data;
-    if (Array.isArray(data.tags)) {
-      data.tags.forEach((t) => {
-        content = addFrontmatterTag(content, t);
-      });
-    }
-    const summary = toSingleLine(data.summary);
-    if (summary)
-      content = replaceSectionBody(content, "## Summary", summary);
-    if (Array.isArray(data.whyItMatters)) {
-      const items = data.whyItMatters.map(toSingleLine).filter(Boolean);
-      if (items.length)
-        content = replaceSectionBody(content, "## Why it matters", items.map((w) => `- ${w}`).join("\n"));
-    }
-    if (Array.isArray(data.examples)) {
-      const items = data.examples.map(toSingleLine).filter(Boolean);
-      if (items.length)
-        content = replaceSectionBody(content, "## Examples", items.map((e) => `- ${e}`).join("\n"));
-    }
-    if (Array.isArray(data.questions)) {
-      const items = data.questions.map(toSingleLine).filter(Boolean);
-      if (items.length)
-        content = replaceSectionBody(content, "## Questions", items.map((q) => `- ${q}`).join("\n"));
-    }
-    if (Array.isArray(data.nextSteps)) {
-      const items = data.nextSteps.map((s) => toSingleLine(s).replace(/^\[[ xX]\]\s*/, "").trim()).filter(Boolean);
-      if (items.length)
-        content = replaceSectionBody(content, "## Next steps", items.map((s) => `- [ ] ${s}`).join("\n"));
-    }
-    if (Array.isArray(data.relatedConcepts)) {
-      const validTargets = /* @__PURE__ */ new Map();
-      existingNotes.forEach((n) => validTargets.set(n.toLowerCase(), n));
-      const links = [];
-      const seen = /* @__PURE__ */ new Set();
-      const addLink = (candidate) => {
-        const normalized = normalizeWikiLink(candidate);
-        const target = wikiLinkTarget(normalized);
-        if (!target)
-          return;
-        const resolved = validTargets.get(target.toLowerCase());
-        if (!resolved) {
-          console.warn(`Concept Enrich: dropped link to non-existent note "${target}"`);
-          return;
-        }
-        const key = resolved.toLowerCase();
-        if (seen.has(key))
-          return;
-        seen.add(key);
-        links.push(normalized.startsWith("==") ? `==[[${resolved}]]==` : `[[${resolved}]]`);
-      };
-      existingLinksInNote.forEach(addLink);
-      data.relatedConcepts.forEach(addLink);
-      if (links.length) {
-        const rcText = links.map((l) => `- ${l}`).join("\n");
-        if (/^## 🔗 Related References[ \t]*$/m.test(content)) {
-          content = replaceSectionBody(content, "## \u{1F517} Related References", rcText);
-        } else if (/^## Related concepts[ \t]*$/m.test(content)) {
-          content = replaceSectionBody(content, "## Related concepts", rcText);
-        }
-      }
-    }
-    await app.vault.modify(file, content);
-    new Notice(`\u2728 Concept note "${conceptName}" enriched with AI! (${result.model})`);
+    const conflicts = await applyEnrichmentToCurrentContent(
+      app.vault,
+      file,
+      snapshot,
+      CONCEPT_OWNED_SECTIONS,
+      (current) => applyConceptEnrichment(current, result.data, existingNotes, existingLinksInNote)
+    );
+    new Notice(`\u2728 Concept note "${conceptName}" enriched with AI! (${result.model})${formatConflictNotice(conflicts)}`);
   } catch (err) {
     console.error("Failed to apply concept enrichment:", err);
     new Notice("\u26A0\uFE0F Failed to apply AI concept response.");
@@ -399,9 +448,58 @@ The note was left unchanged. See the console for the full response.`,
 }
 
 // 06-Resources/scripts/src/lib/enrichers/dev.ts
+var DEV_OWNED_SECTIONS = ["## Context", "## Code Explanation", "## Related"];
+function applyDevEnrichment(source, data) {
+  let content = source;
+  if (data.type)
+    content = content.replace(/^type:\s*.*$/m, `type: ${data.type}`);
+  if (data.area)
+    content = content.replace(/^area:\s*.*$/m, `area: ${data.area}`);
+  if (data.language)
+    content = content.replace(/^language:\s*.*$/m, `language: ${data.language}`);
+  if (Array.isArray(data.tags)) {
+    data.tags.forEach((t) => {
+      content = addFrontmatterTag(content, t);
+    });
+  }
+  if (data.context) {
+    const ctxLines = [];
+    const system = toSingleLine(data.context.system);
+    const stack = toSingleLine(data.context.stack);
+    const fits = toSingleLine(data.context.whereItFits);
+    if (system)
+      ctxLines.push(`- System: ${system}`);
+    if (stack)
+      ctxLines.push(`- Stack: ${stack}`);
+    if (fits)
+      ctxLines.push(`- Where this fits: ${fits}`);
+    if (ctxLines.length)
+      content = replaceSectionBody(content, "## Context", ctxLines.join("\n"));
+  }
+  if (Array.isArray(data.codeExplanation)) {
+    const items = data.codeExplanation.map(toSingleLine).filter(Boolean);
+    if (items.length)
+      content = replaceSectionBody(content, "## Code Explanation", items.map((e) => `- ${e}`).join("\n"));
+  }
+  if (Array.isArray(data.related)) {
+    const seen = /* @__PURE__ */ new Set();
+    const links = [];
+    data.related.forEach((r) => {
+      const normalized = normalizeWikiLink(r);
+      const target = wikiLinkTarget(normalized);
+      if (!target || seen.has(target.toLowerCase()))
+        return;
+      seen.add(target.toLowerCase());
+      links.push(normalized);
+    });
+    if (links.length)
+      content = replaceSectionBody(content, "## Related", links.map((l) => `- ${l}`).join("\n"));
+  }
+  return content;
+}
 async function enrichDevNote(app, file) {
   const Notice = window.Notice || globalThis.Notice;
-  let content = await app.vault.read(file);
+  const snapshot = await app.vault.read(file);
   const noteTitle = file.basename;
   new Notice(`\u{1F916} Analyzing & enriching Dev Note: "${noteTitle}"...`);
   let geminiApiKey = "";
@@ -425,7 +523,7 @@ Title: "${noteTitle}"
 Existing Notes: [${existingNotesStr}]
 
 Content:
-${content}
+${snapshot}
 
 JSON format:
 {
@@ -449,53 +547,14 @@ The note was left unchanged. See the console for the full response.`,
     return;
   }
   try {
-    const data = devResult.data;
-    if (data.type)
-      content = content.replace(/^type:\s*.*$/m, `type: ${data.type}`);
-    if (data.area)
-      content = content.replace(/^area:\s*.*$/m, `area: ${data.area}`);
-    if (data.language)
-      content = content.replace(/^language:\s*.*$/m, `language: ${data.language}`);
-    if (Array.isArray(data.tags)) {
-      data.tags.forEach((t) => {
-        content = addFrontmatterTag(content, t);
-      });
-    }
-    if (data.context) {
-      const ctxLines = [];
-      const system = toSingleLine(data.context.system);
-      const stack = toSingleLine(data.context.stack);
-      const fits = toSingleLine(data.context.whereItFits);
-      if (system)
-        ctxLines.push(`- System: ${system}`);
-      if (stack)
-        ctxLines.push(`- Stack: ${stack}`);
-      if (fits)
-        ctxLines.push(`- Where this fits: ${fits}`);
-      if (ctxLines.length)
-        content = replaceSectionBody(content, "## Context", ctxLines.join("\n"));
-    }
-    if (Array.isArray(data.codeExplanation)) {
-      const items = data.codeExplanation.map(toSingleLine).filter(Boolean);
-      if (items.length)
-        content = replaceSectionBody(content, "## Code Explanation", items.map((e) => `- ${e}`).join("\n"));
-    }
-    if (Array.isArray(data.related)) {
-      const seen = /* @__PURE__ */ new Set();
-      const links = [];
-      data.related.forEach((r) => {
-        const normalized = normalizeWikiLink(r);
-        const target = wikiLinkTarget(normalized);
-        if (!target || seen.has(target.toLowerCase()))
-          return;
-        seen.add(target.toLowerCase());
-        links.push(normalized);
-      });
-      if (links.length)
-        content = replaceSectionBody(content, "## Related", links.map((l) => `- ${l}`).join("\n"));
-    }
-    await app.vault.modify(file, content);
-    new Notice(`\u2728 Dev note "${noteTitle}" enriched with AI! (${devResult.model})`);
+    const conflicts = await applyEnrichmentToCurrentContent(
+      app.vault,
+      file,
+      snapshot,
+      DEV_OWNED_SECTIONS,
+      (current) => applyDevEnrichment(current, devResult.data)
+    );
+    new Notice(`\u2728 Dev note "${noteTitle}" enriched with AI! (${devResult.model})${formatConflictNotice(conflicts)}`);
   } catch (err) {
     console.error("Failed to apply Dev enrichment:", err);
     new Notice("\u26A0\uFE0F Failed to apply AI Dev response.");
@@ -503,9 +562,64 @@ The note was left unchanged. See the console for the full response.`,
 }
 
 // 06-Resources/scripts/src/lib/enrichers/learning.ts
+var LEARNING_OWNED_SECTIONS = [
+  "## \u{1F3AF} Learning Objectives & Motivation",
+  "## \u{1F4A1} Extracted Evergreen Concepts",
+  "## \u{1F4BB} Reusable Code Patterns & Snippets",
+  "## \u2753 Active Recall & Self-Quiz"
+];
+function applyLearningEnrichment(source, data) {
+  let content = source;
+  if (data.topicTag) {
+    content = addFrontmatterTag(content, data.topicTag);
+  }
+  if (data.topicName && (readFrontmatterValue(content, "topic") === "general" || !readFrontmatterValue(content, "topic"))) {
+    if (/^topic:\s*.*$/m.test(content)) {
+      content = content.replace(/^topic:\s*.*$/m, `topic: ${toSingleLine(data.topicName)}`);
+    }
+  }
+  if (data.objectives) {
+    const why = toSingleLine(data.objectives.why);
+    const outcome = toSingleLine(data.objectives.targetOutcome);
+    if (why || outcome) {
+      const objText = `- **Why am I learning this?**: ${why || ""}
+- **Target Outcome**: ${outcome || ""}`;
+      content = replaceSectionBody(content, "## \u{1F3AF} Learning Objectives & Motivation", objText);
+    }
+  }
+  if (Array.isArray(data.extractedConcepts) && data.extractedConcepts.length > 0) {
+    const links = data.extractedConcepts.map(normalizeWikiLink).filter(Boolean);
+    if (links.length) {
+      const text = "*Atomic concepts distilled into `08-Concepts/`:*\n" + links.map((l) => `- ${l}`).join("\n");
+      content = replaceSectionBody(content, "## \u{1F4A1} Extracted Evergreen Concepts", text);
+    }
+  }
+  if (Array.isArray(data.extractedSnippets) && data.extractedSnippets.length > 0) {
+    const snippets = data.extractedSnippets.map(normalizeWikiLink).filter(Boolean);
+    if (snippets.length) {
+      const text = "*Practical snippets & solutions saved to `03-Dev/`:*\n" + snippets.map((s) => `- ${s}`).join("\n");
+      content = replaceSectionBody(content, "## \u{1F4BB} Reusable Code Patterns & Snippets", text);
+    }
+  }
+  if (Array.isArray(data.activeRecall) && data.activeRecall.length > 0) {
+    const quizLines = [];
+    data.activeRecall.forEach((item) => {
+      const q = toSingleLine(item.q);
+      const a = toSingleLine(item.a);
+      if (q && a) {
+        quizLines.push(`- **Q**: ${q}
+  - **A**: ${a}`);
+      }
+    });
+    if (quizLines.length) {
+      content = replaceSectionBody(content, "## \u2753 Active Recall & Self-Quiz", quizLines.join("\n"));
+    }
+  }
+  return content;
+}
 async function enrichLearningNote(app, file) {
   const Notice = window.Notice || globalThis.Notice;
-  let content = await app.vault.read(file);
+  const snapshot = await app.vault.read(file);
   const noteTitle = file.basename;
   new Notice(`\u{1F916} Analyzing & enriching Learning Note: "${noteTitle}"...`);
   let geminiApiKey = "";
@@ -532,7 +646,7 @@ async function enrichLearningNote(app, file) {
 Existing vault notes (valid link candidates): [${existingNotesStr}]
 
 Note Content:
-${content.slice(0, 3e3)}
+${snapshot.slice(0, 3e3)}
 
 INSTRUCTIONS:
 1. Objectives: Identify why someone would learn this and the concrete target outcome.
@@ -567,54 +681,14 @@ The note was left unchanged. See the console for the full response.`,
     return;
   }
   try {
-    const data = result.data;
-    if (data.topicTag) {
-      content = addFrontmatterTag(content, data.topicTag);
-    }
-    if (data.topicName && (readFrontmatterValue(content, "topic") === "general" || !readFrontmatterValue(content, "topic"))) {
-      if (/^topic:\s*.*$/m.test(content)) {
-        content = content.replace(/^topic:\s*.*$/m, `topic: ${toSingleLine(data.topicName)}`);
-      }
-    }
-    if (data.objectives) {
-      const why = toSingleLine(data.objectives.why);
-      const outcome = toSingleLine(data.objectives.targetOutcome);
-      if (why || outcome) {
-        const objText = `- **Why am I learning this?**: ${why || ""}
-- **Target Outcome**: ${outcome || ""}`;
-        content = replaceSectionBody(content, "## \u{1F3AF} Learning Objectives & Motivation", objText);
-      }
-    }
-    if (Array.isArray(data.extractedConcepts) && data.extractedConcepts.length > 0) {
-      const links = data.extractedConcepts.map(normalizeWikiLink).filter(Boolean);
-      if (links.length) {
-        const text = "*Atomic concepts distilled into `08-Concepts/`:*\n" + links.map((l) => `- ${l}`).join("\n");
-        content = replaceSectionBody(content, "## \u{1F4A1} Extracted Evergreen Concepts", text);
-      }
-    }
-    if (Array.isArray(data.extractedSnippets) && data.extractedSnippets.length > 0) {
-      const snippets = data.extractedSnippets.map(normalizeWikiLink).filter(Boolean);
-      if (snippets.length) {
-        const text = "*Practical snippets & solutions saved to `03-Dev/`:*\n" + snippets.map((s) => `- ${s}`).join("\n");
-        content = replaceSectionBody(content, "## \u{1F4BB} Reusable Code Patterns & Snippets", text);
-      }
-    }
-    if (Array.isArray(data.activeRecall) && data.activeRecall.length > 0) {
-      const quizLines = [];
-      data.activeRecall.forEach((item) => {
-        const q = toSingleLine(item.q);
-        const a = toSingleLine(item.a);
-        if (q && a) {
-          quizLines.push(`- **Q**: ${q}
-  - **A**: ${a}`);
-        }
-      });
-      if (quizLines.length) {
-        content = replaceSectionBody(content, "## \u2753 Active Recall & Self-Quiz", quizLines.join("\n"));
-      }
-    }
-    await app.vault.modify(file, content);
-    new Notice(`\u2728 Learning note "${noteTitle}" enriched with AI! (${result.model})`);
+    const conflicts = await applyEnrichmentToCurrentContent(
+      app.vault,
+      file,
+      snapshot,
+      LEARNING_OWNED_SECTIONS,
+      (current) => applyLearningEnrichment(current, result.data)
+    );
+    new Notice(`\u2728 Learning note "${noteTitle}" enriched with AI! (${result.model})${formatConflictNotice(conflicts)}`);
   } catch (err) {
     console.error("Failed to apply Learning enrichment:", err);
     new Notice("\u26A0\uFE0F Failed to apply AI Learning response.");
@@ -622,6 +696,14 @@ The note was left unchanged. See the console for the full response.`,
 }
 
 // 06-Resources/scripts/src/lib/enrichers/daily.ts
+var DAILY_OWNED_SECTIONS = [
+  "### \u{1F3AF} Today's Focus",
+  "### Wins",
+  "### Blockers",
+  "### Reflection",
+  "## \u{1F916} AI Daily Summary",
+  "##### \u{1F517} Connected Notes"
+];
 function parseGitHubCalloutFromNote(content) {
   const match = content.match(/> \[!NOTE\]-\s*🐙 GitHub Activity Log[\s\S]*?(?=\r?\n\r?\n|\r?\n#{1,6} |\r?\n---[ \t]*\r?\n|(?![\s\S]))/);
   if (!match)
@@ -1135,18 +1217,18 @@ ${connectedBlock}
 }
 async function enrichDailyNote(app, file) {
   const Notice = window.Notice || globalThis.Notice;
-  let content = await app.vault.read(file);
+  const snapshot = await app.vault.read(file);
   new Notice("\u{1F916} Gemini is analyzing your day with Kiwi Dev Chief of Staff vibes...");
-  const mood = readFrontmatterValue(content, "mood");
-  const energy = readFrontmatterValue(content, "energy");
-  const sleepHours = readFrontmatterValue(content, "sleep_hours");
+  const mood = readFrontmatterValue(snapshot, "mood");
+  const energy = readFrontmatterValue(snapshot, "energy");
+  const sleepHours = readFrontmatterValue(snapshot, "sleep_hours");
   const moodText = mood || "not logged";
   const energyText = energy ? `${energy} out of 5` : "not logged";
   const sleepText = sleepHours ? `${sleepHours} hours` : "not logged";
   const existingNoteNames = app.vault.getMarkdownFiles().map((f) => f.basename).filter((name) => name && !name.startsWith("_") && name.length > 2 && !name.match(/^\d{4}-\d{2}-\d{2}/));
   const existingNotesListStr = existingNoteNames.slice(0, 60).join(", ");
-  const gitRows = parseGitHubCalloutFromNote(content);
-  const sections = parseDailyNoteSections(content, gitRows.length);
+  const gitRows = parseGitHubCalloutFromNote(snapshot);
+  const sections = parseDailyNoteSections(snapshot, gitRows.length);
   if (sections.filledSectionCount < 1) {
     new Notice("\u26A0\uFE0F Daily note is mostly empty! Log something in Focus, Tasks, Daily Log, Wins, Blockers or Reflection before generating the AI summary.", 7e3);
     return;
@@ -1251,7 +1333,7 @@ async function enrichDailyNote(app, file) {
   const polishedBlockers = Array.isArray(responseData.polishedBlockers) && responseData.polishedBlockers.length > 0 ? responseData.polishedBlockers : void 0;
   const polishedReflection = Array.isArray(responseData.polishedReflection) && responseData.polishedReflection.length > 0 ? responseData.polishedReflection : void 0;
   const polishedFocus = Array.isArray(responseData.polishedFocus) && responseData.polishedFocus.length > 0 ? responseData.polishedFocus : void 0;
-  content = applyDailyEnrichment(content, {
+  const enrichmentData = {
     quote,
     author,
     debrief: debriefText,
@@ -1262,17 +1344,24 @@ async function enrichDailyNote(app, file) {
     polishedBlockers,
     polishedReflection,
     polishedFocus
-  });
-  await app.vault.modify(file, content);
+  };
+  const conflicts = await applyEnrichmentToCurrentContent(
+    app.vault,
+    file,
+    snapshot,
+    DAILY_OWNED_SECTIONS,
+    (current) => applyDailyEnrichment(current, enrichmentData)
+  );
+  const conflictNotice = formatConflictNotice(conflicts);
   if (usedFallback) {
     new Notice(
       `\u26A0\uFE0F No AI writing this time: ${failureReason}.
 
-A basic offline summary was assembled from your logged items instead. Re-run the enricher once the limit clears to replace it with real AI analysis.`,
+A basic offline summary was assembled from your logged items instead. Re-run the enricher once the limit clears to replace it with real AI analysis.` + conflictNotice,
       12e3
     );
   } else {
-    new Notice("\u2728 Daily Note enriched with Kiwi Chief of Staff vibes & real quote!");
+    new Notice("\u2728 Daily Note enriched with Kiwi Chief of Staff vibes & real quote!" + conflictNotice);
   }
 }
 
