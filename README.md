@@ -364,27 +364,24 @@ All data is automatically pulled from daily notes — no manual tracking require
 
 ### 🪝 Enabling the pre-commit guard
 
-A commit-blocking hook ships in [`.githooks/pre-commit`](.githooks/pre-commit), but Git does not use it until you point at it. **Run this once per clone:**
+A commit-blocking hook ships in [`.githooks/pre-commit`](.githooks/pre-commit) with the executable bit already set in Git. Git still does not use it until you point at it, so **run this once per clone:**
 
 ```bash
 git config core.hooksPath .githooks
 ```
 
-On a fresh clone, also mark it executable so it survives on other machines:
-
-```bash
-git update-index --chmod=+x .githooks/pre-commit
-```
+> Clones made before the executable-bit fix may need a one-time repair: `git update-index --chmod=+x .githooks/pre-commit`.
 
 It refuses a commit when the staged changes include:
 
 | Check | Blocks |
 | :--- | :--- |
-| **Paths** | `.env`, `.env.*`, `.secrets/`, `00-Private/`, `*_secret*`, `*_private*` |
+| **Paths** | `.env`, `.env.*`, `service.env` and other `*.env` variants, `.secrets/`, `00-Private/`, `*_secret*`, `*_private*` |
 | **Content** | Google/Gemini (`AIza…`), OpenAI (`sk-…`), GitHub tokens, AWS key IDs, PEM private keys, and `*_API_KEY=` with a real-looking value |
+| **Coverage** | Renames and mixed-status changes are inspected too, not just plain additions |
 | **Advisory** | Warns if sensitive files are *already* tracked from earlier commits |
 
-Placeholders such as `your_google_gemini_api_key_here` are allowed, so `.env.example` and the docs quoting it still commit cleanly. Only **added lines** are scanned, and any match is redacted in the output rather than echoed back. Deliberate override: `git commit --no-verify`.
+Placeholders such as `your_google_gemini_api_key_here` are allowed, so `.env.example` and the docs quoting it still commit cleanly. Only the placeholder token itself is forgiven — a real key on a line that also says "example" is still blocked, and `.env.example` is content-scanned like any other file. Any match is redacted in the output rather than echoed back. Deliberate override: `git commit --no-verify`.
 
 > [!WARNING]
 > The hook is a local guard, not a net. It cannot help a machine that hasn't run the `core.hooksPath` command, and it runs before the push — so also switch on **GitHub secret scanning + push protection** (repo Settings → Code security). That blocks server-side, and unlike a CI workflow it acts *before* the commit becomes public.
