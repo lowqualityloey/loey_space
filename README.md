@@ -36,7 +36,7 @@ updated: 2026-08-29
 
 Five minutes from clone to a working dashboard:
 
-1. **Clone and open** — `git clone https://github.com/lowqualityloey/loey_space.git`, then in Obsidian choose **Open folder as vault**.
+1. **Clone and open** — `git clone --recurse-submodules https://github.com/lowqualityloey/loey_space.git`, then in Obsidian choose **Open folder as vault**. Already cloned without the flag? Run `git submodule update --init --recursive` once — the [PromptKit](https://github.com/lowqualityloey/promptkit-os) engine lives in `.promptkit/` as a submodule, and agent workflows stay silent without it.
 2. **Leave Restricted Mode** — Settings → Community plugins → **Turn on community plugins**. Nothing loads until you do.
 3. **Turn auto-updates off** — Settings → Community plugins → **Auto-update plugins: OFF**. Two plugins here are local custom builds and an update replaces them.
 4. **Add an API key** *(optional)* — `cp .env.example .env`, then paste a key from [Google AI Studio](https://aistudio.google.com/app/apikey) into `GEMINI_API_KEY`. Everything except AI enrichment works without one.
@@ -398,6 +398,7 @@ Placeholders such as `your_google_gemini_api_key_here` are allowed, so `.env.exa
 | AI summary reads flat, with a notice about quota | Gemini refused with HTTP 429 and the offline fallback wrote the text. The notice names which limit: a **per-minute** limit clears in about a minute; a **daily** limit does not, and resets at midnight Pacific. Re-run `Ctrl + Shift + A` afterwards to replace it. |
 | A bundled plugin or CSS change has no effect | Obsidian loads plugins, snippets and hooks at startup. Run `Ctrl + P` → **Reload app without saving**. |
 | `npm run build` fails with *"you installed esbuild for another platform"* | `node_modules/` was installed on a different OS than the one you're running in — the usual case is a Windows tree reused from WSL. `esbuild` ships one native binary per platform. Delete `node_modules/` and reinstall **in the shell you're building from**: `rm -rf node_modules && npm ci`. Don't share that directory between Windows and WSL; see [Clean install](06-Resources/Guides/CONTRIBUTING.md#clean-install-first). |
+| `.promptkit/` is empty, or agent workflows are missing | The PromptKit engine wasn't fetched. Run `git submodule update --init --recursive`. It is pinned to a release tag, so it will not drift on its own. |
 | `🧹 Triage Sweep` missing from the palette | Register it once: Settings → QuickAdd → Manage Macros → new macro → **Add User Script** → `triage-sweep.js`, then add it as a Macro choice. |
 | Sweep says *"no daily note for &lt;date&gt;"* | `#do` files into **today's** note, which must already exist. Run **QuickAdd: Create Daily Note** first. |
 | HomePulse lost its custom behaviour | It was updated from the Community Store. Restore `.obsidian/plugins/homepulse/` from Git history and set **Auto-update plugins: OFF**. |
