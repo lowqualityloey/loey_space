@@ -3,7 +3,7 @@ import * as path from 'path';
 import type { App, TFile } from 'obsidian';
 import type { QuickAddParams } from './types';
 import { formatGeminiFailure } from './lib/gemini';
-import { buildConceptNoteMarkdown, distillConceptsFromContent } from './lib/distiller';
+import { buildConceptNoteMarkdown, distillConceptsFromContent, mergeConceptNote } from './lib/distiller';
 import { replaceSectionBody } from './lib/markdown';
 
 function isTFile(file: any): file is TFile {
@@ -76,6 +76,7 @@ async function distillConceptAction(params?: QuickAddParams): Promise<void> {
   }
 
   const createdLinks: string[] = [];
+  const mergeActions: string[] = [];
 
   for (const concept of concepts) {
     const safeTitle = concept.title.replace(/[\\/:*?"<>|]/g, '').trim();
@@ -84,11 +85,19 @@ async function distillConceptAction(params?: QuickAddParams): Promise<void> {
     const notePath = `08-Concepts/${safeTitle}.md`;
     const noteMarkdown = buildConceptNoteMarkdown(concept, file.basename);
 
-    const existingAbstract = app.vault.getAbstractFileByPath(notePath);
+const existingAbstract = app.vault.getAbstractFileByPath(notePath);
     if (existingAbstract && isTFile(existingAbstract)) {
-      await app.vault.modify(existingAbstract, noteMarkdown);
+      const existingContent = await app.vault.read(existingAbstract);
+      const merged = mergeConceptNote(existingContent, noteMarkdown);
+      if (merged.action !== 'unchanged') {
+        await app.vault.modify(existingAbstract, merged.content);
+        mergeActions.push(`merged: 08-Concepts/${safeTitle}.md`);
+      } else {
+        mergeActions.push(`unchanged: 08-Concepts/${safeTitle}.md`);
+      }
     } else {
       await app.vault.create(notePath, noteMarkdown);
+      mergeActions.push(`created: 08-Concepts/${safeTitle}.md`);
     }
 
     createdLinks.push(`[[${safeTitle}]]`);
@@ -190,8 +199,18 @@ function runCli() {
       const notePath = path.join(conceptsDir, `${safeTitle}.md`);
       const noteMarkdown = buildConceptNoteMarkdown(concept, basename);
 
-      fs.writeFileSync(notePath, noteMarkdown, 'utf8');
-      console.log(`  💡 Created: 08-Concepts/${safeTitle}.md`);
+      if (fs.existsSync(notePath)) {
+        const merged = mergeConceptNote(fs.readFileSync(notePath, 'utf8'), noteMarkdown);
+        if (merged.action !== 'unchanged') {
+          fs.writeFileSync(notePath, merged.content, 'utf8');
+          console.log(`  ♻️ Merged (curated note preserved): 08-Concepts/${safeTitle}.md`);
+        } else {
+          console.log(`  ＝ Unchanged: 08-Concepts/${safeTitle}.md`);
+        }
+      } else {
+        fs.writeFileSync(notePath, noteMarkdown, 'utf8');
+        console.log(`  💡 Created: 08-Concepts/${safeTitle}.md`);
+      }
       console.log(`     Summary: ${concept.summary}`);
       createdLinks.push(`[[${safeTitle}]]`);
     }

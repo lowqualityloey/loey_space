@@ -204,6 +204,14 @@ async function callGeminiJson(apiKey, systemPrompt, userPrompt, label, temperatu
 }
 
 // 06-Resources/scripts/src/lib/markdown.ts
+function readFrontmatterValue(content, key) {
+  const fm = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  const scope = fm ? fm[1] : content;
+  const match = scope.match(new RegExp("^" + key + ":[ \\t]*([^\\r\\n]*)$", "m"));
+  if (!match)
+    return "";
+  return match[1].trim().replace(/^["']|["']$/g, "").trim();
+}
 function formatDate(date) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
@@ -284,6 +292,53 @@ WHERE file.name != this.file.name
 SORT file.mtime DESC
 \`\`\`
 `;
+}
+var DISTILLED_START = "<!-- distilled:auto:start -->";
+var DISTILLED_END = "<!-- distilled:auto:end -->";
+function splitFrontmatter(content) {
+  const m = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!m)
+    return { fm: "", body: content };
+  return { fm: m[1], body: content.slice(m[0].length) };
+}
+function generatedBody(markdown) {
+  return splitFrontmatter(markdown).body.replace(/^\s*#\s+.*\n+/, "").trim();
+}
+function mergeConceptNote(existingContent, generatedMarkdown) {
+  const incoming = generatedBody(generatedMarkdown);
+  const { fm, body } = splitFrontmatter(existingContent);
+  const curated = body.trimEnd();
+  const created = readFrontmatterValue(existingContent, "created");
+  const fmOut = created && !/^created:/m.test(fm) ? `created: ${created}
+${fm}` : fm;
+  const existingSection = curated.match(
+    new RegExp(`\\n*${DISTILLED_START}[\\s\\S]*?${DISTILLED_END}\\n*`)
+  );
+  if (existingSection && existingSection[0].includes(incoming)) {
+    return { content: existingContent, action: "unchanged" };
+  }
+  const block = `${DISTILLED_START}
+
+> [!NOTE] Auto-appended by distillation. Review, then keep or delete.
+
+${incoming}
+
+${DISTILLED_END}`;
+  const merged = existingSection ? curated.replace(existingSection[0], `
+
+${block}
+`) : `${curated}
+
+---
+
+${block}
+`;
+  const content = fmOut ? `---
+${fmOut}
+---
+
+${merged.trimStart()}` : merged;
+  return { content, action: "merged" };
 }
 async function distillConceptsFromContent(apiKey, content, sourceTitle, existingConcepts) {
   const existingStr = existingConcepts.slice(0, 60).join(", ");
@@ -397,6 +452,7 @@ async function distillConceptAction(params) {
     return;
   }
   const createdLinks = [];
+  const mergeActions = [];
   for (const concept of concepts) {
     const safeTitle = concept.title.replace(/[\\/:*?"<>|]/g, "").trim();
     if (!safeTitle)
@@ -405,9 +461,17 @@ async function distillConceptAction(params) {
     const noteMarkdown = buildConceptNoteMarkdown(concept, file.basename);
     const existingAbstract = app.vault.getAbstractFileByPath(notePath);
     if (existingAbstract && isTFile(existingAbstract)) {
-      await app.vault.modify(existingAbstract, noteMarkdown);
+      const existingContent = await app.vault.read(existingAbstract);
+      const merged = mergeConceptNote(existingContent, noteMarkdown);
+      if (merged.action !== "unchanged") {
+        await app.vault.modify(existingAbstract, merged.content);
+        mergeActions.push(`merged: 08-Concepts/${safeTitle}.md`);
+      } else {
+        mergeActions.push(`unchanged: 08-Concepts/${safeTitle}.md`);
+      }
     } else {
       await app.vault.create(notePath, noteMarkdown);
+      mergeActions.push(`created: 08-Concepts/${safeTitle}.md`);
     }
     createdLinks.push(`[[${safeTitle}]]`);
   }
@@ -496,8 +560,18 @@ function runCli() {
       const safeTitle = concept.title.replace(/[\\/:*?"<>|]/g, "").trim();
       const notePath = path.join(conceptsDir, `${safeTitle}.md`);
       const noteMarkdown = buildConceptNoteMarkdown(concept, basename2);
-      fs.writeFileSync(notePath, noteMarkdown, "utf8");
-      console.log(`  \u{1F4A1} Created: 08-Concepts/${safeTitle}.md`);
+      if (fs.existsSync(notePath)) {
+        const merged = mergeConceptNote(fs.readFileSync(notePath, "utf8"), noteMarkdown);
+        if (merged.action !== "unchanged") {
+          fs.writeFileSync(notePath, merged.content, "utf8");
+          console.log(`  \u267B\uFE0F Merged (curated note preserved): 08-Concepts/${safeTitle}.md`);
+        } else {
+          console.log(`  \uFF1D Unchanged: 08-Concepts/${safeTitle}.md`);
+        }
+      } else {
+        fs.writeFileSync(notePath, noteMarkdown, "utf8");
+        console.log(`  \u{1F4A1} Created: 08-Concepts/${safeTitle}.md`);
+      }
       console.log(`     Summary: ${concept.summary}`);
       createdLinks.push(`[[${safeTitle}]]`);
     }

@@ -241,6 +241,48 @@ ${TRIAGED_HEADING}
   return nextDump;
 }
 
+// 06-Resources/scripts/src/lib/daily-note.ts
+var DEFAULT_DAILY_NOTES_CONFIG = {
+  folder: "01-Daily",
+  format: "YYYY-MM/YYYY-MM-DD"
+};
+var DAILY_NOTES_CONFIG_PATH = ".obsidian/daily-notes.json";
+function formatDate(date, format) {
+  const yyyy = String(date.getFullYear());
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return format.replace(/YYYY/g, yyyy).replace(/YY/g, yyyy.slice(2)).replace(/MM/g, mm).replace(/DD/g, dd);
+}
+function resolveDailyNotePath(dateStr, config = DEFAULT_DAILY_NOTES_CONFIG) {
+  const parts = dateStr.split("-");
+  const year = Number(parts[0]);
+  const month = Number(parts[1]);
+  const day = Number(parts[2]);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    throw new Error(`resolveDailyNotePath: expected YYYY-MM-DD, received "${dateStr}"`);
+  }
+  const formatted = formatDate(new Date(year, month - 1, day), config.format);
+  const folder = config.folder.replace(/\/+$/, "");
+  return `${folder}/${formatted}`;
+}
+function resolveDailyNoteFile(dateStr, config = DEFAULT_DAILY_NOTES_CONFIG) {
+  return `${resolveDailyNotePath(dateStr, config)}.md`;
+}
+async function readDailyNotesConfig(readJson) {
+  try {
+    const raw = await readJson(DAILY_NOTES_CONFIG_PATH);
+    if (raw && typeof raw === "object") {
+      const { folder, format } = raw;
+      return {
+        folder: typeof folder === "string" && folder ? folder : DEFAULT_DAILY_NOTES_CONFIG.folder,
+        format: typeof format === "string" && format ? format : DEFAULT_DAILY_NOTES_CONFIG.format
+      };
+    }
+  } catch {
+  }
+  return DEFAULT_DAILY_NOTES_CONFIG;
+}
+
 // 06-Resources/scripts/src/triage-sweep.ts
 async function uniquePath(app, folder, title) {
   let candidate = `${folder}/${title}.md`;
@@ -261,15 +303,15 @@ async function ensureFolder(app, folderPath) {
     }
   }
 }
-async function fileItem(app, item, route, todayStr) {
+async function fileItem(app, item, route, todayStr, dailyNotePath) {
   if (route.kind === "drop") {
     return { result: { item, destination: "dropped", ok: true }, sweptIndex: item.index };
   }
   if (route.kind === "task") {
-    const dailyPath = `01-Daily/${todayStr}.md`;
+    const dailyPath = dailyNotePath;
     const dailyFile = app.vault.getAbstractFileByPath(dailyPath);
     if (!dailyFile || !isTFile(dailyFile)) {
-      return { result: { item, ok: false, reason: `no daily note for ${todayStr}` } };
+      return { result: { item, ok: false, reason: `no daily note at ${dailyPath} for ${todayStr}` } };
     }
     let inserted = false;
     if (typeof app.vault.process === "function") {
@@ -336,12 +378,23 @@ module.exports = async function triageSweep(params) {
   new Notice(`\u{1F9F9} Triage Sweep: filing ${picked.length} item${picked.length === 1 ? "" : "s"}\u2026`);
   const results = [];
   const sweptIndexes = /* @__PURE__ */ new Set();
+  const dailyNotesConfig = await readDailyNotesConfig(async (configPath) => {
+    const file = app.vault.getAbstractFileByPath(configPath);
+    if (!file || !isTFile(file))
+      return void 0;
+    try {
+      return JSON.parse(await app.vault.read(file));
+    } catch {
+      return void 0;
+    }
+  });
+  const dailyNotePath = resolveDailyNoteFile(todayStr, dailyNotesConfig);
   for (const item of picked) {
     const route = ROUTES[item.token];
     if (!route)
       continue;
     try {
-      const { result, sweptIndex } = await fileItem(app, item, route, todayStr);
+      const { result, sweptIndex } = await fileItem(app, item, route, todayStr, dailyNotePath);
       results.push(result);
       if (sweptIndex !== void 0) {
         sweptIndexes.add(sweptIndex);

@@ -1,5 +1,5 @@
 import { callGeminiJson, formatGeminiFailure } from './gemini';
-import { formatDate, toSingleLine } from './markdown';
+import { formatDate, readFrontmatterValue, toSingleLine } from './markdown';
 
 export interface DistilledConcept {
   title: string;
@@ -83,6 +83,66 @@ WHERE file.name != this.file.name
 SORT file.mtime DESC
 \`\`\`
 `;
+}
+
+/** Markers delimiting the auto-generated region of a concept note. */
+export const DISTILLED_START = '<!-- distilled:auto:start -->';
+export const DISTILLED_END = '<!-- distilled:auto:end -->';
+
+export type ConceptMergeAction = 'created' | 'merged' | 'unchanged';
+
+function splitFrontmatter(content: string): { fm: string; body: string } {
+  const m = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!m) return { fm: '', body: content };
+  return { fm: m[1], body: content.slice(m[0].length) };
+}
+
+/** Body of generated markdown, with its own frontmatter removed. */
+function generatedBody(markdown: string): string {
+  // The generated H1 duplicates the existing note's title, so the merged region
+  // carries substance only.
+  return splitFrontmatter(markdown)
+    .body.replace(/^\s*#\s+.*\n+/, "")
+    .trim();
+}
+
+/**
+ * Collision policy (#39): never replace a curated concept note.
+ *
+ * A regenerated note is merged into the existing one: the human body, the
+ * original `created` date, manual links and provenance all survive, and the new
+ * material lands inside a clearly marked, reviewable region. Re-running the
+ * same distillation is a no-op instead of duplicating the block.
+ */
+export function mergeConceptNote(
+  existingContent: string,
+  generatedMarkdown: string
+): { content: string; action: ConceptMergeAction } {
+  const incoming = generatedBody(generatedMarkdown);
+  const { fm, body } = splitFrontmatter(existingContent);
+  const curated = body.trimEnd();
+
+  // Preserve the original creation date; only refresh `updated` when present.
+  const created = readFrontmatterValue(existingContent, 'created');
+  const fmOut = created && !/^created:/m.test(fm) ? `created: ${created}\n${fm}` : fm;
+
+  const existingSection = curated.match(
+    new RegExp(`\\n*${DISTILLED_START}[\\s\\S]*?${DISTILLED_END}\\n*`)
+  );
+
+  if (existingSection && existingSection[0].includes(incoming)) {
+    return { content: existingContent, action: 'unchanged' };
+  }
+
+  const block = `${DISTILLED_START}\n\n> [!NOTE] Auto-appended by distillation. Review, then keep or delete.\n\n${incoming}\n\n${DISTILLED_END}`;
+
+  const merged = existingSection
+    ? curated.replace(existingSection[0], `\n\n${block}\n`)
+    : `${curated}\n\n---\n\n${block}\n`;
+
+  const content = fmOut ? `---\n${fmOut}\n---\n\n${merged.trimStart()}` : merged;
+
+  return { content, action: 'merged' };
 }
 
 export async function distillConceptsFromContent(
