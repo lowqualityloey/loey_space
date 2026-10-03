@@ -45,6 +45,8 @@ for file in "${staged[@]}"; do
   [ -n "$file" ] || continue
 
   case "$file" in
+    # .env.example stays committable as a placeholder template; its CONTENT
+    # is still scanned in section 2 (only the path block is skipped here).
     .env.example|*/.env.example)
       continue
       ;;
@@ -85,25 +87,35 @@ patterns=(
   '(GEMINI|OPENAI|OPENWEATHER|VITE_OPENWEATHER|ANTHROPIC)_API_KEY[[:space:]]*=[[:space:]]*[A-Za-z0-9_-]{16,}'
 )
 
-# Obvious non-secrets: docs, examples, base64 fonts/images, and regex literals.
-allowlist='your_|_here|example|placeholder|dummy|sample|redacted|xxxx|<your|\[A-Za-z0-9|\[\^|\\s\*|data:font|data:image'
+# Placeholder scrubbing (#32): forgive only the placeholder token itself, never
+# the rest of the line, so a real credential next to the word "example" still
+# matches. Whole-word guards keep keys that merely CONTAIN those letters
+# intact. Portable ERE (GNU + BSD sed): per-letter classes cover all casings.
+scrub_placeholders() {
+  printf '%s\n' "$1" | sed -E \
+    -e 's/your_[A-Za-z0-9_-]*/ /g' \
+    -e 's/<[^>]*>/ /g' \
+    -e 's/[xX]{4,}/ /g' \
+    -e 's/(^|[^A-Za-z0-9_])([Ee][Xx][Aa][Mm][Pp][Ll][Ee]|[Ss][Aa][Mm][Pp][Ll][Ee]|[Pp][Ll][Aa][Cc][Ee][Hh][Oo][Ll][Dd][Ee][Rr]|[Dd][Uu][Mm][Mm][Yy]|[Rr][Ee][Dd][Aa][Cc][Tt][Ee][Dd])([^A-Za-z0-9_]|$)/\1 \3/g'
+}
 
 for file in "${staged[@]}"; do
   [ -n "$file" ] || continue
   case "$file" in
-    .env.example|*/.env.example) continue ;;
     .githooks/*) continue ;;   # this file documents the patterns it looks for
     .obsidian/themes/*) continue ;; # community themes contain embedded webfonts
   esac
 
-  # Added lines only, minus the +++ header.
-  added=$(git diff --cached -U0 -- "$file" 2>/dev/null | grep -E '^\+' | grep -Ev '^\+\+\+') || true
+  # Added lines only, minus the +++ header and minus inline font/image blob
+  # lines (base64 runs can contain key-shaped substrings; narrow carve-out).
+  added=$(git diff --cached -U0 -- "$file" 2>/dev/null | grep -E '^\+' | grep -Ev '^\+\+\+|data:(font|image)/') || true
   [ -n "$added" ] || continue
+  scrubbed=$(scrub_placeholders "$added")
 
   for pattern in "${patterns[@]}"; do
     # -e is required: the PEM pattern starts with "-----" and grep would
     # otherwise parse it as command-line flags and silently match nothing.
-    hits=$(printf '%s\n' "$added" | grep -Ein -e "$pattern" | grep -Eiv -e "$allowlist") || true
+    hits=$(printf '%s\n' "$scrubbed" | grep -Ein -e "$pattern") || true
     if [ -n "$hits" ]; then
       while IFS= read -r hit; do
         [ -n "$hit" ] || continue
