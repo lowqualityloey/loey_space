@@ -19,7 +19,7 @@ This repository is two things in one: a **reusable Obsidian system** (plugins, s
 
 * `01-Daily/`, `05-Personal/`, `07-Reviews/`, `00-Inbox/` — personal journal, habits and captures. Mostly git-ignored; what remains is dashboards.
 * `03-Dev/`, `04-Learning/`, `08-Concepts/` — my own notes. Fine to read, not to edit.
-* `.obsidian/plugins/homepulse/` — ships as a **built, minified `main.js` with no source in this repo**, so it cannot meaningfully be patched here. Please open an issue instead of a PR.
+* `.obsidian/plugins/homepulse/` — ships as a **built, minified `main.js` with no authoritative source available**, so the minified core cannot meaningfully be patched here. The readable prelude at the top of the bundle *is* locally owned and already carries vault patches (habit and focus sync) covered by tests. Read [`Plugin Ownership.md`](Plugin%20Ownership.md) first: it records the provenance, the owned symbols, and how to re-apply local changes after a plugin update. For the minified core, please open an issue instead of a PR.
 * `.env`, `.secrets/` — never in the repo. See [Security](#-security).
 
 **Issues are welcome for anything**, including the closed areas — a bug report about the dashboard is useful even when the fix has to happen elsewhere.
