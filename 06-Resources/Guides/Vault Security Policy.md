@@ -1,6 +1,6 @@
 ---
 created: 2026-08-02
-updated: 2026-08-09
+updated: 2026-10-04
 type: resource
 status: active
 area: dev
@@ -18,7 +18,7 @@ Canonical security specification for secret handling, private data storage, and 
 
 ## 1. Purpose
 
-This policy defines the security standards for storing credentials, API keys, private notes, and sensitive personal information in this vault. Because this vault is backed up to a private remote repository via Git, strict separation between **tracked knowledge notes** and **un-tracked private secrets** is mandatory to prevent accidental credential exposure.
+This policy defines the security standards for storing credentials, API keys, private notes, and sensitive personal information in this vault. The Git remote repository is **public**, so strict separation between **tracked system files** and **un-tracked private content** is mandatory to prevent accidental exposure. Owner boundary decisions (2026-10-03): keep the repo public and harden the boundary; assess published history privately before any remediation decision; no credential rotation (the local REST API config was verified never committed).
 
 ---
 
@@ -29,7 +29,8 @@ This policy defines the security standards for storing credentials, API keys, pr
 | **`.secrets/` & `00-Private/`** | Private human-readable sensitive notes (passwords, bank info, private logs) | 🚫 **Ignored** | Vault-local directory at root. Completely excluded from Git commits. |
 | **`.env`** | Machine-readable credentials (API keys, tokens, DB connections) | 🚫 **Ignored** | Environment file loaded by integration scripts like [[06-Resources/scripts/ai-enrich-action.js\|ai-enrich-action.js]]. |
 | **Personal Vault Content (`01-Daily/*`, `04-Learning/*`, `05-Personal/*`, etc.)** | Daily notes, study tracks, personal projects, journals, learning cohorts | 🚫 **Ignored** | Excluded structurally by `.gitignore`. Notes stay strictly local on your machine. |
-| **System Blueprints, MOCs & Scripts** | MOC dashboards (`_*.md`), templates (`99-Templates/`), scripts, and guides | ✅ **Tracked** | Safe for public/private Git repo backup. Defines the vault system without personal data. |
+| **System Blueprints, MOCs & Scripts** | MOC dashboards (`_*.md`), templates (`99-Templates/`), scripts, and guides | ✅ **Tracked** | Safe for the public Git repo. Defines the vault system without personal data. |
+| **Plugin runtime config** (`.obsidian/plugins/*/data.json`, `*/cache.json`) | Local plugin state; may hold secrets | 🚫 **Ignored** | Excluded by explicit `.gitignore` rule (Wave 0, #29). Distributable code (`main.js`, `manifest.json`, `styles.css`) stays tracked. |
 
 ---
 
@@ -50,6 +51,19 @@ This policy defines the security standards for storing credentials, API keys, pr
 * If any API key, password, or token is ever accidentally committed to Git:
   1. **Revoke and rotate** the key immediately at the provider (Google AI Studio, OpenAI, GitHub, etc.).
   2. Purge the Git commit history using `git filter-repo` or force push a clean tree.
+
+## 3a. Publication Boundary & Remediation Procedure (#31)
+
+**Public set** (safe in the repo): system code and docs — `.obsidian/plugins/*/main.js|manifest.json|styles.css`, `06-Resources/scripts/`, `06-Resources/Guides/`, `99-Templates/`, structural `_*.md` MOCs, sanitized `data.example.json` defaults.
+
+**Private set** (never in the repo): numbered content notes (`00-Inbox`, `01-Daily`, `02-Projects`, `03-Dev`, `04-Learning`, `05-Personal`, `07-Reviews`, `08-Concepts`, `99-Attachments` except listed showcases), `.secrets/`, `00-Private/`, `*.env` (except `.env.example`), `*_secret*`, `*_private*`, and all plugin runtime config (see Storage Rules).
+
+**Remediation procedure** (owner-only, assess-first):
+1. Inventory exposure privately: `git log --all` for the path, reachable published history, and current index state. Keep the inventory local — never in public issues, fixtures, or commits.
+2. Decide per case: accept-and-harden-forward, rotate credentials (only on exposure evidence), rewrite history, or change visibility. Each is a separate recorded owner decision.
+3. History rewrites, visibility changes, and rotations are never executed automatically by any script, hook, or agent task.
+
+**Decision log**: 2026-10-03 — repo stays public with hardened boundary; published history goes through private assessment before any remediation decision; no REST API credential rotation (config verified never committed: empty `git log --all` for its `data.json`).
 
 ---
 
@@ -87,7 +101,7 @@ loey_space/
 ├── .secrets/               # Ignored private notes folder
 │   ├── bank-notes.md       # Private note (Ignored by Git)
 │   └── passwords.md        # Encrypted private note (Ignored by Git)
-├── 03-Dev/                 # Code notes (Tracked, no secrets inside)
+├── 03-Dev/                 # Snippet notes (Ignored except structural MOCs; no secrets inside)
 └── 06-Resources/
     └── Guides/
         └── Vault Security Policy.md  # This policy note
