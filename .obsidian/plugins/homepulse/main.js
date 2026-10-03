@@ -16,14 +16,8 @@ async function syncHabitsToFiles(habitName, isChecked, appObj) {
     var regex = new RegExp("^(- \\[)[ x](\\] \\*?" + esc + ".*)$", "im");
     var newChar = isChecked ? "x" : " ";
 
-    var tmplFile = appObj.vault.getAbstractFileByPath("99-Templates/Daily.md");
-    if (tmplFile) {
-      var content = await appObj.vault.read(tmplFile);
-      if (regex.test(content)) {
-        content = content.replace(regex, "$1" + newChar + "$2");
-        await appObj.vault.modify(tmplFile, content);
-      }
-    }
+    // Only the dated observation is written. 99-Templates/Daily.md holds habit
+    // *defaults*; writing a completion there made every new day start checked.
 
     var dailyFiles = appObj.vault.getMarkdownFiles().filter(function(f) {
       var norm = f.path.replace(/\\/g, "/");
