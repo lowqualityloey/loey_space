@@ -5,12 +5,31 @@
 .obsidian/cache/
 .obsidian/indexed*
 .obsidian/graph.json
-.obsidian/plugins/homepulse/data.json
+# 🔌 Obsidian plugin runtime configuration (local-only, may hold secrets/state)
+# Distributable plugin code (main.js, manifest.json, styles.css) stays tracked.
+# Sanitized example defaults stay trackable (none ship today):
+.obsidian/plugins/*/data.json
+.obsidian/plugins/*/cache.json
+.obsidian/plugins/*/reference-files/
+!.obsidian/plugins/*/data.example.json
 .trash/
 
 # 🤖 Local AI Indices & Plugin Caches
 .smart-env/
 .claudian/
+
+# 🛠️ Agent & Tool Runtime (local-only, never commit)
+# .promptkit is a tracked git submodule (see .gitmodules) — do NOT ignore it.
+# Its internal scratch/ outputs are already ignored by .promptkit/.gitignore.
+.omo/
+.opencode/
+.codegraph/
+.opencode/node_modules/
+.clinerules/
+
+# GitButler state lives in .git/ (never tracked by definition) — belt-and-suspenders:
+.git/gitbutler/
+.git/butler/
 
 # 🔒 SECRETS & SENSITIVE KEYS (NEVER COMMIT TO GIT)
 .secrets/
