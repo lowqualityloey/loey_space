@@ -82,57 +82,37 @@ done
 #    and keeps the check fast on a vault this size.
 # ---------------------------------------------------------------------------
 
-# Shapes that indicate a real credential.
-patterns=(
-  'AIza[0-9A-Za-z_-]{35}'                                   # Google / Gemini
-  'sk-[A-Za-z0-9]{32,}'                                     # OpenAI
-  'sk-proj-[A-Za-z0-9_-]{20,}'                              # OpenAI project key
-  'gh[pousr]_[A-Za-z0-9]{30,}'                              # GitHub token
-  'github_pat_[A-Za-z0-9_]{50,}'                            # GitHub fine-grained PAT
-  'AKIA[0-9A-Z]{16}'                                        # AWS access key id
-  '-----BEGIN [A-Z ]*PRIVATE KEY-----'                      # PEM private key
-  '(GEMINI|OPENAI|OPENWEATHER|VITE_OPENWEATHER|ANTHROPIC)_API_KEY[[:space:]]*=[[:space:]]*[A-Za-z0-9_-]{16,}'
-)
-
-# Placeholder scrubbing (#32): forgive only the placeholder token itself, never
-# the rest of the line, so a real credential next to the word "example" still
-# matches. Whole-word guards keep keys that merely CONTAIN those letters
-# intact. Portable ERE (GNU + BSD sed): per-letter classes cover all casings.
-scrub_placeholders() {
-  printf '%s\n' "$1" | sed -E \
-    -e 's/your_[A-Za-z0-9_-]*/ /g' \
-    -e 's/<[^>]*>/ /g' \
-    -e 's/[xX]{4,}/ /g' \
-    -e 's/(^|[^A-Za-z0-9_])([Ee][Xx][Aa][Mm][Pp][Ll][Ee]|[Ss][Aa][Mm][Pp][Ll][Ee]|[Pp][Ll][Aa][Cc][Ee][Hh][Oo][Ll][Dd][Ee][Rr]|[Dd][Uu][Mm][Mm][Yy]|[Rr][Ee][Dd][Aa][Cc][Tt][Ee][Dd])([^A-Za-z0-9_]|$)/\1 \3/g'
-}
+# Patterns and matching live in .githooks/lib/secret-scan.sh so this hook and
+# the CI scan step can never drift apart. Fail closed: without the library the
+# content check would silently degrade to path checks only.
+# shellcheck source=.githooks/lib/secret-scan.sh
+if ! . "$(dirname "$0")/lib/secret-scan.sh"; then
+  {
+    echo ""
+    echo "✖ Commit blocked — .githooks/lib/secret-scan.sh is missing"
+    echo "  Content scanning cannot run; refusing to allow a partial check."
+    echo ""
+  } >&2
+  exit 1
+fi
 
 for file in "${staged[@]}"; do
   [ -n "$file" ] || continue
-  case "$file" in
-    .githooks/*) continue ;;   # this file documents the patterns it looks for
-    .obsidian/themes/*) continue ;; # community themes contain embedded webfonts
-  esac
+  scan_skips_path "$file" && continue
 
   # Added lines only, minus the +++ header and minus inline font/image blob
   # lines (base64 runs can contain key-shaped substrings; narrow carve-out).
   added=$(git diff --cached -U0 -- "$file" 2>/dev/null | grep -E '^\+' | grep -Ev '^\+\+\+|data:(font|image)/') || true
   [ -n "$added" ] || continue
-  scrubbed=$(scrub_placeholders "$added")
 
-  for pattern in "${patterns[@]}"; do
-    # -e is required: the PEM pattern starts with "-----" and grep would
-    # otherwise parse it as command-line flags and silently match nothing.
-    hits=$(printf '%s\n' "$scrubbed" | grep -Ein -e "$pattern") || true
-    if [ -n "$hits" ]; then
-      while IFS= read -r hit; do
-        [ -n "$hit" ] || continue
-        # Show a trimmed, masked excerpt rather than echoing the secret.
-        excerpt=$(printf '%s' "$hit" | cut -c1-60 | sed -E 's/[A-Za-z0-9_-]{12,}/[REDACTED]/g')
-        problems+=("${file} — looks like a credential: ${excerpt}")
-      done <<< "$hits"
-      fail=1
-    fi
-  done
+  hits=$(printf '%s\n' "$added" | scan_text "$file") || true
+  if [ -n "$hits" ]; then
+    while IFS= read -r hit; do
+      [ -n "$hit" ] || continue
+      problems+=("$hit")
+    done <<< "$hits"
+    fail=1
+  fi
 done
 
 # ---------------------------------------------------------------------------
