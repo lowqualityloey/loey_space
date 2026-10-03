@@ -53,9 +53,9 @@ async function ensureFolder(app: any, folderPath: string): Promise<void> {
   }
 }
 
-async function fileItem(app: any, item: TriageCandidate, route: RouteConfig, todayStr: string, dailyNotePath: string): Promise<{ result: TriageResult; sweptIndex?: number }> {
+async function fileItem(app: any, item: TriageCandidate, route: RouteConfig, todayStr: string, dailyNotePath: string): Promise<TriageResult> {
   if (route.kind === "drop") {
-    return { result: { item, destination: "dropped", ok: true }, sweptIndex: item.index };
+    return { item, destination: "dropped", ok: true };
   }
 
   if (route.kind === "task") {
@@ -63,7 +63,7 @@ async function fileItem(app: any, item: TriageCandidate, route: RouteConfig, tod
     const dailyFile = app.vault.getAbstractFileByPath(dailyPath);
 
     if (!dailyFile || !isTFile(dailyFile)) {
-      return { result: { item, ok: false, reason: `no daily note at ${dailyPath} for ${todayStr}` } };
+      return { item, ok: false, reason: `no daily note at ${dailyPath} for ${todayStr}` };
     }
 
     let inserted = false;
@@ -81,10 +81,10 @@ async function fileItem(app: any, item: TriageCandidate, route: RouteConfig, tod
     }
 
     if (!inserted) {
-      return { result: { item, ok: false, reason: "no Tasks section in today's note" } };
+      return { item, ok: false, reason: "no Tasks section in today's note" };
     }
 
-    return { result: { item, destination: dailyPath, ok: true }, sweptIndex: item.index };
+    return { item, destination: dailyPath, ok: true };
   }
 
   const title = deriveTitle(item.text, todayStr);
@@ -100,7 +100,7 @@ async function fileItem(app: any, item: TriageCandidate, route: RouteConfig, tod
       await app.vault.create(kanbanPath, buildKanban(todayStr));
     }
 
-    return { result: { item, destination: notePath, ok: true, extra: "+ Kanban" }, sweptIndex: item.index };
+    return { item, destination: notePath, ok: true, extra: "+ Kanban" };
   }
 
   // Plain note routes
@@ -109,10 +109,10 @@ async function fileItem(app: any, item: TriageCandidate, route: RouteConfig, tod
     const notePath = await uniquePath(app, route.folder, title);
     await app.vault.create(notePath, buildNote(route, title, item.text, item.capturedDate, todayStr));
 
-    return { result: { item, destination: notePath, ok: true }, sweptIndex: item.index };
+    return { item, destination: notePath, ok: true };
   }
 
-  return { result: { item, ok: false, reason: "invalid route" } };
+  return { item, ok: false, reason: "invalid route" };
 }
 
 export = async function triageSweep(params?: QuickAddParams): Promise<void> {
@@ -156,7 +156,6 @@ export = async function triageSweep(params?: QuickAddParams): Promise<void> {
      ====================================================================== */
 
   const results: TriageResult[] = [];
-  const sweptIndexes = new Set<number>();
 
   const dailyNotesConfig: DailyNotesConfig = await readDailyNotesConfig(async (configPath) => {
     const file = app.vault.getAbstractFileByPath(configPath);
@@ -174,11 +173,7 @@ export = async function triageSweep(params?: QuickAddParams): Promise<void> {
     if (!route) continue;
 
     try {
-      const { result, sweptIndex } = await fileItem(app, item, route, todayStr, dailyNotePath);
-      results.push(result);
-      if (sweptIndex !== undefined) {
-        sweptIndexes.add(sweptIndex);
-      }
+      results.push(await fileItem(app, item, route, todayStr, dailyNotePath));
     } catch (e: any) {
       console.error(`Triage Sweep: failed on "${item.text}"`, e);
       results.push({ item, ok: false, reason: e?.message ? e.message : String(e) });
@@ -186,16 +181,24 @@ export = async function triageSweep(params?: QuickAddParams): Promise<void> {
   }
 
   /* ======================================================================
-     3. REWRITE THE DUMP
+     3. REWRITE THE DUMP FROM ITS CURRENT CONTENT
      ====================================================================== */
 
-  if (sweptIndexes.size > 0) {
-    const nextDump = updateDumpContent(dumpLines, results, sweptIndexes, todayStr);
+  let unresolved: TriageResult[] = [];
+
+  if (results.some(r => r.ok)) {
+    /* Must stay inside the callback: hoisting it out and handing process() a
+       prebuilt string is what discarded captures arriving mid-sweep. */
+    const rewrite = (current: string): string => {
+      const out = updateDumpContent(current, results, todayStr);
+      unresolved = out.unresolved;
+      return out.content;
+    };
 
     if (typeof (app.vault as any).process === "function") {
-      await (app.vault as any).process(dumpFile, () => nextDump);
+      await (app.vault as any).process(dumpFile, rewrite);
     } else {
-      await app.vault.modify(dumpFile, nextDump);
+      await app.vault.modify(dumpFile, rewrite(await app.vault.read(dumpFile)));
     }
   }
 
@@ -223,7 +226,10 @@ export = async function triageSweep(params?: QuickAddParams): Promise<void> {
 
   new Notice(
     `✨ Triage Sweep: ${parts.join(", ")}.` +
-    (failed.length ? `\n\nSkipped: ${failed.map(f => f.reason).join("; ")}` : ""),
-    failed.length ? 12000 : 7000
+    (failed.length ? `\n\nSkipped: ${failed.map(f => f.reason).join("; ")}` : "") +
+    (unresolved.length
+      ? `\n\n⚠️ Filed but left in the inbox (its capture line changed during the sweep): ${unresolved.map(u => u.item.text).join("; ")}. Re-tag or delete them, or the next sweep files them again.`
+      : ""),
+    failed.length || unresolved.length ? 12000 : 7000
   );
 };
