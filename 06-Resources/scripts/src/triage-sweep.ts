@@ -30,6 +30,11 @@ import {
   parseDumpLines,
   updateDumpContent
 } from './lib/triage';
+import {
+  DailyNotesConfig,
+  resolveDailyNoteFile,
+  readDailyNotesConfig
+} from './lib/daily-note';
 
 async function uniquePath(app: any, folder: string, title: string): Promise<string> {
   let candidate = `${folder}/${title}.md`;
@@ -48,17 +53,17 @@ async function ensureFolder(app: any, folderPath: string): Promise<void> {
   }
 }
 
-async function fileItem(app: any, item: TriageCandidate, route: RouteConfig, todayStr: string): Promise<{ result: TriageResult; sweptIndex?: number }> {
+async function fileItem(app: any, item: TriageCandidate, route: RouteConfig, todayStr: string, dailyNotePath: string): Promise<{ result: TriageResult; sweptIndex?: number }> {
   if (route.kind === "drop") {
     return { result: { item, destination: "dropped", ok: true }, sweptIndex: item.index };
   }
 
   if (route.kind === "task") {
-    const dailyPath = `01-Daily/${todayStr}.md`;
+    const dailyPath = dailyNotePath;
     const dailyFile = app.vault.getAbstractFileByPath(dailyPath);
 
     if (!dailyFile || !isTFile(dailyFile)) {
-      return { result: { item, ok: false, reason: `no daily note for ${todayStr}` } };
+      return { result: { item, ok: false, reason: `no daily note at ${dailyPath} for ${todayStr}` } };
     }
 
     let inserted = false;
@@ -153,12 +158,23 @@ export = async function triageSweep(params?: QuickAddParams): Promise<void> {
   const results: TriageResult[] = [];
   const sweptIndexes = new Set<number>();
 
+  const dailyNotesConfig: DailyNotesConfig = await readDailyNotesConfig(async (configPath) => {
+    const file = app.vault.getAbstractFileByPath(configPath);
+    if (!file || !isTFile(file)) return undefined;
+    try {
+      return JSON.parse(await app.vault.read(file));
+    } catch {
+      return undefined;
+    }
+  });
+  const dailyNotePath = resolveDailyNoteFile(todayStr, dailyNotesConfig);
+
   for (const item of picked) {
     const route = ROUTES[item.token];
     if (!route) continue;
 
     try {
-      const { result, sweptIndex } = await fileItem(app, item, route, todayStr);
+      const { result, sweptIndex } = await fileItem(app, item, route, todayStr, dailyNotePath);
       results.push(result);
       if (sweptIndex !== undefined) {
         sweptIndexes.add(sweptIndex);
