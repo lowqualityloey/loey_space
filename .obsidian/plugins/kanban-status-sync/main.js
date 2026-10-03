@@ -355,6 +355,19 @@ const DEFAULT_SETTINGS = {
   notifyOnChange: false
 };
 
+/* ==========================================================================
+   RUNTIME BOUNDARY (#30) — where settings live
+   - `data.json` (this folder) is LOCAL RUNTIME STATE: user prefs + laneState
+     ({ boardPath: { cardKey: laneKey } }). It is git-ignored (root
+     .gitignore) and never committed — card text must not enter the repo.
+   - `data.example.json` (tracked) is the distributable sanitized seed: the
+     three known settings, no laneState, no card text. Copy it over data.json
+     to reset to defaults; deleting data.json has the same effect.
+   - Forward migration: an existing data.json keeps working untouched. onload
+     merges only known boolean SETTING_KEYS over DEFAULT_SETTINGS and reuses
+     laneState when present, so old files load exactly as before.
+   ========================================================================== */
+
 class KanbanStatusSyncPlugin extends obsidian.Plugin {
   async onload() {
     const data = (await this.loadData()) || {};
