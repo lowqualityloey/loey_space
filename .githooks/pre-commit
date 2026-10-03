@@ -33,7 +33,7 @@ problems=()
 # Staged files (added/copied/modified), NUL-separated so paths with spaces
 # survive — this vault is full of them ("Second Brain Guide.md").
 # ---------------------------------------------------------------------------
-mapfile -d '' -t staged < <(git diff --cached --name-only --diff-filter=ACM -z 2>/dev/null)
+mapfile -d '' -t staged < <(git diff --cached --name-only --diff-filter=ACMR --find-renames -z 2>/dev/null)
 if [ "${#staged[@]}" -eq 0 ]; then
   exit 0
 fi
@@ -52,6 +52,13 @@ for file in "${staged[@]}"; do
       ;;
     .env|*/.env|.env.*|*/.env.*)
       problems+=("${file} — environment file (keys belong here, not in Git)")
+      fail=1
+      ;;
+    # Env-variant parity with .gitignore (*.env, *.env.*): service.env and
+    # nested variants are sensitive too. .env.example stays committable via
+    # the continue clause above; its content is still scanned in section 2.
+    *.env|*.env.*)
+      problems+=("${file} — environment-file variant (keys belong here, not in Git)")
       fail=1
       ;;
     .secrets/*|*/.secrets/*)
