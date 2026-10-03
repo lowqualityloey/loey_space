@@ -13,6 +13,12 @@ tags:
 
 > *Your Second Brain daily navigation, focus & habit command center.*
 
+> [!NOTE] 🔄 Active Handoff & Where You Left Off
+> ![[handoff.md#🎯 Current Main Objectives]]
+> 
+> **Immediate Next Action:**
+> ![[handoff.md#📋 Today's Immediate Next Actions]]
+
 ```dataviewjs
 const todayStr = moment().format("YYYY-MM-DD");
 const alerts = [];
