@@ -38,3 +38,6 @@ jobs:
 
       - name: 🔍 Audit Vault Wikilinks
         run: npm run audit-links
+
+      - name: 🔐 Scan Tracked Artifacts For Secrets
+        run: bash .githooks/lib/secret-scan.sh --tracked
