@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-29
+updated: 2026-10-07
 ---
 # 🧠 `loey_space` — Personal Knowledge Management & Second Brain Architecture
 
@@ -70,12 +70,14 @@ Each project gets a board. Card checkboxes follow their lane automatically — `
 
 ## 🚀 Hero Features
 
-- **🧠 AI Chief of Staff** – Trigger `"hey loey"` for instant pulse checks, morning setups, inbox token triage, and weekly retrospectives (`AGENTS.md`).
+- **🧠 AI Chief of Staff** – Trigger `"hey loey"` for instant pulse checks, morning setups, inbox token triage, weekly retrospectives, and vault audits (`AGENTS.md`).
 - **⚡ HomePulse Command Center** – Real-time 2-way habit sync with today's daily note, live execution pulse analytics, and dynamic tech tree visualization.
 - **🔄 Bi-Directional GitHub Sync** – Keep Obsidian Kanban boards in lockstep with GitHub Projects v2 and convert cards to GitHub issues/branches in one click.
 - **🧹 Zero-Friction Inbox Triage** – Route captures instantly with inline tokens (`#do`, `#concept`, `#dev`, `#learn`, `#ref`, `#personal`, `#project`, `#bin`).
-- **📊 Automated Habit Analytics** – 30-day rolling metrics, streak tracking, day-of-week heatmap patterns, and personalized improvement insights.
-- **🔒 Security-First Architecture** – Local Git pre-commit hooks and `.env` credential isolation prevent accidental secret exposure.
+- **📊 Automated Habit Analytics** – 30-day rolling metrics, streak tracking across calendar gaps, day-of-week heatmap patterns, and personalized improvement insights.
+- **🤖 Typed AI Response Boundaries** – Gemini responses parsed into a validated `GeminiResult<T>` success/failure shape, so malformed payloads cannot silently become persistence instructions.
+- **🧪 Explicit Enrichment Simulation** – Scheduled enrichment supports `--simulate` mode that logs what it would do without writing any timestamps, plus recursive discovery of nested dated notes.
+- **🔒 Security-First Architecture** – Local Git pre-commit hooks and `.env` credential isolation prevent accidental secret exposure. Nested personal content (subdirectories inside the numbered folders) stays local by default.
 
 ---
 
@@ -196,6 +198,10 @@ Full operational guides and architecture specifications live **inside the vault*
 - [`TypeScript Migration Feasibility Assessment.md`](06-Resources/Guides/TypeScript%20Migration%20Feasibility%20Assessment.md) — Architecture and build pipeline for TypeScript automation scripts.
 
 *(All guides are located in [`06-Resources/Guides/`](06-Resources/Guides/) or the vault root).*
+
+### 👤 Owner-Only Reference Notes
+
+Private handoff records, session telemetry, and owner-only reference material for external repositories live in [`06-Resources/Guides/Owners/`](06-Resources/Guides/Owners/). These are **not** concepts or user-facing documentation — they are owner-only records for work in other repositories, and are git-ignored by default via the `.gitignore` `folder/**/*` patterns. The [📚 Resources & Reference Hub](06-Resources/_Resources%20MOC.md) lists any that are tracked.
 
 ---
 
@@ -361,6 +367,7 @@ All data is automatically pulled from daily notes — no manual tracking require
 * **Private Notes Directory**: The `.secrets/` directory is strictly excluded from Git tracking for storing sensitive personal documents.
 * **Runtime API Validation**: Scripts automatically validate `.env` configuration on execution and notify if required keys are missing.
 * **Vault Security Policy**: Read the official [Vault Security Policy](06-Resources/Guides/Vault%20Security%20Policy.md) for complete guidelines.
+* **Personal content stays local**: The `.gitignore` ignores all content inside the numbered folders except MOCs and explicitly tracked showcase files. Nested subdirectories (for example `06-Resources/Guides/Owners/`) are ignored by default via `folder/**/*` patterns, so owner-only reference material for other repositories never leaves this machine.
 
 ### 🪝 Enabling the pre-commit guard
 
@@ -397,6 +404,7 @@ Placeholders such as `your_google_gemini_api_key_here` are allowed, so `.env.exa
 | `⚠️ GEMINI_API_KEY missing in .env!` | No key configured. Run `cp .env.example .env` and paste a key from [Google AI Studio](https://aistudio.google.com/app/apikey). |
 | AI summary reads flat, with a notice about quota | Gemini refused with HTTP 429 and the offline fallback wrote the text. The notice names which limit: a **per-minute** limit clears in about a minute; a **daily** limit does not, and resets at midnight Pacific. Re-run `Ctrl + Shift + A` afterwards to replace it. |
 | A bundled plugin or CSS change has no effect | Obsidian loads plugins, snippets and hooks at startup. Run `Ctrl + P` → **Reload app without saving**. |
+| `npm run build` fails with *"you installed esbuild for another platform"* | `node_modules/` was installed on a different OS than the one you're running in — the usual case is a Windows tree reused from WSL. `esbuild` ships one native binary per platform. Delete `node_modules/` and reinstall **in the shell you're building from**: `rm -rf node_modules && npm ci`. Don't share that directory between Windows and WSL; see [Clean install](06-Resources/Guides/CONTRIBUTING.md#clean-install-first). |
 | `🧹 Triage Sweep` missing from the palette | Register it once: Settings → QuickAdd → Manage Macros → new macro → **Add User Script** → `triage-sweep.js`, then add it as a Macro choice. |
 | Sweep says *"no daily note for &lt;date&gt;"* | `#do` files into **today's** note, which must already exist. Run **QuickAdd: Create Daily Note** first. |
 | HomePulse lost its custom behaviour | It was updated from the Community Store. Restore `.obsidian/plugins/homepulse/` from Git history and set **Auto-update plugins: OFF**. |
@@ -416,17 +424,23 @@ Placeholders such as `your_google_gemini_api_key_here` are allowed, so `.env.exa
 *(See comprehensive operational specs in [Second Brain Guide](06-Resources/Guides/Second%20Brain%20Guide.md))*
 
 #### ⚙️ Technical Maintenance & CLI Tooling
+* **Clean install required first** — `node_modules/` holds **platform-specific native binaries** (`esbuild`, which both `npm run build` and the `tsx` test runner depend on, ships one binary per OS/arch). Never reuse a `node_modules/` directory across operating systems, and never share one between Windows and WSL. Install per platform from a clean tree: `rm -rf node_modules && npm ci`. `package-lock.json` pins every version, including the test runner, so `npm ci` needs no network guesses and `npm test` never downloads a runner on demand. Changing a dependency? Update `package.json` and `package-lock.json` in the same commit. Full notes in [CONTRIBUTING.md](06-Resources/Guides/CONTRIBUTING.md#clean-install-first).
 * **TypeScript & Bundling Engine** — User scripts are authored in TypeScript under [`06-Resources/scripts/src/`](06-Resources/scripts/src/) (modularized under `src/lib/`) and bundled into single-file CommonJS via `npm run build` (`esbuild`) for seamless Obsidian QuickAdd & Node CLI compatibility.
 * **Automated CLI Commands**:
   - `npm run typecheck` — Strict TypeScript typecheck across all scripts.
-  - `npm run build` — Bundles all 12 user scripts in under 50ms.
-  - `npm test` — Runs automated Node test suite (45 unit tests).
-  - `npm run audit-links` — Scans vault for broken wikilinks, fuzzy fix suggestions, and orphan notes.
+  - `npm run build` — Bundles all 14 user scripts in under 50ms.
+  - `npm test` — Runs the Node test suite via the pinned `tsx` runner (imports `src/**/*.ts` directly, so no separate compile step).
+  - `npm run audit-links` — Scans vault for broken wikilinks, fuzzy fix suggestions, and orphan notes. A link whose candidate path is excluded by `.gitignore` is reported as **local-only content** rather than broken, because a tracked MOC linking its own untracked content is this vault's architecture; add `--strict` to exit 1 on genuinely dangling links, which is the form CI runs. Local `--strict` is deliberately the stricter of the two: an untracked note and its links only exist on this machine, so a dangling link in one is a defect CI cannot see rather than one it forgives.
+  - `npm run hygiene` — Read-only report of unclassified records, review metadata the overdue query needs and a note does not carry, and notes no hub reaches. Prints paths and field names only, never note content. Add `--include-ignored` to audit local notes instead of the tracked index, and `--strict` to exit 1 when findings exist. The three readers divide the work: `validate-templates` enforces the publication contract over declared types, `audit-links` owns the literal link graph, and this one reports what both leave silent.
   - `npm run distill -- <file>` — Distills atomic evergreen concepts into `08-Concepts/`.
   - `npm run log-github` — Syncs today's GitHub activity into a collapsible table callout (`> [!NOTE]-`) sorted AM $\rightarrow$ PM with non-breaking timestamps.
   - `npm run start-task -- <proj> <title>` — Converts a Kanban card to a GitHub Issue and creates a Git branch.
   - `npm run sync-kanban` — Multi-project 2-way sync with GitHub Projects v2.
   - `npm run validate-templates` — Validates all 19 vault templates against schema rules.
+* **Vault audit commands**:
+  - `npm run validate-templates` — Validates all tracked notes against the canonical frontmatter schema and tag taxonomy.
+  - `npm run audit-links` — Scans for broken wikilinks and reports orphan notes.
+  - `npm run hygiene` — Surfaces unclassified records, missing review metadata, and notes no hub reaches.
 * **Updating plugins** — safe for store plugins (Dataview, Templater, QuickAdd, Kanban, Calendar, Activity History). Never for `homepulse` or `kanban-status-sync`, which are local builds with no store equivalent.
 * **Restyling the dashboard** — HomePulse's own `styles.css` is regenerated on rebuild, so put overrides in `.obsidian/snippets/` instead. That's what `homepulse-mobile.css` and `dashboard-cards.css` do.
 
@@ -459,7 +473,8 @@ See [CONTRIBUTING.md](06-Resources/Guides/CONTRIBUTING.md) for the full scope, p
 | **Multi-Domain AI Enrichment** | One shortcut (`Ctrl+Shift+A`) analyzes any note — generates summaries for daily notes, explanations for concepts, code breakdowns for dev notes, study quizzes & concept extraction for learning notes |
 | **Automatic Concept Distiller** | Extracts atomic evergreen mental models and principles from articles or dev notes into `08-Concepts/` with 90-day review cycles (`QuickAdd` / `npm run distill`) |
 | **Kanban Issue & Branch Generator** | Converts Kanban cards into real GitHub Issues, switches git branch, and moves cards to In Progress (`QuickAdd` / `npm run start-task`) |
-| **Vault Link & Graph Auditor** | Vault-wide scanner for broken wikilinks, fuzzy match fix suggestions, and orphan note discovery (`npm run audit-links`) |
+| **Vault Link & Graph Auditor** | Vault-wide scanner for broken wikilinks, fuzzy match fix suggestions, and orphan note discovery, with links into gitignored content reported separately from genuinely dangling ones (`npm run audit-links -- --strict`, as CI runs it) |
+| **Vault Hygiene Reporter** | Surfaces what the contract and the link graph both leave silent — records with no `type`, review metadata the overdue query requires and a note lacks, and notes no hub's query reaches (`npm run hygiene`) |
 | **Weekly AI Summaries** | Automated 7-day analysis of mood, energy, tasks, and habits with actionable recommendations |
 | **Habit Analytics Dashboard** | 30-day rolling metrics, streak tracking, day-of-week patterns, and improvement recommendations |
 | **Smart Task Management** | Tasks live in daily notes and project kanbans, aggregated in real-time via `_Tasks MOC.md` with status indicators (`[ ]`, `[/]`, `[x]`) |
