@@ -193,8 +193,14 @@ function noteDateFromPath(notePath) {
   return m ? m[1] : null;
 }
 
-function sectionKind(headingLower) {
-  return String(headingLower).includes("habit") ? "habit" : "task";
+// ADR-0001: the single habit-section test. Every guard must route through here --
+// case is normalised so a caller cannot misclassify "### Habits" as a task section.
+function isHabitHeading(heading) {
+  return String(heading).toLowerCase().includes("habit");
+}
+
+function sectionKind(heading) {
+  return isHabitHeading(heading) ? "habit" : "task";
 }
 
 function identityKey(kind, notePath, lineBody) {
@@ -611,7 +617,7 @@ class KanbanStatusSyncPlugin extends obsidian.Plugin {
         currentSec = line.replace(/^#+\s+/, "").trim().toLowerCase();
         continue;
       }
-      if (currentSec.includes("habit")) continue;
+      if (isHabitHeading(currentSec)) continue;
 
       const match = line.match(/^(\s*[-*]\s+\[)( |\^|\/|x|-|>|<|\?|!)(\]\s+)(.*)$/);
       if (!match) continue;
@@ -845,7 +851,7 @@ class KanbanStatusSyncPlugin extends obsidian.Plugin {
                 probeSec = probeLine.replace(/^#+\s+/, "").trim().toLowerCase();
                 continue;
               }
-              if (probeSec.includes("habit")) continue;
+              if (isHabitHeading(probeSec)) continue;
               const probeMatch = probeLine.match(/^(\s*[-*]\s+\[)( |\^|\/|x|-|>|<|\?|!)(\]\s+)(.*)$/);
               if (!probeMatch) continue;
               if (PRESERVED_MARKERS.indexOf(probeMatch[2]) !== -1) continue;
@@ -937,7 +943,7 @@ class KanbanStatusSyncPlugin extends obsidian.Plugin {
                 currentSec = tLine.replace(/^#+\s+/, "").trim().toLowerCase();
                 continue;
               }
-              if (currentSec.includes("habit")) continue;
+              if (isHabitHeading(currentSec)) continue;
               const tMatch = tLine.match(/^(\s*[-*]\s+\[)( |\^|\/|x|-|>|<|\?|!)(\]\s+)(.*)$/);
               if (!tMatch) continue;
               let lineBody = tMatch[4];
@@ -1162,6 +1168,7 @@ module.exports.cardKey = cardKey;
 module.exports.extractBlockId = extractBlockId;
 module.exports.noteDateFromPath = noteDateFromPath;
 module.exports.sectionKind = sectionKind;
+module.exports.isHabitHeading = isHabitHeading;
 module.exports.identityKey = identityKey;
 module.exports.adoptBlockId = adoptBlockId;
 module.exports.resolveMarker = resolveMarker;

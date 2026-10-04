@@ -13,14 +13,16 @@
 // Bodies passed to identityKey are the plugin's own line bodies: text AFTER the
 // checkbox marker, never the `- [ ]` prefix (main.js passes tMatch[4]).
 //
-// Non-vacuity: point KANBAN_MAIN_JS at a pre-fix copy of main.js and this suite
-// fails (the pre-fix build exports no identityKey and rewrites same-titled
-// notes). Defaults to the repo-root plugin build.
+// Non-vacuity: point KANBAN_MAIN_JS at a build lacking kind-scoped identity and
+// this suite fails — measured at 2 of 14 failing, one of them the
+// habit-capitalisation case and one the source-level routing invariant.
+// Defaults to the repo-root plugin build.
 //
 // Paths resolve from this file's own location, never process.cwd().
 
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
@@ -150,10 +152,75 @@ test("AC-4: adoption refuses the habit kind outright", () => {
 
 test("sectionKind pins its documented pre-lowercased input contract", () => {
   const { sectionKind } = identityApi();
-  // Fragile by contract: main.js calls this only on values already lower-cased by
-  // its capture sites. Pinned as-is; no case-insensitive behaviour is claimed.
+  // The lower-cased path every capture site actually produces. This is regression
+  // protection for the existing behaviour; case-insensitivity is asserted
+  // separately below rather than folded in here.
   assert.equal(sectionKind("🔁 habits"), "habit");
   assert.equal(sectionKind("✅ tasks"), "task");
+});
+
+// AC-1 / ADR-0001. A habit heading misread as a task heading is the corruption
+// class the kind-scoped identity exists to prevent: the plugin would then rewrite
+// habit slot lines across daily notes. Written BEFORE the fix, against
+// sectionKind (which exists today) so it fails on the misclassification itself
+// rather than on a missing export.
+test("AC-1: habit-heading classification survives any capitalisation", () => {
+  const { sectionKind, isHabitHeading } = identityApi();
+  const habitHeadings = [
+    "🔁 Habits",
+    "Habits",
+    "HABITS",
+    "🔁 Habits & Rituals",
+    "Daily Habits",
+    "habits",
+  ];
+  for (const heading of habitHeadings) {
+    // sectionKind is asserted FIRST so that on unhardened code this test fails on the
+    // misclassification itself ("task" !== "habit") rather than on a missing export.
+    assert.equal(
+      sectionKind(heading),
+      "habit",
+      `sectionKind(${JSON.stringify(heading)}) must be "habit" — a habit section read as ` +
+        `"task" lets the plugin rewrite habit slot lines across daily notes`
+    );
+    assert.equal(isHabitHeading(heading), true, `isHabitHeading(${JSON.stringify(heading)}) must be true`);
+  }
+  // Casing must not turn a task section into a habit section either.
+  for (const heading of ["✅ Tasks", "Tasks", "TASKS", "✅ tasks"]) {
+    assert.equal(sectionKind(heading), "task", `sectionKind(${JSON.stringify(heading)}) must be "task"`);
+    assert.equal(isHabitHeading(heading), false, `isHabitHeading(${JSON.stringify(heading)}) must be false`);
+  }
+});
+
+// The three inline guards cannot be reached with a capitalised heading through any
+// real path -- the capture sites lower-case first -- so their routing is
+// behaviourally untestable. A build with the guards reverted to their own raw
+// includes("habit") still passes every other assertion in this file, so pin the
+// invariant at the source level instead. This is the "four copies became one"
+// claim, and it is the one a future edit is most likely to undo.
+test("ADR-0001: the habit-section rule is defined once and every guard routes through it", () => {
+  const source = readFileSync(MAIN_JS, "utf8");
+
+  const rawTests = source.match(/includes\("habit"\)/g) ?? [];
+  assert.equal(
+    rawTests.length,
+    1,
+    `main.js must contain exactly one includes("habit") -- the helper -- but found ${rawTests.length}. ` +
+      `A second copy means a guard stopped routing through isHabitHeading.`
+  );
+
+  assert.match(
+    source,
+    /function isHabitHeading\(heading\) \{\s*return String\(heading\)\.toLowerCase\(\)\.includes\("habit"\);\s*\}/,
+    "isHabitHeading must normalise case before the substring test"
+  );
+
+  const routedGuards = source.match(/if \(isHabitHeading\(/g) ?? [];
+  assert.equal(
+    routedGuards.length,
+    3,
+    `the three inline habit guards must call isHabitHeading(...), found ${routedGuards.length}`
+  );
 });
 
 // ---------------------------------------------------------------- layer 2
