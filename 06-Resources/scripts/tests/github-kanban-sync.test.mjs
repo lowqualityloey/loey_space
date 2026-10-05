@@ -76,21 +76,85 @@ assert.strictEqual(tasks[2].title, 'Configure Supabase Auth client & route guard
   assert.strictEqual(tasks[3].checkbox, 'x');
 });
 
+// Shared fixtures for the syncSingleBoard error-handling tests below.
+const ASYNC_MOCK_APP = {
+  vault: {
+    read: async () => '## Backlog\n- [ ] Task 1\n'
+  }
+};
+const ASYNC_MOCK_FILE = { basename: 'Test Board', path: '02-Projects/Test.md' };
+const ASYNC_MOCK_CONFIG = {
+  projectNumber: 9999,
+  owner: 'testowner',
+  title: 'Test Board',
+  filePath: '02-Projects/Test.md'
+};
+
 test('syncSingleBoard: executes asynchronously without blocking', async () => {
   assert.strictEqual(typeof syncSingleBoard, 'function');
-  const mockApp = {
-    vault: {
-      read: async () => '## Backlog\n- [ ] Task 1\n'
-    }
-  };
-  const mockFile = { basename: 'Test Board', path: '02-Projects/Test.md' };
-  const mockConfig = { projectNumber: 9999, owner: 'testowner', title: 'Test Board', filePath: '02-Projects/Test.md' };
 
-  // syncSingleBoard returns a Promise and catches gh CLI errors gracefully
-  const result = await syncSingleBoard(mockApp, mockFile, mockConfig);
+  // The execFn is injected, not omitted. Omitting it falls through to the real `gh`
+  // binary (src:178-192), which made this test's outcome depend on the developer's
+  // ambient auth: it passed with GH_CONFIG_DIR unset and failed with "missing
+  // required scopes [read:project]" when that variable was pinned.
+  //
+  // Worse, it was vacuously green. With no working auth the `gh project view` read
+  // failed, so projectId stayed null, the whole mapping block at src:315 was
+  // skipped, and the three `typeof` assertions passed over a run that had done
+  // nothing at all. The non-vacuity assertions below are what give this test teeth.
+  const { execFn, calls } = makeGhStub();
+  const result = await syncSingleBoard(ASYNC_MOCK_APP, ASYNC_MOCK_FILE, ASYNC_MOCK_CONFIG, execFn);
+
+  assert.ok(calls.some((c) => c.includes('project view')), 'expected a project schema read');
+  assert.ok(calls.some((c) => c.includes('project item-list')), 'expected a remote inventory read');
+  assert.ok(
+    calls.some((c) => c.includes('project item-create')),
+    'expected the local card to be created — proves the mapping block actually ran'
+  );
+
   assert.ok(typeof result.updated === 'number');
   assert.ok(typeof result.created === 'number');
   assert.ok(typeof result.errors === 'number');
+  assert.strictEqual(result.created, 1);
+  assert.strictEqual(result.errors, 0);
+});
+
+test('syncSingleBoard: a missing read:project scope is surfaced, not swallowed', async () => {
+  // src:231-233 re-throws this one failure on purpose, after posting a Notice, so a
+  // token without the scope is visible in Obsidian instead of silently syncing
+  // nothing. That branch had no coverage, and it is the exact failure that made the
+  // test above environment-dependent.
+  const scopeError = Object.assign(new Error('Command failed: gh project view'), {
+    stderr: 'error: your authentication token is missing required scopes [read:project]'
+  });
+  const execFn = async (cmd) => {
+    if (cmd.includes('project view')) throw scopeError;
+    return { stdout: JSON.stringify({ items: [] }) };
+  };
+
+  await assert.rejects(
+    () => syncSingleBoard(ASYNC_MOCK_APP, ASYNC_MOCK_FILE, ASYNC_MOCK_CONFIG, execFn),
+    (err) => err === scopeError
+  );
+});
+
+test('syncSingleBoard: a generic gh failure warns and continues without inventing a sync error', async () => {
+  // The counterpart to the branch above: an ordinary failure is warned about at
+  // src:235 and execution continues. The inventory read still succeeded here, so no
+  // sync error may be fabricated — errors reports failed syncs, not failed reads.
+  const execFn = async (cmd) => {
+    if (cmd.includes('project view')) {
+      throw Object.assign(new Error('Command failed: gh project view'), {
+        stderr: 'error: could not connect to github.com'
+      });
+    }
+    return { stdout: JSON.stringify({ items: [] }) };
+  };
+
+  const result = await syncSingleBoard(ASYNC_MOCK_APP, ASYNC_MOCK_FILE, ASYNC_MOCK_CONFIG, execFn);
+  assert.strictEqual(result.errors, 0);
+  assert.strictEqual(result.created, 0);
+  assert.strictEqual(result.updated, 0);
 });
 
 test('syncSingleBoard: creates new project items safely with execFn array arguments', async () => {
