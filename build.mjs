@@ -17,6 +17,7 @@ const entryPoints = [
   '06-Resources/scripts/src/start-task-action.ts',
   '06-Resources/scripts/src/sync-github-activity.ts',
   '06-Resources/scripts/src/sync-github-kanban.ts',
+  '06-Resources/scripts/src/task-view.ts',
   '06-Resources/scripts/src/triage-sweep.ts',
   '06-Resources/scripts/src/validate-templates.ts',
   '06-Resources/scripts/src/weekly-ai-summary.ts',

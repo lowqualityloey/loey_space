@@ -157,8 +157,12 @@ if (dailyPages.length === 0) {
 ## 📌 Daily Focus & Active Tasks
 
 ```dataviewjs
+await dv.load("06-Resources/scripts/task-view.js");
+const TV = globalThis.TaskView;
+if (!TV) throw new Error("task-view.js did not load — run `npm run build` and commit the bundle.");
+
 const todayStr = moment().format("YYYY-MM-DD");
-const pages = dv.pages('"01-Daily" or "02-Projects"');
+const pages = dv.pages('"01-Daily" or "02-Projects" or "04-Learning" or "05-Personal"');
 let inProgressTasks = [];
 let priorityTasks = [];
 let seenTasks = new Set();
@@ -171,17 +175,16 @@ for (let p of pages) {
   if (isDaily && p.file.name !== todayStr) continue;
 
   for (let t of p.file.tasks) {
-    if (!t.text || t.text.trim() === "") continue;
-    const sec = (t.header && t.header.subpath) ? t.header.subpath.toLowerCase() : "";
-    if (sec.includes("habit") || sec.includes("backlog") || sec.includes("archive")) continue;
-    if (t.parent !== undefined && t.parent !== null) continue;
+    const task = TV.normalizeTask(t, p.file.path);
+    if (!task.text || task.text.trim() === "") continue;
+    if (!TV.isVisible(task)) continue;
 
-    const dedupeKey = t.text.toLowerCase().replace(/#priority\/[^\s]+/gi, "").replace(/\[\[[^\]]+\]\]/g, "").replace(/[^\w\s]/g, "").trim();
+    const dedupeKey = TV.taskIdentity(task);
     if (seenTasks.has(dedupeKey)) continue;
     seenTasks.add(dedupeKey);
 
     const fileName = p.file.name;
-    const formattedText = `${t.text} ${dv.fileLink(p.file.path, false, fileName)}`;
+    const formattedText = `${TV.displayText(task)} ${dv.fileLink(p.file.path, false, fileName)}`;
     const taskObj = Object.assign({}, t, { text: formattedText });
 
     if (t.status === "/") {

@@ -32,6 +32,10 @@ Central dashboard for active tasks, in-progress items, and completed task histor
 ## 🔄 Currently In Progress (`[/]`)
 
 ```dataviewjs
+await dv.load("06-Resources/scripts/task-view.js");
+const TV = globalThis.TaskView;
+if (!TV) throw new Error("task-view.js did not load — run `npm run build` and commit the bundle.");
+
 const todayStr = window.moment().format("YYYY-MM-DD");
 let currentDailyDate = "";
 for (const p of dv.pages('"01-Daily"')) {
@@ -42,32 +46,22 @@ for (const p of dv.pages('"01-Daily"')) {
 const inScope = (p) => p.file.name !== "Tasks Kanban" && (!p.file.path.startsWith("01-Daily") ||
   (currentDailyDate !== "" && p.file.name.startsWith(currentDailyDate)));
 
-function getTaskKey(txt) {
-  return String(txt || "").toLowerCase().replace(/#priority\/[^\s]+/gi, "").replace(/\[\[[^\]]+\]\]/g, "").replace(/[^\w\s]/g, "").trim();
-}
-
-const pages = dv.pages('"02-Projects" or "01-Daily"');
-let tasks = [];
-let seen = new Set();
+const pages = dv.pages('"02-Projects" or "01-Daily" or "04-Learning" or "05-Personal"');
+const candidates = [];
 
 for (let p of pages) {
   if (!p.file.tasks || p.file.name === "Tasks Kanban") continue;
   if (!inScope(p)) continue;
   for (let t of p.file.tasks) {
-    if (!t.text || t.text.trim() === "") continue;
-    const sec = (t.header && t.header.subpath) ? t.header.subpath.toLowerCase() : "";
-    if (sec.includes("habit") || sec.includes("backlog") || sec.includes("archive")) continue;
-    if (t.parent !== undefined && t.parent !== null) continue;
-
-    if (t.status === "/") {
-      const key = getTaskKey(t.text);
-      if (!seen.has(key)) {
-        seen.add(key);
-        tasks.push(t);
-      }
-    }
+    const task = TV.normalizeTask(t, p.file.path);
+    if (!task.text || task.text.trim() === "") continue;
+    if (task.status !== "/") continue;
+    if (!TV.isVisible(task)) continue;
+    candidates.push(task);
   }
 }
+
+const tasks = TV.collectVisibleTasks(candidates).map((task) => task.raw);
 if (tasks.length > 0) dv.taskList(tasks, true);
 else dv.paragraph("No tasks currently in progress.");
 ```
@@ -77,6 +71,10 @@ else dv.paragraph("No tasks currently in progress.");
 ## 📌 Active To-Dos (`[ ]`)
 
 ```dataviewjs
+await dv.load("06-Resources/scripts/task-view.js");
+const TV = globalThis.TaskView;
+if (!TV) throw new Error("task-view.js did not load — run `npm run build` and commit the bundle.");
+
 const todayStr = window.moment().format("YYYY-MM-DD");
 let currentDailyDate = "";
 for (const p of dv.pages('"01-Daily"')) {
@@ -95,32 +93,22 @@ function getPriorityRank(text) {
   return 4;
 }
 
-function getTaskKey(txt) {
-  return String(txt || "").toLowerCase().replace(/#priority\/[^\s]+/gi, "").replace(/\[\[[^\]]+\]\]/g, "").replace(/[^\w\s]/g, "").trim();
-}
-
-const pages = dv.pages('"02-Projects" or "01-Daily"');
-let tasks = [];
-let seen = new Set();
+const pages = dv.pages('"02-Projects" or "01-Daily" or "04-Learning" or "05-Personal"');
+const candidates = [];
 
 for (let p of pages) {
   if (!p.file.tasks || p.file.name === "Tasks Kanban") continue;
   if (!inScope(p)) continue;
   for (let t of p.file.tasks) {
-    if (!t.text || t.text.trim() === "") continue;
-    const sec = (t.header && t.header.subpath) ? t.header.subpath.toLowerCase() : "";
-    if (sec.includes("habit") || sec.includes("backlog") || sec.includes("archive")) continue;
-    if (t.parent !== undefined && t.parent !== null) continue;
-
-    if (t.status === " ") {
-      const key = getTaskKey(t.text);
-      if (!seen.has(key)) {
-        seen.add(key);
-        tasks.push(t);
-      }
-    }
+    const task = TV.normalizeTask(t, p.file.path);
+    if (!task.text || task.text.trim() === "") continue;
+    if (task.status !== " ") continue;
+    if (!TV.isVisible(task)) continue;
+    candidates.push(task);
   }
 }
+
+const tasks = TV.collectVisibleTasks(candidates).map((task) => task.raw);
 
 tasks.sort((a, b) => getPriorityRank(a.text) - getPriorityRank(b.text));
 
