@@ -41,6 +41,92 @@ function findRemoteMatch(task: LocalTaskItem, remoteItems: GitHubProjectItem[]):
   );
 }
 
+// `gh project item-list` takes no offset: it returns the first `--limit` items and
+// pages internally only up to that limit, so the limit is the entire window we can
+// ever observe. Set it below the real board size and the hidden tail is
+// indistinguishable from "missing" — and a missing remote item is exactly what
+// makes a card get re-created as a duplicate. Keep it well clear of any real board.
+const PROJECT_ITEM_LIMIT = 500;
+
+/**
+ * The outcome of reading a project's item inventory. `status` gates creation:
+ * only `complete` proves a card's absence from `items` means it is genuinely new.
+ * An empty project is `complete` with zero items — a real answer, unlike the rest.
+ */
+type InventoryRead =
+  | { status: 'complete'; items: GitHubProjectItem[] }
+  | { status: 'incomplete'; items: GitHubProjectItem[]; reason: string }
+  | { status: 'unreadable'; items: GitHubProjectItem[]; reason: string };
+
+function asRecord(value: unknown): Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return {};
+  return Object.fromEntries(Object.entries(value));
+}
+
+function asString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+// One `gh project item-list` entry. `gh` nests issue identity under `content` and
+// writes field values at the top level by camelCased field name, so a board's
+// `status`/`priority` are top level while the title and issue number are not.
+function toProjectItem(raw: unknown): GitHubProjectItem {
+  const item = asRecord(raw);
+  const content = asRecord(item.content);
+  const contentTitle = asString(content.title);
+  return {
+    id: asString(item.id) ?? '',
+    title: asString(item.title) ?? contentTitle,
+    contentTitle,
+    number: typeof content.number === 'number' ? content.number : undefined,
+    url: asString(content.url),
+    status: asString(item.status),
+    priority: asString(item.priority)
+  };
+}
+
+function unreadableInventory(reason: string): InventoryRead {
+  return { status: 'unreadable', items: [], reason };
+}
+
+/**
+ * Parse one `gh project item-list --format json` payload into a trustworthy
+ * inventory, or into an explicit refusal to trust it.
+ */
+function readProjectInventory(stdout: string, limit: number): InventoryRead {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stdout);
+  } catch (err) {
+    return unreadableInventory(`items response was not valid JSON: ${errorMessage(err)}`);
+  }
+
+  const payload = asRecord(parsed);
+  const rawItems = Array.isArray(payload.items) ? payload.items : [];
+  const items = rawItems.map(toProjectItem);
+
+  // `totalCount` is the project's real item count and ignores `--limit`, so a cut
+  // window is detected exactly instead of guessed from page sizes. When it is
+  // missing, a full window cannot be told apart from a truncated one — so treat
+  // that as incomplete rather than assume we saw everything.
+  const totalCount = typeof payload.totalCount === 'number' ? payload.totalCount : null;
+  const cutShort = totalCount != null ? totalCount > items.length : items.length >= limit;
+
+  if (cutShort) {
+    return {
+      status: 'incomplete',
+      items,
+      reason: `read returned ${items.length} of ${totalCount != null ? totalCount : `at least ${limit}`} project items`
+    };
+  }
+
+  return { status: 'complete', items };
+}
+
 function resolveVaultPath(): string {
   const fromCwd = process.cwd();
   if (fs.existsSync(path.join(fromCwd, '01-Daily')) || fs.existsSync(path.join(fromCwd, '06-Resources'))) {
@@ -111,11 +197,10 @@ async function syncSingleBoard(
   let projectId: string | null = null;
   let statusField: ProjectField | null = null;
   let priorityField: ProjectField | null = null;
-  const remoteItems: GitHubProjectItem[] = [];
 
   const remotePromises: Array<Promise<{ stdout: string; stderr?: string }>> = [
     execFn(['gh', 'project', 'view', String(projectNumber), '--owner', owner, '--format', 'json'], { timeout: 15000 }),
-    execFn(['gh', 'project', 'item-list', String(projectNumber), '--owner', owner, '--format', 'json', '--limit', '100'], { timeout: 15000 })
+    execFn(['gh', 'project', 'item-list', String(projectNumber), '--owner', owner, '--format', 'json', '--limit', String(PROJECT_ITEM_LIMIT)], { timeout: 15000 })
   ];
 
   if (config.repo) {
@@ -150,28 +235,11 @@ async function syncSingleBoard(
     console.warn(`Project view warning for #${projectNumber}:`, e);
   }
 
-  if (itemsRes.status === 'fulfilled') {
-    try {
-      const itemsData = JSON.parse(itemsRes.value.stdout);
-      if (Array.isArray(itemsData.items)) {
-        for (const item of itemsData.items) {
-          remoteItems.push({
-            id: item.id,
-            title: item.title,
-            contentTitle: item.content?.title,
-            number: item.content?.number,
-            url: item.content?.url,
-            status: item.status,
-            priority: item.priority
-          });
-        }
-      }
-    } catch (e: any) {
-      console.warn(`Could not parse items for Project #${projectNumber}:`, e);
-    }
-  } else {
-    console.warn(`Could not fetch items for Project #${projectNumber}:`, itemsRes.reason);
-  }
+  const inventory: InventoryRead =
+    itemsRes.status === 'fulfilled'
+      ? readProjectInventory(itemsRes.value.stdout, PROJECT_ITEM_LIMIT)
+      : unreadableInventory(`could not fetch items: ${errorMessage(itemsRes.reason)}`);
+  const remoteItems = inventory.items;
 
   const repoIssues: GitHubIssueInfo[] = [];
   if (issuesRes && issuesRes.status === 'fulfilled') {
@@ -232,6 +300,17 @@ async function syncSingleBoard(
   let createdCount = 0;
   let errorCount = 0;
 
+  // One sync failure per board, counted here rather than per blocked card so the
+  // number reports failed syncs instead of a fabricated per-item failure — and so
+  // it still surfaces when the schema gate below is never reached at all.
+  if (inventory.status !== 'complete') {
+    console.error(
+      `Sync failed for "${targetFile.basename}": ${inventory.reason}. ` +
+        'Refusing to create project items — an unreadable inventory cannot prove a card is new.'
+    );
+    errorCount++;
+  }
+
   // 4. Map Local Tasks to Remote Schema
   if (projectId && statusField && statusField.options) {
     const statusOptions = statusField.options;
@@ -281,6 +360,11 @@ async function syncSingleBoard(
           }
         });
       } else if (!match) {
+        // Only creation can duplicate. A matched item is real even in a partial
+        // window, so updates stay enabled there; but a non-match is evidence of a
+        // new card only when the inventory was read to the end.
+        if (inventory.status !== 'complete') continue;
+
         createTasks.push(async () => {
           try {
             const createCmd = [

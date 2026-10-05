@@ -540,6 +540,209 @@ github_project_number: 100
   assert.ok(!createCall.includes('Unbadged but matching'));
 });
 
+// ---------------------------------------------------------------------------
+// Issue #49 — an unreadable or truncated remote inventory must never be mistaken
+// for an empty one.
+//
+// Every local card is only provably new when its absence from the remote
+// inventory is trustworthy. A failed read, a non-JSON body, or a `--limit` window
+// that cut the board short all leave cards looking "missing", so the old code
+// re-created the whole board as duplicate drafts and still summarised
+// `created: N, errors: 0`.
+// ---------------------------------------------------------------------------
+
+const INVENTORY_VIEW = JSON.stringify({
+  id: 'proj_123',
+  fields: [
+    {
+      id: 'f_status',
+      name: 'Status',
+      options: [
+        { id: 'opt_todo', name: 'To Do' },
+        { id: 'opt_progress', name: 'In Progress' },
+        { id: 'opt_done', name: 'Done' }
+      ]
+    }
+  ]
+});
+
+// A project of `size` real items, numbered 1..size.
+function inventoryOfSize(size) {
+  return Array.from({ length: size }, (_, i) => ({
+    id: `item_${i + 1}`,
+    title: `Card ${i + 1}`,
+    number: i + 1,
+    url: `https://github.com/lowqualityloey/shelf/issues/${i + 1}`,
+    status: 'To Do'
+  }));
+}
+
+// Emulates the real `gh project item-list --format json` contract, which #48's
+// stub did not model:
+//   * the command has no offset — `gh` returns only the first `--limit` items and
+//     pages internally up to that limit, so past the window items are simply absent;
+//   * issue identity is nested under `content`, and there is no top-level `title`;
+//   * `totalCount` always reports the project's real item count and ignores `--limit`.
+function makeInventoryStub({
+  remoteItems = [],
+  issues = [],
+  itemListRejects = false,
+  itemListBody = null // overrides the generated body when set
+} = {}) {
+  const calls = [];
+  const execFn = async (cmd) => {
+    calls.push(cmd);
+    if (cmd.includes('project view')) {
+      return { stdout: INVENTORY_VIEW };
+    }
+    if (cmd.includes('project item-list')) {
+      if (itemListRejects) {
+        throw new Error('gh: could not fetch project items (HTTP 502)');
+      }
+      if (itemListBody !== null) {
+        return { stdout: itemListBody };
+      }
+      const limit = Number(cmd.match(/--limit (\d+)/)?.[1] ?? remoteItems.length);
+      return {
+        stdout: JSON.stringify({
+          items: remoteItems.slice(0, limit).map((it) => ({
+            id: it.id,
+            content: { title: it.title, number: it.number, url: it.url },
+            status: it.status
+          })),
+          totalCount: remoteItems.length
+        })
+      };
+    }
+    if (cmd.includes('issue list')) {
+      return { stdout: JSON.stringify(issues) };
+    }
+    if (cmd.includes('project item-create')) {
+      return { stdout: JSON.stringify({ id: 'item_created' }) };
+    }
+    if (cmd.includes('project item-edit')) {
+      return { stdout: 'Updated' };
+    }
+    return { stdout: '' };
+  };
+  return {
+    execFn,
+    calls,
+    itemListLimits: () => calls.filter((c) => c.includes('project item-list')).map((c) => Number(c.match(/--limit (\d+)/)?.[1])),
+    createCount: () => calls.filter((c) => c.includes('project item-create')).length
+  };
+}
+
+const TWO_CARD_BOARD = `---
+github_project_number: 100
+---
+
+## To Do
+
+- [ ] Alpha card
+- [ ] Beta card
+`;
+
+test('syncSingleBoard: a failed inventory read creates nothing and is reported as a sync failure (AC-1)', async () => {
+  const gh = makeInventoryStub({ itemListRejects: true });
+  const mockApp = { vault: { read: async () => TWO_CARD_BOARD, modify: async () => {} } };
+
+  const result = await syncSingleBoard(mockApp, BOARD_FILE, BOARD_CONFIG, gh.execFn);
+
+  assert.strictEqual(gh.createCount(), 0, 'an unreadable inventory must not create anything');
+  assert.strictEqual(result.created, 0);
+  assert.strictEqual(result.updated, 0);
+  assert.ok(result.errors >= 1, 'an unreadable inventory must be reported as a sync failure');
+});
+
+test('syncSingleBoard: a valid empty inventory still creates, so it stays distinct from a read failure (AC-4)', async () => {
+  const gh = makeInventoryStub({ remoteItems: [] });
+  const mockApp = { vault: { read: async () => TWO_CARD_BOARD, modify: async () => {} } };
+
+  const result = await syncSingleBoard(mockApp, BOARD_FILE, BOARD_CONFIG, gh.execFn);
+
+  assert.strictEqual(result.created, 2, 'a genuinely empty project must still accept new cards');
+  assert.strictEqual(result.errors, 0);
+  assert.strictEqual(gh.createCount(), 2);
+});
+
+test('syncSingleBoard: a malformed inventory body creates nothing and is reported as a sync failure (AC-1)', async () => {
+  const gh = makeInventoryStub({ itemListBody: '<html>502 Bad Gateway</html>' });
+  const mockApp = { vault: { read: async () => TWO_CARD_BOARD, modify: async () => {} } };
+
+  const result = await syncSingleBoard(mockApp, BOARD_FILE, BOARD_CONFIG, gh.execFn);
+
+  assert.strictEqual(gh.createCount(), 0, 'an unparseable inventory must not create anything');
+  assert.strictEqual(result.created, 0);
+  assert.ok(result.errors >= 1, 'an unparseable inventory must be reported as a sync failure');
+});
+
+test('syncSingleBoard: a card beyond the first page of items is recognised as existing (AC-3)', async () => {
+  // 120 items with the card of interest last, so anything capped at the old fixed
+  // window of 100 cannot see it.
+  const gh = makeInventoryStub({ remoteItems: inventoryOfSize(120) });
+
+  const tailBoard = `---
+github_project_number: 100
+---
+
+## In Progress
+
+- [/] [#120](https://github.com/lowqualityloey/shelf/issues/120) Card 120 #priority/p2
+`;
+
+  const mockApp = { vault: { read: async () => tailBoard, modify: async () => {} } };
+  const result = await syncSingleBoard(mockApp, BOARD_FILE, BOARD_CONFIG, gh.execFn);
+
+  assert.strictEqual(
+    gh.itemListLimits().length,
+    1,
+    'one read only — gh has no offset, so repeat calls cannot reach past the window'
+  );
+  assert.ok(
+    gh.itemListLimits()[0] >= 120,
+    `the requested window must cover all 120 items, got ${gh.itemListLimits()[0]}`
+  );
+  assert.strictEqual(result.created, 0, 'item 120 exists remotely and must not be re-created');
+  assert.strictEqual(result.errors, 0);
+  assert.strictEqual(gh.createCount(), 0);
+});
+
+test('syncSingleBoard: the item-list window must not stay capped at the old fixed 100 (AC-2)', async () => {
+  const gh = makeInventoryStub({ remoteItems: inventoryOfSize(300) });
+  const mockApp = { vault: { read: async () => TWO_CARD_BOARD, modify: async () => {} } };
+
+  await syncSingleBoard(mockApp, BOARD_FILE, BOARD_CONFIG, gh.execFn);
+
+  assert.strictEqual(gh.itemListLimits().length, 1);
+  assert.ok(
+    gh.itemListLimits()[0] > 100,
+    `item-list window must exceed the old fixed 100, got ${gh.itemListLimits()[0]}`
+  );
+});
+
+test('syncSingleBoard: a window that still cuts the board short is marked incomplete and refuses to create (AC-2)', async () => {
+  // 1200 items: any sane window truncates this, and the card of interest sits in
+  // the part no window can reach.
+  const gh = makeInventoryStub({ remoteItems: inventoryOfSize(1200) });
+
+  const tailBoard = `---
+github_project_number: 100
+---
+
+## In Progress
+
+- [/] [#1200](https://github.com/lowqualityloey/shelf/issues/1200) Card 1200 #priority/p2
+`;
+
+  const mockApp = { vault: { read: async () => tailBoard, modify: async () => {} } };
+  const result = await syncSingleBoard(mockApp, BOARD_FILE, BOARD_CONFIG, gh.execFn);
+
+  assert.strictEqual(gh.createCount(), 0, 'a truncated inventory cannot prove a card is new');
+  assert.strictEqual(result.created, 0);
+  assert.ok(result.errors >= 1, 'a truncated inventory must be reported as a sync failure');
+});
+
 test('syncBoardLanesWithRemoteItems: moves card from In Progress to Done when remote status is Done', () => {
   const { syncBoardLanesWithRemoteItems } = syncGitHubKanban;
   const boardMarkdown = `---
