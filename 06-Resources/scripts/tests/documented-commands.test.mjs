@@ -26,7 +26,14 @@ const SCRIPTS_DECLARED = new Set(
 // OWNER's future software project will define, not this repository's CLI, so `npm run dev`
 // there is a legitimate placeholder rather than a broken promise. Excluding the whole
 // directory keeps that judgement in one visible place instead of allowlisting commands.
-const EXCLUDED_PREFIXES = ["99-Templates/"];
+//
+// docs/ is excluded for the opposite reason: it is this repository's own engineering
+// record, and it quotes broken commands *on purpose* — `docs/STATE.md` names
+// `npm run weekly-summary` and `npm run X` as the defects issue #63 fixed. Those are
+// evidence, not promises, and a guard that flagged them would fail the moment the record
+// was accurate. docs/ is also gitignored on public `main` (never published), so nothing
+// a vault user can read is lost by excluding it.
+const EXCLUDED_PREFIXES = ["99-Templates/", "docs/"];
 
 function trackedMarkdownFiles() {
   // -z is required: 31 tracked filenames contain spaces, and word-splitting them silently
