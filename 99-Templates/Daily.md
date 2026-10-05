@@ -78,12 +78,15 @@ if (prevFile) {
     // stay attached to their parent instead of arriving as independent
     // commitments, and a completed child beneath a carried parent is kept as
     // "[x]" so a partly-done task still shows what it already finished.
-    const task = line.match(/^(\s*)-\s*\[([ /x])\]\s+(\S.*)$/);
+    // The trailing ^id (blockId) is an explicit optional capture: a carried
+    // line keeps its exact ^id verbatim via itemText below, and the group
+    // being optional keeps every id-less line matching exactly as before.
+    const task = line.match(/^(\s*)-\s*\[([ /x])\]\s+(\S.*?)(?:\s+(?<blockId>\^[A-Za-z0-9-]+))?\s*$/);
     if (!inTargetSection || !task) continue;
 
     const indent = task[1];
     const state = task[2];
-    const itemText = task[3].trim();
+    const itemText = (task[3] + (task.groups && task.groups.blockId ? ` ${task.groups.blockId}` : "")).trim();
     if (!itemText || itemText === "[ ]" || itemText === "...") continue;
 
     if (state === " " || state === "/") {
