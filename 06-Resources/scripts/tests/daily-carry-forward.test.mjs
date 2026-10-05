@@ -138,3 +138,37 @@ type: daily
   assert.ok(taskLines.every(l => /\[>\]/.test(l)),
     "unchecked AND in-progress tasks are both marked [>] so none stays open in two notes");
 });
+// A carried task must arrive on today's note still carrying its trailing block
+// ID. The regex used to capture only the text, so a greedy `(\S.*)` swallowed
+// the `^id` and it was never put back — which silently downgrades an identified
+// task to title matching, the exact fallback the kanban identity work removes.
+const ID_NOTE = `---
+type: daily
+---
+
+### ✅ Tasks
+- [ ] Ship the release ^WZTgHn
+- [ ] Read the ADR ^K9mQ2p
+- [ ] Plain task with no id
+
+### 🔁 Habits
+- [ ] water
+`;
+
+test("carry-forward: a task keeps its trailing ^id when carried to today", async () => {
+  const { carried } = await runCarry(ID_NOTE);
+  const join = carried.join("\n");
+
+  assert.match(join, /Ship the release \^WZTgHn/, "an open task must keep its ^id verbatim");
+  assert.match(join, /Read the ADR \^K9mQ2p/, "an open task with a different id must keep its own");
+
+  // Identity must not be invented for a task that never had one, and must not
+  // be duplicated onto the copy of the previous note either.
+  assert.doesNotMatch(join, /Plain task with no id \^/, "no ^id may be minted for an id-less task");
+  const ids = join.match(/\^[A-Za-z0-9-]+/g) ?? [];
+  assert.deepEqual(
+    ids.sort(),
+    ["^K9mQ2p", "^WZTgHn"],
+    `each ^id must appear exactly once, got ${JSON.stringify(ids.sort())}`
+  );
+});
