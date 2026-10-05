@@ -54,6 +54,8 @@ SORT file.name DESC
 
 ## 💡 Review Workflows & Automation
 
-- `Ctrl + P` → **QuickAdd: 📊 Weekly AI Summary** — Automatically aggregates the last 7 daily notes, GitHub pushes, and habit data into a structured weekly retrospective.
-- `npm run weekly-summary` — Re-runs the automated weekly aggregation script via CLI.
+- `Ctrl + P` → **QuickAdd: 📊 Weekly AI Summary** — Automatically aggregates the last 7 daily notes, GitHub pushes, and habit data into a structured weekly retrospective. Runs **inside Obsidian** and needs both the QuickAdd plugin and a valid `GEMINI_API_KEY` in `.env`; see [`Weekly AI Summary Guide.md`](../06-Resources/Guides/Weekly%20AI%20Summary%20Guide.md) to register the macro.
 - `hey loey weekly` — Directs the AI Chief of Staff to synthesize this week's highlights and milestones.
+
+> [!NOTE] The weekly summary has no CLI entry point
+> The weekly aggregation is an Obsidian action, not an npm script. `weekly-ai-summary.js` reads `app.vault` and the Obsidian `Notice` API, so it cannot run under plain `node`. Invoke it through QuickAdd as described above.
