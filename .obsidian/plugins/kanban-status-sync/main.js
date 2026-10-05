@@ -194,9 +194,10 @@ function noteDateFromPath(notePath) {
 }
 
 // ADR-0001: the single habit-section test. Every guard must route through here --
-// case is normalised so a caller cannot misclassify "### Habits" as a task section.
+// word-boundary and case-insensitive, so "### Habits" classifies as habit while
+// "Inhabitants" or "habitual tasks" do not.
 function isHabitHeading(heading) {
-  return String(heading).toLowerCase().includes("habit");
+  return /\bhabits?\b/i.test(String(heading));
 }
 
 function sectionKind(heading) {

@@ -192,6 +192,55 @@ test("AC-1: habit-heading classification survives any capitalisation", () => {
   }
 });
 
+// The substring test also matched any word merely CONTAINING "habit", so an
+// unrelated section could be swallowed as a habit section and its tasks skipped.
+// No real heading does this today -- measured across templates, root notes and
+// guides -- so this is a latent class, closed before someone titles a section
+// "Inhabitants" or "habitual tasks".
+test("AC-1: a heading that merely contains the letters of habit is not a habit section", () => {
+  const { isHabitHeading, sectionKind } = identityApi();
+  const notHabits = [
+    "Inhabitants",
+    "cohabitation rules",
+    "habitual tasks",
+    "📈 Exhibit 4",
+    "exhibitions",
+    "prohibited",
+  ];
+  for (const heading of notHabits) {
+    assert.equal(
+      isHabitHeading(heading),
+      false,
+      `isHabitHeading(${JSON.stringify(heading)}) must be false — only the word "habit"/"habits" marks a habit section`
+    );
+    assert.equal(sectionKind(heading), "task", `sectionKind(${JSON.stringify(heading)}) must be "task"`);
+  }
+});
+
+// Every habit heading this vault actually uses must still classify as a habit
+// section. Taken from 99-Templates/Daily.md, Home.md, README.md,
+// 07-Reviews/_Reviews MOC.md and the review templates.
+test("AC-1: every real habit heading in this vault still classifies as habit", () => {
+  const { isHabitHeading } = identityApi();
+  const realHabitHeadings = [
+    "🔁 Habits",
+    "🔁 Today's Habit Rituals",
+    "📊 Habit Analytics",
+    "📈 Performance & Habit Analytics",
+    "📊 System & Habits Audit",
+    "📊 Habit & Wellness Stats (Auto-Generated)",
+    "Habit Trends Visualization (Energy & Sleep Over Time)",
+    "📊 Habit Analytics Dashboard",
+  ];
+  for (const heading of realHabitHeadings) {
+    assert.equal(
+      isHabitHeading(heading),
+      true,
+      `isHabitHeading(${JSON.stringify(heading)}) must be true — this is a real heading in the vault`
+    );
+  }
+});
+
 // The three inline guards cannot be reached with a capitalised heading through any
 // real path -- the capture sites lower-case first -- so their routing is
 // behaviourally untestable. A build with the guards reverted to their own raw
@@ -201,18 +250,18 @@ test("AC-1: habit-heading classification survives any capitalisation", () => {
 test("ADR-0001: the habit-section rule is defined once and every guard routes through it", () => {
   const source = readFileSync(MAIN_JS, "utf8");
 
-  const rawTests = source.match(/includes\("habit"\)/g) ?? [];
+  const definitions = source.match(/function isHabitHeading\(/g) ?? [];
   assert.equal(
-    rawTests.length,
+    definitions.length,
     1,
-    `main.js must contain exactly one includes("habit") -- the helper -- but found ${rawTests.length}. ` +
-      `A second copy means a guard stopped routing through isHabitHeading.`
+    `main.js must define isHabitHeading exactly once, found ${definitions.length} -- a second copy means ` +
+      `the rule is duplicated and the copies can drift`
   );
 
   assert.match(
     source,
-    /function isHabitHeading\(heading\) \{\s*return String\(heading\)\.toLowerCase\(\)\.includes\("habit"\);\s*\}/,
-    "isHabitHeading must normalise case before the substring test"
+    /function isHabitHeading\(heading\) \{\s*return \/\\bhabits\?\\b\/i\.test\(String\(heading\)\);\s*\}/,
+    "isHabitHeading must match habit/habits on a word boundary, case-insensitively"
   );
 
   const routedGuards = source.match(/if \(isHabitHeading\(/g) ?? [];
