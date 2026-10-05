@@ -421,7 +421,7 @@ Placeholders such as `your_google_gemini_api_key_here` are allowed, so `.env.exa
 * **TypeScript & Bundling Engine** — User scripts are authored in TypeScript under [`06-Resources/scripts/src/`](06-Resources/scripts/src/) (modularized under `src/lib/`) and bundled into single-file CommonJS via `npm run build` (`esbuild`) for seamless Obsidian QuickAdd & Node CLI compatibility.
 * **Automated CLI Commands**:
   - `npm run typecheck` — Strict TypeScript typecheck across all scripts.
-  - `npm run build` — Bundles all 12 user scripts in under 50ms.
+  - `npm run build` — Bundles all 13 user scripts in under 50ms.
   - `npm test` — Runs the Node test suite via the pinned `tsx` runner (imports `src/**/*.ts` directly, so no separate compile step).
   - `npm run audit-links` — Scans vault for broken wikilinks, fuzzy fix suggestions, and orphan notes.
   - `npm run distill -- <file>` — Distills atomic evergreen concepts into `08-Concepts/`.
