@@ -86,9 +86,15 @@ const inScope = (p) => p.file.name !== "Tasks Kanban" && (!p.file.path.startsWit
   (currentDailyDate !== "" && p.file.name.startsWith(currentDailyDate)));
 
 function getPriorityRank(text) {
-  if (/#priority\/(p0|urgent|high)/i.test(text)) return 0;
+  // `urgent` and `normal` were removed here as a deliberate drift call: neither is in
+  // the canonical § 5 taxonomy, and a census of the real vault found 0 uses of either,
+  // so nothing could regress. Note that the word aliases which REMAIN are still off by
+  // one against that taxonomy — `high` and `medium` each rank one step too urgent.
+  // That is tracked separately; this change is alias removal only and deliberately
+  // does not redefine the scale.
+  if (/#priority\/(p0|high)/i.test(text)) return 0;
   if (/#priority\/(p1|medium)/i.test(text)) return 1;
-  if (/#priority\/(p2|normal)/i.test(text)) return 2;
+  if (/#priority\/p2/i.test(text)) return 2;
   if (/#priority\/(p3|low)/i.test(text)) return 3;
   return 4;
 }

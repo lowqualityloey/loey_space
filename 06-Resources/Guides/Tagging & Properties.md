@@ -110,7 +110,8 @@ and in the code together. Do not introduce it in one place only.
 ### Optional Properties (Type-Specific)
 
 ```yaml
-priority: low/medium/high        # Required on project; conventional on capture and task
+priority: p0/p1/p2/p3            # Required on project; conventional on capture and task
+                               # critical/high/medium/low are accepted equivalents — see § 5
 last_reviewed: YYYY-MM-DD        # See "updated vs last_reviewed" above
 review_cycle: 14d/30d/90d        # Required whenever last_reviewed is present
 language: javascript/typescript  # For code snippets
