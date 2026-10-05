@@ -21,6 +21,8 @@ export interface GitHubProjectItem {
 
 export interface LocalTaskItem {
   title: string;
+  issueNumber: number | null;
+  issueUrl: string | null;
   priority: string | null;
   section: string;
   checkbox: string;
@@ -66,6 +68,21 @@ export function parsePriorityTag(text: string): { cleanText: string; priority: s
 
   const cleanText = text.replace(/#priority\/(?:p[0-3]|high|medium|low)/gi, '').replace(/\s{2,}/g, ' ').trim();
   return { cleanText, priority: normalized };
+}
+
+// Badges are injected into card text *before* anything reads it back, so both
+// extractors must split identity from decoration using these two, not their own.
+export function parseIssueBadge(text: string): { issueNumber: number | null; issueUrl: string | null } {
+  const issueNumMatch = text.match(/\[#(\d+)\]|#(\d+)/);
+  const issueNumber = issueNumMatch ? Number(issueNumMatch[1] || issueNumMatch[2]) : null;
+
+  const urlMatch = text.match(/\((https?:\/\/[^\s)]+)\)/);
+
+  return { issueNumber, issueUrl: urlMatch ? urlMatch[1] : null };
+}
+
+export function stripIssueBadge(text: string): string {
+  return text.replace(/\[#\d+\]\([^)]+\)/g, '').replace(/#\d+/g, '').trim();
 }
 
 export function extractLocalKanbanTasks(content: string): { tasks: LocalTaskItem[]; sections: string[] } {
@@ -114,8 +131,12 @@ export function extractLocalKanbanTasks(content: string): { tasks: LocalTaskItem
 
       const { cleanText, priority } = parsePriorityTag(rawText.replace(/✅\s*\d{4}-\d{2}-\d{2}/, '').trim());
 
+      const { issueNumber, issueUrl } = parseIssueBadge(rawText);
+
       tasks.push({
-        title: cleanText,
+        title: stripIssueBadge(cleanText),
+        issueNumber,
+        issueUrl,
         priority,
         section: currentSection,
         checkbox,
@@ -582,11 +603,7 @@ export function syncBoardLanesWithRemoteItems(
       const checkbox = taskMatch[2];
       const rawTitle = taskMatch[4];
 
-      const issueNumMatch = rawTitle.match(/\[#(\d+)\]|#(\d+)/);
-      const issueNumber = issueNumMatch ? Number(issueNumMatch[1] || issueNumMatch[2]) : null;
-
-      const urlMatch = rawTitle.match(/\((https?:\/\/[^\s)]+)\)/);
-      const issueUrl = urlMatch ? urlMatch[1] : null;
+      const { issueNumber, issueUrl } = parseIssueBadge(rawTitle);
 
       const dateMatch = rawTitle.match(/✅\s*(\d{4}-\d{2}-\d{2})/);
       const completionDate = dateMatch ? dateMatch[1] : null;
@@ -597,7 +614,7 @@ export function syncBoardLanesWithRemoteItems(
         headerLine: line,
         checkbox,
         rawTitle,
-        cleanTitle: cleanText.replace(/\[#\d+\]\([^)]+\)/g, '').replace(/#\d+/g, '').trim(),
+        cleanTitle: stripIssueBadge(cleanText),
         issueNumber,
         issueUrl,
         priority,

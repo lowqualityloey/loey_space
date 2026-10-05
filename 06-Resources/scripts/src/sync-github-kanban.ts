@@ -17,6 +17,8 @@ import {
   GitHubIssueInfo,
   normalizeLaneName,
   parsePriorityTag,
+  parseIssueBadge,
+  stripIssueBadge,
   extractLocalKanbanTasks,
   injectIssueBadgesIntoBoard,
   extractSubtasksFromIssueBody,
@@ -26,6 +28,17 @@ import {
 
 function isTFile(file: any): file is TFile {
   return Boolean(file && typeof file === 'object' && 'extension' in file && 'path' in file);
+}
+
+function findRemoteMatch(task: LocalTaskItem, remoteItems: GitHubProjectItem[]): GitHubProjectItem | undefined {
+  // A badge is authoritative identity: title can change on either side, but the
+  // issue number cannot. Only unbadged cards may fall back to a title guess.
+  if (task.issueNumber != null) {
+    return remoteItems.find((r) => r.number === task.issueNumber);
+  }
+  return remoteItems.find(
+    (r) => r.title && r.title.toLowerCase().trim() === task.title.toLowerCase().trim()
+  );
 }
 
 function resolveVaultPath(): string {
@@ -226,9 +239,7 @@ async function syncSingleBoard(
     const createTasks: Array<() => Promise<boolean>> = [];
 
     for (const task of localTasks) {
-      const match = remoteItems.find(
-        (r) => r.title && r.title.toLowerCase().trim() === task.title.toLowerCase().trim()
-      );
+      const match = findRemoteMatch(task, remoteItems);
 
       const targetNormalizedLane = normalizeLaneName(task.section);
 
@@ -513,6 +524,8 @@ if (require.main === module) {
 export = Object.assign(syncGitHubKanban, {
   normalizeLaneName,
   parsePriorityTag,
+  parseIssueBadge,
+  stripIssueBadge,
   extractLocalKanbanTasks,
   syncSingleBoard,
   extractSubtasksFromIssueBody,
