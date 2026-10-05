@@ -6,6 +6,7 @@
   "scripts": {
     "build": "node build.mjs",
     "watch": "node build.mjs --watch",
+    "check-bundles": "node check-bundle-parity.mjs",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test \"06-Resources/scripts/tests/*.test.mjs\"",
     "audit-links": "node 06-Resources/scripts/audit-links.js",
