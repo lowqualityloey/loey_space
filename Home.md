@@ -14,10 +14,14 @@ tags:
 > *Your Second Brain daily navigation, focus & habit command center.*
 
 > [!NOTE] 🔄 Active Handoff & Where You Left Off
-> ![[handoff.md#🎯 Current Main Objectives]]
-> 
+> The owner's `handoff.md` is deliberately not published with this repository, so
+> there is nothing to embed here in a fresh clone. If you are working in a local
+> vault that has it, replace this block with:
+>
+> `> ![[handoff.md#🎯 Current Main Objectives]]`
+>
 > **Immediate Next Action:**
-> ![[handoff.md#📋 Today's Immediate Next Actions]]
+> `> ![[handoff.md#📋 Today's Immediate Next Actions]]`
 
 ```dataviewjs
 const todayStr = moment().format("YYYY-MM-DD");

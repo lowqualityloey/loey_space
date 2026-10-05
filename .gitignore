@@ -98,6 +98,15 @@ pnpm-debug.log*
 # deletion does not remove them from history, so these rules make the boundary
 # structural instead of relying on never typing `git add -A`.
 # MOCs and already-tracked showcase files stay tracked; everything else is isolated.
+#
+# The repository ROOT had a hole in this boundary: memory.md and handoff.md sat
+# beside AGENTS.md and Home.md, matched no rule here, and were therefore tracked
+# and published — carrying the owner's real name, location and timezone, role and
+# stack, and the real filesystem paths of private projects. Ignore rules cannot
+# fix that retroactively (they never apply to tracked files), so they are named
+# explicitly and untracked in the same commit that adds them.
+/memory.md
+/handoff.md
 
 00-Inbox/*
 !00-Inbox/_*.md
