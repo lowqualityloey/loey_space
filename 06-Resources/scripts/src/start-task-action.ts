@@ -60,12 +60,12 @@ async function startTaskAction(params?: QuickAddParams): Promise<void> {
   const content = await app.vault.read(activeFile);
   const { tasks } = extractLocalKanbanTasks(content);
 
-  // Filter tasks in To Do or Backlog that don't already have an issue link
+  // Filter tasks in To Do or Backlog that don't already have an issue link.
+  // Read identity from issueNumber, never from title text: badges are stripped.
   const openTasks = tasks.filter((t) => {
     const lane = normalizeLaneName(t.section);
     const isOpenLane = lane === 'to do' || lane === 'backlog';
-    const isUnlinked = !t.title.includes('github.com') && !t.title.match(/\[#\d+\]/);
-    return isOpenLane && isUnlinked;
+    return isOpenLane && t.issueNumber == null;
   });
 
   if (openTasks.length === 0) {

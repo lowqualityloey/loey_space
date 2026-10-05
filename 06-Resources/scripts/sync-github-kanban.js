@@ -60,6 +60,15 @@ function parsePriorityTag(text) {
   const cleanText = text.replace(/#priority\/(?:p[0-3]|high|medium|low)/gi, "").replace(/\s{2,}/g, " ").trim();
   return { cleanText, priority: normalized };
 }
+function parseIssueBadge(text) {
+  const issueNumMatch = text.match(/\[#(\d+)\]|#(\d+)/);
+  const issueNumber = issueNumMatch ? Number(issueNumMatch[1] || issueNumMatch[2]) : null;
+  const urlMatch = text.match(/\((https?:\/\/[^\s)]+)\)/);
+  return { issueNumber, issueUrl: urlMatch ? urlMatch[1] : null };
+}
+function stripIssueBadge(text) {
+  return text.replace(/\[#\d+\]\([^)]+\)/g, "").replace(/#\d+/g, "").trim();
+}
 function extractLocalKanbanTasks(content) {
   const lines = content.split("\n");
   const tasks = [];
@@ -99,8 +108,11 @@ function extractLocalKanbanTasks(content) {
       const dateMatch = rawText.match(/✅\s*(\d{4}-\d{2}-\d{2})/);
       const completionDate = dateMatch ? dateMatch[1] : null;
       const { cleanText, priority } = parsePriorityTag(rawText.replace(/✅\s*\d{4}-\d{2}-\d{2}/, "").trim());
+      const { issueNumber, issueUrl } = parseIssueBadge(rawText);
       tasks.push({
-        title: cleanText,
+        title: stripIssueBadge(cleanText),
+        issueNumber,
+        issueUrl,
         priority,
         section: currentSection,
         checkbox,
@@ -396,10 +408,7 @@ function syncBoardLanesWithRemoteItems(content, remoteItems, repoIssues, todayDa
       }
       const checkbox = taskMatch[2];
       const rawTitle = taskMatch[4];
-      const issueNumMatch = rawTitle.match(/\[#(\d+)\]|#(\d+)/);
-      const issueNumber = issueNumMatch ? Number(issueNumMatch[1] || issueNumMatch[2]) : null;
-      const urlMatch = rawTitle.match(/\((https?:\/\/[^\s)]+)\)/);
-      const issueUrl = urlMatch ? urlMatch[1] : null;
+      const { issueNumber, issueUrl } = parseIssueBadge(rawTitle);
       const dateMatch = rawTitle.match(/✅\s*(\d{4}-\d{2}-\d{2})/);
       const completionDate = dateMatch ? dateMatch[1] : null;
       const { cleanText, priority } = parsePriorityTag(rawTitle.replace(/✅\s*\d{4}-\d{2}-\d{2}/, "").trim());
@@ -407,7 +416,7 @@ function syncBoardLanesWithRemoteItems(content, remoteItems, repoIssues, todayDa
         headerLine: line,
         checkbox,
         rawTitle,
-        cleanTitle: cleanText.replace(/\[#\d+\]\([^)]+\)/g, "").replace(/#\d+/g, "").trim(),
+        cleanTitle: stripIssueBadge(cleanText),
         issueNumber,
         issueUrl,
         priority,
@@ -583,6 +592,14 @@ var execFileAsync = (0, import_util.promisify)(import_child_process.execFile);
 function isTFile(file) {
   return Boolean(file && typeof file === "object" && "extension" in file && "path" in file);
 }
+function findRemoteMatch(task, remoteItems) {
+  if (task.issueNumber != null) {
+    return remoteItems.find((r) => r.number === task.issueNumber);
+  }
+  return remoteItems.find(
+    (r) => r.title && r.title.toLowerCase().trim() === task.title.toLowerCase().trim()
+  );
+}
 function resolveVaultPath() {
   const fromCwd = process.cwd();
   if (fs.existsSync(path.join(fromCwd, "01-Daily")) || fs.existsSync(path.join(fromCwd, "06-Resources"))) {
@@ -752,9 +769,7 @@ async function syncSingleBoard(app, targetFile, config, customExecFn) {
     const updateTasks = [];
     const createTasks = [];
     for (const task of localTasks) {
-      const match = remoteItems.find(
-        (r) => r.title && r.title.toLowerCase().trim() === task.title.toLowerCase().trim()
-      );
+      const match = findRemoteMatch(task, remoteItems);
       const targetNormalizedLane = normalizeLaneName(task.section);
       let matchedOption = statusOptions.find(
         (opt) => normalizeLaneName(opt.name) === targetNormalizedLane
@@ -1011,6 +1026,8 @@ if (require.main === module) {
 module.exports = Object.assign(syncGitHubKanban, {
   normalizeLaneName,
   parsePriorityTag,
+  parseIssueBadge,
+  stripIssueBadge,
   extractLocalKanbanTasks,
   syncSingleBoard,
   extractSubtasksFromIssueBody,

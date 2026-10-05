@@ -62,7 +62,12 @@ github_project_number: 4
   assert.strictEqual(tasks[1].title, 'Configure Tailwind CSS');
   assert.strictEqual(tasks[1].priority, 'P1');
 
-  assert.strictEqual(tasks[2].title, '[#11](https://github.com/lowqualityloey/shelf/issues/11) Configure Supabase Auth client & route guards');
+  // Issue #48: the badge is decoration, not identity. This expectation previously
+// asserted the badged string, which is what made an already-linked card miss its
+// remote item and get re-created as a duplicate draft.
+assert.strictEqual(tasks[2].title, 'Configure Supabase Auth client & route guards');
+  assert.strictEqual(tasks[2].issueNumber, 11);
+  assert.strictEqual(tasks[2].issueUrl, 'https://github.com/lowqualityloey/shelf/issues/11');
   assert.strictEqual(tasks[2].checkbox, '/');
   assert.strictEqual(tasks[2].priority, 'P1');
 
@@ -306,6 +311,233 @@ test('syncBoardSubtasksWithGitHubIssues: removes date stamp when subtask is unch
   assert.strictEqual(updatedCount, 1);
   assert.ok(updatedContent.includes('- [ ] Install `@supabase/supabase-js` and initialize client'));
   assert.ok(!updatedContent.includes('✅'));
+});
+
+// ---------------------------------------------------------------------------
+// Issue #48 — outbound matching must use remote identity, not badged card text.
+//
+// `injectIssueBadgesIntoBoard` rewrites card lines to `[#N](url) Title` BEFORE
+// `extractLocalKanbanTasks` parses them, so a card that is already linked stops
+// matching its remote item and is manufactured again as a duplicate draft.
+// ---------------------------------------------------------------------------
+
+function makeGhStub({ items = [], issues = [] } = {}) {
+  const calls = [];
+  // `gh project item-list --format json` nests issue identity under `content`,
+  // which is where sync-github-kanban reads `number` from.
+  const ghItems = items.map((it) => ({
+    id: it.id,
+    title: it.title,
+    status: it.status,
+    content: it.number ? { title: it.title, number: it.number, url: it.url } : undefined
+  }));
+
+  const execFn = async (cmd) => {
+    calls.push(cmd);
+    if (cmd.includes('project view')) {
+      return {
+        stdout: JSON.stringify({
+          id: 'proj_123',
+          fields: [
+            {
+              id: 'f_status',
+              name: 'Status',
+              options: [
+                { id: 'opt_todo', name: 'To Do' },
+                { id: 'opt_progress', name: 'In Progress' },
+                { id: 'opt_done', name: 'Done' }
+              ]
+            }
+          ]
+        })
+      };
+    }
+    if (cmd.includes('project item-list')) {
+      return { stdout: JSON.stringify({ items: ghItems }) };
+    }
+    if (cmd.includes('issue list')) {
+      return { stdout: JSON.stringify(issues) };
+    }
+    if (cmd.includes('project item-create')) {
+      return { stdout: JSON.stringify({ id: 'item_created' }) };
+    }
+    if (cmd.includes('project item-edit')) {
+      return { stdout: 'Updated' };
+    }
+    return { stdout: '' };
+  };
+  return {
+    execFn,
+    calls,
+    createCount: () => calls.filter((c) => c.includes('project item-create')).length
+  };
+}
+
+const BADGED_BOARD = `---
+github_project_number: 100
+---
+
+## In Progress
+
+- [/] [#48](https://github.com/lowqualityloey/shelf/issues/48) Fix the thing #priority/p1
+`;
+
+const BOARD_CONFIG = {
+  filePath: '02-Projects/shelf/shelf Kanban.md',
+  title: 'shelf Kanban',
+  projectNumber: 100,
+  owner: 'lowqualityloey',
+  repo: 'shelf'
+};
+
+const BOARD_FILE = { basename: 'shelf Kanban', path: '02-Projects/shelf/shelf Kanban.md' };
+
+test('extractLocalKanbanTasks: strips the issue badge and keeps identity (AC-1, AC-2)', () => {
+  const { tasks } = extractLocalKanbanTasks(BADGED_BOARD);
+
+  assert.strictEqual(tasks.length, 1);
+  // Badge text is decoration, never identity: it must not leak into the title.
+  assert.strictEqual(tasks[0].title, 'Fix the thing');
+  assert.strictEqual(tasks[0].priority, 'P1');
+  assert.strictEqual(tasks[0].issueNumber, 48);
+  assert.strictEqual(tasks[0].issueUrl, 'https://github.com/lowqualityloey/shelf/issues/48');
+});
+
+test('syncSingleBoard: an already-linked card is matched, not re-created (AC-1, AC-2, AC-3)', async () => {
+  const gh = makeGhStub({
+    items: [
+      {
+        id: 'item_48',
+        title: 'Fix the thing',
+        number: 48,
+        url: 'https://github.com/lowqualityloey/shelf/issues/48',
+        status: 'In Progress',
+        priority: 'P1'
+      }
+    ],
+    issues: [
+      {
+        number: 48,
+        title: 'Fix the thing',
+        url: 'https://github.com/lowqualityloey/shelf/issues/48',
+        state: 'OPEN',
+        body: 'No subtasks yet.'
+      }
+    ]
+  });
+
+  const mockApp = { vault: { read: async () => BADGED_BOARD, modify: async () => {} } };
+  const result = await syncSingleBoard(mockApp, BOARD_FILE, BOARD_CONFIG, gh.execFn);
+
+  assert.strictEqual(result.created, 0);
+  assert.strictEqual(result.errors, 0);
+  assert.strictEqual(gh.createCount(), 0);
+});
+
+test('syncSingleBoard: a retitled but linked card keeps its remote item (AC-1, AC-4)', async () => {
+  const gh = makeGhStub({
+    items: [
+      {
+        id: 'item_48',
+        title: 'Original issue title',
+        number: 48,
+        url: 'https://github.com/lowqualityloey/shelf/issues/48',
+        status: 'In Progress',
+        priority: 'P1'
+      }
+    ],
+    issues: [
+      {
+        number: 48,
+        title: 'Original issue title',
+        url: 'https://github.com/lowqualityloey/shelf/issues/48',
+        state: 'OPEN',
+        body: 'No subtasks yet.'
+      }
+    ]
+  });
+
+  const retitledBoard = `---
+github_project_number: 100
+---
+
+## In Progress
+
+- [/] [#48](https://github.com/lowqualityloey/shelf/issues/48) Rewritten locally after the fact #priority/p1
+`;
+
+  const mockApp = { vault: { read: async () => retitledBoard, modify: async () => {} } };
+  const result = await syncSingleBoard(mockApp, BOARD_FILE, BOARD_CONFIG, gh.execFn);
+
+  assert.strictEqual(result.created, 0);
+  assert.strictEqual(result.errors, 0);
+  assert.strictEqual(gh.createCount(), 0);
+});
+
+test('syncSingleBoard: repeated syncs of a linked board create no duplicates (AC-4)', async () => {
+  const gh = makeGhStub({
+    items: [
+      {
+        id: 'item_48',
+        title: 'Fix the thing',
+        number: 48,
+        url: 'https://github.com/lowqualityloey/shelf/issues/48',
+        status: 'In Progress',
+        priority: 'P1'
+      }
+    ],
+    issues: [
+      {
+        number: 48,
+        title: 'Fix the thing',
+        url: 'https://github.com/lowqualityloey/shelf/issues/48',
+        state: 'OPEN',
+        body: 'No subtasks yet.'
+      }
+    ]
+  });
+
+  const mockApp = { vault: { read: async () => BADGED_BOARD, modify: async () => {} } };
+
+  const first = await syncSingleBoard(mockApp, BOARD_FILE, BOARD_CONFIG, gh.execFn);
+  const second = await syncSingleBoard(mockApp, BOARD_FILE, BOARD_CONFIG, gh.execFn);
+
+  assert.strictEqual(first.created, 0);
+  assert.strictEqual(second.created, 0);
+  assert.strictEqual(gh.createCount(), 0);
+});
+
+test('syncSingleBoard: title fallback still links unbadged cards and still creates new ones (AC-1, AC-3)', async () => {
+  const gh = makeGhStub({
+    items: [
+      {
+        id: 'item_unbadged',
+        title: 'Unbadged but matching',
+        status: 'In Progress'
+      }
+    ]
+  });
+
+  const mixedBoard = `---
+github_project_number: 100
+---
+
+## In Progress
+
+- [/] Unbadged but matching
+- [/] Genuinely new card
+`;
+
+  const mockApp = { vault: { read: async () => mixedBoard, modify: async () => {} } };
+  const result = await syncSingleBoard(mockApp, BOARD_FILE, BOARD_CONFIG, gh.execFn);
+
+  assert.strictEqual(result.created, 1);
+  assert.strictEqual(result.errors, 0);
+  assert.strictEqual(gh.createCount(), 1);
+
+  const createCall = gh.calls.find((c) => c.includes('project item-create'));
+  assert.ok(createCall.includes('Genuinely new card'));
+  assert.ok(!createCall.includes('Unbadged but matching'));
 });
 
 test('syncBoardLanesWithRemoteItems: moves card from In Progress to Done when remote status is Done', () => {
