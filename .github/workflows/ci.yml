@@ -27,6 +27,13 @@ jobs:
       - name: 🔍 TypeScript Typecheck
         run: npm run typecheck
 
+      # Runs before the bundle step on purpose: `npm run build` overwrites the
+      # committed bundles in the checkout, which would repair the very drift this
+      # step exists to catch. The guard rebuilds into a temp directory instead, so
+      # it sees the committed bytes no matter what runs after it.
+      - name: 🔒 Verify Committed Bundles Match Sources
+        run: npm run check-bundles
+
       - name: ⚡ esbuild Bundle Scripts
         run: npm run build
 
