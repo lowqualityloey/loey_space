@@ -18,7 +18,9 @@ function resolveTemplatesPath(): string {
 
 const templatesPath = resolveTemplatesPath();
 
-// Expected required properties for each template type
+// Expected required properties for each template type.
+// Every type a live template declares must have an entry here: a type with no
+// entry is an unregistered type and fails validation rather than silently passing.
 const expectedProperties: Record<string, string[]> = {
   'project': ['created', 'updated', 'type', 'status', 'priority', 'area', 'tags'],
   'learning': ['created', 'updated', 'type', 'status', 'area', 'tags'],
@@ -28,7 +30,20 @@ const expectedProperties: Record<string, string[]> = {
   'daily': ['created', 'updated', 'type', 'area', 'tags'],
   'personal': ['created', 'updated', 'type', 'status', 'area', 'tags'],
   'review': ['created', 'updated', 'type', 'status', 'area', 'tags'],
-  'triage': ['created', 'updated', 'type', 'status', 'area', 'priority', 'tags']
+  'triage': ['created', 'updated', 'type', 'status', 'area', 'priority', 'tags'],
+  // --- Explicit exceptions, pending issue #50 ---------------------------
+  // Issue #50 owns the canonical type/area/status vocabulary and names these
+  // three classes as needing "explicit justified exceptions" (raw captures and
+  // software documents). Until it lands they are registered here so that the
+  // tightened validator does not fail the live vault. Required-field lists are
+  // derived from the fields those templates actually declare; their optional
+  // extras (`source`, `priority`) are deliberately not required.
+  // Exception: `capture` — Enhanced Quick Capture.md, Mobile Capture.md
+  'capture': ['created', 'updated', 'type', 'status', 'area', 'tags'],
+  // Exception: `task` — Mobile Task.md
+  'task': ['created', 'updated', 'type', 'status', 'area', 'tags'],
+  // Exception: `template` — AI Daily Enrich.md
+  'template': ['created', 'updated', 'type', 'status', 'area', 'tags']
 };
 
 // Expected tag structure
@@ -46,6 +61,9 @@ function validateTemplate(templateName: string, content: string): boolean {
 
   const yamlContent = yamlMatch[1];
   const lines = yamlContent.split(/\r?\n/);
+  // Values are kept verbatim so a blank declaration stays distinguishable from an
+  // absent one. A Templater placeholder such as `created: <% tp.date.now("YYYY-MM-DD") %>`
+  // is a non-empty literal, so it counts as present.
   const props: Record<string, string | boolean> = {};
   let inTags = false;
   const tags: string[] = [];
@@ -66,7 +84,7 @@ function validateTemplate(templateName: string, content: string): boolean {
       const propMatch = line.match(/^(\w+):\s*(.*)$/);
       if (propMatch) {
         const [_, key, value] = propMatch;
-        props[key] = value.trim() || true;
+        props[key] = value.trim();
         if (key === 'tags') {
           inTags = true;
         }
@@ -74,15 +92,33 @@ function validateTemplate(templateName: string, content: string): boolean {
     }
   }
 
+  // `tags:` is declared empty and populated by the list lines beneath it, so its
+  // presence is decided by whether that list ended up non-empty.
+  if (tags.length > 0) {
+    props.tags = tags.join('\n');
+  }
+
   // Determine template type
   const type = (typeof props.type === 'string' ? props.type : '') || 'unknown';
-  const expected = expectedProperties[type] || [];
-
-  // Check required properties
+  const expected = expectedProperties[type];
   let isValid = true;
-  for (const prop of expected) {
-    if (!props[prop]) {
-      console.log(`❌ Missing property: ${prop}`);
+
+  // A type absent from the registry is a schema failure, not an empty required-list.
+  // Diagnostics name the field only; the offending value is never echoed.
+  if (!expected) {
+    console.log(`❌ ${templateName}: unknown template type`);
+    isValid = false;
+  }
+
+  // Check required properties. A declared-but-blank property is a failure too: it
+  // carries no value for a reader or a downstream parser to act on.
+  for (const prop of expected ?? []) {
+    const value = props[prop];
+    if (value === undefined) {
+      console.log(`❌ ${templateName}: missing property: ${prop}`);
+      isValid = false;
+    } else if (typeof value === 'string' && value.trim() === '') {
+      console.log(`❌ ${templateName}: blank property: ${prop}`);
       isValid = false;
     }
   }
@@ -142,5 +178,7 @@ function validateAllTemplates(): boolean {
   }
 }
 
-// Run validation
-validateAllTemplates();
+// Run validation. A failure must reach the process exit status or CI stays green.
+if (!validateAllTemplates()) {
+  process.exitCode = 1;
+}

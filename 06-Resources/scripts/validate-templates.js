@@ -47,7 +47,20 @@ var expectedProperties = {
   "daily": ["created", "updated", "type", "area", "tags"],
   "personal": ["created", "updated", "type", "status", "area", "tags"],
   "review": ["created", "updated", "type", "status", "area", "tags"],
-  "triage": ["created", "updated", "type", "status", "area", "priority", "tags"]
+  "triage": ["created", "updated", "type", "status", "area", "priority", "tags"],
+  // --- Explicit exceptions, pending issue #50 ---------------------------
+  // Issue #50 owns the canonical type/area/status vocabulary and names these
+  // three classes as needing "explicit justified exceptions" (raw captures and
+  // software documents). Until it lands they are registered here so that the
+  // tightened validator does not fail the live vault. Required-field lists are
+  // derived from the fields those templates actually declare; their optional
+  // extras (`source`, `priority`) are deliberately not required.
+  // Exception: `capture` — Enhanced Quick Capture.md, Mobile Capture.md
+  "capture": ["created", "updated", "type", "status", "area", "tags"],
+  // Exception: `task` — Mobile Task.md
+  "task": ["created", "updated", "type", "status", "area", "tags"],
+  // Exception: `template` — AI Daily Enrich.md
+  "template": ["created", "updated", "type", "status", "area", "tags"]
 };
 var requiredTagNamespaces = ["type", "area", "status"];
 function validateTemplate(templateName, content) {
@@ -78,19 +91,30 @@ function validateTemplate(templateName, content) {
       const propMatch = line.match(/^(\w+):\s*(.*)$/);
       if (propMatch) {
         const [_, key, value] = propMatch;
-        props[key] = value.trim() || true;
+        props[key] = value.trim();
         if (key === "tags") {
           inTags = true;
         }
       }
     }
   }
+  if (tags.length > 0) {
+    props.tags = tags.join("\n");
+  }
   const type = (typeof props.type === "string" ? props.type : "") || "unknown";
-  const expected = expectedProperties[type] || [];
+  const expected = expectedProperties[type];
   let isValid = true;
-  for (const prop of expected) {
-    if (!props[prop]) {
-      console.log(`\u274C Missing property: ${prop}`);
+  if (!expected) {
+    console.log(`\u274C ${templateName}: unknown template type`);
+    isValid = false;
+  }
+  for (const prop of expected ?? []) {
+    const value = props[prop];
+    if (value === void 0) {
+      console.log(`\u274C ${templateName}: missing property: ${prop}`);
+      isValid = false;
+    } else if (typeof value === "string" && value.trim() === "") {
+      console.log(`\u274C ${templateName}: blank property: ${prop}`);
       isValid = false;
     }
   }
@@ -138,4 +162,6 @@ function validateAllTemplates() {
     return false;
   }
 }
-validateAllTemplates();
+if (!validateAllTemplates()) {
+  process.exitCode = 1;
+}
