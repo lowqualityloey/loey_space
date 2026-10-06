@@ -92,7 +92,7 @@ SORT choice(last_reviewed, last_reviewed, updated) DESC
 ## 💡 Learning Workflows & Capture
 
 - **Inbox Quick Capture**: Append `#learn` to any line or link in [[00-Inbox/quick-capture-dump|quick-capture-dump.md]] and run `QuickAdd: 🧹 Triage Sweep`.
-- `Ctrl + P` → **QuickAdd: 📖 Create Learning Note** — Scaffolds a new study topic using [`99-Templates/Learning.md`](file:///c:/Users/jonel/Documents/loey_space/99-Templates/Learning.md).
+- `Ctrl + P` → **QuickAdd: 📖 Create Learning Note** — Scaffolds a new study topic using [`99-Templates/Learning.md`](../99-Templates/Learning.md).
 - **Distillation to Second Brain**:
   - Distill mental models & principles into [[08-Concepts/_Concepts MOC|08-Concepts]] using `npm run distill` or `hey loey distill`.
   - Extract reusable utilities and middleware into [[03-Dev/_Dev MOC|03-Dev]] using Chief of Staff commands.
