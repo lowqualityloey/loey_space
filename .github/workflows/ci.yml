@@ -43,8 +43,17 @@ jobs:
       - name: 📋 Validate Vault Templates
         run: npm run validate-templates
 
+      # `--strict` is the whole point of this step. Without it the auditor prints its findings
+      # and exits 0 regardless, so a broken wikilink in a tracked note could never fail a
+      # build. Enabling it needed the auditor to stop calling links to content that is
+      # gitignored by design "broken" (#101) — a tracked MOC linking its own untracked content
+      # is the vault's architecture, not a defect, and `--strict` gates on the rest.
       - name: 🔍 Audit Vault Wikilinks
-        run: npm run audit-links
+        run: npm run audit-links -- --strict
+
+      # The same argument: a report whose findings do not fail the build is documentation.
+      - name: 🩺 Audit Vault Hygiene
+        run: npm run hygiene -- --strict
 
       - name: 🔐 Scan Tracked Artifacts For Secrets
         run: bash .githooks/lib/secret-scan.sh --tracked

@@ -538,11 +538,15 @@ the validator does not know them yet. That is recorded below.
 document. The registry is keyed by `type`, and every tracked markdown file that
 declares a `type` is checked against it.
 
-Coverage, as measured by running `npm run validate-templates` on this repository:
+Coverage, as measured by running `npm run validate-templates` in a public checkout:
 
 ```
-Inspected 43 note(s); 45 of 87 tracked markdown file(s) declare a `type`, 2 exempted.
+Inspected 44 note(s); 44 of 56 tracked markdown file(s) declare a `type`.
 ```
+
+Both figures move with the checkout, so read the ratio rather than the absolute number: the
+engineering layer tracks a `docs/` tree that public `main` does not, which is why the
+tracked-file count is larger there.
 
 **Closed by #93.** These were the gaps this section previously recorded as open, and
 they are listed here so the change is auditable rather than silent:
@@ -576,10 +580,14 @@ exempt **by explicit path with a stated reason**, printed on every run — not s
 prefix and not silently tolerated. A note that declares no `type` at all is likewise not
 a contract violation, since the contract binds notes that declare metadata.
 
-> [!NOTE] Not every tracked note is validated
-> `CONTRIBUTING.md` sits in `Guides/` and declares no `type`, so the contract does not
-> bind it. That is a real hole in coverage rather than an exemption, and is worth a
-> follow-up.
+> [!NOTE] Notes that declare nothing are out of scope by design; records are not
+> The contract binds notes that declare a `type`, and the files that declare none are
+> documentation rather than records — `README.md`, `CLAUDE.md`, `CODEX.md` and the
+> `.github/` templates. The one file that used to be a genuine hole was
+> `06-Resources/Guides/CONTRIBUTING.md`, which sat in a record folder with no frontmatter
+> at all, so neither this validator nor the overdue query bound it. It now declares
+> `type: guide`, and `npm run hygiene` reports any record that declares no `type`, so the
+> class of gap is covered rather than exempted.
 
 ---
 
