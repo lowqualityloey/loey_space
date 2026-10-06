@@ -715,11 +715,14 @@ export async function enrichDailyNote(app: App, file: TFile): Promise<void> {
 
   if (geminiApiKey) {
     const result = await callGeminiJson(geminiApiKey, systemPrompt, userPromptText, "Daily Enrich", 0.7);
-    if (result && result.data && (result.data.debrief || result.data.takeaway || result.data.vibe)) {
-      responseData = result.data;
-      console.log(`Daily Enrich: generated with ${result.model}`);
+    if (result.success === false) {
+      failureReason = formatGeminiFailure(result.failure);
     } else {
-      failureReason = formatGeminiFailure(result && result.failure);
+      const d = result.data as { debrief?: string; takeaway?: string; vibe?: string };
+      if (d.debrief || d.takeaway || d.vibe) {
+        responseData = d as any;
+        console.log(`Daily Enrich: generated with ${result.model}`);
+      }
     }
   } else {
     failureReason = formatGeminiFailure({ status: 0, kind: "noKey", message: "GEMINI_API_KEY is missing from .env", retrySeconds: 0, model: "" });

@@ -1,5 +1,8 @@
 import type { App, TFile, TFolder } from 'obsidian';
 
+// Re-export the Gemini response boundary so consumers can import the type from one place.
+export type { GeminiResult, GeminiFailure } from '../lib/gemini';
+
 export interface QuickAddApi {
   inputPrompt(header: string, placeholder?: string, value?: string): Promise<string | undefined>;
   suggester(displayItems: string[] | ((item: any) => string), actualItems: any[]): Promise<any>;

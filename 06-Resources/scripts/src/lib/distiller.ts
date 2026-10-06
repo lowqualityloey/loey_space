@@ -150,7 +150,7 @@ export async function distillConceptsFromContent(
   content: string,
   sourceTitle: string,
   existingConcepts: string[]
-): Promise<{ concepts: DistilledConcept[]; model: string; failure: any }> {
+): Promise<{ concepts: DistilledConcept[]; model: string; failure: import('./gemini').GeminiFailure | null }> {
   const existingStr = existingConcepts.slice(0, 60).join(', ');
 
   const systemPrompt = [
@@ -196,9 +196,13 @@ JSON format:
 
   const result = await callGeminiJson(apiKey, systemPrompt, userPrompt, 'Distill Concepts', 0.4);
 
-  if (!result || !result.data || !Array.isArray(result.data.concepts)) {
-    return { concepts: [], model: result?.model || '', failure: result?.failure };
+  if (result.success === false) {
+    return { concepts: [], model: '', failure: result.failure };
+  }
+  const data = result.data as { concepts?: unknown[] };
+  if (!Array.isArray(data.concepts)) {
+    return { concepts: [], model: result.model, failure: null };
   }
 
-  return { concepts: result.data.concepts, model: result.model, failure: null };
+  return { concepts: data.concepts as DistilledConcept[], model: result.model, failure: null };
 }
