@@ -2,6 +2,7 @@ import type { App, TFile } from 'obsidian';
 import type { QuickAddParams } from './types';
 import { parseGeminiError, formatGeminiFailure, type GeminiFailure } from './lib/gemini';
 import { stripTaskMetadata } from './lib/markdown';
+import { buildWeeklyWindow, describeCoverage, selectWeeklyNotes } from './lib/weekly-window';
 
 interface WeeklySummaryJson {
   weeklyTitle?: string;
@@ -35,17 +36,17 @@ export = async function weeklyAISummary(params?: QuickAddParams): Promise<void> 
     return;
   }
 
-  // 2. Get daily notes from the last 7 days
-  const dailyNotes = app.vault.getMarkdownFiles()
-    .filter((f: TFile) => f.path.startsWith("01-Daily/") &&
-                !f.name.includes("MOC") &&
-                !f.name.includes("All daily notes live here"));
-
-  // Sort by date (newest first)
-  dailyNotes.sort((a: TFile, b: TFile) => b.name.localeCompare(a.name));
-
-  // Get last 7 days of notes (or all if fewer than 7)
-  const recentNotes = dailyNotes.slice(0, 7);
+  // 2. Select the daily notes inside the declared review window (#57).
+  //
+  // The window is derived first and the notes are matched against it, so a
+  // sparse week selects FEWER notes instead of reaching further back for
+  // older ones to fill seven slots. Membership is the window's own paths, so a
+  // file that is not a dated daily note cannot enter by name accident — the
+  // measured case was `01-Daily/Tasks Kanban.md`, which the old name-blocklist
+  // admitted and the name-sort placed first.
+  const reviewWindow = buildWeeklyWindow(new Date());
+  const recentNotes = selectWeeklyNotes(app.vault.getMarkdownFiles(), reviewWindow);
+  const coverage = describeCoverage(reviewWindow, recentNotes.length);
 
   if (recentNotes.length === 0) {
     new Notice("⚠️ No daily notes found for weekly summary!");
@@ -74,6 +75,15 @@ export = async function weeklyAISummary(params?: QuickAddParams): Promise<void> 
   const systemPrompt = `You are an insightful personal coach and productivity analyst. Analyze weekly data and provide comprehensive insights with actionable recommendations.`;
 
   const userPrompt = `Analyze this weekly data and provide a comprehensive weekly review. Provide JSON only.
+
+REVIEW WINDOW (the span these notes were selected from, and how much of it was logged):
+from: ${reviewWindow.startDate}
+to: ${reviewWindow.endDate}
+calendar days: ${reviewWindow.days}
+timezone: ${reviewWindow.timeZone}
+coverage: ${coverage}
+
+These notes were selected BY this window. Do not describe the week as more complete than the coverage says, and treat a day with no note as unknown rather than as a zero.
 
 WEEKLY DATA:
 ${JSON.stringify(weekData, null, 2)}
@@ -196,7 +206,10 @@ tags:
 # 📊 Weekly Review: Week ${weekNumber}, ${year}
 
 **Period**: ${getWeekRange(currentDate)}
+**Analysed window**: ${reviewWindow.startDate} to ${reviewWindow.endDate} (${reviewWindow.timeZone})
 **Theme**: ${data.weeklyTitle || "Weekly Analysis"}
+
+${coverage}
 
 ---
 

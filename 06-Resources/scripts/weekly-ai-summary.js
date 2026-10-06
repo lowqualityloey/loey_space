@@ -93,6 +93,77 @@ function stripTaskMetadata(text) {
   return String(text).replace(/[✅❌➕📅⏳🛫🔁⏫🔼🔽⏬🆔⛔]\s*\d{4}-\d{2}-\d{2}/g, " ").replace(/[✅❌➕📅⏳🛫🔁⏫🔼🔽⏬🆔⛔]/g, " ").replace(/\s*\^[A-Za-z0-9]+\s*$/, " ").replace(/\s{2,}/g, " ").trim();
 }
 
+// 06-Resources/scripts/src/lib/daily-note.ts
+var DEFAULT_DAILY_NOTES_CONFIG = {
+  folder: "01-Daily",
+  format: "YYYY-MM/YYYY-MM-DD"
+};
+function formatDate(date, format) {
+  const yyyy = String(date.getFullYear());
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return format.replace(/YYYY/g, yyyy).replace(/YY/g, yyyy.slice(2)).replace(/MM/g, mm).replace(/DD/g, dd);
+}
+function resolveDailyNotePath(dateStr, config = DEFAULT_DAILY_NOTES_CONFIG) {
+  const parts = dateStr.split("-");
+  const year = Number(parts[0]);
+  const month = Number(parts[1]);
+  const day = Number(parts[2]);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    throw new Error(`resolveDailyNotePath: expected YYYY-MM-DD, received "${dateStr}"`);
+  }
+  const formatted = formatDate(new Date(year, month - 1, day), config.format);
+  const folder = config.folder.replace(/\/+$/, "");
+  return `${folder}/${formatted}`;
+}
+function resolveDailyNoteFile(dateStr, config = DEFAULT_DAILY_NOTES_CONFIG) {
+  return `${resolveDailyNotePath(dateStr, config)}.md`;
+}
+
+// 06-Resources/scripts/src/lib/weekly-window.ts
+var DEFAULT_WEEK_DAYS = 7;
+function localDateKey(date) {
+  return formatDate(date, "YYYY-MM-DD");
+}
+function resolveTimeZone() {
+  try {
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return zone || "local (IANA zone unavailable)";
+  } catch {
+    return "local (IANA zone unavailable)";
+  }
+}
+function buildWeeklyWindow(today, days = DEFAULT_WEEK_DAYS, timeZone = resolveTimeZone()) {
+  if (!Number.isInteger(days) || days < 1) {
+    throw new Error(`buildWeeklyWindow: days must be a positive integer, received "${days}"`);
+  }
+  const dateKeys = [];
+  for (let offset = days - 1; offset >= 0; offset -= 1) {
+    const day = new Date(today.getFullYear(), today.getMonth(), today.getDate() - offset);
+    dateKeys.push(localDateKey(day));
+  }
+  return {
+    startDate: dateKeys[0],
+    endDate: dateKeys[dateKeys.length - 1],
+    days,
+    timeZone,
+    dateKeys
+  };
+}
+function windowPaths(window2, config = DEFAULT_DAILY_NOTES_CONFIG) {
+  return window2.dateKeys.map((key) => resolveDailyNoteFile(key, config));
+}
+function selectWeeklyNotes(files, window2, config = DEFAULT_DAILY_NOTES_CONFIG) {
+  const wanted = /* @__PURE__ */ new Map();
+  windowPaths(window2, config).forEach((path, index) => wanted.set(path, index));
+  return files.filter((file) => wanted.has(file.path)).sort((a, b) => wanted.get(b.path) - wanted.get(a.path));
+}
+function describeCoverage(window2, selectedCount) {
+  const missing = window2.days - selectedCount;
+  const tail = missing === 0 ? "every calendar day in the window has a daily note" : `${missing} day(s) have no daily note, which is unknown rather than zero`;
+  return `**Coverage**: ${selectedCount}/${window2.days} calendar days logged (${window2.startDate} to ${window2.endDate}, ${window2.timeZone}) \u2014 ${tail}.`;
+}
+
 // 06-Resources/scripts/src/weekly-ai-summary.ts
 function extractDailyData(content, noteDate) {
   const lines = content.split("\n");
@@ -253,12 +324,12 @@ function getWeekRange(date) {
   const diff = d.getDate() - day + (day === 0 ? -6 : 1);
   const monday = new Date(d.setDate(diff));
   const sunday = new Date(d.setDate(diff + 6));
-  const formatDate = (dt) => {
+  const formatDate2 = (dt) => {
     const month = String(dt.getMonth() + 1).padStart(2, "0");
     const dayNum = String(dt.getDate()).padStart(2, "0");
     return `${dt.getFullYear()}-${month}-${dayNum}`;
   };
-  return `${formatDate(monday)} to ${formatDate(sunday)}`;
+  return `${formatDate2(monday)} to ${formatDate2(sunday)}`;
 }
 module.exports = async function weeklyAISummary(params) {
   const app = params?.app || window.app || globalThis.app;
@@ -276,9 +347,9 @@ module.exports = async function weeklyAISummary(params) {
     new Notice("\u26A0\uFE0F GEMINI_API_KEY missing in .env!");
     return;
   }
-  const dailyNotes = app.vault.getMarkdownFiles().filter((f) => f.path.startsWith("01-Daily/") && !f.name.includes("MOC") && !f.name.includes("All daily notes live here"));
-  dailyNotes.sort((a, b) => b.name.localeCompare(a.name));
-  const recentNotes = dailyNotes.slice(0, 7);
+  const reviewWindow = buildWeeklyWindow(/* @__PURE__ */ new Date());
+  const recentNotes = selectWeeklyNotes(app.vault.getMarkdownFiles(), reviewWindow);
+  const coverage = describeCoverage(reviewWindow, recentNotes.length);
   if (recentNotes.length === 0) {
     new Notice("\u26A0\uFE0F No daily notes found for weekly summary!");
     return;
@@ -298,6 +369,15 @@ module.exports = async function weeklyAISummary(params) {
   const weekData = weekDataResults.filter((data) => data !== null);
   const systemPrompt = `You are an insightful personal coach and productivity analyst. Analyze weekly data and provide comprehensive insights with actionable recommendations.`;
   const userPrompt = `Analyze this weekly data and provide a comprehensive weekly review. Provide JSON only.
+
+REVIEW WINDOW (the span these notes were selected from, and how much of it was logged):
+from: ${reviewWindow.startDate}
+to: ${reviewWindow.endDate}
+calendar days: ${reviewWindow.days}
+timezone: ${reviewWindow.timeZone}
+coverage: ${coverage}
+
+These notes were selected BY this window. Do not describe the week as more complete than the coverage says, and treat a day with no note as unknown rather than as a zero.
 
 WEEKLY DATA:
 ${JSON.stringify(weekData, null, 2)}
@@ -404,7 +484,10 @@ tags:
 # \u{1F4CA} Weekly Review: Week ${weekNumber}, ${year}
 
 **Period**: ${getWeekRange(currentDate)}
+**Analysed window**: ${reviewWindow.startDate} to ${reviewWindow.endDate} (${reviewWindow.timeZone})
 **Theme**: ${data.weeklyTitle || "Weekly Analysis"}
+
+${coverage}
 
 ---
 
