@@ -413,6 +413,13 @@ Placeholders such as `your_google_gemini_api_key_here` are allowed, so `.env.exa
 
 ### 🔧 System & Vault Maintenance
 
+> [!NOTE] 🔌 Dataview `dv.load` evaluation errors (`TypeError: dv.load is not a function`)
+> If a DataviewJS block that calls `await dv.load(...)` fails with `dv.load is not a function`, the local Dataview plugin bundle is stale even when the manifest reports a newer version (e.g. `0.5.68`). `dv.load` ships in Dataview `0.5.0+`; a pre-`0.5.0` `main.js` paired with a fresh manifest produces exactly this error.
+>
+> **Fix:** In Obsidian, go to **Settings → Community plugins**, disable **Dataview**, then enable it again (or uninstall and reinstall from the community browser). That refreshes `main.js` to the matched release. After the refresh, reload the app (`Ctrl + P` → **Reload app without saving**) so the dashboard re-evaluates its JS blocks.
+>
+> **Affected notes in this vault:** `01-Daily/_Tasks MOC.md` (two blocks) and `Home.md` (one block). All three call `await dv.load("06-Resources/scripts/task-view.js")`; none of them is broken — the script target is correct and committed under [`06-Resources/scripts/`](06-Resources/scripts/).
+
 #### 🔄 Operational Rhythm
 | Interval | Target Hub | Key Actions |
 | :--- | :--- | :--- |
