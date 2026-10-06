@@ -1,3 +1,15 @@
+---
+created: 2026-09-01
+updated: 2026-10-07
+type: guide
+status: active
+area: system
+tags:
+  - type/guide
+  - area/system
+  - topic/contributing
+---
+
 # Contributing to `loey_space`
 
 This repository is two things in one: a **reusable Obsidian system** (plugins, scripts, snippets, templates, hooks) and **one person's notes**. Contributions are welcome to the first and closed on the second — so this document is mostly a scope statement.
