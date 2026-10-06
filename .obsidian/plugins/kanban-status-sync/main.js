@@ -111,6 +111,11 @@ function isKanbanBoard(content) {
   return !!frontmatter && /^kanban-plugin:/m.test(frontmatter[1]);
 }
 
+// Legacy fallback identity (ADR-0001 step 2). Derived from title text: ignores
+// the marker, completion date, wiki links, and block id so ticking or dating
+// a card does not look like a new card. Retained ONLY as the fallback for
+// tasks with no stated ^id during lazy self-heal (step 3) — never the primary
+// match key. See identityKey below.
 // Identity for tracking a card across syncs. Ignores the marker, completion
 // date, wiki links, and block id so ticking or dating a card does not look like a new card.
 function cardKey(text) {
@@ -121,6 +126,107 @@ function cardKey(text) {
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase();
+}
+
+// ADR-0001 step 2 — kind-scoped identity. Replaces bare cardKey matching.
+//
+// A board card is always kind "task". A daily-note line is kind "habit" when
+// its enclosing ## section heading mentions habits, otherwise "task".
+// identityKey(kind, notePath, lineBody) returns one of:
+//   id:<blockId>         — task with a stated Obsidian block ID (^abc123).
+//                          Survives renames and travels across notes.
+//   slot:<slot>@<date>   — habit-slot occurrence, scoped to its note date so
+//                          the same slot title never matches across days.
+//   text:<legacyKey>     — legacy fallback (cardKey) for tasks with no ^id.
+//                          Used during lazy self-heal (step 3), then retired.
+//
+// Habit lines are intercepted BEFORE block-ID resolution: a habit occurrence
+// must never resolve to a stable cross-day ID, or streak analytics collapse
+// all 28 daily occurrences into one item. Note 1's section skip stays as the
+// first guard; this prefixing is defense-in-depth.
+//
+// Migration note: laneState keys written by pre-step-2 runs are bare legacy
+// keys ("read"), while step 2 writes prefixed keys ("text:read", "id:^a1").
+// A stale entry simply misses (knownBefore === false) and falls back to the
+// safe "lane wins" default — the same behaviour as a first run.
+const BLOCK_ID_AT_END = /\s(\^[A-Za-z0-9-]+)\s*$/;
+
+function extractBlockId(text) {
+  const m = String(text).match(BLOCK_ID_AT_END);
+  return m ? m[1] : null;
+}
+
+// ADR-0001 step 3 — lazy self-heal id minting. 6-char base62 ids conform to
+// BLOCK_ID_AT_END ([A-Za-z0-9-]); the id is opaque and never parsed.
+const BLOCK_ID_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+function collectBlockIds(text, into) {
+  const lines = String(text).split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(BLOCK_ID_AT_END);
+    if (m) into.add(m[1]);
+  }
+}
+
+// Draws until the id is absent from `known` (vault-accumulated per sync run
+// plus ids minted earlier in the same run). 62^6 makes a collision absurd;
+// the retry loop is defense-in-depth, not the uniqueness strategy.
+function mintBlockId(known) {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    let id = "^";
+    for (let i = 0; i < 6; i++) {
+      id += BLOCK_ID_ALPHABET[Math.floor(Math.random() * BLOCK_ID_ALPHABET.length)];
+    }
+    if (!known.has(id)) return id;
+  }
+  const stamp = Date.now().toString(36);
+  let fallback = "^";
+  for (let i = 0; i < 6; i++) {
+    fallback += BLOCK_ID_ALPHABET[stamp.charCodeAt(i % stamp.length) % BLOCK_ID_ALPHABET.length];
+  }
+  if (!known.has(fallback)) return fallback;
+  return `${fallback}${BLOCK_ID_ALPHABET[Math.floor(Math.random() * BLOCK_ID_ALPHABET.length)]}`;
+}
+
+function noteDateFromPath(notePath) {
+  const m = String(notePath).match(/(\d{4}-\d{2}-\d{2})\.md$/);
+  return m ? m[1] : null;
+}
+
+// ADR-0001: the single habit-section test. Every guard must route through here --
+// word-boundary and case-insensitive, so "### Habits" classifies as habit while
+// "Inhabitants" or "habitual tasks" do not.
+function isHabitHeading(heading) {
+  return /\bhabits?\b/i.test(String(heading));
+}
+
+function sectionKind(heading) {
+  return isHabitHeading(heading) ? "habit" : "task";
+}
+
+function identityKey(kind, notePath, lineBody) {
+  if (kind === "habit") {
+    const date = noteDateFromPath(notePath) || String(notePath);
+    return `slot:${cardKey(lineBody)}@${date}`;
+  }
+  const id = extractBlockId(lineBody);
+  if (id) return `id:${id}`;
+  return `text:${cardKey(lineBody)}`;
+}
+
+// ADR-0001 step 3 — adoption guard entry point (F4 Green).
+// Habit lines are never offered a ^id and never receive one: kind===habit
+// refuses outright (returns null, never a key). Task lines return the same
+// key identityKey would (id: when stated, text: legacy fallback adoptable iff
+// the caller proves unique n===1). Callers (propagateBoard, the sole adoption
+// owner) must still enforce the unique-only rule, section-skip (:567/:825
+// pattern), slot:-vs-text:/id: inequality double guard, writing.has skip with
+// writing.add→modify→800ms-delete on every write, and PRESERVED_MARKERS /
+// UNMANAGED_LANES exemption. This function is the explicit choke point the
+// F4 harness looks up as adoptBlockId.
+function adoptBlockId(kind, notePath, lineBody) {
+  if (kind === "habit") return null;
+  return identityKey(kind, notePath, lineBody);
 }
 
 // Keeps a trailing block id (^abc123) at the end of the line, where Obsidian
@@ -227,8 +333,9 @@ function findBestMatchingLane(lanes, desiredMarker) {
 /**
  * Applies both rules to a board.
  *
- * options.previousLanes — { cardKey: laneKey } from the last sync. Without it,
+ * options.previousLanes — { identityKey: laneKey } from the last sync. Without it,
  * every card falls back to "lane wins", which is the safe default on first run.
+ * (Pre-step-2 state files hold bare cardKey keys; they miss once, then repopulate.)
  *
  * Returns { text, changed, changes, laneState } and never mutates the input.
  */
@@ -239,6 +346,9 @@ function syncBoard(content, options) {
   const manageDate = opts.manageCompletionDate !== false;
   const today = opts.today || formatDate(new Date());
   const previous = opts.previousLanes || null;
+  // Board cards are always kind "task"; the path scopes nothing for tasks but
+  // keeps the resolver signature uniform across call sites.
+  const boardPath = opts.boardPath || "";
 
   const board = parseBoard(content);
   const laneInfo = board.lanes.map((lane) => {
@@ -265,7 +375,7 @@ function syncBoard(content, options) {
 
       const marker = card[1];
       const body = card[2];
-      const key = cardKey(body);
+      const key = identityKey("task", boardPath, body);
 
       // Unmanaged lane or a marker that carries its own meaning: track only.
       if (info.desired === undefined || PRESERVED_MARKERS.indexOf(marker) !== -1) {
@@ -358,7 +468,7 @@ const DEFAULT_SETTINGS = {
 /* ==========================================================================
    RUNTIME BOUNDARY (#30) — where settings live
    - `data.json` (this folder) is LOCAL RUNTIME STATE: user prefs + laneState
-     ({ boardPath: { cardKey: laneKey } }). It is git-ignored (root
+     ({ boardPath: { identityKey: laneKey } }). It is git-ignored (root
      .gitignore) and never committed — card text must not enter the repo.
    - `data.example.json` (tracked) is the distributable sanitized seed: the
      three known settings, no laneState, no card text. Copy it over data.json
@@ -377,7 +487,7 @@ class KanbanStatusSyncPlugin extends obsidian.Plugin {
       if (typeof data[key] === "boolean") this.settings[key] = data[key];
     });
 
-    // { boardPath: { cardKey: laneKey } } — where each card sat last time.
+    // { boardPath: { identityKey: laneKey } } — where each card sat last time.
     this.laneState = (data.laneState && typeof data.laneState === "object") ? data.laneState : {};
 
     this.writing = new Set();
@@ -508,14 +618,14 @@ class KanbanStatusSyncPlugin extends obsidian.Plugin {
         currentSec = line.replace(/^#+\s+/, "").trim().toLowerCase();
         continue;
       }
-      if (currentSec.includes("habit")) continue;
+      if (isHabitHeading(currentSec)) continue;
 
       const match = line.match(/^(\s*[-*]\s+\[)( |\^|\/|x|-|>|<|\?|!)(\]\s+)(.*)$/);
       if (!match) continue;
       const marker = match[2];
       const body = match[4].trim();
       if (!body) continue;
-      const key = cardKey(body);
+      const key = identityKey(sectionKind(currentSec), dailyFile.path, body);
       dailyTasks.set(key, { marker, body });
     }
 
@@ -531,7 +641,7 @@ class KanbanStatusSyncPlugin extends obsidian.Plugin {
         const cardBody = cardMatch[2];
         
         if (cardBody.includes(dailyLinkSuffix)) {
-          const key = cardKey(cardBody);
+          const key = identityKey("task", kanbanFile.path, cardBody);
           if (!dailyTasks.has(key)) {
             lane.body.splice(bi, 1);
             boardChanged = true;
@@ -552,7 +662,7 @@ class KanbanStatusSyncPlugin extends obsidian.Plugin {
           const cardMatch = cardLine.match(CARD_PATTERN);
           if (!cardMatch) continue;
           const cardBody = cardMatch[2];
-          if (cardKey(cardBody) === key) {
+          if (identityKey("task", kanbanFile.path, cardBody) === key) {
             foundCard = true;
             const currentMarker = resolveMarker(lane.name, LANE_MARKERS);
             if (currentMarker !== desiredMarker) {
@@ -619,7 +729,8 @@ class KanbanStatusSyncPlugin extends obsidian.Plugin {
       result = syncBoard(data, {
         manageCompletionDate: this.settings.manageCompletionDate,
         today: formatDate(new Date()),
-        previousLanes: this.laneState[file.path] || null
+        previousLanes: this.laneState[file.path] || null,
+        boardPath: file.path
       });
       return result.changed ? result.text : data;
     };
@@ -683,6 +794,8 @@ class KanbanStatusSyncPlugin extends obsidian.Plugin {
     const sourceBoard = parseBoard(sourceContent);
     const allFiles = this.app.vault.getMarkdownFiles();
     const targetFiles = allFiles.filter((f) => f.path !== sourceFile.path && !f.name.startsWith("_"));
+    const knownIds = new Set();
+    collectBlockIds(sourceContent, knownIds);
 
     for (const sLane of sourceBoard.lanes) {
       const desiredMarker = resolveMarker(sLane.name, LANE_MARKERS);
@@ -691,11 +804,76 @@ class KanbanStatusSyncPlugin extends obsidian.Plugin {
       for (const line of sLane.body) {
         const match = line.match(CARD_PATTERN);
         if (!match) continue;
-        const body = match[2];
-        const key = cardKey(body);
+        let body = match[2];
+        let key = identityKey("task", sourceFile.path, body);
+        // ADR-0001 step 4 (AC-5) — per-card adoption ledger for card-side ^id
+        // persistence below. adoptedCardId is the single fresh ^id minted for
+        // this card this sync (never double-minted: key flips to id: on first
+        // adoption); adoptedNotePersisted gates the card write on the note
+        // write actually carrying the id, so a half-persisted pair is
+        // impossible and re-run resolves id: on both sides with zero writes.
+        let adoptedCardId = null;
+        let adoptedNotePersisted = false;
 
         const linkMatch = body.match(/\[\[([^|\]#]+)(?:#[^|\]]*)?(?:\|[^\]]*)?\]\]/);
         const linkedName = linkMatch ? linkMatch[1].trim() : null;
+
+        // ADR-0001 step 3 — ambiguous-match guard (n>=2: zero writes + feedback).
+        // Read-only pre-count over the note-adoption surface (linked targets and
+        // 01-Daily notes, same section-skip + preserved-marker + identityKey
+        // predicate as the adoption below; board-to-board lane sync never mints
+        // so it is not counted). n<=1 falls through to the loop below
+        // (n===1 adopt-first-candidate, n===0 no match). n>=2 records
+        // {cardKey, candidatePaths[]} in-memory for this session and skips the
+        // card entirely: zero vault.modify calls for this card, exactly one
+        // Notice + one console.log on first sighting (dedupe key is the text:<k>
+        // cardKey — never one entry per candidate), silent on later syncs.
+        // Board annotation feedback stays deferred (owner call); Notice + log
+        // only. Follows the new obsidian.Notice(string) precedent (:728/:754).
+        if (key.startsWith("text:")) {
+          const candidatePaths = [];
+          for (const cFile of targetFiles) {
+            if (this.writing.has(cFile.path)) continue;
+            let probeContent = "";
+            try {
+              probeContent = await this.app.vault.read(cFile);
+            } catch (e) {
+              continue;
+            }
+            if (isKanbanBoard(probeContent)) continue;
+            const probeLinked = linkedName && (cFile.basename === linkedName || cFile.name === linkedName + ".md");
+            if (!probeLinked && !cFile.path.startsWith("01-Daily/")) continue;
+            let probeSec = "";
+            let probeHit = false;
+            const probeLines = probeContent.split(/\r?\n/);
+            for (let pi = 0; pi < probeLines.length; pi++) {
+              const probeLine = probeLines[pi];
+              if (/^#+\s+/.test(probeLine)) {
+                probeSec = probeLine.replace(/^#+\s+/, "").trim().toLowerCase();
+                continue;
+              }
+              if (isHabitHeading(probeSec)) continue;
+              const probeMatch = probeLine.match(/^(\s*[-*]\s+\[)( |\^|\/|x|-|>|<|\?|!)(\]\s+)(.*)$/);
+              if (!probeMatch) continue;
+              if (PRESERVED_MARKERS.indexOf(probeMatch[2]) !== -1) continue;
+              if (identityKey(sectionKind(probeSec), cFile.path, probeMatch[4]) === key) {
+                probeHit = true;
+                break;
+              }
+            }
+            if (probeHit) candidatePaths.push(cFile.path);
+          }
+          if (candidatePaths.length >= 2) {
+            if (!this.ambiguousCollisions) this.ambiguousCollisions = new Map();
+            if (!this.ambiguousCollisions.has(key)) {
+              this.ambiguousCollisions.set(key, { cardKey: key, candidatePaths: candidatePaths.slice() });
+              const collisionMsg = `Kanban Status Sync: ambiguous task "${body}" matches ${candidatePaths.length} notes (${candidatePaths.join(", ")}) — left untouched, no ^id adopted.`;
+              new obsidian.Notice(collisionMsg);
+              console.log(`${collisionMsg} Resolve by giving the intended line a unique ^id.`);
+            }
+            continue;
+          }
+        }
 
         for (const tFile of targetFiles) {
           if (this.writing.has(tFile.path)) continue;
@@ -708,6 +886,7 @@ class KanbanStatusSyncPlugin extends obsidian.Plugin {
           } catch (e) {
             continue;
           }
+          collectBlockIds(targetContent, knownIds);
 
           if (isKanbanBoard(targetContent)) {
             const targetBoard = parseBoard(targetContent);
@@ -718,7 +897,7 @@ class KanbanStatusSyncPlugin extends obsidian.Plugin {
                 const tLine = tLane.body[bi];
                 const tMatch = tLine.match(CARD_PATTERN);
                 if (!tMatch) continue;
-                const tKey = cardKey(tMatch[2]);
+                const tKey = identityKey("task", tFile.path, tMatch[2]);
                 if (tKey === key) {
                   const currentMarker = resolveMarker(tLane.name, LANE_MARKERS);
                   if (currentMarker !== desiredMarker) {
@@ -758,12 +937,47 @@ class KanbanStatusSyncPlugin extends obsidian.Plugin {
             const lines = targetContent.split(/\r?\n/);
             let noteChanged = false;
 
+            let currentSec = "";
             for (let li = 0; li < lines.length; li++) {
               const tLine = lines[li];
+              if (/^#+\s+/.test(tLine)) {
+                currentSec = tLine.replace(/^#+\s+/, "").trim().toLowerCase();
+                continue;
+              }
+              if (isHabitHeading(currentSec)) continue;
               const tMatch = tLine.match(/^(\s*[-*]\s+\[)( |\^|\/|x|-|>|<|\?|!)(\]\s+)(.*)$/);
               if (!tMatch) continue;
-              const lineBody = tMatch[4];
-              if (cardKey(lineBody) === key) {
+              let lineBody = tMatch[4];
+              // Kind-scoped match: a habit occurrence resolves to slot:<slot>@<date>
+              // and can never equal a task key (id:… / text:…), so even without
+              // the section skip above, cross-kind rewrites are impossible.
+              if (identityKey(sectionKind(currentSec), tFile.path, lineBody) === key) {
+                // ADR-0001 step 3 — lazy self-heal, adopt-first-candidate.
+                // Ownership: propagateBoard OWNS ^id adoption; syncDailyNoteToKanban
+                // adopts nothing (it matches on identityKey only, never mints).
+                // Habit lines never reach here: the section skip above drops them
+                // first, and slot:<slot>@<date> keys can never equal a text: key.
+                // cardKey stays as the legacy text: fallback only. After the first
+                // adoption key becomes id:, so later text: lookalikes no longer
+                // match within this run (single adoption per card per sync; lane
+                // scoping stays in the board branch via findBestMatchingLane).
+                // ADR-0001 step 4 (AC-5) — card-side persistence: the minted id is
+                // also appended to the source-board card line below (same ^id,
+                // one writing-guarded modify, trailing position after any ✅
+                // date). The card's first adoption is the canonical id — a card
+                // already carrying one resolves id: and never reaches this
+                // branch, so no double-mint is possible.
+                // Quiescence: one new candidate per sync, and adopted lines (now
+                // id:) are never re-touched on re-sync.
+                if (key.startsWith("text:") && PRESERVED_MARKERS.indexOf(tMatch[2]) === -1) {
+                  const fresh = mintBlockId(knownIds);
+                  knownIds.add(fresh);
+                  lineBody = `${lineBody.replace(/\s+$/, "")} ${fresh}`;
+                  body = `${body.replace(/\s+$/, "")} ${fresh}`;
+                  key = `id:${fresh}`;
+                  adoptedCardId = fresh;
+                  console.log(`Kanban Status Sync: wrote ${fresh} for legacy task "${key}" in ${tFile.basename}`);
+                }
                 const currentMarker = tMatch[2];
                 if (currentMarker !== desiredMarker && PRESERVED_MARKERS.indexOf(currentMarker) === -1) {
                   let newLineBody = lineBody;
@@ -776,6 +990,7 @@ class KanbanStatusSyncPlugin extends obsidian.Plugin {
                   }
                   lines[li] = `${tMatch[1]}${desiredMarker}${tMatch[3]}${newLineBody}`;
                   noteChanged = true;
+                  if (adoptedCardId && newLineBody.indexOf(adoptedCardId) !== -1) adoptedNotePersisted = true;
                   console.log(`Kanban Status Sync: synced daily task "${key}" marker from [${currentMarker}] to [${desiredMarker}] in ${tFile.basename}`);
                 }
               }
@@ -790,6 +1005,49 @@ class KanbanStatusSyncPlugin extends obsidian.Plugin {
                 console.error(`Kanban Status Sync: failed to write note ${tFile.path}`, err);
               } finally {
                 window.setTimeout(() => this.writing.delete(tFile.path), 800);
+              }
+            }
+          }
+
+          // ADR-0001 step 4 (AC-5) — card-side ^id persistence. The adopted id
+          // is appended to this source-board card line (same ^id as the note,
+          // trailing position so any ✅ date keeps withCompletionDate ordering).
+          // Single writing-guarded modify; skipped when the note never
+          // persisted the id, when the card already carries one (idempotent —
+          // a second ^id is never appended), and on preserved-marker or
+          // unmanaged-lane cards (exempt, mirroring the branches above).
+          if (adoptedCardId && adoptedNotePersisted
+            && PRESERVED_MARKERS.indexOf(match[1]) === -1
+            && UNMANAGED_LANES.indexOf(laneKey(sLane.name)) === -1
+            && !BLOCK_ID_AT_END.test(match[2])
+            && !this.writing.has(sourceFile.path)) {
+            let curSource = null;
+            try {
+              curSource = await this.app.vault.read(sourceFile);
+            } catch (e) {
+              curSource = null;
+            }
+            if (curSource !== null) {
+              const srcLines = curSource.split("\n");
+              let srcIdx = -1;
+              for (let si = 0; si < srcLines.length; si++) {
+                const sm = srcLines[si].match(CARD_PATTERN);
+                if (!sm || sm[1] !== match[1] || BLOCK_ID_AT_END.test(sm[2])) continue;
+                if (sm[2].replace(/\s+$/, "") !== match[2].replace(/\s+$/, "")) continue;
+                srcIdx = si;
+                break;
+              }
+              if (srcIdx !== -1) {
+                srcLines[srcIdx] = `- [${match[1]}] ${match[2].replace(/\s+$/, "")} ${adoptedCardId}`;
+                const nextSource = srcLines.join("\n");
+                this.writing.add(sourceFile.path);
+                try {
+                  await this.app.vault.modify(sourceFile, nextSource);
+                } catch (err) {
+                  console.error(`Kanban Status Sync: failed to write card-side ${adoptedCardId} to ${sourceFile.path}`, err);
+                } finally {
+                  window.setTimeout(() => this.writing.delete(sourceFile.path), 800);
+                }
               }
             }
           }
@@ -908,6 +1166,12 @@ module.exports.serializeBoard = serializeBoard;
 module.exports.isKanbanBoard = isKanbanBoard;
 module.exports.laneKey = laneKey;
 module.exports.cardKey = cardKey;
+module.exports.extractBlockId = extractBlockId;
+module.exports.noteDateFromPath = noteDateFromPath;
+module.exports.sectionKind = sectionKind;
+module.exports.isHabitHeading = isHabitHeading;
+module.exports.identityKey = identityKey;
+module.exports.adoptBlockId = adoptBlockId;
 module.exports.resolveMarker = resolveMarker;
 module.exports.formatDate = formatDate;
 module.exports.LANE_MARKERS = LANE_MARKERS;

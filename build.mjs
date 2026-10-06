@@ -17,8 +17,10 @@ const entryPoints = [
   '06-Resources/scripts/src/start-task-action.ts',
   '06-Resources/scripts/src/sync-github-activity.ts',
   '06-Resources/scripts/src/sync-github-kanban.ts',
+  '06-Resources/scripts/src/task-view.ts',
   '06-Resources/scripts/src/triage-sweep.ts',
   '06-Resources/scripts/src/validate-templates.ts',
+  '06-Resources/scripts/src/vault-hygiene.ts',
   '06-Resources/scripts/src/weekly-ai-summary.ts',
 ];
 
@@ -33,6 +35,16 @@ const buildOptions = {
   logLevel: 'info',
 };
 
+// Every entry point produces exactly one flat <name>.js next to the sources.
+// Exported so the bundle-parity guard derives the expected output list from this
+// file instead of hard-coding a second copy that could silently go stale.
+export const bundleSources = entryPoints.map((source) => ({
+  source,
+  bundle: `${path.basename(source, path.extname(source))}.js`,
+}));
+
+export { entryPoints, buildOptions };
+
 async function run() {
   if (isWatch) {
     const ctx = await esbuild.context(buildOptions);
@@ -44,7 +56,12 @@ async function run() {
   }
 }
 
-run().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+// Only build when invoked as a program. Importing this module (the parity guard
+// and its tests do) must reuse the configuration above without emitting bundles
+// as a side effect.
+if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
+  run().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

@@ -59,6 +59,15 @@ function parsePriorityTag(text) {
   const cleanText = text.replace(/#priority\/(?:p[0-3]|high|medium|low)/gi, "").replace(/\s{2,}/g, " ").trim();
   return { cleanText, priority: normalized };
 }
+function parseIssueBadge(text) {
+  const issueNumMatch = text.match(/\[#(\d+)\]|#(\d+)/);
+  const issueNumber = issueNumMatch ? Number(issueNumMatch[1] || issueNumMatch[2]) : null;
+  const urlMatch = text.match(/\((https?:\/\/[^\s)]+)\)/);
+  return { issueNumber, issueUrl: urlMatch ? urlMatch[1] : null };
+}
+function stripIssueBadge(text) {
+  return text.replace(/\[#\d+\]\([^)]+\)/g, "").replace(/#\d+/g, "").trim();
+}
 function extractLocalKanbanTasks(content) {
   const lines = content.split("\n");
   const tasks = [];
@@ -98,8 +107,11 @@ function extractLocalKanbanTasks(content) {
       const dateMatch = rawText.match(/✅\s*(\d{4}-\d{2}-\d{2})/);
       const completionDate = dateMatch ? dateMatch[1] : null;
       const { cleanText, priority } = parsePriorityTag(rawText.replace(/✅\s*\d{4}-\d{2}-\d{2}/, "").trim());
+      const { issueNumber, issueUrl } = parseIssueBadge(rawText);
       tasks.push({
-        title: cleanText,
+        title: stripIssueBadge(cleanText),
+        issueNumber,
+        issueUrl,
         priority,
         section: currentSection,
         checkbox,
@@ -202,8 +214,7 @@ async function startTaskAction(params) {
   const openTasks = tasks.filter((t) => {
     const lane = normalizeLaneName(t.section);
     const isOpenLane = lane === "to do" || lane === "backlog";
-    const isUnlinked = !t.title.includes("github.com") && !t.title.match(/\[#\d+\]/);
-    return isOpenLane && isUnlinked;
+    return isOpenLane && t.issueNumber == null;
   });
   if (openTasks.length === 0) {
     if (Notice)

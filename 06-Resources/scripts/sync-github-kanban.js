@@ -60,6 +60,15 @@ function parsePriorityTag(text) {
   const cleanText = text.replace(/#priority\/(?:p[0-3]|high|medium|low)/gi, "").replace(/\s{2,}/g, " ").trim();
   return { cleanText, priority: normalized };
 }
+function parseIssueBadge(text) {
+  const issueNumMatch = text.match(/\[#(\d+)\]|#(\d+)/);
+  const issueNumber = issueNumMatch ? Number(issueNumMatch[1] || issueNumMatch[2]) : null;
+  const urlMatch = text.match(/\((https?:\/\/[^\s)]+)\)/);
+  return { issueNumber, issueUrl: urlMatch ? urlMatch[1] : null };
+}
+function stripIssueBadge(text) {
+  return text.replace(/\[#\d+\]\([^)]+\)/g, "").replace(/#\d+/g, "").trim();
+}
 function extractLocalKanbanTasks(content) {
   const lines = content.split("\n");
   const tasks = [];
@@ -99,8 +108,11 @@ function extractLocalKanbanTasks(content) {
       const dateMatch = rawText.match(/✅\s*(\d{4}-\d{2}-\d{2})/);
       const completionDate = dateMatch ? dateMatch[1] : null;
       const { cleanText, priority } = parsePriorityTag(rawText.replace(/✅\s*\d{4}-\d{2}-\d{2}/, "").trim());
+      const { issueNumber, issueUrl } = parseIssueBadge(rawText);
       tasks.push({
-        title: cleanText,
+        title: stripIssueBadge(cleanText),
+        issueNumber,
+        issueUrl,
         priority,
         section: currentSection,
         checkbox,
@@ -396,10 +408,7 @@ function syncBoardLanesWithRemoteItems(content, remoteItems, repoIssues, todayDa
       }
       const checkbox = taskMatch[2];
       const rawTitle = taskMatch[4];
-      const issueNumMatch = rawTitle.match(/\[#(\d+)\]|#(\d+)/);
-      const issueNumber = issueNumMatch ? Number(issueNumMatch[1] || issueNumMatch[2]) : null;
-      const urlMatch = rawTitle.match(/\((https?:\/\/[^\s)]+)\)/);
-      const issueUrl = urlMatch ? urlMatch[1] : null;
+      const { issueNumber, issueUrl } = parseIssueBadge(rawTitle);
       const dateMatch = rawTitle.match(/✅\s*(\d{4}-\d{2}-\d{2})/);
       const completionDate = dateMatch ? dateMatch[1] : null;
       const { cleanText, priority } = parsePriorityTag(rawTitle.replace(/✅\s*\d{4}-\d{2}-\d{2}/, "").trim());
@@ -407,7 +416,7 @@ function syncBoardLanesWithRemoteItems(content, remoteItems, repoIssues, todayDa
         headerLine: line,
         checkbox,
         rawTitle,
-        cleanTitle: cleanText.replace(/\[#\d+\]\([^)]+\)/g, "").replace(/#\d+/g, "").trim(),
+        cleanTitle: stripIssueBadge(cleanText),
         issueNumber,
         issueUrl,
         priority,
@@ -583,6 +592,64 @@ var execFileAsync = (0, import_util.promisify)(import_child_process.execFile);
 function isTFile(file) {
   return Boolean(file && typeof file === "object" && "extension" in file && "path" in file);
 }
+function findRemoteMatch(task, remoteItems) {
+  if (task.issueNumber != null) {
+    return remoteItems.find((r) => r.number === task.issueNumber);
+  }
+  return remoteItems.find(
+    (r) => r.title && r.title.toLowerCase().trim() === task.title.toLowerCase().trim()
+  );
+}
+var PROJECT_ITEM_LIMIT = 500;
+function asRecord(value) {
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    return {};
+  return Object.fromEntries(Object.entries(value));
+}
+function asString(value) {
+  return typeof value === "string" ? value : void 0;
+}
+function errorMessage(err) {
+  return err instanceof Error ? err.message : String(err);
+}
+function toProjectItem(raw) {
+  const item = asRecord(raw);
+  const content = asRecord(item.content);
+  const contentTitle = asString(content.title);
+  return {
+    id: asString(item.id) ?? "",
+    title: asString(item.title) ?? contentTitle,
+    contentTitle,
+    number: typeof content.number === "number" ? content.number : void 0,
+    url: asString(content.url),
+    status: asString(item.status),
+    priority: asString(item.priority)
+  };
+}
+function unreadableInventory(reason) {
+  return { status: "unreadable", items: [], reason };
+}
+function readProjectInventory(stdout, limit) {
+  let parsed;
+  try {
+    parsed = JSON.parse(stdout);
+  } catch (err) {
+    return unreadableInventory(`items response was not valid JSON: ${errorMessage(err)}`);
+  }
+  const payload = asRecord(parsed);
+  const rawItems = Array.isArray(payload.items) ? payload.items : [];
+  const items = rawItems.map(toProjectItem);
+  const totalCount = typeof payload.totalCount === "number" ? payload.totalCount : null;
+  const cutShort = totalCount != null ? totalCount > items.length : items.length >= limit;
+  if (cutShort) {
+    return {
+      status: "incomplete",
+      items,
+      reason: `read returned ${items.length} of ${totalCount != null ? totalCount : `at least ${limit}`} project items`
+    };
+  }
+  return { status: "complete", items };
+}
 function resolveVaultPath() {
   const fromCwd = process.cwd();
   if (fs.existsSync(path.join(fromCwd, "01-Daily")) || fs.existsSync(path.join(fromCwd, "06-Resources"))) {
@@ -641,10 +708,9 @@ async function syncSingleBoard(app, targetFile, config, customExecFn) {
   let projectId = null;
   let statusField = null;
   let priorityField = null;
-  const remoteItems = [];
   const remotePromises = [
     execFn(["gh", "project", "view", String(projectNumber), "--owner", owner, "--format", "json"], { timeout: 15e3 }),
-    execFn(["gh", "project", "item-list", String(projectNumber), "--owner", owner, "--format", "json", "--limit", "100"], { timeout: 15e3 })
+    execFn(["gh", "project", "item-list", String(projectNumber), "--owner", owner, "--format", "json", "--limit", String(PROJECT_ITEM_LIMIT)], { timeout: 15e3 })
   ];
   if (config.repo) {
     remotePromises.push(
@@ -675,28 +741,8 @@ async function syncSingleBoard(app, targetFile, config, customExecFn) {
     }
     console.warn(`Project view warning for #${projectNumber}:`, e);
   }
-  if (itemsRes.status === "fulfilled") {
-    try {
-      const itemsData = JSON.parse(itemsRes.value.stdout);
-      if (Array.isArray(itemsData.items)) {
-        for (const item of itemsData.items) {
-          remoteItems.push({
-            id: item.id,
-            title: item.title,
-            contentTitle: item.content?.title,
-            number: item.content?.number,
-            url: item.content?.url,
-            status: item.status,
-            priority: item.priority
-          });
-        }
-      }
-    } catch (e) {
-      console.warn(`Could not parse items for Project #${projectNumber}:`, e);
-    }
-  } else {
-    console.warn(`Could not fetch items for Project #${projectNumber}:`, itemsRes.reason);
-  }
+  const inventory = itemsRes.status === "fulfilled" ? readProjectInventory(itemsRes.value.stdout, PROJECT_ITEM_LIMIT) : unreadableInventory(`could not fetch items: ${errorMessage(itemsRes.reason)}`);
+  const remoteItems = inventory.items;
   const repoIssues = [];
   if (issuesRes && issuesRes.status === "fulfilled") {
     try {
@@ -747,14 +793,18 @@ async function syncSingleBoard(app, targetFile, config, customExecFn) {
   let updatedCount = 0;
   let createdCount = 0;
   let errorCount = 0;
+  if (inventory.status !== "complete") {
+    console.error(
+      `Sync failed for "${targetFile.basename}": ${inventory.reason}. Refusing to create project items \u2014 an unreadable inventory cannot prove a card is new.`
+    );
+    errorCount++;
+  }
   if (projectId && statusField && statusField.options) {
     const statusOptions = statusField.options;
     const updateTasks = [];
     const createTasks = [];
     for (const task of localTasks) {
-      const match = remoteItems.find(
-        (r) => r.title && r.title.toLowerCase().trim() === task.title.toLowerCase().trim()
-      );
+      const match = findRemoteMatch(task, remoteItems);
       const targetNormalizedLane = normalizeLaneName(task.section);
       let matchedOption = statusOptions.find(
         (opt) => normalizeLaneName(opt.name) === targetNormalizedLane
@@ -792,6 +842,8 @@ async function syncSingleBoard(app, targetFile, config, customExecFn) {
           }
         });
       } else if (!match) {
+        if (inventory.status !== "complete")
+          continue;
         createTasks.push(async () => {
           try {
             const createCmd = [
@@ -1011,6 +1063,8 @@ if (require.main === module) {
 module.exports = Object.assign(syncGitHubKanban, {
   normalizeLaneName,
   parsePriorityTag,
+  parseIssueBadge,
+  stripIssueBadge,
   extractLocalKanbanTasks,
   syncSingleBoard,
   extractSubtasksFromIssueBody,

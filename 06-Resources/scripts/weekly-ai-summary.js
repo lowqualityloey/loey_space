@@ -88,87 +88,274 @@ function formatGeminiFailure(failure) {
   }
 }
 
+// 06-Resources/scripts/src/lib/daily-note.ts
+var DEFAULT_DAILY_NOTES_CONFIG = {
+  folder: "01-Daily",
+  format: "YYYY-MM/YYYY-MM-DD"
+};
+function formatDate(date, format) {
+  const yyyy = String(date.getFullYear());
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return format.replace(/YYYY/g, yyyy).replace(/YY/g, yyyy.slice(2)).replace(/MM/g, mm).replace(/DD/g, dd);
+}
+function resolveDailyNotePath(dateStr, config = DEFAULT_DAILY_NOTES_CONFIG) {
+  const parts = dateStr.split("-");
+  const year = Number(parts[0]);
+  const month = Number(parts[1]);
+  const day = Number(parts[2]);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    throw new Error(`resolveDailyNotePath: expected YYYY-MM-DD, received "${dateStr}"`);
+  }
+  const formatted = formatDate(new Date(year, month - 1, day), config.format);
+  const folder = config.folder.replace(/\/+$/, "");
+  return `${folder}/${formatted}`;
+}
+function resolveDailyNoteFile(dateStr, config = DEFAULT_DAILY_NOTES_CONFIG) {
+  return `${resolveDailyNotePath(dateStr, config)}.md`;
+}
+
+// 06-Resources/scripts/src/lib/weekly-window.ts
+var DEFAULT_WEEK_DAYS = 7;
+function localDateKey(date) {
+  return formatDate(date, "YYYY-MM-DD");
+}
+function resolveTimeZone() {
+  try {
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return zone || "local (IANA zone unavailable)";
+  } catch {
+    return "local (IANA zone unavailable)";
+  }
+}
+function buildWeeklyWindow(today, days = DEFAULT_WEEK_DAYS, timeZone = resolveTimeZone()) {
+  if (!Number.isInteger(days) || days < 1) {
+    throw new Error(`buildWeeklyWindow: days must be a positive integer, received "${days}"`);
+  }
+  const dateKeys = [];
+  for (let offset = days - 1; offset >= 0; offset -= 1) {
+    const day = new Date(today.getFullYear(), today.getMonth(), today.getDate() - offset);
+    dateKeys.push(localDateKey(day));
+  }
+  return {
+    startDate: dateKeys[0],
+    endDate: dateKeys[dateKeys.length - 1],
+    days,
+    timeZone,
+    dateKeys
+  };
+}
+function windowPaths(window2, config = DEFAULT_DAILY_NOTES_CONFIG) {
+  return window2.dateKeys.map((key) => resolveDailyNoteFile(key, config));
+}
+function selectWeeklyNotes(files, window2, config = DEFAULT_DAILY_NOTES_CONFIG) {
+  const wanted = /* @__PURE__ */ new Map();
+  windowPaths(window2, config).forEach((path, index) => wanted.set(path, index));
+  return files.filter((file) => wanted.has(file.path)).sort((a, b) => wanted.get(b.path) - wanted.get(a.path));
+}
+function describeCoverage(window2, selectedCount) {
+  const missing = window2.days - selectedCount;
+  const tail = missing === 0 ? "every calendar day in the window has a daily note" : `${missing} day(s) have no daily note, which is unknown rather than zero`;
+  return `**Coverage**: ${selectedCount}/${window2.days} calendar days logged (${window2.startDate} to ${window2.endDate}, ${window2.timeZone}) \u2014 ${tail}.`;
+}
+
 // 06-Resources/scripts/src/lib/markdown.ts
 function stripTaskMetadata(text) {
   return String(text).replace(/[✅❌➕📅⏳🛫🔁⏫🔼🔽⏬🆔⛔]\s*\d{4}-\d{2}-\d{2}/g, " ").replace(/[✅❌➕📅⏳🛫🔁⏫🔼🔽⏬🆔⛔]/g, " ").replace(/\s*\^[A-Za-z0-9]+\s*$/, " ").replace(/\s{2,}/g, " ").trim();
 }
 
-// 06-Resources/scripts/src/weekly-ai-summary.ts
+// 06-Resources/scripts/src/lib/weekly-extract.ts
+var BUCKETS = [
+  [/\btasks?\b/, "tasks"],
+  [/\bfocus\b/, "focus"],
+  [/\bhabits?\b/, "habits"],
+  [/\bwins?\b/, "wins"],
+  [/\bblockers?\b/, "blockers"],
+  [/\breflection\b/, "reflection"],
+  [/\bideas?\b/, "ideas"]
+];
+function headingText(line) {
+  const match = line.match(/^(#{1,6})\s+(.*)$/);
+  if (!match)
+    return null;
+  return { level: match[1].length, text: match[2].trim().toLowerCase() };
+}
+function bucketOf(text) {
+  for (const [pattern, bucket] of BUCKETS) {
+    if (pattern.test(text))
+      return bucket;
+  }
+  return null;
+}
+function frontmatterValue(content, key) {
+  const frontmatter = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!frontmatter)
+    return null;
+  const pattern = new RegExp(`^${key}\\s*:`);
+  const line = frontmatter[1].split(/\r?\n/).find((candidate) => pattern.test(candidate));
+  if (!line)
+    return null;
+  const raw = line.slice(line.indexOf(":") + 1).trim();
+  return raw === "" ? null : raw;
+}
+function numericOrNull(raw, integer) {
+  if (raw === null)
+    return null;
+  const pattern = integer ? /^-?\d+$/ : /^-?\d+(\.\d+)?$/;
+  if (!pattern.test(raw))
+    return null;
+  const value = integer ? Number.parseInt(raw, 10) : Number.parseFloat(raw);
+  return Number.isFinite(value) ? value : null;
+}
+var PLACEHOLDERS = /* @__PURE__ */ new Set(["...", "\u2026", "none", "n/a", "unknown"]);
+function isPlaceholder(text) {
+  return PLACEHOLDERS.has(text.trim().toLowerCase());
+}
+function push(list, text) {
+  if (text && !isPlaceholder(text) && !list.includes(text))
+    list.push(text);
+}
 function extractDailyData(content, noteDate) {
-  const lines = content.split("\n");
-  let mood = "neutral";
-  let energy = "3";
-  let sleepHours = "7";
+  const mood = frontmatterValue(content, "mood");
+  const energy = numericOrNull(frontmatterValue(content, "energy"), true);
+  const sleepHours = numericOrNull(frontmatterValue(content, "sleep_hours"), false);
   const completedTasks = [];
   const unfinishedTasks = [];
-  const checkedHabits = [];
-  const winsLog = [];
-  const blockersLog = [];
-  const moodMatch = content.match(/^mood:\s*(.*)$/m);
-  const energyMatch = content.match(/^energy:\s*(.*)$/m);
-  const sleepMatch = content.match(/^sleep_hours:\s*(.*)$/m);
-  if (moodMatch && moodMatch[1].trim())
-    mood = moodMatch[1].trim();
-  if (energyMatch && energyMatch[1].trim())
-    energy = energyMatch[1].trim();
-  if (sleepMatch && sleepMatch[1].trim())
-    sleepHours = sleepMatch[1].trim();
-  let currentSec = "";
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (trimmed.startsWith("## ")) {
-      currentSec = trimmed.toLowerCase();
+  const completedHabits = [];
+  const wins = [];
+  const blockers = [];
+  const reflection = [];
+  const ideas = [];
+  const intentions = [];
+  const stack = [];
+  const currentBucket = () => {
+    for (let i = stack.length - 1; i >= 0; i -= 1) {
+      if (stack[i].bucket)
+        return stack[i].bucket;
     }
-    if (!trimmed || trimmed.startsWith(">") || trimmed.startsWith("|")) {
+    return null;
+  };
+  const lines = content.split(/\r?\n/);
+  const frontmatter = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  const frontmatterLines = frontmatter ? frontmatter[0].split(/\r?\n/).length : 0;
+  let inFence = false;
+  for (const [index, line] of lines.entries()) {
+    if (index < frontmatterLines)
+      continue;
+    const trimmed = line.trim();
+    if (trimmed.startsWith("```")) {
+      inFence = !inFence;
       continue;
     }
-    if (currentSec.includes("task")) {
-      const doneMatch = trimmed.match(/^\s*-\s*\[x\]\s+(.*)$/i);
-      const openMatch = trimmed.match(/^\s*-\s*\[ \]\s+(.*)$/);
-      if (doneMatch && doneMatch[1].trim()) {
-        const itemText = doneMatch[1].trim();
-        if (!completedTasks.includes(itemText))
-          completedTasks.push(itemText);
-      } else if (openMatch && openMatch[1].trim() && openMatch[1].trim() !== "..." && openMatch[1].trim() !== "None") {
-        const itemText = openMatch[1].trim();
-        if (!unfinishedTasks.includes(itemText))
-          unfinishedTasks.push(itemText);
-      }
+    if (inFence)
+      continue;
+    const heading = headingText(trimmed);
+    if (heading) {
+      while (stack.length && stack[stack.length - 1].level >= heading.level)
+        stack.pop();
+      stack.push({ level: heading.level, bucket: bucketOf(heading.text) });
+      continue;
     }
-    if (currentSec.includes("habit")) {
-      const habitMatch = trimmed.match(/^\s*-\s*\[x\]\s+(.*)$/i);
-      if (habitMatch && habitMatch[1].trim()) {
-        const habitText = stripTaskMetadata(habitMatch[1]);
-        if (habitText && !checkedHabits.includes(habitText))
-          checkedHabits.push(habitText);
-      }
+    if (!trimmed || trimmed.startsWith(">") || trimmed.startsWith("|"))
+      continue;
+    const bucket = currentBucket();
+    if (!bucket)
+      continue;
+    const done = trimmed.match(/^\s*-\s*\[x\]\s+(.*)$/i);
+    const open = trimmed.match(/^\s*-\s*\[ \]\s+(.*)$/);
+    const bullet = trimmed.match(/^\s*-\s+(.*)$/);
+    if (bucket === "tasks") {
+      if (done)
+        push(completedTasks, done[1].trim());
+      else if (open)
+        push(unfinishedTasks, open[1].trim());
+      continue;
     }
-    if (currentSec.includes("win")) {
-      const cleanItem = trimmed.replace(/^-\s*/, "").trim();
-      if (cleanItem)
-        winsLog.push(cleanItem);
+    if (bucket === "habits") {
+      if (done)
+        push(completedHabits, stripTaskMetadata(done[1].trim()));
+      continue;
     }
-    if (currentSec.includes("blocker")) {
-      const cleanItem = trimmed.replace(/^-\s*/, "").trim();
-      if (cleanItem)
-        blockersLog.push(cleanItem);
+    if (bucket === "focus") {
+      if (bullet)
+        push(intentions, stripTaskMetadata(bullet[1].trim()));
+      continue;
+    }
+    if (bullet) {
+      const text = stripTaskMetadata(bullet[1].trim());
+      if (bucket === "wins")
+        push(wins, text);
+      else if (bucket === "blockers")
+        push(blockers, text);
+      else if (bucket === "reflection")
+        push(reflection, text);
+      else if (bucket === "ideas")
+        push(ideas, text);
     }
   }
+  const taskTotal = completedTasks.length + unfinishedTasks.length;
   return {
     date: noteDate,
     mood,
-    energy: parseInt(energy) || 3,
-    sleepHours: parseFloat(sleepHours) || 7,
+    energy,
+    sleepHours,
     completedTasks,
     unfinishedTasks,
-    completedHabits: checkedHabits,
-    wins: winsLog,
-    blockers: blockersLog,
-    taskCompletionRate: completedTasks.length / (completedTasks.length + unfinishedTasks.length) || 0,
-    habitCompletionRate: checkedHabits.length
-    // Assuming 5 habits per day as baseline
+    completedHabits,
+    wins,
+    blockers,
+    reflection,
+    ideas,
+    intentions,
+    // `null` rather than `0`: a note with no tasks has no completion rate, and
+    // the old `0 / 0 || 0` reported "0% complete" for exactly those notes.
+    taskCompletionRate: taskTotal === 0 ? null : completedTasks.length / taskTotal
   };
 }
+function aggregate(values, label) {
+  const known = values.filter((value) => value !== null);
+  const total = values.length;
+  const average = known.length === 0 ? null : known.reduce((sum, value) => sum + value, 0) / known.length;
+  return {
+    known: known.length,
+    unknown: total - known.length,
+    total,
+    average: average === null ? null : Math.round(average * 100) / 100,
+    coverage: `${known.length}/${total} note(s) declared ${label}`
+  };
+}
+function summarizeWeek(entries) {
+  const tasks = {
+    completed: entries.reduce((sum, entry) => sum + entry.completedTasks.length, 0),
+    unfinished: entries.reduce((sum, entry) => sum + entry.unfinishedTasks.length, 0)
+  };
+  const taskTotal = tasks.completed + tasks.unfinished;
+  const rated = entries.map((entry) => entry.taskCompletionRate).filter((rate) => rate !== null);
+  return {
+    notes: entries.length,
+    energy: aggregate(entries.map((entry) => entry.energy), "energy"),
+    sleepHours: aggregate(entries.map((entry) => entry.sleepHours), "sleep_hours"),
+    moods: Array.from(new Set(entries.map((entry) => entry.mood).filter((m) => m !== null))),
+    tasks: {
+      completed: tasks.completed,
+      unfinished: tasks.unfinished,
+      completionRate: rated.length === 0 ? null : Math.round(rated.reduce((sum, rate) => sum + rate, 0) / rated.length * 100) / 100
+    },
+    habits: {
+      completed: entries.reduce((sum, entry) => sum + entry.completedHabits.length, 0)
+    },
+    entries: {
+      wins: entries.reduce((sum, entry) => sum + entry.wins.length, 0),
+      blockers: entries.reduce((sum, entry) => sum + entry.blockers.length, 0),
+      reflection: entries.reduce((sum, entry) => sum + entry.reflection.length, 0)
+    }
+  };
+}
+function describeWeekCoverage(summary) {
+  return `**Vitals coverage**: energy ${summary.energy.coverage}; sleep ${summary.sleepHours.coverage}` + (summary.moods.length ? `; mood recorded: ${summary.moods.join(", ")}` : "; no mood recorded");
+}
+
+// 06-Resources/scripts/src/weekly-ai-summary.ts
 function formatWeeklySummary(data) {
   let formatted = "";
   if (data.executiveSummary) {
@@ -253,12 +440,12 @@ function getWeekRange(date) {
   const diff = d.getDate() - day + (day === 0 ? -6 : 1);
   const monday = new Date(d.setDate(diff));
   const sunday = new Date(d.setDate(diff + 6));
-  const formatDate = (dt) => {
+  const formatDate2 = (dt) => {
     const month = String(dt.getMonth() + 1).padStart(2, "0");
     const dayNum = String(dt.getDate()).padStart(2, "0");
     return `${dt.getFullYear()}-${month}-${dayNum}`;
   };
-  return `${formatDate(monday)} to ${formatDate(sunday)}`;
+  return `${formatDate2(monday)} to ${formatDate2(sunday)}`;
 }
 module.exports = async function weeklyAISummary(params) {
   const app = params?.app || window.app || globalThis.app;
@@ -276,9 +463,9 @@ module.exports = async function weeklyAISummary(params) {
     new Notice("\u26A0\uFE0F GEMINI_API_KEY missing in .env!");
     return;
   }
-  const dailyNotes = app.vault.getMarkdownFiles().filter((f) => f.path.startsWith("01-Daily/") && !f.name.includes("MOC") && !f.name.includes("All daily notes live here"));
-  dailyNotes.sort((a, b) => b.name.localeCompare(a.name));
-  const recentNotes = dailyNotes.slice(0, 7);
+  const reviewWindow = buildWeeklyWindow(/* @__PURE__ */ new Date());
+  const recentNotes = selectWeeklyNotes(app.vault.getMarkdownFiles(), reviewWindow);
+  const coverage = describeCoverage(reviewWindow, recentNotes.length);
   if (recentNotes.length === 0) {
     new Notice("\u26A0\uFE0F No daily notes found for weekly summary!");
     return;
@@ -296,8 +483,21 @@ module.exports = async function weeklyAISummary(params) {
     })
   );
   const weekData = weekDataResults.filter((data) => data !== null);
+  const weekSummary = summarizeWeek(weekData);
   const systemPrompt = `You are an insightful personal coach and productivity analyst. Analyze weekly data and provide comprehensive insights with actionable recommendations.`;
   const userPrompt = `Analyze this weekly data and provide a comprehensive weekly review. Provide JSON only.
+
+REVIEW WINDOW (the span these notes were selected from, and how much of it was logged):
+from: ${reviewWindow.startDate}
+to: ${reviewWindow.endDate}
+calendar days: ${reviewWindow.days}
+timezone: ${reviewWindow.timeZone}
+coverage: ${coverage}
+
+WEEK SUMMARY (computed from the notes below; absent values are excluded from every average, and each coverage line states what its average rests on \u2014 do not present an average as covering more days than its coverage says):
+${JSON.stringify(weekSummary, null, 2)}
+
+These notes were selected BY this window. Do not describe the week as more complete than the coverage says, and treat a day with no note as unknown rather than as a zero.
 
 WEEKLY DATA:
 ${JSON.stringify(weekData, null, 2)}
@@ -392,6 +592,13 @@ JSON FORMAT:
       content = `---
 created: ${year}-${month}-${day}
 updated: ${year}-${month}-${day}
+// The exact window this run analysed (#59). Written into the note as well as
+// into its body because a review's statistics must be anchored to the period it
+// was written for, not to the day someone opens it \u2014 and the note's own name is
+// not a dependable source: this script numbers its files with a calendar-year
+// formula that disagrees with the ISO week on about half of all days.
+period_start: ${reviewWindow.startDate}
+period_end: ${reviewWindow.endDate}
 type: review
 status: active
 area: general
@@ -404,7 +611,11 @@ tags:
 # \u{1F4CA} Weekly Review: Week ${weekNumber}, ${year}
 
 **Period**: ${getWeekRange(currentDate)}
+**Analysed window**: ${reviewWindow.startDate} to ${reviewWindow.endDate} (${reviewWindow.timeZone})
 **Theme**: ${data.weeklyTitle || "Weekly Analysis"}
+
+${coverage}
+${describeWeekCoverage(weekSummary)}
 
 ---
 
@@ -476,16 +687,16 @@ dv.paragraph(\`**Habit Completion Rate**: \${habitRate}% (\${completedHabits}/\$
 
 ## \u{1F4DD} Manual Review Notes
 
-### What Went Well This Week
+### What went well this week
 -
 
-### What Could Be Improved
+### What was challenging or needs adjustment
 -
 
-### Key Learnings
+### Key learnings
 -
 
-### Goals for Next Week
+### Goals for next week
 1.
 2.
 3.

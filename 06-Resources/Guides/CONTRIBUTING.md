@@ -1,3 +1,15 @@
+---
+created: 2026-09-01
+updated: 2026-10-07
+type: guide
+status: active
+area: system
+tags:
+  - type/guide
+  - area/system
+  - topic/contributing
+---
+
 # Contributing to `loey_space`
 
 This repository is two things in one: a **reusable Obsidian system** (plugins, scripts, snippets, templates, hooks) and **one person's notes**. Contributions are welcome to the first and closed on the second — so this document is mostly a scope statement.
@@ -19,7 +31,7 @@ This repository is two things in one: a **reusable Obsidian system** (plugins, s
 
 * `01-Daily/`, `05-Personal/`, `07-Reviews/`, `00-Inbox/` — personal journal, habits and captures. Mostly git-ignored; what remains is dashboards.
 * `03-Dev/`, `04-Learning/`, `08-Concepts/` — my own notes. Fine to read, not to edit.
-* `.obsidian/plugins/homepulse/` — ships as a **built, minified `main.js` with no source in this repo**, so it cannot meaningfully be patched here. Please open an issue instead of a PR.
+* `.obsidian/plugins/homepulse/` — ships as a **built, minified `main.js` with no authoritative source available**, so the minified core cannot meaningfully be patched here. The readable prelude at the top of the bundle *is* locally owned and already carries vault patches (habit and focus sync) covered by tests. Read [`Plugin Ownership.md`](Plugin%20Ownership.md) first: it records the provenance, the owned symbols, and how to re-apply local changes after a plugin update. For the minified core, please open an issue instead of a PR.
 * `.env`, `.secrets/` — never in the repo. See [Security](#-security).
 
 **Issues are welcome for anything**, including the closed areas — a bug report about the dashboard is useful even when the fix has to happen elsewhere.
@@ -29,6 +41,23 @@ This repository is two things in one: a **reusable Obsidian system** (plugins, s
 ## 🛠️ Script Development & Verification
 
 Vault user scripts are authored in TypeScript under [`06-Resources/scripts/src/`](06-Resources/scripts/src/) and bundled to CommonJS in [`06-Resources/scripts/`](06-Resources/scripts/) for Obsidian QuickAdd compatibility:
+
+### Clean install first
+
+`node_modules/` contains **platform-specific native binaries**. `esbuild` — which `npm run build` drives, and which the `tsx` test runner also depends on — ships exactly one binary per OS/arch, selected at install time. So a tree installed on Windows holds only `@esbuild/win32-x64`, and every later `npm run build` from WSL or Linux fails with *"You installed esbuild for another platform"*.
+
+**Never share a `node_modules/` directory between operating systems**, including between Windows and WSL. Install per platform, from a clean tree:
+
+```bash
+rm -rf node_modules     # Windows PowerShell: Remove-Item -Recurse -Force node_modules
+npm ci                  # exact versions from package-lock.json, this platform's binaries
+```
+
+`npm ci` is the supported command because `package-lock.json` pins every version — including the test runner, so `npm test` never downloads anything on demand. If you change a dependency, update `package.json` and `package-lock.json` together (`npm install --save-dev <pkg>`) and commit both.
+
+Working from WSL against a vault on a Windows drive? Run `npm ci` from the WSL shell before your first build of the session, and again from PowerShell before the first Windows build. One shared directory means one of the two platforms is always broken.
+
+Then:
 
 ```bash
 # 1. Typecheck TypeScript source
@@ -111,6 +140,22 @@ Please include the check you ran in the PR description. Node's built-in `assert`
    ```
 
 5. **Don't reformat** files you aren't otherwise changing.
+
+### Stacked pull requests
+
+If a change is too big for one review, open it as a **stack**: a second PR whose base is the
+first PR's branch rather than `main`. Stacks are supported here, and every pull request is
+checked regardless of what it targets — the workflow does not filter on `main`, because a
+`branches` filter matches the *base* branch and so silently skipped every stacked PR.
+
+Two caveats come from GitHub rather than from this repository, and both bite a stack harder
+than they bite a PR against `main`:
+
+* **Pushing to a base branch does not re-run the checks on the PRs stacked on it.** Re-run the
+  check yourself once the branch beneath yours moves, or you are reading a result computed
+  against code that no longer exists.
+* **No run happens at all while the pull request has a merge conflict.** An absent check is not
+  a passing one, and a stack is likelier to be in that state than a PR against `main`.
 
 ## 🐛 Bug reports
 

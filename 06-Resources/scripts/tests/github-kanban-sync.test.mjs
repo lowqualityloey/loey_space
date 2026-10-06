@@ -62,7 +62,12 @@ github_project_number: 4
   assert.strictEqual(tasks[1].title, 'Configure Tailwind CSS');
   assert.strictEqual(tasks[1].priority, 'P1');
 
-  assert.strictEqual(tasks[2].title, '[#11](https://github.com/lowqualityloey/shelf/issues/11) Configure Supabase Auth client & route guards');
+  // Issue #48: the badge is decoration, not identity. This expectation previously
+// asserted the badged string, which is what made an already-linked card miss its
+// remote item and get re-created as a duplicate draft.
+assert.strictEqual(tasks[2].title, 'Configure Supabase Auth client & route guards');
+  assert.strictEqual(tasks[2].issueNumber, 11);
+  assert.strictEqual(tasks[2].issueUrl, 'https://github.com/lowqualityloey/shelf/issues/11');
   assert.strictEqual(tasks[2].checkbox, '/');
   assert.strictEqual(tasks[2].priority, 'P1');
 
@@ -71,21 +76,85 @@ github_project_number: 4
   assert.strictEqual(tasks[3].checkbox, 'x');
 });
 
+// Shared fixtures for the syncSingleBoard error-handling tests below.
+const ASYNC_MOCK_APP = {
+  vault: {
+    read: async () => '## Backlog\n- [ ] Task 1\n'
+  }
+};
+const ASYNC_MOCK_FILE = { basename: 'Test Board', path: '02-Projects/Test.md' };
+const ASYNC_MOCK_CONFIG = {
+  projectNumber: 9999,
+  owner: 'testowner',
+  title: 'Test Board',
+  filePath: '02-Projects/Test.md'
+};
+
 test('syncSingleBoard: executes asynchronously without blocking', async () => {
   assert.strictEqual(typeof syncSingleBoard, 'function');
-  const mockApp = {
-    vault: {
-      read: async () => '## Backlog\n- [ ] Task 1\n'
-    }
-  };
-  const mockFile = { basename: 'Test Board', path: '02-Projects/Test.md' };
-  const mockConfig = { projectNumber: 9999, owner: 'testowner', title: 'Test Board', filePath: '02-Projects/Test.md' };
 
-  // syncSingleBoard returns a Promise and catches gh CLI errors gracefully
-  const result = await syncSingleBoard(mockApp, mockFile, mockConfig);
+  // The execFn is injected, not omitted. Omitting it falls through to the real `gh`
+  // binary (src:178-192), which made this test's outcome depend on the developer's
+  // ambient auth: it passed with GH_CONFIG_DIR unset and failed with "missing
+  // required scopes [read:project]" when that variable was pinned.
+  //
+  // Worse, it was vacuously green. With no working auth the `gh project view` read
+  // failed, so projectId stayed null, the whole mapping block at src:315 was
+  // skipped, and the three `typeof` assertions passed over a run that had done
+  // nothing at all. The non-vacuity assertions below are what give this test teeth.
+  const { execFn, calls } = makeGhStub();
+  const result = await syncSingleBoard(ASYNC_MOCK_APP, ASYNC_MOCK_FILE, ASYNC_MOCK_CONFIG, execFn);
+
+  assert.ok(calls.some((c) => c.includes('project view')), 'expected a project schema read');
+  assert.ok(calls.some((c) => c.includes('project item-list')), 'expected a remote inventory read');
+  assert.ok(
+    calls.some((c) => c.includes('project item-create')),
+    'expected the local card to be created — proves the mapping block actually ran'
+  );
+
   assert.ok(typeof result.updated === 'number');
   assert.ok(typeof result.created === 'number');
   assert.ok(typeof result.errors === 'number');
+  assert.strictEqual(result.created, 1);
+  assert.strictEqual(result.errors, 0);
+});
+
+test('syncSingleBoard: a missing read:project scope is surfaced, not swallowed', async () => {
+  // src:231-233 re-throws this one failure on purpose, after posting a Notice, so a
+  // token without the scope is visible in Obsidian instead of silently syncing
+  // nothing. That branch had no coverage, and it is the exact failure that made the
+  // test above environment-dependent.
+  const scopeError = Object.assign(new Error('Command failed: gh project view'), {
+    stderr: 'error: your authentication token is missing required scopes [read:project]'
+  });
+  const execFn = async (cmd) => {
+    if (cmd.includes('project view')) throw scopeError;
+    return { stdout: JSON.stringify({ items: [] }) };
+  };
+
+  await assert.rejects(
+    () => syncSingleBoard(ASYNC_MOCK_APP, ASYNC_MOCK_FILE, ASYNC_MOCK_CONFIG, execFn),
+    (err) => err === scopeError
+  );
+});
+
+test('syncSingleBoard: a generic gh failure warns and continues without inventing a sync error', async () => {
+  // The counterpart to the branch above: an ordinary failure is warned about at
+  // src:235 and execution continues. The inventory read still succeeded here, so no
+  // sync error may be fabricated — errors reports failed syncs, not failed reads.
+  const execFn = async (cmd) => {
+    if (cmd.includes('project view')) {
+      throw Object.assign(new Error('Command failed: gh project view'), {
+        stderr: 'error: could not connect to github.com'
+      });
+    }
+    return { stdout: JSON.stringify({ items: [] }) };
+  };
+
+  const result = await syncSingleBoard(ASYNC_MOCK_APP, ASYNC_MOCK_FILE, ASYNC_MOCK_CONFIG, execFn);
+  assert.strictEqual(result.errors, 0);
+  assert.strictEqual(result.created, 0);
+  assert.strictEqual(result.updated, 0);
 });
 
 test('syncSingleBoard: creates new project items safely with execFn array arguments', async () => {
@@ -306,6 +375,436 @@ test('syncBoardSubtasksWithGitHubIssues: removes date stamp when subtask is unch
   assert.strictEqual(updatedCount, 1);
   assert.ok(updatedContent.includes('- [ ] Install `@supabase/supabase-js` and initialize client'));
   assert.ok(!updatedContent.includes('✅'));
+});
+
+// ---------------------------------------------------------------------------
+// Issue #48 — outbound matching must use remote identity, not badged card text.
+//
+// `injectIssueBadgesIntoBoard` rewrites card lines to `[#N](url) Title` BEFORE
+// `extractLocalKanbanTasks` parses them, so a card that is already linked stops
+// matching its remote item and is manufactured again as a duplicate draft.
+// ---------------------------------------------------------------------------
+
+function makeGhStub({ items = [], issues = [] } = {}) {
+  const calls = [];
+  // `gh project item-list --format json` nests issue identity under `content`,
+  // which is where sync-github-kanban reads `number` from.
+  const ghItems = items.map((it) => ({
+    id: it.id,
+    title: it.title,
+    status: it.status,
+    content: it.number ? { title: it.title, number: it.number, url: it.url } : undefined
+  }));
+
+  const execFn = async (cmd) => {
+    calls.push(cmd);
+    if (cmd.includes('project view')) {
+      return {
+        stdout: JSON.stringify({
+          id: 'proj_123',
+          fields: [
+            {
+              id: 'f_status',
+              name: 'Status',
+              options: [
+                { id: 'opt_todo', name: 'To Do' },
+                { id: 'opt_progress', name: 'In Progress' },
+                { id: 'opt_done', name: 'Done' }
+              ]
+            }
+          ]
+        })
+      };
+    }
+    if (cmd.includes('project item-list')) {
+      return { stdout: JSON.stringify({ items: ghItems }) };
+    }
+    if (cmd.includes('issue list')) {
+      return { stdout: JSON.stringify(issues) };
+    }
+    if (cmd.includes('project item-create')) {
+      return { stdout: JSON.stringify({ id: 'item_created' }) };
+    }
+    if (cmd.includes('project item-edit')) {
+      return { stdout: 'Updated' };
+    }
+    return { stdout: '' };
+  };
+  return {
+    execFn,
+    calls,
+    createCount: () => calls.filter((c) => c.includes('project item-create')).length
+  };
+}
+
+const BADGED_BOARD = `---
+github_project_number: 100
+---
+
+## In Progress
+
+- [/] [#48](https://github.com/lowqualityloey/shelf/issues/48) Fix the thing #priority/p1
+`;
+
+const BOARD_CONFIG = {
+  filePath: '02-Projects/shelf/shelf Kanban.md',
+  title: 'shelf Kanban',
+  projectNumber: 100,
+  owner: 'lowqualityloey',
+  repo: 'shelf'
+};
+
+const BOARD_FILE = { basename: 'shelf Kanban', path: '02-Projects/shelf/shelf Kanban.md' };
+
+test('extractLocalKanbanTasks: strips the issue badge and keeps identity (AC-1, AC-2)', () => {
+  const { tasks } = extractLocalKanbanTasks(BADGED_BOARD);
+
+  assert.strictEqual(tasks.length, 1);
+  // Badge text is decoration, never identity: it must not leak into the title.
+  assert.strictEqual(tasks[0].title, 'Fix the thing');
+  assert.strictEqual(tasks[0].priority, 'P1');
+  assert.strictEqual(tasks[0].issueNumber, 48);
+  assert.strictEqual(tasks[0].issueUrl, 'https://github.com/lowqualityloey/shelf/issues/48');
+});
+
+test('syncSingleBoard: an already-linked card is matched, not re-created (AC-1, AC-2, AC-3)', async () => {
+  const gh = makeGhStub({
+    items: [
+      {
+        id: 'item_48',
+        title: 'Fix the thing',
+        number: 48,
+        url: 'https://github.com/lowqualityloey/shelf/issues/48',
+        status: 'In Progress',
+        priority: 'P1'
+      }
+    ],
+    issues: [
+      {
+        number: 48,
+        title: 'Fix the thing',
+        url: 'https://github.com/lowqualityloey/shelf/issues/48',
+        state: 'OPEN',
+        body: 'No subtasks yet.'
+      }
+    ]
+  });
+
+  const mockApp = { vault: { read: async () => BADGED_BOARD, modify: async () => {} } };
+  const result = await syncSingleBoard(mockApp, BOARD_FILE, BOARD_CONFIG, gh.execFn);
+
+  assert.strictEqual(result.created, 0);
+  assert.strictEqual(result.errors, 0);
+  assert.strictEqual(gh.createCount(), 0);
+});
+
+test('syncSingleBoard: a retitled but linked card keeps its remote item (AC-1, AC-4)', async () => {
+  const gh = makeGhStub({
+    items: [
+      {
+        id: 'item_48',
+        title: 'Original issue title',
+        number: 48,
+        url: 'https://github.com/lowqualityloey/shelf/issues/48',
+        status: 'In Progress',
+        priority: 'P1'
+      }
+    ],
+    issues: [
+      {
+        number: 48,
+        title: 'Original issue title',
+        url: 'https://github.com/lowqualityloey/shelf/issues/48',
+        state: 'OPEN',
+        body: 'No subtasks yet.'
+      }
+    ]
+  });
+
+  const retitledBoard = `---
+github_project_number: 100
+---
+
+## In Progress
+
+- [/] [#48](https://github.com/lowqualityloey/shelf/issues/48) Rewritten locally after the fact #priority/p1
+`;
+
+  const mockApp = { vault: { read: async () => retitledBoard, modify: async () => {} } };
+  const result = await syncSingleBoard(mockApp, BOARD_FILE, BOARD_CONFIG, gh.execFn);
+
+  assert.strictEqual(result.created, 0);
+  assert.strictEqual(result.errors, 0);
+  assert.strictEqual(gh.createCount(), 0);
+});
+
+test('syncSingleBoard: repeated syncs of a linked board create no duplicates (AC-4)', async () => {
+  const gh = makeGhStub({
+    items: [
+      {
+        id: 'item_48',
+        title: 'Fix the thing',
+        number: 48,
+        url: 'https://github.com/lowqualityloey/shelf/issues/48',
+        status: 'In Progress',
+        priority: 'P1'
+      }
+    ],
+    issues: [
+      {
+        number: 48,
+        title: 'Fix the thing',
+        url: 'https://github.com/lowqualityloey/shelf/issues/48',
+        state: 'OPEN',
+        body: 'No subtasks yet.'
+      }
+    ]
+  });
+
+  const mockApp = { vault: { read: async () => BADGED_BOARD, modify: async () => {} } };
+
+  const first = await syncSingleBoard(mockApp, BOARD_FILE, BOARD_CONFIG, gh.execFn);
+  const second = await syncSingleBoard(mockApp, BOARD_FILE, BOARD_CONFIG, gh.execFn);
+
+  assert.strictEqual(first.created, 0);
+  assert.strictEqual(second.created, 0);
+  assert.strictEqual(gh.createCount(), 0);
+});
+
+test('syncSingleBoard: title fallback still links unbadged cards and still creates new ones (AC-1, AC-3)', async () => {
+  const gh = makeGhStub({
+    items: [
+      {
+        id: 'item_unbadged',
+        title: 'Unbadged but matching',
+        status: 'In Progress'
+      }
+    ]
+  });
+
+  const mixedBoard = `---
+github_project_number: 100
+---
+
+## In Progress
+
+- [/] Unbadged but matching
+- [/] Genuinely new card
+`;
+
+  const mockApp = { vault: { read: async () => mixedBoard, modify: async () => {} } };
+  const result = await syncSingleBoard(mockApp, BOARD_FILE, BOARD_CONFIG, gh.execFn);
+
+  assert.strictEqual(result.created, 1);
+  assert.strictEqual(result.errors, 0);
+  assert.strictEqual(gh.createCount(), 1);
+
+  const createCall = gh.calls.find((c) => c.includes('project item-create'));
+  assert.ok(createCall.includes('Genuinely new card'));
+  assert.ok(!createCall.includes('Unbadged but matching'));
+});
+
+// ---------------------------------------------------------------------------
+// Issue #49 — an unreadable or truncated remote inventory must never be mistaken
+// for an empty one.
+//
+// Every local card is only provably new when its absence from the remote
+// inventory is trustworthy. A failed read, a non-JSON body, or a `--limit` window
+// that cut the board short all leave cards looking "missing", so the old code
+// re-created the whole board as duplicate drafts and still summarised
+// `created: N, errors: 0`.
+// ---------------------------------------------------------------------------
+
+const INVENTORY_VIEW = JSON.stringify({
+  id: 'proj_123',
+  fields: [
+    {
+      id: 'f_status',
+      name: 'Status',
+      options: [
+        { id: 'opt_todo', name: 'To Do' },
+        { id: 'opt_progress', name: 'In Progress' },
+        { id: 'opt_done', name: 'Done' }
+      ]
+    }
+  ]
+});
+
+// A project of `size` real items, numbered 1..size.
+function inventoryOfSize(size) {
+  return Array.from({ length: size }, (_, i) => ({
+    id: `item_${i + 1}`,
+    title: `Card ${i + 1}`,
+    number: i + 1,
+    url: `https://github.com/lowqualityloey/shelf/issues/${i + 1}`,
+    status: 'To Do'
+  }));
+}
+
+// Emulates the real `gh project item-list --format json` contract, which #48's
+// stub did not model:
+//   * the command has no offset — `gh` returns only the first `--limit` items and
+//     pages internally up to that limit, so past the window items are simply absent;
+//   * issue identity is nested under `content`, and there is no top-level `title`;
+//   * `totalCount` always reports the project's real item count and ignores `--limit`.
+function makeInventoryStub({
+  remoteItems = [],
+  issues = [],
+  itemListRejects = false,
+  itemListBody = null // overrides the generated body when set
+} = {}) {
+  const calls = [];
+  const execFn = async (cmd) => {
+    calls.push(cmd);
+    if (cmd.includes('project view')) {
+      return { stdout: INVENTORY_VIEW };
+    }
+    if (cmd.includes('project item-list')) {
+      if (itemListRejects) {
+        throw new Error('gh: could not fetch project items (HTTP 502)');
+      }
+      if (itemListBody !== null) {
+        return { stdout: itemListBody };
+      }
+      const limit = Number(cmd.match(/--limit (\d+)/)?.[1] ?? remoteItems.length);
+      return {
+        stdout: JSON.stringify({
+          items: remoteItems.slice(0, limit).map((it) => ({
+            id: it.id,
+            content: { title: it.title, number: it.number, url: it.url },
+            status: it.status
+          })),
+          totalCount: remoteItems.length
+        })
+      };
+    }
+    if (cmd.includes('issue list')) {
+      return { stdout: JSON.stringify(issues) };
+    }
+    if (cmd.includes('project item-create')) {
+      return { stdout: JSON.stringify({ id: 'item_created' }) };
+    }
+    if (cmd.includes('project item-edit')) {
+      return { stdout: 'Updated' };
+    }
+    return { stdout: '' };
+  };
+  return {
+    execFn,
+    calls,
+    itemListLimits: () => calls.filter((c) => c.includes('project item-list')).map((c) => Number(c.match(/--limit (\d+)/)?.[1])),
+    createCount: () => calls.filter((c) => c.includes('project item-create')).length
+  };
+}
+
+const TWO_CARD_BOARD = `---
+github_project_number: 100
+---
+
+## To Do
+
+- [ ] Alpha card
+- [ ] Beta card
+`;
+
+test('syncSingleBoard: a failed inventory read creates nothing and is reported as a sync failure (AC-1)', async () => {
+  const gh = makeInventoryStub({ itemListRejects: true });
+  const mockApp = { vault: { read: async () => TWO_CARD_BOARD, modify: async () => {} } };
+
+  const result = await syncSingleBoard(mockApp, BOARD_FILE, BOARD_CONFIG, gh.execFn);
+
+  assert.strictEqual(gh.createCount(), 0, 'an unreadable inventory must not create anything');
+  assert.strictEqual(result.created, 0);
+  assert.strictEqual(result.updated, 0);
+  assert.ok(result.errors >= 1, 'an unreadable inventory must be reported as a sync failure');
+});
+
+test('syncSingleBoard: a valid empty inventory still creates, so it stays distinct from a read failure (AC-4)', async () => {
+  const gh = makeInventoryStub({ remoteItems: [] });
+  const mockApp = { vault: { read: async () => TWO_CARD_BOARD, modify: async () => {} } };
+
+  const result = await syncSingleBoard(mockApp, BOARD_FILE, BOARD_CONFIG, gh.execFn);
+
+  assert.strictEqual(result.created, 2, 'a genuinely empty project must still accept new cards');
+  assert.strictEqual(result.errors, 0);
+  assert.strictEqual(gh.createCount(), 2);
+});
+
+test('syncSingleBoard: a malformed inventory body creates nothing and is reported as a sync failure (AC-1)', async () => {
+  const gh = makeInventoryStub({ itemListBody: '<html>502 Bad Gateway</html>' });
+  const mockApp = { vault: { read: async () => TWO_CARD_BOARD, modify: async () => {} } };
+
+  const result = await syncSingleBoard(mockApp, BOARD_FILE, BOARD_CONFIG, gh.execFn);
+
+  assert.strictEqual(gh.createCount(), 0, 'an unparseable inventory must not create anything');
+  assert.strictEqual(result.created, 0);
+  assert.ok(result.errors >= 1, 'an unparseable inventory must be reported as a sync failure');
+});
+
+test('syncSingleBoard: a card beyond the first page of items is recognised as existing (AC-3)', async () => {
+  // 120 items with the card of interest last, so anything capped at the old fixed
+  // window of 100 cannot see it.
+  const gh = makeInventoryStub({ remoteItems: inventoryOfSize(120) });
+
+  const tailBoard = `---
+github_project_number: 100
+---
+
+## In Progress
+
+- [/] [#120](https://github.com/lowqualityloey/shelf/issues/120) Card 120 #priority/p2
+`;
+
+  const mockApp = { vault: { read: async () => tailBoard, modify: async () => {} } };
+  const result = await syncSingleBoard(mockApp, BOARD_FILE, BOARD_CONFIG, gh.execFn);
+
+  assert.strictEqual(
+    gh.itemListLimits().length,
+    1,
+    'one read only — gh has no offset, so repeat calls cannot reach past the window'
+  );
+  assert.ok(
+    gh.itemListLimits()[0] >= 120,
+    `the requested window must cover all 120 items, got ${gh.itemListLimits()[0]}`
+  );
+  assert.strictEqual(result.created, 0, 'item 120 exists remotely and must not be re-created');
+  assert.strictEqual(result.errors, 0);
+  assert.strictEqual(gh.createCount(), 0);
+});
+
+test('syncSingleBoard: the item-list window must not stay capped at the old fixed 100 (AC-2)', async () => {
+  const gh = makeInventoryStub({ remoteItems: inventoryOfSize(300) });
+  const mockApp = { vault: { read: async () => TWO_CARD_BOARD, modify: async () => {} } };
+
+  await syncSingleBoard(mockApp, BOARD_FILE, BOARD_CONFIG, gh.execFn);
+
+  assert.strictEqual(gh.itemListLimits().length, 1);
+  assert.ok(
+    gh.itemListLimits()[0] > 100,
+    `item-list window must exceed the old fixed 100, got ${gh.itemListLimits()[0]}`
+  );
+});
+
+test('syncSingleBoard: a window that still cuts the board short is marked incomplete and refuses to create (AC-2)', async () => {
+  // 1200 items: any sane window truncates this, and the card of interest sits in
+  // the part no window can reach.
+  const gh = makeInventoryStub({ remoteItems: inventoryOfSize(1200) });
+
+  const tailBoard = `---
+github_project_number: 100
+---
+
+## In Progress
+
+- [/] [#1200](https://github.com/lowqualityloey/shelf/issues/1200) Card 1200 #priority/p2
+`;
+
+  const mockApp = { vault: { read: async () => tailBoard, modify: async () => {} } };
+  const result = await syncSingleBoard(mockApp, BOARD_FILE, BOARD_CONFIG, gh.execFn);
+
+  assert.strictEqual(gh.createCount(), 0, 'a truncated inventory cannot prove a card is new');
+  assert.strictEqual(result.created, 0);
+  assert.ok(result.errors >= 1, 'a truncated inventory must be reported as a sync failure');
 });
 
 test('syncBoardLanesWithRemoteItems: moves card from In Progress to Done when remote status is Done', () => {

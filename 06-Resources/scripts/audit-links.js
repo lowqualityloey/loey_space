@@ -37,68 +37,8 @@ __export(audit_links_exports, {
 module.exports = __toCommonJS(audit_links_exports);
 var fs = __toESM(require("fs"));
 var path = __toESM(require("path"));
-function findVaultRoot() {
-  let current = process.cwd();
-  for (let i = 0; i < 5; i++) {
-    if (fs.existsSync(path.join(current, ".obsidian")) || fs.existsSync(path.join(current, "06-Resources"))) {
-      return current;
-    }
-    const parent = path.dirname(current);
-    if (parent === current)
-      break;
-    current = parent;
-  }
-  return process.cwd();
-}
-function levenshteinDistance(a, b) {
-  const an = a.length;
-  const bn = b.length;
-  if (an === 0)
-    return bn;
-  if (bn === 0)
-    return an;
-  const matrix = [];
-  for (let i = 0; i <= bn; ++i)
-    matrix[i] = [i];
-  for (let i = 0; i <= an; ++i)
-    matrix[0][i] = i;
-  for (let i = 1; i <= bn; ++i) {
-    for (let j = 1; j <= an; ++j) {
-      if (b.charAt(i - 1) === a.charAt(j - 1)) {
-        matrix[i][j] = matrix[i - 1][j - 1];
-      } else {
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1,
-          matrix[i][j - 1] + 1,
-          matrix[i - 1][j] + 1
-        );
-      }
-    }
-  }
-  return matrix[bn][an];
-}
-function findFuzzyMatch(target, candidates) {
-  const lowerTarget = target.toLowerCase();
-  let bestCandidate;
-  let bestDistance = Infinity;
-  for (const candidate of candidates) {
-    const lowerCandidate = candidate.toLowerCase();
-    if (lowerCandidate === lowerTarget)
-      return candidate;
-    if (lowerCandidate.includes(lowerTarget) || lowerTarget.includes(lowerCandidate)) {
-      if (bestDistance > 2) {
-        bestDistance = 2;
-        bestCandidate = candidate;
-      }
-    }
-    const dist = levenshteinDistance(lowerTarget, lowerCandidate);
-    if (dist < bestDistance && dist <= 3) {
-      bestDistance = dist;
-      bestCandidate = candidate;
-    }
-  }
-  return bestCandidate;
-}
+
+// 06-Resources/scripts/src/lib/links.ts
 function parseAliases(content) {
   const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!fmMatch)
@@ -146,6 +86,136 @@ function extractWikilinks(content) {
     }
   }
   return links;
+}
+
+// 06-Resources/scripts/src/lib/gitpaths.ts
+var import_child_process = require("child_process");
+var MAX_PATHS_PER_CALL = 200;
+function git(root, args) {
+  const result = (0, import_child_process.spawnSync)("git", args, {
+    cwd: root,
+    encoding: "utf8",
+    maxBuffer: 16 * 1024 * 1024,
+    // git writes `fatal: not a git repository` to stderr for the common non-repo case, and
+    // that is the fallback working, not an error to show an operator.
+    stdio: ["ignore", "pipe", "ignore"]
+  });
+  if (result.error || typeof result.status !== "number")
+    return { status: null, stdout: "" };
+  return { status: result.status, stdout: result.stdout ?? "" };
+}
+function trackedNotes(root) {
+  const result = git(root, ["ls-files", "-z", "--", "*.md"]);
+  if (result.status !== 0)
+    return { available: false, paths: /* @__PURE__ */ new Set() };
+  return {
+    available: true,
+    paths: new Set(result.stdout.split("\0").filter((entry) => entry.length > 0))
+  };
+}
+function ignoredAmong(root, candidates) {
+  const ignored = /* @__PURE__ */ new Set();
+  if (candidates.length === 0)
+    return { available: true, ignored };
+  for (let offset = 0; offset < candidates.length; offset += MAX_PATHS_PER_CALL) {
+    const batch = candidates.slice(offset, offset + MAX_PATHS_PER_CALL);
+    const result = git(root, ["check-ignore", "--", ...batch]);
+    if (result.status !== 0 && result.status !== 1)
+      return { available: false, ignored: /* @__PURE__ */ new Set() };
+    for (const line of result.stdout.split("\n")) {
+      if (line.length > 0)
+        ignored.add(line);
+    }
+  }
+  return { available: true, ignored };
+}
+function readRepoFacts(root, candidates) {
+  const tracked = trackedNotes(root);
+  if (!tracked.available) {
+    return { available: false, trackedNotes: /* @__PURE__ */ new Set(), ignored: /* @__PURE__ */ new Set() };
+  }
+  const rules = ignoredAmong(root, candidates);
+  if (!rules.available) {
+    return { available: false, trackedNotes: /* @__PURE__ */ new Set(), ignored: /* @__PURE__ */ new Set() };
+  }
+  return { available: true, trackedNotes: tracked.paths, ignored: rules.ignored };
+}
+
+// 06-Resources/scripts/src/audit-links.ts
+function findVaultRoot() {
+  let current = process.cwd();
+  for (let i = 0; i < 5; i++) {
+    if (fs.existsSync(path.join(current, ".obsidian")) || fs.existsSync(path.join(current, "06-Resources"))) {
+      return current;
+    }
+    const parent = path.dirname(current);
+    if (parent === current)
+      break;
+    current = parent;
+  }
+  return process.cwd();
+}
+function levenshteinDistance(a, b) {
+  const an = a.length;
+  const bn = b.length;
+  if (an === 0)
+    return bn;
+  if (bn === 0)
+    return an;
+  const matrix = [];
+  for (let i = 0; i <= bn; ++i)
+    matrix[i] = [i];
+  for (let i = 0; i <= an; ++i)
+    matrix[0][i] = i;
+  for (let i = 1; i <= bn; ++i) {
+    for (let j = 1; j <= an; ++j) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        );
+      }
+    }
+  }
+  return matrix[bn][an];
+}
+function candidatePaths(sourceRel, target) {
+  const stem = target.replace(/\.md$/i, "");
+  const candidates = /* @__PURE__ */ new Set();
+  const add = (base) => {
+    candidates.add(base);
+    candidates.add(`${base}.md`);
+  };
+  add(stem);
+  const folder = path.posix.dirname(sourceRel);
+  if (!target.includes("/") && folder !== ".")
+    add(`${folder}/${stem}`);
+  return [...candidates];
+}
+function findFuzzyMatch(target, candidates) {
+  const lowerTarget = target.toLowerCase();
+  let bestCandidate;
+  let bestDistance = Infinity;
+  for (const candidate of candidates) {
+    const lowerCandidate = candidate.toLowerCase();
+    if (lowerCandidate === lowerTarget)
+      return candidate;
+    if (lowerCandidate.includes(lowerTarget) || lowerTarget.includes(lowerCandidate)) {
+      if (bestDistance > 2) {
+        bestDistance = 2;
+        bestCandidate = candidate;
+      }
+    }
+    const dist = levenshteinDistance(lowerTarget, lowerCandidate);
+    if (dist < bestDistance && dist <= 3) {
+      bestDistance = dist;
+      bestCandidate = candidate;
+    }
+  }
+  return bestCandidate;
 }
 function auditVaultLinks(vaultRoot) {
   const IGNORED_DIRS = /* @__PURE__ */ new Set([
@@ -205,12 +275,12 @@ function auditVaultLinks(vaultRoot) {
   for (const [, note] of notes) {
     incomingBacklinks.set(note.basename.toLowerCase(), 0);
   }
-  const brokenLinks = [];
+  const unresolved = [];
   let totalLinks = 0;
   for (const [relPath, note] of notes) {
-    if (relPath.startsWith("99-Templates/"))
-      continue;
     for (const link of note.outgoingLinks) {
+      if (link.target.includes("<%"))
+        continue;
       totalLinks++;
       const lowerTarget = link.target.toLowerCase();
       const resolvesToNote = noteLookup.has(lowerTarget);
@@ -219,16 +289,28 @@ function auditVaultLinks(vaultRoot) {
         const canonical = noteLookup.get(lowerTarget);
         incomingBacklinks.set(canonical.toLowerCase(), (incomingBacklinks.get(canonical.toLowerCase()) || 0) + 1);
       } else if (!resolvesToAttachment) {
-        const suggestion = findFuzzyMatch(link.target, allTargetNames);
-        brokenLinks.push({
-          sourceFile: relPath,
-          line: link.line,
-          rawLink: link.raw,
-          target: link.target,
-          suggestion
-        });
+        unresolved.push({ sourceFile: relPath, link });
       }
     }
+  }
+  const candidates = unresolved.flatMap((item) => candidatePaths(item.sourceFile, item.link.target));
+  const repo = readRepoFacts(vaultRoot, candidates);
+  const brokenLinks = [];
+  const localOnlyLinks = [];
+  for (const { sourceFile, link } of unresolved) {
+    const trackedSource = repo.available && repo.trackedNotes.has(sourceFile);
+    const targetIsIgnored = repo.available && candidatePaths(sourceFile, link.target).some((p) => repo.ignored.has(p));
+    if (trackedSource && targetIsIgnored) {
+      localOnlyLinks.push({ sourceFile, line: link.line, rawLink: link.raw, target: link.target });
+      continue;
+    }
+    brokenLinks.push({
+      sourceFile,
+      line: link.line,
+      rawLink: link.raw,
+      target: link.target,
+      suggestion: findFuzzyMatch(link.target, allTargetNames)
+    });
   }
   const orphanNotes = [];
   for (const [relPath, note] of notes) {
@@ -245,6 +327,7 @@ function auditVaultLinks(vaultRoot) {
     totalAttachments: attachments.size,
     totalLinks,
     brokenLinks,
+    localOnlyLinks,
     orphanNotes
   };
 }
@@ -263,13 +346,24 @@ function main() {
   console.log(`\u{1F517} Total Wikilinks Read:  ${report.totalLinks}`);
   console.log("----------------------------------------");
   if (report.brokenLinks.length === 0) {
-    console.log("\u2705 No broken wikilinks found! All targets resolve cleanly.\n");
+    console.log("\u2705 No broken wikilinks found! Every target resolves, or points at content that");
+    console.log("   is not in this checkout by design (see below).\n");
   } else {
     console.log(`\u26A0\uFE0F  Found ${report.brokenLinks.length} uncreated/broken link target(s):
 `);
     for (const b of report.brokenLinks) {
       const suggestStr = b.suggestion ? ` -> Suggestion: [[${b.suggestion}]]` : "";
       console.log(`  \u274C ${b.sourceFile}:${b.line} -> ${b.rawLink}${suggestStr}`);
+    }
+    console.log("");
+  }
+  if (report.localOnlyLinks.length > 0) {
+    console.log(
+      `\u{1F517} ${report.localOnlyLinks.length} link target(s) point at local-only content (excluded by the repository's ignore rules):
+`
+    );
+    for (const l of report.localOnlyLinks) {
+      console.log(`  - ${l.sourceFile}:${l.line} -> ${l.rawLink}`);
     }
     console.log("");
   }

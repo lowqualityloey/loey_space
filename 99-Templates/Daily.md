@@ -53,6 +53,7 @@ for (const file of dailyFiles) {
 }
 
 let carried = [];
+let lastCarriedIndent = "";
 
 if (prevFile) {
   const content = await app.vault.read(prevFile);
@@ -71,11 +72,29 @@ if (prevFile) {
       inTargetSection = false;
     }
 
-    if (inTargetSection && /^\s*- \[ \]\s+/.test(line)) {
-      const itemText = line.replace(/^\s*-\s*\[ \]\s*/, "").trim();
-      if (itemText && itemText !== "[ ]" && itemText !== "..." && !carried.includes(`- [ ] ${itemText}`)) {
-        carried.push(`- [ ] ${itemText}`);
-      }
+    // A task carries forward when it is unchecked ("[ ]") or actively in progress
+    // ("[/]"). Matching "[ ]" on its own deleted in-progress work from every
+    // dashboard overnight. Indentation is preserved so nested acceptance criteria
+    // stay attached to their parent instead of arriving as independent
+    // commitments, and a completed child beneath a carried parent is kept as
+    // "[x]" so a partly-done task still shows what it already finished.
+    // The trailing ^id (blockId) is an explicit optional capture: a carried
+    // line keeps its exact ^id verbatim via itemText below, and the group
+    // being optional keeps every id-less line matching exactly as before.
+    const task = line.match(/^(\s*)-\s*\[([ /x])\]\s+(\S.*?)(?:\s+(?<blockId>\^[A-Za-z0-9-]+))?\s*$/);
+    if (!inTargetSection || !task) continue;
+
+    const indent = task[1];
+    const state = task[2];
+    const itemText = (task[3] + (task.groups && task.groups.blockId ? ` ${task.groups.blockId}` : "")).trim();
+    if (!itemText || itemText === "[ ]" || itemText === "...") continue;
+
+    if (state === " " || state === "/") {
+      const carriedLine = `${indent}- [ ] ${itemText}`;
+      if (!carried.includes(carriedLine)) carried.push(carriedLine);
+      lastCarriedIndent = indent;
+    } else if (indent.length > lastCarriedIndent.length) {
+      carried.push(`${indent}- [x] ${itemText}`);
     }
   }
 
@@ -83,6 +102,8 @@ if (prevFile) {
   // task is never open in two notes at once. Without this, every carry-over
   // duplicates the task in the Open Tasks widget, _Tasks MOC and the analytics.
   // The old note still records that the work moved on instead of vanishing.
+  // In-progress ("[/]") tasks are marked too: now that they carry forward,
+  // leaving one unchecked behind would make it a duplicate commitment.
   if (carried.length > 0) {
     const updatedLines = [];
     let inForwardSection = false;
@@ -98,8 +119,8 @@ if (prevFile) {
       }
 
       // Only real tasks are forwarded; the empty "- [ ]" placeholder is left alone.
-      if (inForwardSection && /^\s*- \[ \]\s+\S/.test(line)) {
-        updatedLines.push(line.replace(/^(\s*-\s*)\[ \]/, "$1[>]"));
+      if (inForwardSection && /^\s*-\s*\[([ /])\]\s+\S/.test(line)) {
+        updatedLines.push(line.replace(/^(\s*-\s*)\[([ /])\]/, "$1[>]"));
         didForward = true;
         continue;
       }

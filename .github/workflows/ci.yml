@@ -3,8 +3,21 @@ name: CI
 on:
   push:
     branches: [main]
+
+  # No `branches` filter here, deliberately. A `branches` filter on `pull_request`
+  # matches the BASE branch, so `branches: [main]` silently skipped every pull
+  # request opened against another feature branch — a stacked PR. Measured on #102:
+  # no run was created for it at all, so its whole suite had to be replicated by
+  # hand in a scratch clone, and the reviewer got a transcript to trust instead of
+  # a run GitHub performed.
+  #
+  # `push` stays filtered to `main`, because that is the run which verifies the
+  # canonical branch after a merge; an unrestricted `push` would repeat this job
+  # for every feature-branch push, alongside the pull-request run it duplicates.
+  #
+  # Guarded by 06-Resources/scripts/tests/ci-workflow-trigger.test.mjs, so
+  # restoring the filter fails the suite rather than quietly going dark again.
   pull_request:
-    branches: [main]
 
 jobs:
   validate:
@@ -27,6 +40,13 @@ jobs:
       - name: 🔍 TypeScript Typecheck
         run: npm run typecheck
 
+      # Runs before the bundle step on purpose: `npm run build` overwrites the
+      # committed bundles in the checkout, which would repair the very drift this
+      # step exists to catch. The guard rebuilds into a temp directory instead, so
+      # it sees the committed bytes no matter what runs after it.
+      - name: 🔒 Verify Committed Bundles Match Sources
+        run: npm run check-bundles
+
       - name: ⚡ esbuild Bundle Scripts
         run: npm run build
 
@@ -36,8 +56,17 @@ jobs:
       - name: 📋 Validate Vault Templates
         run: npm run validate-templates
 
+      # `--strict` is the whole point of this step. Without it the auditor prints its findings
+      # and exits 0 regardless, so a broken wikilink in a tracked note could never fail a
+      # build. Enabling it needed the auditor to stop calling links to content that is
+      # gitignored by design "broken" (#101) — a tracked MOC linking its own untracked content
+      # is the vault's architecture, not a defect, and `--strict` gates on the rest.
       - name: 🔍 Audit Vault Wikilinks
-        run: npm run audit-links
+        run: npm run audit-links -- --strict
+
+      # The same argument: a report whose findings do not fail the build is documentation.
+      - name: 🩺 Audit Vault Hygiene
+        run: npm run hygiene -- --strict
 
       - name: 🔐 Scan Tracked Artifacts For Secrets
         run: bash .githooks/lib/secret-scan.sh --tracked

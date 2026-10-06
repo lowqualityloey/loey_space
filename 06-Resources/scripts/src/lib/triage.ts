@@ -130,10 +130,17 @@ export function buildNote(route: RouteConfig, title: string, text: string, noteC
 export function buildKanban(todayStr: string = getTodayStr()): string {
   return [
     "---",
-    "",
-    "kanban-plugin: board",
+    `created: ${todayStr}`,
     `updated: ${todayStr}`,
-    "",
+    "type: project",
+    "status: active",
+    "priority: medium",
+    "area: dev",
+    "tags:",
+    "  - type/project",
+    "  - area/dev",
+    "  - status/active",
+    "kanban-plugin: board",
     "---",
     "",
     "## Backlog",
@@ -191,6 +198,33 @@ export function insertTask(content: string, text: string): { content: string; ok
   return { content: lines.join("\n"), ok: true };
 }
 
+/* Token and text for one capture line. The initial parse and the final rewrite
+   both go through here so a filed entry is recognised identically on both passes. */
+function parseCaptureLine(line: string): { token: string; text: string } | null {
+  if (!/^\s*-\s+\S/.test(line)) return null;
+
+  const token = line.match(TOKEN_RE);
+  if (!token) return null;
+
+  const text = line
+    .replace(/^\s*-\s+/, "")
+    .replace(TOKEN_RE, "")
+    .replace(TIME_CODE_RE, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!text) return null;
+
+  return { token: token[1].toLowerCase(), text: text };
+}
+
+/* Identity for the rewrite, deliberately not a line index: the dump can change
+   while destinations are being written, and a snapshot index then names an
+   unrelated entry. A reworded capture stops matching and is left alone. */
+function captureIdentity(token: string, text: string): string {
+  return `${token}\u0000${text}`;
+}
+
 export function parseDumpLines(dumpLines: string[]): TriageCandidate[] {
   const picked: TriageCandidate[] = [];
   let inTriaged = false;
@@ -206,49 +240,67 @@ export function parseDumpLines(dumpLines: string[]): TriageCandidate[] {
     const heading = line.match(/^###\s+.*?(\d{4}-\d{2}-\d{2})/);
     if (heading) { capturedDate = heading[1]; continue; }
 
-    if (!/^\s*-\s+\S/.test(line)) continue;
+    const parsed = parseCaptureLine(line);
+    if (!parsed) continue;
 
-    const token = line.match(TOKEN_RE);
-    if (!token) continue;
-
-    const text = line
-      .replace(/^\s*-\s+/, "")
-      .replace(TOKEN_RE, "")
-      .replace(TIME_CODE_RE, "")
-      .replace(/\s+/g, " ")
-      .trim();
-
-    if (!text) continue;
-
-    picked.push({ index: i, token: token[1].toLowerCase(), text: text, capturedDate: capturedDate });
+    picked.push({ index: i, token: parsed.token, text: parsed.text, capturedDate: capturedDate });
   }
 
   return picked;
 }
 
+function formatArchiveEntry(result: TriageResult): string {
+  const target = result.destination === "dropped"
+    ? "dropped"
+    : `[[${(result.destination || '').replace(/^.*\//, "").replace(/\.md$/, "")}]]`;
+  return `- ~~${result.item.text}~~ → ${target} \`#${result.item.token}\``;
+}
+
+/*
+ * Rewrite the dump from its CURRENT content — captures arrive while destination
+ * notes are being created, and rewriting from the starting snapshot drops them.
+ * Archives every successful filing; removes only those still identifiable in the
+ * untriaged region. A capture reworded or deleted mid-sweep stays where the human
+ * left it and is returned as `unresolved` for the caller to report.
+ */
 export function updateDumpContent(
-  dumpLines: string[],
+  currentDump: string,
   results: TriageResult[],
-  sweptIndexes: Set<number>,
   todayStr: string = getTodayStr(),
   archiveSwept: boolean = ARCHIVE_SWEPT_LINES
-): string {
-  const kept: string[] = [];
-  const logEntries: string[] = [];
+): { content: string; archived: TriageResult[]; unresolved: TriageResult[] } {
+  const filed = results.filter(r => r.ok);
 
-  for (let i = 0; i < dumpLines.length; i++) {
-    if (!sweptIndexes.has(i)) { kept.push(dumpLines[i]); continue; }
-
-    const result = results.find(r => r.item.index === i && r.ok);
-    if (!result) { kept.push(dumpLines[i]); continue; }
-
-    if (archiveSwept) {
-      const target = result.destination === "dropped"
-        ? "dropped"
-        : `[[${(result.destination || '').replace(/^.*\//, "").replace(/\.md$/, "")}]]`;
-      logEntries.push(`- ~~${result.item.text}~~ → ${target} \`#${result.item.token}\``);
-    }
+  // Multiset: two identical captures archive once each, not both from one line.
+  const pending = new Map<string, TriageResult[]>();
+  for (const result of filed) {
+    const key = captureIdentity(result.item.token, result.item.text);
+    const queue = pending.get(key);
+    if (queue) queue.push(result); else pending.set(key, [result]);
   }
+
+  const archived: TriageResult[] = [];
+  const kept: string[] = [];
+  let inTriaged = false;
+
+  for (const line of currentDump.split("\n")) {
+    if (/^##\s+.*Triaged/i.test(line)) { inTriaged = true; kept.push(line); continue; }
+    else if (/^##\s+/.test(line)) { inTriaged = false; }
+
+    if (!inTriaged) {
+      const parsed = parseCaptureLine(line);
+      const queue = parsed ? pending.get(captureIdentity(parsed.token, parsed.text)) : undefined;
+      if (queue && queue.length > 0) {
+        archived.push(queue.shift() as TriageResult);
+        continue;
+      }
+    }
+
+    kept.push(line);
+  }
+
+  const unresolved = filed.filter(r => !archived.includes(r));
+  const logEntries = archiveSwept ? filed.map(formatArchiveEntry) : [];
 
   // Drop date headings whose items were all swept.
   const pruned: string[] = [];
@@ -278,5 +330,5 @@ export function updateDumpContent(
     }
   }
 
-  return nextDump;
+  return { content: nextDump, archived, unresolved };
 }

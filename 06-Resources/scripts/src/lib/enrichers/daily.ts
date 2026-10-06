@@ -9,8 +9,19 @@ import {
   normalizeWikiLink,
   wikiLinkTarget,
   replaceSectionBody,
-  stripTaskMetadata
+  stripTaskMetadata,
+  applyEnrichmentToCurrentContent,
+  formatConflictNotice
 } from '../markdown';
+
+const DAILY_OWNED_SECTIONS = [
+  "### 🎯 Today's Focus",
+  "### Wins",
+  "### Blockers",
+  "### Reflection",
+  "## 🤖 AI Daily Summary",
+  "##### 🔗 Connected Notes"
+];
 
 // Drops a leading clock time so a log line can be dropped into a sentence.
 function stripTimestamp(entry: any): string {
@@ -632,13 +643,13 @@ ${data.tomorrowMove || "Pick your main target first thing in the morning."}
 
 export async function enrichDailyNote(app: App, file: TFile): Promise<void> {
   const Notice = (window as any).Notice || (globalThis as any).Notice;
-  let content = await app.vault.read(file);
+  const snapshot = await app.vault.read(file);
   new Notice("🤖 Gemini is analyzing your day with Kiwi Dev Chief of Staff vibes...");
 
   // 1. Extract Frontmatter Properties
-  const mood = readFrontmatterValue(content, "mood");
-  const energy = readFrontmatterValue(content, "energy");
-  const sleepHours = readFrontmatterValue(content, "sleep_hours");
+  const mood = readFrontmatterValue(snapshot, "mood");
+  const energy = readFrontmatterValue(snapshot, "energy");
+  const sleepHours = readFrontmatterValue(snapshot, "sleep_hours");
 
   const moodText = mood || "not logged";
   const energyText = energy ? `${energy} out of 5` : "not logged";
@@ -652,8 +663,8 @@ export async function enrichDailyNote(app: App, file: TFile): Promise<void> {
   const existingNotesListStr = existingNoteNames.slice(0, 60).join(", ");
 
   // 3. Extract GitHub callout table rows & parse daily sections
-  const gitRows = parseGitHubCalloutFromNote(content);
-  const sections = parseDailyNoteSections(content, gitRows.length);
+  const gitRows = parseGitHubCalloutFromNote(snapshot);
+  const sections = parseDailyNoteSections(snapshot, gitRows.length);
 
   // 4. Content completeness check
   if (sections.filledSectionCount < 1) {
@@ -704,11 +715,14 @@ export async function enrichDailyNote(app: App, file: TFile): Promise<void> {
 
   if (geminiApiKey) {
     const result = await callGeminiJson(geminiApiKey, systemPrompt, userPromptText, "Daily Enrich", 0.7);
-    if (result && result.data && (result.data.debrief || result.data.takeaway || result.data.vibe)) {
-      responseData = result.data;
-      console.log(`Daily Enrich: generated with ${result.model}`);
+    if (result.success === false) {
+      failureReason = formatGeminiFailure(result.failure);
     } else {
-      failureReason = formatGeminiFailure(result && result.failure);
+      const d = result.data as { debrief?: string; takeaway?: string; vibe?: string };
+      if (d.debrief || d.takeaway || d.vibe) {
+        responseData = d as any;
+        console.log(`Daily Enrich: generated with ${result.model}`);
+      }
     }
   } else {
     failureReason = formatGeminiFailure({ status: 0, kind: "noKey", message: "GEMINI_API_KEY is missing from .env", retrySeconds: 0, model: "" });
@@ -764,7 +778,7 @@ export async function enrichDailyNote(app: App, file: TFile): Promise<void> {
   const polishedReflection = Array.isArray(responseData.polishedReflection) && responseData.polishedReflection.length > 0 ? responseData.polishedReflection : undefined;
   const polishedFocus = Array.isArray(responseData.polishedFocus) && responseData.polishedFocus.length > 0 ? responseData.polishedFocus : undefined;
 
-  content = applyDailyEnrichment(content, {
+  const enrichmentData = {
     quote,
     author,
     debrief: debriefText,
@@ -775,17 +789,22 @@ export async function enrichDailyNote(app: App, file: TFile): Promise<void> {
     polishedBlockers,
     polishedReflection,
     polishedFocus
-  });
+  };
 
-  await app.vault.modify(file, content);
+  const conflicts = await applyEnrichmentToCurrentContent(
+    app.vault, file, snapshot, DAILY_OWNED_SECTIONS,
+    (current) => applyDailyEnrichment(current, enrichmentData)
+  );
+  const conflictNotice = formatConflictNotice(conflicts);
 
   if (usedFallback) {
     new Notice(
       `⚠️ No AI writing this time: ${failureReason}.\n\n` +
-      `A basic offline summary was assembled from your logged items instead. Re-run the enricher once the limit clears to replace it with real AI analysis.`,
+      `A basic offline summary was assembled from your logged items instead. Re-run the enricher once the limit clears to replace it with real AI analysis.` +
+      conflictNotice,
       12000
     );
   } else {
-    new Notice("✨ Daily Note enriched with Kiwi Chief of Staff vibes & real quote!");
+    new Notice("✨ Daily Note enriched with Kiwi Chief of Staff vibes & real quote!" + conflictNotice);
   }
 }

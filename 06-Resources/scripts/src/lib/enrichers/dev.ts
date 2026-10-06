@@ -1,10 +1,52 @@
 import type { App, TFile } from 'obsidian';
 import { callGeminiJson, formatGeminiFailure } from '../gemini';
-import { addFrontmatterTag, replaceSectionBody, normalizeWikiLink, wikiLinkTarget, toSingleLine } from '../markdown';
+import { addFrontmatterTag, replaceSectionBody, resolveWikiLinks, degradeUnresolvableLinks, toSingleLine, applyEnrichmentToCurrentContent, formatConflictNotice } from '../markdown';
+
+const DEV_OWNED_SECTIONS = ["## Context", "## Code Explanation", "## Related"];
+
+function applyDevEnrichment(source: string, data: any, existingNotes: string[]): string {
+  let content = source;
+
+  if (data.type) content = content.replace(/^type:\s*.*$/m, `type: ${data.type}`);
+  if (data.area) content = content.replace(/^area:\s*.*$/m, `area: ${data.area}`);
+  if (data.language) content = content.replace(/^language:\s*.*$/m, `language: ${data.language}`);
+
+  if (Array.isArray(data.tags)) {
+    data.tags.forEach((t: string) => { content = addFrontmatterTag(content, t); });
+  }
+
+  if (data.context) {
+    const ctxLines: string[] = [];
+    // #62: these are free-text fields, and the model's own example returns a
+    // wikilink for `system`. Degrade the unresolvable ones rather than let the
+    // Context section carry a link that leads nowhere.
+    const system = degradeUnresolvableLinks(toSingleLine(data.context.system), existingNotes);
+    const stack = degradeUnresolvableLinks(toSingleLine(data.context.stack), existingNotes);
+    const fits = degradeUnresolvableLinks(toSingleLine(data.context.whereItFits), existingNotes);
+    if (system) ctxLines.push(`- System: ${system}`);
+    if (stack) ctxLines.push(`- Stack: ${stack}`);
+    if (fits) ctxLines.push(`- Where this fits: ${fits}`);
+    if (ctxLines.length) content = replaceSectionBody(content, "## Context", ctxLines.join("\n"));
+  }
+
+  if (Array.isArray(data.codeExplanation)) {
+    const items = data.codeExplanation.map(toSingleLine).filter(Boolean);
+    if (items.length) content = replaceSectionBody(content, "## Code Explanation", items.map((e: string) => `- ${e}`).join("\n"));
+  }
+
+  if (Array.isArray(data.related)) {
+    // #62: a related note that does not exist is written as plain text, not as
+    // a wikilink — this path normalised the syntax but never checked the target.
+    const items = resolveWikiLinks(data.related, existingNotes);
+    if (items.length) content = replaceSectionBody(content, "## Related", items.map((i) => `- ${i.text}`).join("\n"));
+  }
+
+  return content;
+}
 
 export async function enrichDevNote(app: App, file: TFile): Promise<void> {
   const Notice = (window as any).Notice || (globalThis as any).Notice;
-  let content = await app.vault.read(file);
+  const snapshot = await app.vault.read(file);
   const noteTitle = file.basename;
 
   new Notice(`🤖 Analyzing & enriching Dev Note: "${noteTitle}"...`);
@@ -36,7 +78,7 @@ Title: "${noteTitle}"
 Existing Notes: [${existingNotesStr}]
 
 Content:
-${content}
+${snapshot}
 
 JSON format:
 {
@@ -52,61 +94,24 @@ JSON format:
 
   const devResult = await callGeminiJson(geminiApiKey, systemPrompt, userPrompt, "Dev Enrich", 0.4);
 
-  if (!devResult || !devResult.data) {
+  if (devResult.success === false) {
+    const failure = devResult.failure;
     new Notice(
-      `⚠️ Dev note not enriched: ${formatGeminiFailure(devResult && devResult.failure)}.\n\n` +
+      `⚠️ Dev note not enriched: ${formatGeminiFailure(failure)}.\n\n` +
       `The note was left unchanged. See the console for the full response.`,
       12000
     );
     return;
   }
+  const devData = devResult.data;
 
-  try {
-    const data = devResult.data;
+try {
+    const conflicts = await applyEnrichmentToCurrentContent(
+      app.vault, file, snapshot, DEV_OWNED_SECTIONS,
+      (current) => applyDevEnrichment(current, devData, existingNotes)
+    );
 
-    // Update frontmatter properties
-    if (data.type) content = content.replace(/^type:\s*.*$/m, `type: ${data.type}`);
-    if (data.area) content = content.replace(/^area:\s*.*$/m, `area: ${data.area}`);
-    if (data.language) content = content.replace(/^language:\s*.*$/m, `language: ${data.language}`);
-
-    if (Array.isArray(data.tags)) {
-      data.tags.forEach((t: string) => { content = addFrontmatterTag(content, t); });
-    }
-
-    // Update Context
-    if (data.context) {
-      const ctxLines: string[] = [];
-      const system = toSingleLine(data.context.system);
-      const stack = toSingleLine(data.context.stack);
-      const fits = toSingleLine(data.context.whereItFits);
-      if (system) ctxLines.push(`- System: ${system}`);
-      if (stack) ctxLines.push(`- Stack: ${stack}`);
-      if (fits) ctxLines.push(`- Where this fits: ${fits}`);
-      if (ctxLines.length) content = replaceSectionBody(content, "## Context", ctxLines.join("\n"));
-    }
-
-    // Update Code Explanation
-    if (Array.isArray(data.codeExplanation)) {
-      const items = data.codeExplanation.map(toSingleLine).filter(Boolean);
-      if (items.length) content = replaceSectionBody(content, "## Code Explanation", items.map((e: string) => `- ${e}`).join("\n"));
-    }
-
-    // Update Related
-    if (Array.isArray(data.related)) {
-      const seen = new Set<string>();
-      const links: string[] = [];
-      data.related.forEach((r: any) => {
-        const normalized = normalizeWikiLink(r);
-        const target = wikiLinkTarget(normalized);
-        if (!target || seen.has(target.toLowerCase())) return;
-        seen.add(target.toLowerCase());
-        links.push(normalized);
-      });
-      if (links.length) content = replaceSectionBody(content, "## Related", links.map((l: string) => `- ${l}`).join("\n"));
-    }
-
-    await app.vault.modify(file, content);
-    new Notice(`✨ Dev note "${noteTitle}" enriched with AI! (${devResult.model})`);
+    new Notice(`✨ Dev note "${noteTitle}" enriched with AI! (${devResult.model})${formatConflictNotice(conflicts)}`);
 
   } catch (err) {
     console.error("Failed to apply Dev enrichment:", err);

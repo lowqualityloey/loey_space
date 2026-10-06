@@ -2,6 +2,8 @@ import type { App, TFile } from 'obsidian';
 import type { QuickAddParams } from './types';
 import { parseGeminiError, formatGeminiFailure, type GeminiFailure } from './lib/gemini';
 import { stripTaskMetadata } from './lib/markdown';
+import { buildWeeklyWindow, describeCoverage, selectWeeklyNotes } from './lib/weekly-window';
+import { extractDailyData, summarizeWeek, describeWeekCoverage } from './lib/weekly-extract';
 
 interface WeeklySummaryJson {
   weeklyTitle?: string;
@@ -35,17 +37,17 @@ export = async function weeklyAISummary(params?: QuickAddParams): Promise<void> 
     return;
   }
 
-  // 2. Get daily notes from the last 7 days
-  const dailyNotes = app.vault.getMarkdownFiles()
-    .filter((f: TFile) => f.path.startsWith("01-Daily/") &&
-                !f.name.includes("MOC") &&
-                !f.name.includes("All daily notes live here"));
-
-  // Sort by date (newest first)
-  dailyNotes.sort((a: TFile, b: TFile) => b.name.localeCompare(a.name));
-
-  // Get last 7 days of notes (or all if fewer than 7)
-  const recentNotes = dailyNotes.slice(0, 7);
+  // 2. Select the daily notes inside the declared review window (#57).
+  //
+  // The window is derived first and the notes are matched against it, so a
+  // sparse week selects FEWER notes instead of reaching further back for
+  // older ones to fill seven slots. Membership is the window's own paths, so a
+  // file that is not a dated daily note cannot enter by name accident — the
+  // measured case was `01-Daily/Tasks Kanban.md`, which the old name-blocklist
+  // admitted and the name-sort placed first.
+  const reviewWindow = buildWeeklyWindow(new Date());
+  const recentNotes = selectWeeklyNotes(app.vault.getMarkdownFiles(), reviewWindow);
+  const coverage = describeCoverage(reviewWindow, recentNotes.length);
 
   if (recentNotes.length === 0) {
     new Notice("⚠️ No daily notes found for weekly summary!");
@@ -70,10 +72,27 @@ export = async function weeklyAISummary(params?: QuickAddParams): Promise<void> 
 
   const weekData = weekDataResults.filter((data): data is NonNullable<typeof data> => data !== null);
 
+  // 3b. Summarise what the week actually contains (#58). Averages exclude
+  // unknown readings and are returned with the coverage they rest on, so a
+  // mean over two logged days cannot be read as a mean over seven.
+  const weekSummary = summarizeWeek(weekData);
+
   // 4. Prepare prompt for AI
   const systemPrompt = `You are an insightful personal coach and productivity analyst. Analyze weekly data and provide comprehensive insights with actionable recommendations.`;
 
   const userPrompt = `Analyze this weekly data and provide a comprehensive weekly review. Provide JSON only.
+
+REVIEW WINDOW (the span these notes were selected from, and how much of it was logged):
+from: ${reviewWindow.startDate}
+to: ${reviewWindow.endDate}
+calendar days: ${reviewWindow.days}
+timezone: ${reviewWindow.timeZone}
+coverage: ${coverage}
+
+WEEK SUMMARY (computed from the notes below; absent values are excluded from every average, and each coverage line states what its average rests on — do not present an average as covering more days than its coverage says):
+${JSON.stringify(weekSummary, null, 2)}
+
+These notes were selected BY this window. Do not describe the week as more complete than the coverage says, and treat a day with no note as unknown rather than as a zero.
 
 WEEKLY DATA:
 ${JSON.stringify(weekData, null, 2)}
@@ -184,6 +203,13 @@ JSON FORMAT:
       content = `---
 created: ${year}-${month}-${day}
 updated: ${year}-${month}-${day}
+// The exact window this run analysed (#59). Written into the note as well as
+// into its body because a review's statistics must be anchored to the period it
+// was written for, not to the day someone opens it — and the note's own name is
+// not a dependable source: this script numbers its files with a calendar-year
+// formula that disagrees with the ISO week on about half of all days.
+period_start: ${reviewWindow.startDate}
+period_end: ${reviewWindow.endDate}
 type: review
 status: active
 area: general
@@ -196,7 +222,11 @@ tags:
 # 📊 Weekly Review: Week ${weekNumber}, ${year}
 
 **Period**: ${getWeekRange(currentDate)}
+**Analysed window**: ${reviewWindow.startDate} to ${reviewWindow.endDate} (${reviewWindow.timeZone})
 **Theme**: ${data.weeklyTitle || "Weekly Analysis"}
+
+${coverage}
+${describeWeekCoverage(weekSummary)}
 
 ---
 
@@ -268,16 +298,16 @@ dv.paragraph(\`**Habit Completion Rate**: \${habitRate}% (\${completedHabits}/\$
 
 ## 📝 Manual Review Notes
 
-### What Went Well This Week
+### What went well this week
 -
 
-### What Could Be Improved
+### What was challenging or needs adjustment
 -
 
-### Key Learnings
+### Key learnings
 -
 
-### Goals for Next Week
+### Goals for next week
 1.
 2.
 3.
@@ -331,89 +361,6 @@ SORT updated DESC
 };
 
 // Helper function to extract data from daily notes
-function extractDailyData(content: string, noteDate: string) {
-  const lines = content.split('\n');
-
-  let mood = "neutral";
-  let energy = "3";
-  let sleepHours = "7";
-  const completedTasks: string[] = [];
-  const unfinishedTasks: string[] = [];
-  const checkedHabits: string[] = [];
-  const winsLog: string[] = [];
-  const blockersLog: string[] = [];
-
-  // Extract frontmatter
-  const moodMatch = content.match(/^mood:\s*(.*)$/m);
-  const energyMatch = content.match(/^energy:\s*(.*)$/m);
-  const sleepMatch = content.match(/^sleep_hours:\s*(.*)$/m);
-
-  if (moodMatch && moodMatch[1].trim()) mood = moodMatch[1].trim();
-  if (energyMatch && energyMatch[1].trim()) energy = energyMatch[1].trim();
-  if (sleepMatch && sleepMatch[1].trim()) sleepHours = sleepMatch[1].trim();
-
-  let currentSec = "";
-  for (const line of lines) {
-    const trimmed = line.trim();
-
-    // Update current section
-    if (trimmed.startsWith("## ")) {
-      currentSec = trimmed.toLowerCase();
-    }
-
-    if (!trimmed || trimmed.startsWith(">") || trimmed.startsWith("|")) {
-      continue;
-    }
-
-    // Extract tasks
-    if (currentSec.includes("task")) {
-      const doneMatch = trimmed.match(/^\s*-\s*\[x\]\s+(.*)$/i);
-      const openMatch = trimmed.match(/^\s*-\s*\[ \]\s+(.*)$/);
-      if (doneMatch && doneMatch[1].trim()) {
-        const itemText = doneMatch[1].trim();
-        if (!completedTasks.includes(itemText)) completedTasks.push(itemText);
-      } else if (openMatch && openMatch[1].trim() && openMatch[1].trim() !== "..." && openMatch[1].trim() !== "None") {
-        const itemText = openMatch[1].trim();
-        if (!unfinishedTasks.includes(itemText)) unfinishedTasks.push(itemText);
-      }
-    }
-
-    // Extract habits
-    if (currentSec.includes("habit")) {
-      const habitMatch = trimmed.match(/^\s*-\s*\[x\]\s+(.*)$/i);
-      if (habitMatch && habitMatch[1].trim()) {
-        const habitText = stripTaskMetadata(habitMatch[1]);
-        if (habitText && !checkedHabits.includes(habitText)) checkedHabits.push(habitText);
-      }
-    }
-
-    // Extract wins
-    if (currentSec.includes("win")) {
-      const cleanItem = trimmed.replace(/^-\s*/, "").trim();
-      if (cleanItem) winsLog.push(cleanItem);
-    }
-
-    // Extract blockers
-    if (currentSec.includes("blocker")) {
-      const cleanItem = trimmed.replace(/^-\s*/, "").trim();
-      if (cleanItem) blockersLog.push(cleanItem);
-    }
-  }
-
-  return {
-    date: noteDate,
-    mood: mood,
-    energy: parseInt(energy) || 3,
-    sleepHours: parseFloat(sleepHours) || 7,
-    completedTasks: completedTasks,
-    unfinishedTasks: unfinishedTasks,
-    completedHabits: checkedHabits,
-    wins: winsLog,
-    blockers: blockersLog,
-    taskCompletionRate: completedTasks.length / (completedTasks.length + unfinishedTasks.length) || 0,
-    habitCompletionRate: checkedHabits.length // Assuming 5 habits per day as baseline
-  };
-}
 
 // Helper function to format weekly summary
 function formatWeeklySummary(data: WeeklySummaryJson): string {

@@ -1,6 +1,13 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+// The two parsers live in `lib/links.ts` so that importing them from another script
+// cannot execute this file's CLI (see the header there). Re-exported so every existing
+// `import { parseAliases } from '../audit-links.js'` keeps resolving against the bundle.
+import { parseAliases, extractWikilinks } from './lib/links';
+import { readRepoFacts } from './lib/gitpaths';
+export { parseAliases, extractWikilinks };
+
 interface NoteInfo {
   relativePath: string;
   basename: string;
@@ -16,11 +23,24 @@ interface BrokenLink {
   suggestion?: string;
 }
 
+// A link whose target is not in this checkout **by design**: its candidate path is excluded by
+// the repository's own ignore rules, so the content exists on the machine the vault is for and
+// in no clone of it. Kept apart from `BrokenLink` because the two need different responses —
+// one is a typo, the other is the architecture (`Home.md` links the capture dump that
+// `.gitignore` keeps local) — and because only the first should ever fail a build.
+interface LocalOnlyLink {
+  sourceFile: string;
+  line: number;
+  rawLink: string;
+  target: string;
+}
+
 interface AuditReport {
   totalNotes: number;
   totalAttachments: number;
   totalLinks: number;
   brokenLinks: BrokenLink[];
+  localOnlyLinks: LocalOnlyLink[];
   orphanNotes: string[];
 }
 
@@ -63,6 +83,32 @@ function levenshteinDistance(a: string, b: string): number {
   return matrix[bn][an];
 }
 
+// The paths a target could name, in the order Obsidian would try them.
+//
+// A target that carries a path (`00-Inbox/quick-capture-dump`) names its own candidates, with
+// and without the `.md` extension. A bare target (`quick-capture-dump`) resolves against the
+// whole vault, and Obsidian prefers the linking note's own folder before the root — which is
+// not academic here: the one bare target in the real report is `![[quick-capture-dump]]` in
+// `00-Inbox/_Inbox MOC.md`, a sibling of the note it names, and without that same-folder
+// candidate it would stay "broken" and CI could still not be made strict.
+//
+// The stated limit: a bare target whose only home is some OTHER ignored folder is reported
+// broken, because a static reader has no way to ask about every folder. Qualifying the link
+// fixes it, and the case is visible rather than silent — the count is printed.
+function candidatePaths(sourceRel: string, target: string): string[] {
+  const stem = target.replace(/\.md$/i, '');
+  const candidates = new Set<string>();
+  const add = (base: string) => {
+    candidates.add(base);
+    candidates.add(`${base}.md`);
+  };
+
+  add(stem);
+  const folder = path.posix.dirname(sourceRel);
+  if (!target.includes('/') && folder !== '.') add(`${folder}/${stem}`);
+  return [...candidates];
+}
+
 function findFuzzyMatch(target: string, candidates: string[]): string | undefined {
   const lowerTarget = target.toLowerCase();
   let bestCandidate: string | undefined;
@@ -87,66 +133,6 @@ function findFuzzyMatch(target: string, candidates: string[]): string | undefine
   }
 
   return bestCandidate;
-}
-
-export function parseAliases(content: string): string[] {
-  const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  if (!fmMatch) return [];
-
-  const fm = fmMatch[1];
-  const aliasesMatch = fm.match(/^aliases:\s*(.*)$/m);
-  if (!aliasesMatch) return [];
-
-  const raw = aliasesMatch[1].trim();
-  if (raw.startsWith('[') && raw.endsWith(']')) {
-    return raw.slice(1, -1).split(',').map(s => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
-  }
-
-  const listMatches = fm.match(/^aliases:\s*\r?\n((?:\s*-\s*.*(?:\r?\n|$))+)/m);
-  if (listMatches) {
-    return listMatches[1]
-      .split('\n')
-      .map(line => line.replace(/^\s*-\s*/, '').trim().replace(/^["']|["']$/g, ''))
-      .filter(Boolean);
-  }
-
-  return raw ? [raw.replace(/^["']|["']$/g, '')] : [];
-}
-
-export function extractWikilinks(content: string): Array<{ target: string; raw: string; line: number }> {
-  const links: Array<{ target: string; raw: string; line: number }> = [];
-  const lines = content.split('\n');
-
-  let inFence = false;
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (line.trim().startsWith('```')) {
-      inFence = !inFence;
-      continue;
-    }
-    if (inFence) continue;
-
-    // Strip inline code blocks before scanning for wikilinks
-    const strippedLine = line.replace(/`[^`]+`/g, ' ');
-
-    const matches = strippedLine.matchAll(/!?\[\[([^\[\]]+)\]\]/g);
-    for (const match of matches) {
-      const raw = match[0];
-      const inner = match[1].trim();
-      const cleanInner = inner.replace(/\\\|/g, '|');
-      const targetOnly = cleanInner.split('|')[0].split('#')[0].trim();
-      if (targetOnly && targetOnly !== '|' && targetOnly !== '#') {
-        links.push({
-          target: targetOnly.replace(/\.md$/i, ''),
-          raw: raw,
-          line: i + 1
-        });
-      }
-    }
-  }
-
-  return links;
 }
 
 export function auditVaultLinks(vaultRoot: string): AuditReport {
@@ -217,13 +203,23 @@ export function auditVaultLinks(vaultRoot: string): AuditReport {
     incomingBacklinks.set(note.basename.toLowerCase(), 0);
   }
 
-  const brokenLinks: BrokenLink[] = [];
+  const unresolved: Array<{ sourceFile: string; link: { target: string; raw: string; line: number } }> = [];
   let totalLinks = 0;
 
   for (const [relPath, note] of notes) {
-    if (relPath.startsWith('99-Templates/')) continue;
-
+    // Issue #54: templates used to be skipped here, so a blueprint could ship a wikilink
+    // that cannot resolve in any note it produces and no audit would ever say so.
+    // `99-Templates/Project.md` carried `[[08-Concepts/ ]]` and `[[04-Learning/ ]]` —
+    // folder targets, not the notes the template asks the author to add. A template is a
+    // metadata contract in its own right (the validator already fails one that declares no
+    // `type`), so its links are audited like any other note's.
     for (const link of note.outgoingLinks) {
+      // A Templater blueprint resolves some targets at RENDER time: `[[<% tp.file.title %>
+      // Kanban]]` has no target until the template runs, so it cannot be resolved
+      // statically and is not a broken link. An EMPTY `[[ ]]` placeholder never reaches
+      // here at all — `extractWikilinks` drops a link whose target is blank.
+      if (link.target.includes('<%')) continue;
+
       totalLinks++;
       const lowerTarget = link.target.toLowerCase();
 
@@ -234,16 +230,41 @@ export function auditVaultLinks(vaultRoot: string): AuditReport {
         const canonical = noteLookup.get(lowerTarget)!;
         incomingBacklinks.set(canonical.toLowerCase(), (incomingBacklinks.get(canonical.toLowerCase()) || 0) + 1);
       } else if (!resolvesToAttachment) {
-        const suggestion = findFuzzyMatch(link.target, allTargetNames);
-        brokenLinks.push({
-          sourceFile: relPath,
-          line: link.line,
-          rawLink: link.raw,
-          target: link.target,
-          suggestion
-        });
+        unresolved.push({ sourceFile: relPath, link });
       }
     }
+  }
+
+  // Issue #101: an unresolved target is not automatically a defect. In a clone, content the
+  // repository deliberately does not carry is simply absent, and the ignore rules — not the
+  // disk — are what say so. Split here, so `--strict` can gate on the part that is decidable.
+  const candidates = unresolved.flatMap((item) => candidatePaths(item.sourceFile, item.link.target));
+  const repo = readRepoFacts(vaultRoot, candidates);
+  const brokenLinks: BrokenLink[] = [];
+  const localOnlyLinks: LocalOnlyLink[] = [];
+
+  for (const { sourceFile, link } of unresolved) {
+    // A note that is itself untracked cannot have its dangling links excused by the ignore
+    // rules: an untracked note and an untracked target live on the same disk, so there the
+    // question IS decidable and a link that resolves nowhere is a real defect. Without this
+    // clause every dangling link in the owner's own notes would be reclassified as local-only
+    // and the report would stop reporting the very findings it exists for.
+    const trackedSource = repo.available && repo.trackedNotes.has(sourceFile);
+    const targetIsIgnored =
+      repo.available && candidatePaths(sourceFile, link.target).some((p) => repo.ignored.has(p));
+
+    if (trackedSource && targetIsIgnored) {
+      localOnlyLinks.push({ sourceFile, line: link.line, rawLink: link.raw, target: link.target });
+      continue;
+    }
+
+    brokenLinks.push({
+      sourceFile,
+      line: link.line,
+      rawLink: link.raw,
+      target: link.target,
+      suggestion: findFuzzyMatch(link.target, allTargetNames)
+    });
   }
 
   const orphanNotes: string[] = [];
@@ -270,6 +291,7 @@ export function auditVaultLinks(vaultRoot: string): AuditReport {
     totalAttachments: attachments.size,
     totalLinks,
     brokenLinks,
+    localOnlyLinks,
     orphanNotes
   };
 }
@@ -292,12 +314,28 @@ export function main() {
   console.log('----------------------------------------');
 
   if (report.brokenLinks.length === 0) {
-    console.log('✅ No broken wikilinks found! All targets resolve cleanly.\n');
+    console.log('✅ No broken wikilinks found! Every target resolves, or points at content that');
+    console.log('   is not in this checkout by design (see below).\n');
   } else {
     console.log(`⚠️  Found ${report.brokenLinks.length} uncreated/broken link target(s):\n`);
     for (const b of report.brokenLinks) {
       const suggestStr = b.suggestion ? ` -> Suggestion: [[${b.suggestion}]]` : '';
       console.log(`  ❌ ${b.sourceFile}:${b.line} -> ${b.rawLink}${suggestStr}`);
+    }
+    console.log('');
+  }
+
+  // Disclosed whether or not it is empty, because the alternative is a report that quietly
+  // omits findings. `--strict` passes on these: the target's path is excluded by the
+  // repository's ignore rules, so the link is correct where the content lives and unverifiable
+  // here — a different thing from a typo, and not something a build should fail on.
+  if (report.localOnlyLinks.length > 0) {
+    console.log(
+      `🔗 ${report.localOnlyLinks.length} link target(s) point at local-only content ` +
+        `(excluded by the repository's ignore rules):\n`
+    );
+    for (const l of report.localOnlyLinks) {
+      console.log(`  - ${l.sourceFile}:${l.line} -> ${l.rawLink}`);
     }
     console.log('');
   }
@@ -317,6 +355,8 @@ export function main() {
 
   console.log('========================================');
 
+  // Only genuinely dangling links fail the gate. Local-only content is reported and passes,
+  // which is what lets CI run the strict form at all.
   if (isStrict && report.brokenLinks.length > 0) {
     console.error('❌ Strict audit failed: Broken links exist in vault.');
     process.exit(1);

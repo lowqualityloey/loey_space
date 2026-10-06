@@ -39,6 +39,23 @@ test("buildKanban: generates valid kanban board structure", () => {
   assert.ok(kanban.includes("## To Do"));
   assert.ok(kanban.includes("## In Progress"));
   assert.ok(kanban.includes("## Done"));
+
+  // Issue #54: a board generated here used to declare no `type` at all, so the validator
+  // treated it as out of contract BY DESIGN — a board created for a project could not be
+  // checked against the project contract, and its missing metadata was invisible. It now
+  // carries the same metadata the standalone `Kanban.md` blueprint does, plus every standard
+  // lane. `docs/tasks/` records the lane set; AGENTS.md's scaffolding protocol names it.
+  for (const field of ["created", "updated", "type", "status", "priority", "area", "tags"]) {
+    assert.ok(
+      new RegExp(`^${field}:`, "m").test(kanban),
+      `the generated board must declare \`${field}\`\n--- board ---\n${kanban}`
+    );
+  }
+  assert.ok(/^type: project$/m.test(kanban), "the board is created for a project, so it declares that type");
+
+  for (const lane of ["## Backlog", "## To Do", "## In Progress", "## Review / Test", "## Done", "## Archive"]) {
+    assert.ok(kanban.includes(lane), `the generated board must declare the \`${lane}\` lane\n--- board ---\n${kanban}`);
+  }
 });
 
 test("insertTask: places task in Tasks section or replaces empty task checkbox", () => {
@@ -68,11 +85,48 @@ test("parseDumpLines & updateDumpContent: parses dump lines and updates dump his
     { item: items[0], destination: "01-Daily/2026-08-31.md", ok: true },
     { item: items[1], destination: "04-Learning/boot.dev.md", ok: true }
   ];
-  const sweptIndexes = new Set([items[0].index, items[1].index]);
 
-  const nextDump = updateDumpContent(dumpLines, results, sweptIndexes, "2026-08-31");
+  const { content: nextDump, archived, unresolved } = updateDumpContent(
+    dumpLines.join("\n"),
+    results,
+    "2026-08-31"
+  );
+
   assert.ok(nextDump.includes("## ✅ Triaged"));
   assert.ok(nextDump.includes("~~laundry~~ → [[2026-08-31]] `#do`"));
   assert.ok(nextDump.includes("~~https://boot.dev/~~ → [[boot.dev]] `#learn`"));
   assert.ok(nextDump.includes("- unhandled note"));
+  assert.deepStrictEqual(archived, results);
+  assert.deepStrictEqual(unresolved, []);
+});
+
+test("updateDumpContent: archives captures that survive to the current content and leaves reworded ones", () => {
+  const dumpLines = [
+    "### 📅 2026-08-31",
+    "- laundry #do",
+    "- https://boot.dev/ #learn"
+  ];
+  const items = parseDumpLines(dumpLines);
+  const results = [
+    { item: items[0], destination: "01-Daily/2026-08-31.md", ok: true },
+    { item: items[1], destination: "04-Learning/boot.dev.md", ok: true },
+    { item: { index: 99, token: "concept", text: "gone already", capturedDate: "" }, destination: "08-Concepts/x.md", ok: true }
+  ];
+
+  // "laundry" was reworded mid-sweep; the third capture was deleted outright.
+  const current = [
+    "### 📅 2026-08-31",
+    "- do the laundry now #do",
+    "- https://boot.dev/ #learn",
+    "- appended mid sweep #concept"
+  ].join("\n");
+
+  const { content, archived, unresolved } = updateDumpContent(current, results, "2026-08-31");
+
+  assert.ok(content.includes("- do the laundry now #do"), "a reworded capture is left alone");
+  assert.ok(content.includes("- appended mid sweep #concept"), "an appended capture is left alone");
+  assert.ok(!content.includes("- https://boot.dev/ #learn"), "an untouched filed capture is swept");
+  assert.strictEqual(archived.length, 1);
+  assert.strictEqual(archived[0].item.text, "https://boot.dev/");
+  assert.strictEqual(unresolved.length, 2, "reworded and deleted captures are reported, not dropped");
 });

@@ -29,7 +29,7 @@ flowchart LR
 ```
 
 1. **Capture**: Log daily notes, dev snippets, learning items, or inbox entries with 1-click QuickAdd buttons.
-2. **Enrich**: Trigger `Ctrl + Shift + A` or click `✨` to run the **Multi-Domain AI Enricher** ([`ai-enrich-action.js`](file:///c:/Users/jonel/Documents/loey_space/06-Resources/scripts/ai-enrich-action.js)) for automatic summaries, reflections, code breakdowns, or domain lore.
+2. **Enrich**: Trigger `Ctrl + Shift + A` or click `✨` to run the **Multi-Domain AI Enricher** ([`ai-enrich-action.js`](../scripts/ai-enrich-action.js)) for automatic summaries, reflections, code breakdowns, or domain lore.
 3. **Connect**: Link concept words (`[[Fetch API]]`, `[[AI integration]]`) to populate evergreen concept notes with live Dataview backreferences.
 4. **Review**: Check active tasks (`[/]`, `[ ]`) and completion histories on [[01-Daily/_Tasks MOC|_Tasks MOC.md]] and [[Home|Home.md]].
 
@@ -76,7 +76,7 @@ flowchart TD
 | **💻 `03-Dev/`**         | Technical work & code knowledge          | Dev logs, debugging notes, architecture decisions, snippets, `_Dev MOC.md`. ✨ *AI-enrichable*                                                                                                                                            |
 | **📖 `04-Learning/`**    | Knowledge acquisition in progress        | Courses, books, tutorials, study notes, `_Learning MOC.md`. Move finished learning into `08-Concepts/` (ideas) or `06-Resources/` (reference). ✨ *AI-enrichable*                                                                         |
 | **👤 `05-Personal/`**    | Private life administration              | Health and fitness logs, finances, goals, personal journaling, `_Personal MOC.md`. Truly sensitive material belongs in `.secrets/`, not here                                                                                             |
-| **📚 `06-Resources/`**   | Reference material & automation          | Cheatsheets, manuals, how-tos, policies, `APIs/`, `clipper-templates/` (Obsidian Web Clipper JSON presets), and `scripts/` (`ai-enrich-action.js`, `weekly-summary.js`). Things you *refer to* or *run* — not things you're *working on* |
+| **📚 `06-Resources/`**   | Reference material & automation          | Cheatsheets, manuals, how-tos, policies, `APIs/`, `clipper-templates/` (Obsidian Web Clipper JSON presets), and `scripts/` (`ai-enrich-action.js`, `weekly-ai-summary.js`). Things you *refer to* or *run* — not things you're *working on* |
 | **📊 `07-Reviews/`**     | Periodic reflection & retrospectives     | Weekly (`YYYY-[W]WW.md`) and monthly (`YYYY-MM.md`) reviews, `Habit Analytics Dashboard.md`, post-mortems, AI-generated summaries, `_Reviews MOC.md`                                                                                     |
 | **💡 `08-Concepts/`**    | Permanent atomic knowledge               | Atomic ideas, principles, mental models (`YYYY-MM-DD_HHmm {{VALUE}}`), `_Concepts MOC.md`. Each note self-contained and linked. Carries `last_reviewed` + `review_cycle: 90d`. ✨ *AI-enrichable*. *The core of your Zettelkasten*        |
 | **📎 `99-Attachments/`** | Media and binary assets                  | Images, screenshots, PDFs, audio, exports — filed into monthly `YYYY-MM/` subfolders, plus `_Attachments MOC.md`. Keeps assets out of your note flow                                                                                     |
@@ -321,8 +321,8 @@ Start any prompt in your AI agent interface with `"hey loey"` to trigger fast wo
 ### ⚙️ Supported Agents & Recommended Models
 
 The assistant interface is tool-agnostic:
-- **Agentic Coding Assistants** *(Antigravity, Kiro, Cursor, Windsurf, Claude Code)*: Automatically load [`AGENTS.md`](file:///c:/Users/jonel/Documents/loey_space/AGENTS.md) and all 5 skills with **zero setup**.
-- **In-Obsidian Native AI**: Uses `GEMINI_API_KEY` from [`.env`](file:///c:/Users/jonel/Documents/loey_space/.env) via [`06-Resources/scripts/`](file:///c:/Users/jonel/Documents/loey_space/06-Resources/scripts).
+- **Agentic Coding Assistants** *(Antigravity, Kiro, Cursor, Windsurf, Claude Code)*: Automatically load [`AGENTS.md`](../../AGENTS.md) and all 5 skills with **zero setup**.
+- **In-Obsidian Native AI**: Uses `GEMINI_API_KEY` from [`.env`](../../.env) via [`06-Resources/scripts/`](../scripts).
 - **Recommended Models**:
   - `gemini-2.5-flash` / `gemini-2.5-flash-lite`, `gpt-4o-mini`, or `claude-3-5-haiku` for fast daily triage & checks.
   - `gemini-2.5-pro` or `claude-3-7-sonnet` for deep concept synthesis and project planning.

@@ -74,18 +74,156 @@ export function wikiLinkTarget(link: any): string {
   return inner[1].split("|")[0].split("#")[0].trim();
 }
 
+// Builds lowercase-name -> exact-name, omitting any name that is ambiguous.
+// Two notes differing only in case must never silently resolve to one another,
+// so an ambiguous key is absent from the map and the candidate stays unresolved.
+function exactNameIndex(existingNotes: string[]): Map<string, string> {
+  const index = new Map<string, string>();
+  const ambiguous = new Set<string>();
+
+  for (const name of existingNotes || []) {
+    const key = String(name).toLowerCase();
+    const seen = index.get(key);
+    if (seen === undefined) index.set(key, name);
+    else if (seen !== name) ambiguous.add(key);
+  }
+
+  for (const key of ambiguous) index.delete(key);
+  return index;
+}
+
+// The readable words of a candidate that resolves to nothing: the alias when it
+// carried one, otherwise the target, with bracket syntax and highlight gone.
+function unresolvedDisplay(normalized: string, target: string): string {
+  const alias = String(normalized).match(/\[\[[^\[\]]*\|([^\[\]]+)\]\]/);
+  return toSingleLine(alias ? alias[1] : target).replace(/^==|==$/g, "").trim();
+}
+
+// Resolves model-suggested wikilinks against the notes that actually exist.
+//
+// Each candidate yields its display text in input order: one that resolves to a
+// real note becomes a wikilink to that note's EXACT name, one that does not
+// becomes plain text. Enrichment is written by an automated writer, so it must
+// never publish a link a reader cannot follow — the "no phantom wikilinks"
+// invariant applies to it at least as much as to a human typo. Duplicates
+// collapse case-insensitively. `resolved` lets a caller that wants only links
+// (concept's Related References) drop the suggestions.
+export function resolveWikiLinks(
+  candidates: any[],
+  existingNotes: string[]
+): Array<{ text: string; resolved: boolean }> {
+  const index = exactNameIndex(existingNotes);
+  const out: Array<{ text: string; resolved: boolean }> = [];
+  const seen = new Set<string>();
+
+  for (const candidate of candidates || []) {
+    const normalized = normalizeWikiLink(candidate);
+    const target = wikiLinkTarget(normalized);
+    if (!target) continue;
+
+    const key = target.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const resolved = index.get(key);
+    if (resolved) {
+      out.push({
+        text: normalized.startsWith("==") ? `==[[${resolved}]]==` : `[[${resolved}]]`,
+        resolved: true
+      });
+    } else {
+      out.push({ text: unresolvedDisplay(normalized, target), resolved: false });
+    }
+  }
+
+  return out;
+}
+
+// Degrades unresolvable wikilinks inside free text the model wrote, leaving
+// resolvable ones untouched: `[[Ghost]]` becomes `Ghost`, while `[[Real]]` and
+// `[[Real|alias]]` are passed through verbatim. Free-text model fields (dev's
+// Context) are not candidate lists, so they need the text-level counterpart of
+// resolveWikiLinks rather than the list form.
+export function degradeUnresolvableLinks(text: string, existingNotes: string[]): string {
+  const index = exactNameIndex(existingNotes);
+
+  return String(text).replace(/\[\[([^\[\]]+)\]\]/g, (whole, inner) => {
+    const [pathPart, alias] = String(inner).split("|");
+    const target = pathPart.split("#")[0].trim();
+    if (target && index.has(target.toLowerCase())) return whole;
+
+    const display = (alias !== undefined ? alias : pathPart).replace(/#.*$/, "").trim();
+    return display || target;
+  });
+}
+
+function sectionPattern(headingLiteral: string): RegExp {
+  const heading = headingLiteral.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(
+    "(^" + heading + "[ \\t]*\\r?\\n)([\\s\\S]*?)(?=^#{1,6} |^```|^---[ \\t]*$|(?![\\s\\S]))",
+    "m"
+  );
+}
+
 // Replaces only a section body: from its heading to the next heading, code
 // fence, horizontal rule or true end of file. Never swallows the rest of a note.
 export function replaceSectionBody(content: string, headingLiteral: string, bodyText: string): string {
-  const heading = headingLiteral.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const re = new RegExp(
-    "(^" + heading + "[ \\t]*\\r?\\n)[\\s\\S]*?(?=^#{1,6} |^```|^---[ \\t]*$|(?![\\s\\S]))",
-    "m"
-  );
+  const re = sectionPattern(headingLiteral);
   if (!re.test(content)) return content;
   // A replacer function returns literal text, so bodyText must NOT be escaped
   // here — escaping would turn a real "$1" in the text into "$$1".
   return content.replace(re, (match, headingLine) => headingLine + bodyText + "\n\n");
+}
+
+// A section's body, or null when the heading is absent, so two revisions of a
+// note can be compared without rewriting either.
+export function readSectionBody(content: string, headingLiteral: string): string | null {
+  const match = content.match(sectionPattern(headingLiteral));
+  return match ? match[2] : null;
+}
+
+/*
+ * Write an enrichment against the note's CURRENT content, not `snapshot`.
+ *
+ * The reply is derived from a read taken before the model was asked, so by the
+ * time it lands the reader may have kept typing. Hoisting `transform` out of the
+ * callback and writing its result wholesale is what destroyed those edits; run
+ * inside process(), it leaves every section the enricher does not own alone.
+ *
+ * Returns the owned sections that changed underneath the request, so the caller
+ * reports a real conflict instead of silently replacing the human's words.
+ */
+export async function applyEnrichmentToCurrentContent(
+  vault: any,
+  file: any,
+  snapshot: string,
+  ownedHeadings: string[],
+  transform: (current: string) => string
+): Promise<string[]> {
+  const conflicts: string[] = [];
+
+  const rewrite = (current: string): string => {
+    for (const heading of ownedHeadings) {
+      if (readSectionBody(current, heading) !== readSectionBody(snapshot, heading)) {
+        conflicts.push(heading);
+      }
+    }
+    return transform(current);
+  };
+
+  if (typeof vault.process === "function") {
+    await vault.process(file, rewrite);
+  } else {
+    await vault.modify(file, rewrite(await vault.read(file)));
+  }
+
+  return conflicts;
+}
+
+// Shared so every enricher reports conflicts the same way.
+export function formatConflictNotice(conflicts: string[]): string {
+  if (!conflicts.length) return "";
+  return `\n\n⚠️ Edited while this was running, so the generated text replaced it: ${conflicts.join(", ")}.`;
 }
 
 // Adds a tag under the frontmatter "tags:" key, checking for duplicates inside
