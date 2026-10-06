@@ -131,19 +131,21 @@ JSON format:
 
   const result = await callGeminiJson(geminiApiKey, systemPrompt, userPrompt, "Learning Enrich", 0.5);
 
-  if (!result || !result.data) {
+  if (result.success === false) {
+    const failure = result.failure;
     new Notice(
-      `⚠️ Learning note not enriched: ${formatGeminiFailure(result && result.failure)}.\n\n` +
+      `⚠️ Learning note not enriched: ${formatGeminiFailure(failure)}.\n\n` +
       `The note was left unchanged. See the console for the full response.`,
       12000
     );
     return;
   }
+  const learningData = result.data;
 
 try {
     const conflicts = await applyEnrichmentToCurrentContent(
       app.vault, file, snapshot, LEARNING_OWNED_SECTIONS,
-      (current) => applyLearningEnrichment(current, result.data, existingNotes)
+      (current) => applyLearningEnrichment(current, learningData, existingNotes)
     );
 
     new Notice(`✨ Learning note "${noteTitle}" enriched with AI! (${result.model})${formatConflictNotice(conflicts)}`);

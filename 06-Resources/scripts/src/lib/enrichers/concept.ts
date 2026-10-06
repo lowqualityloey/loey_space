@@ -140,19 +140,21 @@ JSON format:
 
   const result = await callGeminiJson(geminiApiKey, systemPrompt, userPrompt, "Concept Enrich", 0.5);
 
-  if (!result || !result.data) {
+  if (result.success === false) {
+    const failure = result.failure;
     new Notice(
-      `⚠️ Concept not enriched: ${formatGeminiFailure(result && result.failure)}.\n\n` +
+      `⚠️ Concept not enriched: ${formatGeminiFailure(failure)}.\n\n` +
       `The note was left unchanged. See the console for the full response.`,
       12000
     );
     return;
   }
+  const conceptData = result.data;
 
 try {
     const conflicts = await applyEnrichmentToCurrentContent(
       app.vault, file, snapshot, CONCEPT_OWNED_SECTIONS,
-      (current) => applyConceptEnrichment(current, result.data, existingNotes, existingLinksInNote)
+      (current) => applyConceptEnrichment(current, conceptData, existingNotes, existingLinksInNote)
     );
 
     new Notice(`✨ Concept note "${conceptName}" enriched with AI! (${result.model})${formatConflictNotice(conflicts)}`);

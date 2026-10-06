@@ -94,19 +94,21 @@ JSON format:
 
   const devResult = await callGeminiJson(geminiApiKey, systemPrompt, userPrompt, "Dev Enrich", 0.4);
 
-  if (!devResult || !devResult.data) {
+  if (devResult.success === false) {
+    const failure = devResult.failure;
     new Notice(
-      `⚠️ Dev note not enriched: ${formatGeminiFailure(devResult && devResult.failure)}.\n\n` +
+      `⚠️ Dev note not enriched: ${formatGeminiFailure(failure)}.\n\n` +
       `The note was left unchanged. See the console for the full response.`,
       12000
     );
     return;
   }
+  const devData = devResult.data;
 
 try {
     const conflicts = await applyEnrichmentToCurrentContent(
       app.vault, file, snapshot, DEV_OWNED_SECTIONS,
-      (current) => applyDevEnrichment(current, devResult.data, existingNotes)
+      (current) => applyDevEnrichment(current, devData, existingNotes)
     );
 
     new Notice(`✨ Dev note "${noteTitle}" enriched with AI! (${devResult.model})${formatConflictNotice(conflicts)}`);

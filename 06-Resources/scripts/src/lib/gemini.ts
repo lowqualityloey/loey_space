@@ -1,5 +1,13 @@
 export const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"];
 
+// A validated Gemini API response boundary. Either a parsed success with the typed
+// payload, or a failure with an actionable GeminiFailure. Malformed or unexpected
+// payloads land on the failure side so they cannot silently become persistence
+// instructions.
+export type GeminiResult<T> =
+  | { success: true; data: T; model: string }
+  | { success: false; failure: GeminiFailure };
+
 export interface GeminiFailure {
   status: number;
   kind: string;
@@ -8,6 +16,71 @@ export interface GeminiFailure {
   quotaId?: string;
   quotaValue?: string;
   model: string;
+}
+
+// Parses a raw Gemini generateContent JSON response into a validated boundary result.
+// On success the payload is returned as the typed T; on any parse, empty-content or
+// structural problem the result is a failure with an actionable GeminiFailure.
+export function parseGeminiResponse<T>(
+  bodyText: string,
+  model: string
+): GeminiResult<T> {
+  let parsed: any;
+  try {
+    parsed = JSON.parse(bodyText);
+  } catch (e) {
+    return {
+      success: false,
+      failure: {
+        status: 200,
+        kind: "badJson",
+        message: e instanceof Error ? e.message : String(e),
+        retrySeconds: 0,
+        model,
+      },
+    };
+  }
+
+  const candidate = parsed?.candidates?.[0];
+  const parts = candidate?.content?.parts;
+  const text = parts?.[0]?.text;
+
+  if (text == null || text.trim() === "") {
+    return {
+      success: false,
+      failure: {
+        status: 200,
+        kind: "emptyResponse",
+        retrySeconds: 0,
+        model,
+        message: `finishReason: ${candidate ? candidate.finishReason : "none"}`,
+      },
+    };
+  }
+
+  const clean = text
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/, "")
+    .replace(/```$/, "")
+    .trim();
+
+  let data: T;
+  try {
+    data = JSON.parse(clean) as T;
+  } catch (e) {
+    return {
+      success: false,
+      failure: {
+        status: 200,
+        kind: "badJson",
+        message: e instanceof Error ? e.message : String(e),
+        retrySeconds: 0,
+        model,
+      },
+    };
+  }
+
+  return { success: true, data, model };
 }
 
 // Classifies a Gemini error response.
@@ -133,7 +206,7 @@ export async function callGeminiJson(
   userPrompt: string,
   label: string,
   temperature?: number
-): Promise<{ data: any; model: string; failure: GeminiFailure | null }> {
+): Promise<GeminiResult<unknown>> {
   let failure: GeminiFailure = { status: 0, kind: "unknown", message: "request failed", retrySeconds: 0, model: "" };
 
   for (const model of GEMINI_MODELS) {
@@ -159,31 +232,13 @@ export async function callGeminiJson(
       }
 
       if (res.status === 200) {
-        try {
-          const json = JSON.parse(res.text);
-          const candidate = json.candidates && json.candidates[0];
-          const parts = candidate && candidate.content && candidate.content.parts;
-          const text = parts && parts[0] && parts[0].text ? parts[0].text.trim() : "";
-
-          if (!text) {
-            failure = {
-              status: 200,
-              kind: "emptyResponse",
-              retrySeconds: 0,
-              model,
-              message: `finishReason: ${candidate ? candidate.finishReason : "none"}`
-            };
-            console.warn(`${label}: ${model} returned no usable content`, json);
-            break;
-          }
-
-          const clean = text.replace(/^```json\s*/i, "").replace(/^```\s*/, "").replace(/```$/, "").trim();
-          return { data: JSON.parse(clean), model, failure: null };
-        } catch (e: any) {
-          failure = { status: 200, kind: "badJson", message: e?.message ? e.message : String(e), retrySeconds: 0, model };
-          console.warn(`${label}: ${model} returned unparsable JSON — ${failure.message}`);
+        const parsed = parseGeminiResponse<unknown>(res.text, model);
+        if (parsed.success === false) {
+          failure = parsed.failure;
+          console.warn(`${label}: ${model} returned unusable response — ${failure.message}`);
           break;
         }
+        return parsed;
       }
 
       failure = parseGeminiError(res.status, res.text, model);
@@ -207,5 +262,5 @@ export async function callGeminiJson(
   }
 
   console.warn(`${label}: all models failed — ${formatGeminiFailure(failure)}`);
-  return { data: null, model: "", failure };
+  return { success: false, failure };
 }

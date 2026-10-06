@@ -27,6 +27,55 @@ var path = __toESM(require("path"));
 
 // 06-Resources/scripts/src/lib/gemini.ts
 var GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.0-flash"];
+function parseGeminiResponse(bodyText, model) {
+  let parsed;
+  try {
+    parsed = JSON.parse(bodyText);
+  } catch (e) {
+    return {
+      success: false,
+      failure: {
+        status: 200,
+        kind: "badJson",
+        message: e instanceof Error ? e.message : String(e),
+        retrySeconds: 0,
+        model
+      }
+    };
+  }
+  const candidate = parsed?.candidates?.[0];
+  const parts = candidate?.content?.parts;
+  const text = parts?.[0]?.text;
+  if (text == null || text.trim() === "") {
+    return {
+      success: false,
+      failure: {
+        status: 200,
+        kind: "emptyResponse",
+        retrySeconds: 0,
+        model,
+        message: `finishReason: ${candidate ? candidate.finishReason : "none"}`
+      }
+    };
+  }
+  const clean = text.replace(/^```json\s*/i, "").replace(/^```\s*/, "").replace(/```$/, "").trim();
+  let data;
+  try {
+    data = JSON.parse(clean);
+  } catch (e) {
+    return {
+      success: false,
+      failure: {
+        status: 200,
+        kind: "badJson",
+        message: e instanceof Error ? e.message : String(e),
+        retrySeconds: 0,
+        model
+      }
+    };
+  }
+  return { success: true, data, model };
+}
 function parseGeminiError(status, bodyText, model) {
   let message = "";
   let retrySeconds = 0;
@@ -158,29 +207,13 @@ async function callGeminiJson(apiKey, systemPrompt, userPrompt, label, temperatu
         break;
       }
       if (res.status === 200) {
-        try {
-          const json = JSON.parse(res.text);
-          const candidate = json.candidates && json.candidates[0];
-          const parts = candidate && candidate.content && candidate.content.parts;
-          const text = parts && parts[0] && parts[0].text ? parts[0].text.trim() : "";
-          if (!text) {
-            failure = {
-              status: 200,
-              kind: "emptyResponse",
-              retrySeconds: 0,
-              model,
-              message: `finishReason: ${candidate ? candidate.finishReason : "none"}`
-            };
-            console.warn(`${label}: ${model} returned no usable content`, json);
-            break;
-          }
-          const clean = text.replace(/^```json\s*/i, "").replace(/^```\s*/, "").replace(/```$/, "").trim();
-          return { data: JSON.parse(clean), model, failure: null };
-        } catch (e) {
-          failure = { status: 200, kind: "badJson", message: e?.message ? e.message : String(e), retrySeconds: 0, model };
-          console.warn(`${label}: ${model} returned unparsable JSON \u2014 ${failure.message}`);
+        const parsed = parseGeminiResponse(res.text, model);
+        if (parsed.success === false) {
+          failure = parsed.failure;
+          console.warn(`${label}: ${model} returned unusable response \u2014 ${failure.message}`);
           break;
         }
+        return parsed;
       }
       failure = parseGeminiError(res.status, res.text, model);
       console.warn(
@@ -200,7 +233,7 @@ async function callGeminiJson(apiKey, systemPrompt, userPrompt, label, temperatu
     }
   }
   console.warn(`${label}: all models failed \u2014 ${formatGeminiFailure(failure)}`);
-  return { data: null, model: "", failure };
+  return { success: false, failure };
 }
 
 // 06-Resources/scripts/src/lib/markdown.ts
@@ -385,10 +418,14 @@ JSON format:
 }
 `;
   const result = await callGeminiJson(apiKey, systemPrompt, userPrompt, "Distill Concepts", 0.4);
-  if (!result || !result.data || !Array.isArray(result.data.concepts)) {
-    return { concepts: [], model: result?.model || "", failure: result?.failure };
+  if (result.success === false) {
+    return { concepts: [], model: "", failure: result.failure };
   }
-  return { concepts: result.data.concepts, model: result.model, failure: null };
+  const data = result.data;
+  if (!Array.isArray(data.concepts)) {
+    return { concepts: [], model: result.model, failure: null };
+  }
+  return { concepts: data.concepts, model: result.model, failure: null };
 }
 
 // 06-Resources/scripts/src/distill-concept-action.ts
