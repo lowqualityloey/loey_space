@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-29
+updated: 2026-10-07
 ---
 # 🧠 `loey_space` — Personal Knowledge Management & Second Brain Architecture
 
@@ -70,12 +70,14 @@ Each project gets a board. Card checkboxes follow their lane automatically — `
 
 ## 🚀 Hero Features
 
-- **🧠 AI Chief of Staff** – Trigger `"hey loey"` for instant pulse checks, morning setups, inbox token triage, and weekly retrospectives (`AGENTS.md`).
+- **🧠 AI Chief of Staff** – Trigger `"hey loey"` for instant pulse checks, morning setups, inbox token triage, weekly retrospectives, and vault audits (`AGENTS.md`).
 - **⚡ HomePulse Command Center** – Real-time 2-way habit sync with today's daily note, live execution pulse analytics, and dynamic tech tree visualization.
 - **🔄 Bi-Directional GitHub Sync** – Keep Obsidian Kanban boards in lockstep with GitHub Projects v2 and convert cards to GitHub issues/branches in one click.
 - **🧹 Zero-Friction Inbox Triage** – Route captures instantly with inline tokens (`#do`, `#concept`, `#dev`, `#learn`, `#ref`, `#personal`, `#project`, `#bin`).
-- **📊 Automated Habit Analytics** – 30-day rolling metrics, streak tracking, day-of-week heatmap patterns, and personalized improvement insights.
-- **🔒 Security-First Architecture** – Local Git pre-commit hooks and `.env` credential isolation prevent accidental secret exposure.
+- **📊 Automated Habit Analytics** – 30-day rolling metrics, streak tracking across calendar gaps, day-of-week heatmap patterns, and personalized improvement insights.
+- **🤖 Typed AI Response Boundaries** – Gemini responses parsed into a validated `GeminiResult<T>` success/failure shape, so malformed payloads cannot silently become persistence instructions.
+- **🧪 Explicit Enrichment Simulation** – Scheduled enrichment supports `--simulate` mode that logs what it would do without writing any timestamps, plus recursive discovery of nested dated notes.
+- **🔒 Security-First Architecture** – Local Git pre-commit hooks and `.env` credential isolation prevent accidental secret exposure. Nested personal content (subdirectories inside the numbered folders) stays local by default.
 
 ---
 
@@ -196,6 +198,10 @@ Full operational guides and architecture specifications live **inside the vault*
 - [`TypeScript Migration Feasibility Assessment.md`](06-Resources/Guides/TypeScript%20Migration%20Feasibility%20Assessment.md) — Architecture and build pipeline for TypeScript automation scripts.
 
 *(All guides are located in [`06-Resources/Guides/`](06-Resources/Guides/) or the vault root).*
+
+### 👤 Owner-Only Reference Notes
+
+Private handoff records, session telemetry, and owner-only reference material for external repositories live in [`06-Resources/Guides/Owners/`](06-Resources/Guides/Owners/). These are **not** concepts or user-facing documentation — they are owner-only records for work in other repositories, and are git-ignored by default via the `.gitignore` `folder/**/*` patterns. The [📚 Resources & Reference Hub](06-Resources/_Resources%20MOC.md) lists any that are tracked.
 
 ---
 
@@ -361,6 +367,7 @@ All data is automatically pulled from daily notes — no manual tracking require
 * **Private Notes Directory**: The `.secrets/` directory is strictly excluded from Git tracking for storing sensitive personal documents.
 * **Runtime API Validation**: Scripts automatically validate `.env` configuration on execution and notify if required keys are missing.
 * **Vault Security Policy**: Read the official [Vault Security Policy](06-Resources/Guides/Vault%20Security%20Policy.md) for complete guidelines.
+* **Personal content stays local**: The `.gitignore` ignores all content inside the numbered folders except MOCs and explicitly tracked showcase files. Nested subdirectories (for example `06-Resources/Guides/Owners/`) are ignored by default via `folder/**/*` patterns, so owner-only reference material for other repositories never leaves this machine.
 
 ### 🪝 Enabling the pre-commit guard
 
@@ -430,6 +437,10 @@ Placeholders such as `your_google_gemini_api_key_here` are allowed, so `.env.exa
   - `npm run start-task -- <proj> <title>` — Converts a Kanban card to a GitHub Issue and creates a Git branch.
   - `npm run sync-kanban` — Multi-project 2-way sync with GitHub Projects v2.
   - `npm run validate-templates` — Validates all 19 vault templates against schema rules.
+* **Vault audit commands**:
+  - `npm run validate-templates` — Validates all tracked notes against the canonical frontmatter schema and tag taxonomy.
+  - `npm run audit-links` — Scans for broken wikilinks and reports orphan notes.
+  - `npm run hygiene` — Surfaces unclassified records, missing review metadata, and notes no hub reaches.
 * **Updating plugins** — safe for store plugins (Dataview, Templater, QuickAdd, Kanban, Calendar, Activity History). Never for `homepulse` or `kanban-status-sync`, which are local builds with no store equivalent.
 * **Restyling the dashboard** — HomePulse's own `styles.css` is regenerated on rebuild, so put overrides in `.obsidian/snippets/` instead. That's what `homepulse-mobile.css` and `dashboard-cards.css` do.
 
