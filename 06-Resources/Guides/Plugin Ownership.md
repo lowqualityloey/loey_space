@@ -39,7 +39,7 @@ The bundle's first line reads `THIS FILE IS GENERATED FROM src/main.ts. DO NOT E
 | Check | Result |
 | :--- | :--- |
 | Source files in the plugin folder (`.ts`, `src/`, bundler config) | None — only `main.js`, `manifest.json`, `styles.css`, plus ignored `data.json` |
-| HomePulse source under `/home/heyloey` (searched to depth 6, excluding `node_modules`) | Not found |
+| HomePulse source under the owner's home directory (searched to depth 6, excluding `node_modules`) | Not found |
 | Declared build config (`tsconfig`, `rollup`, `esbuild`) in the plugin folder | None |
 | Prior guidance in `CONTRIBUTING.md` | "ships as a built, minified `main.js` with no source in this repo … open an issue instead of a PR" |
 
