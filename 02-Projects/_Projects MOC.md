@@ -34,7 +34,18 @@ const projects = dv.pages('"02-Projects"')
     .where(p => p.type === "project" && !p.file.name.includes("Kanban") && !p.file.name.includes("MOC") && ACTIVE_STATUSES.includes(normalize(p.status)));
 
 const rows = [];
-const priorityWeight = { "critical": 4, "high": 3, "medium": 2, "low": 1, "none": 0 };
+// Canonical priority ranks, from `Tagging & Properties.md` § 5. That taxonomy
+// sanctions TWO vocabularies for the same four levels — p0-p3 and the equivalent
+// critical/high/medium/low — and project notes in the wild carry either. This map
+// used to hold only the word forms, so the `|| 0` at the consumption site below
+// scored every `p0` note as 0 and silently ranked 7 real projects least important.
+const priorityWeight = {
+  p0: 4, critical: 4,
+  p1: 3, high: 3,
+  p2: 2, medium: 2,
+  p3: 1, low: 1,
+  none: 0
+};
 
 projects.forEach(p => {
     const folder = p.file.folder;
@@ -67,7 +78,7 @@ projects.forEach(p => {
         progress: progressStr,
         status: p.status,
         priority: p.priority || "none",
-        weight: priorityWeight[p.priority] || 0
+        weight: priorityWeight[String(p.priority || "").toLowerCase()] || 0
     });
 });
 

@@ -1,5 +1,9 @@
 ---
+created: 2026-08-02
+updated: 2026-10-06
 type: moc
+status: active
+area: resources
 tags:
   - type/moc
   - area/resources
