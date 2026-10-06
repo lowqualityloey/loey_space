@@ -127,17 +127,30 @@ pnpm-debug.log*
 !05-Personal/_*.md
 
 06-Resources/Articles/*
+06-Resources/Articles/**/*
 !06-Resources/Articles/_*.md
+!06-Resources/Articles/**/_*.md
+
+06-Resources/Guides/*
+06-Resources/Guides/**/*
+!06-Resources/Guides/_*.md
+!06-Resources/Guides/**/_*.md
 
 07-Reviews/*
+07-Reviews/**/*
 !07-Reviews/_*.md
+!07-Reviews/**/_*.md
 !07-Reviews/Habit Analytics Dashboard.md
 
 08-Concepts/*
+08-Concepts/**/*
 !08-Concepts/_*.md
+!08-Concepts/**/_*.md
 
 99-Attachments/*
+99-Attachments/**/*
 !99-Attachments/_*.md
+!99-Attachments/**/_*.md
 !99-Attachments/2026-08/obsidian-*.png
 !99-Attachments/2026-08/file-20260803003355764.png
 

@@ -30,6 +30,19 @@ SORT file.name ASC
 
 ---
 
+## 👤 Owner-Only Reference Notes
+*Private handoff records, session telemetry, and owner-only reference material for external repositories (from `06-Resources/Guides/Owners/`).*
+
+```dataview
+TABLE 
+  type AS "Type",
+  choice(updated, updated, file.mtime) AS "Last Updated"
+FROM "06-Resources/Guides/Owners"
+SORT file.name ASC
+```
+
+---
+
 ## 📰 Clipped Web Articles & Technical Reads
 *Articles, tutorials, and technical insights captured via Obsidian Web Clipper or `#ref` triage.*
 
