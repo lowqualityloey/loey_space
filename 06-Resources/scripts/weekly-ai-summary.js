@@ -592,6 +592,13 @@ JSON FORMAT:
       content = `---
 created: ${year}-${month}-${day}
 updated: ${year}-${month}-${day}
+// The exact window this run analysed (#59). Written into the note as well as
+// into its body because a review's statistics must be anchored to the period it
+// was written for, not to the day someone opens it \u2014 and the note's own name is
+// not a dependable source: this script numbers its files with a calendar-year
+// formula that disagrees with the ISO week on about half of all days.
+period_start: ${reviewWindow.startDate}
+period_end: ${reviewWindow.endDate}
 type: review
 status: active
 area: general
