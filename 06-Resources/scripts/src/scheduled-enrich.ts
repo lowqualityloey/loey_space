@@ -33,6 +33,11 @@ try {
 // Get today's date for batching
 const today = new Date().toISOString().split('T')[0];
 
+// Whether this run is a simulation. Explicit via --simulate flag so the scaffold never
+// mutates timestamps while pretending it did. The previous code logged "Would enrich"
+// but then wrote the timestamp anyway, so a dry-run left the file changed.
+const SIMULATE = process.argv.includes('--simulate');
+
 async function getNotesToEnrich(): Promise<string[]> {
   const files: string[] = [];
   const folders = ['01-Daily', '02-Projects', '03-Dev', '04-Learning', '08-Concepts'];
@@ -40,12 +45,21 @@ async function getNotesToEnrich(): Promise<string[]> {
   folders.forEach(folder => {
     const folderPath = path.join(VAULT_PATH, folder);
     if (fs.existsSync(folderPath)) {
-      const entries = fs.readdirSync(folderPath);
-      entries.forEach(entry => {
-        if (entry.endsWith('.md') && !entry.startsWith('_')) {
-          files.push(path.join(folder, entry));
+      // Recurse into subfolders (e.g. 01-Daily/2026-10/) so nested dated and project
+      // notes are discovered. The previous code only read top-level entries, which missed
+      // everything under year-month subdirectories.
+      function walk(dir: string) {
+        const entries = fs.readdirSync(dir, { withFileTypes: true });
+        for (const entry of entries) {
+          const full = path.join(dir, entry.name);
+          if (entry.isDirectory()) {
+            walk(full);
+          } else if (entry.name.endsWith('.md') && !entry.name.startsWith('_')) {
+            files.push(path.relative(VAULT_PATH, full));
+          }
         }
-      });
+      }
+      walk(folderPath);
     }
   });
 
@@ -68,20 +82,31 @@ async function markEnriched(file: string): Promise<void> {
 
 async function processBatch(notes: string[], batchSize: number = 5): Promise<void> {
   console.log(`Found ${notes.length} notes to check for enrichment`);
+  if (SIMULATE) {
+    console.log('SIMULATION MODE — no timestamps will be written.');
+  }
 
   let enrichedCount = 0;
+  let simulatedCount = 0;
 
   for (const note of notes) {
     try {
       const should = await shouldEnrich(note);
       if (should) {
-        console.log(`[Batch ${enrichedCount + 1}/${batchSize}] Would enrich: ${note}`);
-        enrichedCount++;
+        if (SIMULATE) {
+          console.log(`[Sim ${simulatedCount + 1}/${batchSize}] Would enrich: ${note}`);
+          simulatedCount++;
+        } else {
+          console.log(`[Batch ${enrichedCount + 1}/${batchSize}] Enriching: ${note}`);
+          await markEnriched(note);
+          enrichedCount++;
+        }
 
-        // Simulate actual enrichment
-        await markEnriched(note);
-
-        if (enrichedCount >= batchSize) {
+        if (!SIMULATE && enrichedCount >= batchSize) {
+          console.log(`Batch size reached (${batchSize}), stopping`);
+          break;
+        }
+        if (SIMULATE && simulatedCount >= batchSize) {
           console.log(`Batch size reached (${batchSize}), stopping`);
           break;
         }
@@ -93,8 +118,12 @@ async function processBatch(notes: string[], batchSize: number = 5): Promise<voi
     }
   }
 
-  console.log(`\n✅ Enrichment batch complete. Enriched ${enrichedCount} notes.`);
-  console.log(`Next batch: 7 days from now.`);
+  if (SIMULATE) {
+    console.log(`\n✅ Simulation complete. Would enrich ${simulatedCount} notes.`);
+  } else {
+    console.log(`\n✅ Enrichment batch complete. Enriched ${enrichedCount} notes.`);
+    console.log(`Next batch: 7 days from now.`);
+  }
 }
 
 async function main(): Promise<void> {
