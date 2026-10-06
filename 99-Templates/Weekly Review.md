@@ -394,6 +394,38 @@ if (!period) {
 
 ---
 
+## 🧭 Weekly Decision Record
+
+> Evidence for this section comes from the statistics above plus the week's daily notes; this section does **not** invent feelings or commitments a person did not write.### 📋 What this week's evidence covers
+
+- From the statistics blocks: which calendar days of the period logged a daily note.
+- From the Energy, Sleep, and Mood blocks (and each block's `coverageLine`): the measured habit and wellness for the period — not invented averages.
+- From the Completed Tasks and Active Projects blocks: work that moved inside the period.
+- From the Learning Notes block: notes added in-period.
+
+> If any of those reads empty, treat it as **unknown for the period**, not zero. A missing daily note is a missing note. **Coverage**: from the statistics blocks — which calendar days of the period logged a daily note.
+- **Habit & wellness**: the Energy, Sleep, and Mood blocks (and the `coverageLine` on each), not invented averages.
+- **Completed work**: tasks marked done inside the period, plus projects moving or staling.
+- **Learning**: notes added in-period.
+
+> If any of those reads empty, treat it as **unknown for the period**, not zero. A missing daily note is a missing note.
+
+### ↗ What advanced this week
+
+- 
+### ⏸ What paused or got deprioritised
+
+- 
+### 🎯 Selected commitments for next week
+
+> These are **selected snapshots**, not the full backlog. Link to the authoritative card or hub rather than copying it here.
+
+- 
+### ⏳ Awaiting
+
+- 
+---
+
 ## 🎉 Completed Tasks This Week
 ```dataviewjs
 // #59 period resolution — keep this block identical in every statistics block in
@@ -685,11 +717,14 @@ if (!period) {
 
 ## 💡 Weekly Reflection
 
+> Required for every review. The stats above are the measured week; this section is the person's read of it.
+
 ### 🌟 What went well?
 - 
 
 ### 🛑 What was challenging or needs adjustment?
 - 
 
-### 🎯 Key Focus for Next Week
+### 🎯 Next week's top focus
 - 
+> If this review has selected commitments above, this line is its top one; otherwise it is the single most important thing for next week.

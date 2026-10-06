@@ -687,16 +687,16 @@ dv.paragraph(\`**Habit Completion Rate**: \${habitRate}% (\${completedHabits}/\$
 
 ## \u{1F4DD} Manual Review Notes
 
-### What Went Well This Week
+### What went well this week
 -
 
-### What Could Be Improved
+### What was challenging or needs adjustment
 -
 
-### Key Learnings
+### Key learnings
 -
 
-### Goals for Next Week
+### Goals for next week
 1.
 2.
 3.

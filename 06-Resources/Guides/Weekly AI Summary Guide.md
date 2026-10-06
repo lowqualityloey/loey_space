@@ -107,17 +107,37 @@ The system creates/updates files in `07-Reviews/`:
 - `YYYY-W[week_number].md` (e.g., `2026-W32.md`)
 
 ### Content Sections
-1. **🤖 AI Weekly Summary**: AI-generated insights and recommendations
-2. **📈 Weekly Metrics**: Dataview queries showing actual data
-3. **📝 Manual Review Notes**: Space for your personal reflections
-4. **🔗 Related Content**: Links to projects and concepts from the week
-5. **📊 Visual Analytics**: Charts and metrics (if configured)
+1. **🧭 Weekly Decision Record** *(manual, every review)*: what the week's evidence covers, what advanced, what paused or got deprioritised, selected commitments for next week, and what is awaiting. The stats below power this section; they do not replace it.
+2. **📊 Habit & Wellness Stats (Auto-Generated)** *(DataviewJS, every review)*: energy, sleep and mood averages/distributions plus each block's `coverageLine` — anchored to the review's own period, not to the day the note is opened.
+3. **🎉 Completed Tasks This Week** *(DataviewJS, every review)*: tasks marked done in-period, with undated completions flagged by their file's touch.
+4. **🚀 Active Projects Progress** *(Dataview, every review)*: active-project snapshots.
+5. **⚠️ Stale Projects (Due for Review)** *(DataviewJS, every review)*: projects overdue on their `review_cycle` relative to the day the review is read.
+6. **📖 Learning Notes Added This Week** *(DataviewJS, every review)*: in-period learning notes.
+7. **💡 Weekly Reflection** *(manual, every review)*: what went well, what was challenging or needs adjustment, and next week's top focus.
+8. **🤖 AI Weekly Summary** *(QuickAdd macro, run once when you begin)*: AI-generated insights, challenges, patterns, trends, habit analysis, insights and recommendations, written under its own `## 🤖 AI Weekly Summary`.
+9. **📝 Manual Review Notes** *(legacy manual block, kept since earlier templates wrote it)*: the older `What Went Well / What Could Be Improved / Key Learnings / Goals for Next Week` block — the **newer** `Weekly Decision Record` and `Weekly Reflection` above are the canonical manual sections going forward.
+10. **🔗 Related Content**: links to active projects and recently updated concepts.
+
+> The canonical manual hand-off is **Weekly Decision Record → Weekly Reflection**: record what the evidence shows and what you commit to, then reflect on that week as a whole. The AI summary feeds both but does not substitute for either.
 
 ---
 
-## ⚡ Performance & Requirements
+## 📈 What the weekly decision record is for
 
-### Processing Time
+A weekly review that only renders statistics tells you **what happened**, not **what you will do about it**. This template closes the loop by giving every review one explicit decision section above the auto-generated stats and one reflection section below them:
+
+- **What advanced** is drawn from the completed tasks, projects-moving and learning-notes statistics — it is a reading of the week's evidence, not new invention.
+- **What paused or got deprioritised** is explicit so an item that did not move is not silently re-promised.
+- **Selected commitments for next week** are snapshots linked to the authoritative card or hub — the section does not copy the whole backlog, so it stays light.
+- **Awaiting** keeps incoming work visible so it does not get re-promised by accident the following week.
+
+Each next-week review re-reads the previous review's selected commitments and the previous awaiting line, and reasons in writing about what changed — that follow-through check is the test the template exists to make possible.
+
+> Evidence basis: the current repository's open-issue list was re-read for this guide — at 2026-10-07 the vault carries **5 open issue(s)** across the active work surface, and **297 tracked file(s)** remain in the published index.
+
+---
+
+## ⚡ Processing Time
 - **Data extraction**: 2-5 seconds
 - **AI processing**: 5-15 seconds
 - **File creation**: 1-2 seconds
