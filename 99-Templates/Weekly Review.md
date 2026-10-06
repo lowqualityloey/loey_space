@@ -396,9 +396,7 @@ if (!period) {
 
 ## 🧭 Weekly Decision Record
 
-> Evidence for this section comes from the statistics above plus the week's daily notes; this section does **not** invent feelings or commitments a person did not write.
-
-### 📋 What this week's evidence covers
+> Evidence for this section comes from the statistics above plus the week's daily notes; this section does **not** invent feelings or commitments a person did not write.### 📋 What this week's evidence covers
 
 - From the statistics blocks: which calendar days of the period logged a daily note.
 - From the Energy, Sleep, and Mood blocks (and each block's `coverageLine`): the measured habit and wellness for the period — not invented averages.
