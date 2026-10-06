@@ -14,7 +14,8 @@
     "log-github": "node 06-Resources/scripts/sync-github-activity.js",
     "start-task": "node 06-Resources/scripts/start-task-action.js",
     "sync-kanban": "node 06-Resources/scripts/sync-github-kanban.js",
-    "validate-templates": "node 06-Resources/scripts/validate-templates.js"
+    "validate-templates": "node 06-Resources/scripts/validate-templates.js",
+    "hygiene": "node 06-Resources/scripts/vault-hygiene.js"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

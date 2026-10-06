@@ -37,6 +37,58 @@ __export(audit_links_exports, {
 module.exports = __toCommonJS(audit_links_exports);
 var fs = __toESM(require("fs"));
 var path = __toESM(require("path"));
+
+// 06-Resources/scripts/src/lib/links.ts
+function parseAliases(content) {
+  const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!fmMatch)
+    return [];
+  const fm = fmMatch[1];
+  const aliasesMatch = fm.match(/^aliases:\s*(.*)$/m);
+  if (!aliasesMatch)
+    return [];
+  const raw = aliasesMatch[1].trim();
+  if (raw.startsWith("[") && raw.endsWith("]")) {
+    return raw.slice(1, -1).split(",").map((s) => s.trim().replace(/^["']|["']$/g, "")).filter(Boolean);
+  }
+  const listMatches = fm.match(/^aliases:\s*\r?\n((?:\s*-\s*.*(?:\r?\n|$))+)/m);
+  if (listMatches) {
+    return listMatches[1].split("\n").map((line) => line.replace(/^\s*-\s*/, "").trim().replace(/^["']|["']$/g, "")).filter(Boolean);
+  }
+  return raw ? [raw.replace(/^["']|["']$/g, "")] : [];
+}
+function extractWikilinks(content) {
+  const links = [];
+  const lines = content.split("\n");
+  let inFence = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.trim().startsWith("```")) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence)
+      continue;
+    const strippedLine = line.replace(/`[^`]+`/g, " ");
+    const matches = strippedLine.matchAll(/!?\[\[([^\[\]]+)\]\]/g);
+    for (const match of matches) {
+      const raw = match[0];
+      const inner = match[1].trim();
+      const cleanInner = inner.replace(/\\\|/g, "|");
+      const targetOnly = cleanInner.split("|")[0].split("#")[0].trim();
+      if (targetOnly && targetOnly !== "|" && targetOnly !== "#") {
+        links.push({
+          target: targetOnly.replace(/\.md$/i, ""),
+          raw,
+          line: i + 1
+        });
+      }
+    }
+  }
+  return links;
+}
+
+// 06-Resources/scripts/src/audit-links.ts
 function findVaultRoot() {
   let current = process.cwd();
   for (let i = 0; i < 5; i++) {
@@ -98,54 +150,6 @@ function findFuzzyMatch(target, candidates) {
     }
   }
   return bestCandidate;
-}
-function parseAliases(content) {
-  const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  if (!fmMatch)
-    return [];
-  const fm = fmMatch[1];
-  const aliasesMatch = fm.match(/^aliases:\s*(.*)$/m);
-  if (!aliasesMatch)
-    return [];
-  const raw = aliasesMatch[1].trim();
-  if (raw.startsWith("[") && raw.endsWith("]")) {
-    return raw.slice(1, -1).split(",").map((s) => s.trim().replace(/^["']|["']$/g, "")).filter(Boolean);
-  }
-  const listMatches = fm.match(/^aliases:\s*\r?\n((?:\s*-\s*.*(?:\r?\n|$))+)/m);
-  if (listMatches) {
-    return listMatches[1].split("\n").map((line) => line.replace(/^\s*-\s*/, "").trim().replace(/^["']|["']$/g, "")).filter(Boolean);
-  }
-  return raw ? [raw.replace(/^["']|["']$/g, "")] : [];
-}
-function extractWikilinks(content) {
-  const links = [];
-  const lines = content.split("\n");
-  let inFence = false;
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (line.trim().startsWith("```")) {
-      inFence = !inFence;
-      continue;
-    }
-    if (inFence)
-      continue;
-    const strippedLine = line.replace(/`[^`]+`/g, " ");
-    const matches = strippedLine.matchAll(/!?\[\[([^\[\]]+)\]\]/g);
-    for (const match of matches) {
-      const raw = match[0];
-      const inner = match[1].trim();
-      const cleanInner = inner.replace(/\\\|/g, "|");
-      const targetOnly = cleanInner.split("|")[0].split("#")[0].trim();
-      if (targetOnly && targetOnly !== "|" && targetOnly !== "#") {
-        links.push({
-          target: targetOnly.replace(/\.md$/i, ""),
-          raw,
-          line: i + 1
-        });
-      }
-    }
-  }
-  return links;
 }
 function auditVaultLinks(vaultRoot) {
   const IGNORED_DIRS = /* @__PURE__ */ new Set([

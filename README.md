@@ -421,9 +421,10 @@ Placeholders such as `your_google_gemini_api_key_here` are allowed, so `.env.exa
 * **TypeScript & Bundling Engine** — User scripts are authored in TypeScript under [`06-Resources/scripts/src/`](06-Resources/scripts/src/) (modularized under `src/lib/`) and bundled into single-file CommonJS via `npm run build` (`esbuild`) for seamless Obsidian QuickAdd & Node CLI compatibility.
 * **Automated CLI Commands**:
   - `npm run typecheck` — Strict TypeScript typecheck across all scripts.
-  - `npm run build` — Bundles all 13 user scripts in under 50ms.
+  - `npm run build` — Bundles all 14 user scripts in under 50ms.
   - `npm test` — Runs the Node test suite via the pinned `tsx` runner (imports `src/**/*.ts` directly, so no separate compile step).
   - `npm run audit-links` — Scans vault for broken wikilinks, fuzzy fix suggestions, and orphan notes.
+  - `npm run hygiene` — Read-only report of unclassified records, review metadata the overdue query needs and a note does not carry, and notes no hub reaches. Prints paths and field names only, never note content. Add `--include-ignored` to audit local notes instead of the tracked index, and `--strict` to exit 1 when findings exist. The three readers divide the work: `validate-templates` enforces the publication contract over declared types, `audit-links` owns the literal link graph, and this one reports what both leave silent.
   - `npm run distill -- <file>` — Distills atomic evergreen concepts into `08-Concepts/`.
   - `npm run log-github` — Syncs today's GitHub activity into a collapsible table callout (`> [!NOTE]-`) sorted AM $\rightarrow$ PM with non-breaking timestamps.
   - `npm run start-task -- <proj> <title>` — Converts a Kanban card to a GitHub Issue and creates a Git branch.
@@ -462,6 +463,7 @@ See [CONTRIBUTING.md](06-Resources/Guides/CONTRIBUTING.md) for the full scope, p
 | **Automatic Concept Distiller** | Extracts atomic evergreen mental models and principles from articles or dev notes into `08-Concepts/` with 90-day review cycles (`QuickAdd` / `npm run distill`) |
 | **Kanban Issue & Branch Generator** | Converts Kanban cards into real GitHub Issues, switches git branch, and moves cards to In Progress (`QuickAdd` / `npm run start-task`) |
 | **Vault Link & Graph Auditor** | Vault-wide scanner for broken wikilinks, fuzzy match fix suggestions, and orphan note discovery (`npm run audit-links`) |
+| **Vault Hygiene Reporter** | Surfaces what the contract and the link graph both leave silent — records with no `type`, review metadata the overdue query requires and a note lacks, and notes no hub's query reaches (`npm run hygiene`) |
 | **Weekly AI Summaries** | Automated 7-day analysis of mood, energy, tasks, and habits with actionable recommendations |
 | **Habit Analytics Dashboard** | 30-day rolling metrics, streak tracking, day-of-week patterns, and improvement recommendations |
 | **Smart Task Management** | Tasks live in daily notes and project kanbans, aggregated in real-time via `_Tasks MOC.md` with status indicators (`[ ]`, `[/]`, `[x]`) |

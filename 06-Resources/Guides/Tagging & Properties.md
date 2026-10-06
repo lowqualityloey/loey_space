@@ -646,6 +646,13 @@ Why this shape:
 A note whose `last_reviewed` is blank is simply not listed. That is intended: an
 unreviewed note has no interval to be overdue against.
 
+> [!TIP] Unlisted is not the same as fine
+> A blank `review_cycle` is invisible to exactly the same clause, and a note whose `type`
+> is missing is not reached by any of the type-filtered MOCs either. `npm run hygiene`
+> reports all three — the four review types above with a blank `last_reviewed` or
+> `review_cycle`, and records that declare no `type` at all — naming the path and the
+> missing field and nothing else. Run it when this query comes back clean.
+
 > [!NOTE] Confidence, stated plainly
 > This query is **not executed by any test** in this repository. The validator checks
 > frontmatter fields, not Dataview output, so this query has not been machine-verified.
