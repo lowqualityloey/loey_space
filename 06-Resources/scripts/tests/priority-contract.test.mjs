@@ -18,11 +18,11 @@ import path from "node:path";
 // Scope, deliberately narrow:
 //   * `_Projects MOC.md` is pinned to the full canonical mapping. That IS the #53 fix,
 //     so a regression here is a real regression and must fail.
-//   * `_Tasks MOC.md` is pinned only where the behaviour is settled. Its word aliases
-//     are still off by one against `Tagging & Properties.md` § 5 and `critical` is not
-//     matched at all — that is issue #95, still open. Asserting the current wrong ranks
-//     would cement a defect and make the real fix fail this test, so the aliases are
-//     left unpinned on purpose until #95 lands.
+//   * `_Tasks MOC.md` is pinned to the full canonical mapping too. Until #95 landed the
+//     word aliases there were off by one against § 5 (`high` ranked as Critical, `medium`
+//     as High) and `critical` matched nothing at all, so the aliases were deliberately
+//     left unpinned rather than cementing the defect. #95 fixed the function, so the whole
+//     tag → rank table is now pinned and a reintroduced off-by-one must fail here.
 //   * `urgent` and `normal` ARE pinned as unranked: removing them was a deliberate
 //     drift decision, and a future edit quietly reinstating them should fail.
 
@@ -151,6 +151,84 @@ test("_Tasks MOC: p0-p3 rank in ascending urgency order", () => {
   // so they are safe to pin.
   const ranks = [0, 1, 2, 3].map((n) => getPriorityRank(`#priority/p${n}`));
   assert.deepEqual(ranks, [0, 1, 2, 3], `expected 0,1,2,3 — got ${ranks.join(",")}`);
+});
+
+test("#95: every canonical tag form ranks exactly as § 5 defines it", () => {
+  const getPriorityRank = loadTasksRanking();
+
+  // The shipped table, one level per row. Pre-fix this object read
+  // `{ critical: 4, high: 0, medium: 1 }` against a canonical `{ 0, 1, 2 }` — the exact
+  // defect #95 reported, pinned here so it cannot come back silently.
+  assert.deepEqual(
+    {
+      p0: getPriorityRank("#priority/p0"),
+      critical: getPriorityRank("#priority/critical"),
+      p1: getPriorityRank("#priority/p1"),
+      high: getPriorityRank("#priority/high"),
+      p2: getPriorityRank("#priority/p2"),
+      medium: getPriorityRank("#priority/medium"),
+      p3: getPriorityRank("#priority/p3"),
+      low: getPriorityRank("#priority/low"),
+    },
+    { p0: 0, critical: 0, p1: 1, high: 1, p2: 2, medium: 2, p3: 3, low: 3 }
+  );
+});
+
+test("#95: the four canonical levels are distinct, ordered, and never unranked", () => {
+  const getPriorityRank = loadTasksRanking();
+
+  const levels = [
+    ["p0", "critical"],
+    ["p1", "high"],
+    ["p2", "medium"],
+    ["p3", "low"],
+  ];
+
+  const ranks = levels.map(([numeric, word]) => {
+    const numericRank = getPriorityRank(`#priority/${numeric}`);
+    const wordRank = getPriorityRank(`#priority/${word}`);
+    assert.equal(
+      numericRank,
+      wordRank,
+      `${numeric} and ${word} are the same level in § 5 and must rank identically`
+    );
+    return numericRank;
+  });
+
+  assert.deepEqual(ranks, [0, 1, 2, 3], `expected 0,1,2,3 — got ${ranks.join(",")}`);
+  assert.equal(
+    new Set(ranks).size,
+    levels.length,
+    "two levels sharing a rank is what made the word aliases sort incorrectly"
+  );
+  for (const rank of ranks) {
+    assert.ok(rank < 4, "a canonical level must never fall through to the unranked value");
+  }
+});
+
+test("#95: `critical` ranks 0 instead of falling through to unranked", () => {
+  const getPriorityRank = loadTasksRanking();
+
+  // The specific failure: `critical` appeared in no pattern, so the most urgent word
+  // form was the only canonical alias that sorted as if it had no priority at all.
+  assert.equal(getPriorityRank("#priority/critical"), 0);
+  assert.equal(getPriorityRank("Ship it #priority/critical please"), 0, "matched inside surrounding text");
+  assert.equal(getPriorityRank("#priority/CRITICAL"), 0, "case-insensitive, like the numeric forms");
+  assert.notEqual(getPriorityRank("#priority/critical"), getPriorityRank("no tag here"));
+});
+
+test("#95: no canonical form can be read as a different level", () => {
+  const getPriorityRank = loadTasksRanking();
+
+  // Guards the specific confusion #95 was: a word form sharing a numeric form's rank.
+  const wrong = [
+    ["#priority/high", 0, "high is High, not Critical"],
+    ["#priority/medium", 1, "medium is Medium, not High"],
+    ["#priority/critical", 4, "critical is Critical, not unranked"],
+  ];
+  for (const [tag, forbidden, why] of wrong) {
+    assert.notEqual(getPriorityRank(tag), forbidden, `${tag}: ${why}`);
+  }
 });
 
 test("_Tasks MOC: urgent and normal stay unranked — deliberate drift removal", () => {
