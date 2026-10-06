@@ -1,10 +1,10 @@
 import type { App, TFile } from 'obsidian';
 import { callGeminiJson, formatGeminiFailure } from '../gemini';
-import { addFrontmatterTag, replaceSectionBody, normalizeWikiLink, wikiLinkTarget, toSingleLine, applyEnrichmentToCurrentContent, formatConflictNotice } from '../markdown';
+import { addFrontmatterTag, replaceSectionBody, resolveWikiLinks, degradeUnresolvableLinks, toSingleLine, applyEnrichmentToCurrentContent, formatConflictNotice } from '../markdown';
 
 const DEV_OWNED_SECTIONS = ["## Context", "## Code Explanation", "## Related"];
 
-function applyDevEnrichment(source: string, data: any): string {
+function applyDevEnrichment(source: string, data: any, existingNotes: string[]): string {
   let content = source;
 
   if (data.type) content = content.replace(/^type:\s*.*$/m, `type: ${data.type}`);
@@ -17,9 +17,12 @@ function applyDevEnrichment(source: string, data: any): string {
 
   if (data.context) {
     const ctxLines: string[] = [];
-    const system = toSingleLine(data.context.system);
-    const stack = toSingleLine(data.context.stack);
-    const fits = toSingleLine(data.context.whereItFits);
+    // #62: these are free-text fields, and the model's own example returns a
+    // wikilink for `system`. Degrade the unresolvable ones rather than let the
+    // Context section carry a link that leads nowhere.
+    const system = degradeUnresolvableLinks(toSingleLine(data.context.system), existingNotes);
+    const stack = degradeUnresolvableLinks(toSingleLine(data.context.stack), existingNotes);
+    const fits = degradeUnresolvableLinks(toSingleLine(data.context.whereItFits), existingNotes);
     if (system) ctxLines.push(`- System: ${system}`);
     if (stack) ctxLines.push(`- Stack: ${stack}`);
     if (fits) ctxLines.push(`- Where this fits: ${fits}`);
@@ -32,16 +35,10 @@ function applyDevEnrichment(source: string, data: any): string {
   }
 
   if (Array.isArray(data.related)) {
-    const seen = new Set<string>();
-    const links: string[] = [];
-    data.related.forEach((r: any) => {
-      const normalized = normalizeWikiLink(r);
-      const target = wikiLinkTarget(normalized);
-      if (!target || seen.has(target.toLowerCase())) return;
-      seen.add(target.toLowerCase());
-      links.push(normalized);
-    });
-    if (links.length) content = replaceSectionBody(content, "## Related", links.map((l: string) => `- ${l}`).join("\n"));
+    // #62: a related note that does not exist is written as plain text, not as
+    // a wikilink — this path normalised the syntax but never checked the target.
+    const items = resolveWikiLinks(data.related, existingNotes);
+    if (items.length) content = replaceSectionBody(content, "## Related", items.map((i) => `- ${i.text}`).join("\n"));
   }
 
   return content;
@@ -109,7 +106,7 @@ JSON format:
 try {
     const conflicts = await applyEnrichmentToCurrentContent(
       app.vault, file, snapshot, DEV_OWNED_SECTIONS,
-      (current) => applyDevEnrichment(current, devResult.data)
+      (current) => applyDevEnrichment(current, devResult.data, existingNotes)
     );
 
     new Notice(`✨ Dev note "${noteTitle}" enriched with AI! (${devResult.model})${formatConflictNotice(conflicts)}`);

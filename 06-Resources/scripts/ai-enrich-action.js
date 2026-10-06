@@ -234,6 +234,61 @@ function wikiLinkTarget(link) {
     return "";
   return inner[1].split("|")[0].split("#")[0].trim();
 }
+function exactNameIndex(existingNotes) {
+  const index = /* @__PURE__ */ new Map();
+  const ambiguous = /* @__PURE__ */ new Set();
+  for (const name of existingNotes || []) {
+    const key = String(name).toLowerCase();
+    const seen = index.get(key);
+    if (seen === void 0)
+      index.set(key, name);
+    else if (seen !== name)
+      ambiguous.add(key);
+  }
+  for (const key of ambiguous)
+    index.delete(key);
+  return index;
+}
+function unresolvedDisplay(normalized, target) {
+  const alias = String(normalized).match(/\[\[[^\[\]]*\|([^\[\]]+)\]\]/);
+  return toSingleLine(alias ? alias[1] : target).replace(/^==|==$/g, "").trim();
+}
+function resolveWikiLinks(candidates, existingNotes) {
+  const index = exactNameIndex(existingNotes);
+  const out = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const candidate of candidates || []) {
+    const normalized = normalizeWikiLink(candidate);
+    const target = wikiLinkTarget(normalized);
+    if (!target)
+      continue;
+    const key = target.toLowerCase();
+    if (seen.has(key))
+      continue;
+    seen.add(key);
+    const resolved = index.get(key);
+    if (resolved) {
+      out.push({
+        text: normalized.startsWith("==") ? `==[[${resolved}]]==` : `[[${resolved}]]`,
+        resolved: true
+      });
+    } else {
+      out.push({ text: unresolvedDisplay(normalized, target), resolved: false });
+    }
+  }
+  return out;
+}
+function degradeUnresolvableLinks(text, existingNotes) {
+  const index = exactNameIndex(existingNotes);
+  return String(text).replace(/\[\[([^\[\]]+)\]\]/g, (whole, inner) => {
+    const [pathPart, alias] = String(inner).split("|");
+    const target = pathPart.split("#")[0].trim();
+    if (target && index.has(target.toLowerCase()))
+      return whole;
+    const display = (alias !== void 0 ? alias : pathPart).replace(/#.*$/, "").trim();
+    return display || target;
+  });
+}
 function sectionPattern(headingLiteral) {
   const heading = headingLiteral.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return new RegExp(
@@ -331,28 +386,12 @@ function applyConceptEnrichment(source, data, existingNotes, existingLinksInNote
       content = replaceSectionBody(content, "## Next steps", items.map((s) => `- [ ] ${s}`).join("\n"));
   }
   if (Array.isArray(data.relatedConcepts)) {
-    const validTargets = /* @__PURE__ */ new Map();
-    existingNotes.forEach((n) => validTargets.set(n.toLowerCase(), n));
-    const links = [];
-    const seen = /* @__PURE__ */ new Set();
-    const addLink = (candidate) => {
-      const normalized = normalizeWikiLink(candidate);
-      const target = wikiLinkTarget(normalized);
-      if (!target)
-        return;
-      const resolved = validTargets.get(target.toLowerCase());
-      if (!resolved) {
-        console.warn(`Concept Enrich: dropped link to non-existent note "${target}"`);
-        return;
-      }
-      const key = resolved.toLowerCase();
-      if (seen.has(key))
-        return;
-      seen.add(key);
-      links.push(normalized.startsWith("==") ? `==[[${resolved}]]==` : `[[${resolved}]]`);
-    };
-    existingLinksInNote.forEach(addLink);
-    data.relatedConcepts.forEach(addLink);
+    const candidates = [...existingLinksInNote, ...data.relatedConcepts];
+    const resolvedItems = resolveWikiLinks(candidates, existingNotes);
+    const links = resolvedItems.filter((item) => item.resolved).map((item) => item.text);
+    resolvedItems.filter((item) => !item.resolved).forEach((item) => {
+      console.warn(`Concept Enrich: dropped link to non-existent note "${item.text}"`);
+    });
     if (links.length) {
       const rcText = links.map((l) => `- ${l}`).join("\n");
       if (/^## 🔗 Related References[ \t]*$/m.test(content)) {
@@ -449,7 +488,7 @@ The note was left unchanged. See the console for the full response.`,
 
 // 06-Resources/scripts/src/lib/enrichers/dev.ts
 var DEV_OWNED_SECTIONS = ["## Context", "## Code Explanation", "## Related"];
-function applyDevEnrichment(source, data) {
+function applyDevEnrichment(source, data, existingNotes) {
   let content = source;
   if (data.type)
     content = content.replace(/^type:\s*.*$/m, `type: ${data.type}`);
@@ -464,9 +503,9 @@ function applyDevEnrichment(source, data) {
   }
   if (data.context) {
     const ctxLines = [];
-    const system = toSingleLine(data.context.system);
-    const stack = toSingleLine(data.context.stack);
-    const fits = toSingleLine(data.context.whereItFits);
+    const system = degradeUnresolvableLinks(toSingleLine(data.context.system), existingNotes);
+    const stack = degradeUnresolvableLinks(toSingleLine(data.context.stack), existingNotes);
+    const fits = degradeUnresolvableLinks(toSingleLine(data.context.whereItFits), existingNotes);
     if (system)
       ctxLines.push(`- System: ${system}`);
     if (stack)
@@ -482,18 +521,9 @@ function applyDevEnrichment(source, data) {
       content = replaceSectionBody(content, "## Code Explanation", items.map((e) => `- ${e}`).join("\n"));
   }
   if (Array.isArray(data.related)) {
-    const seen = /* @__PURE__ */ new Set();
-    const links = [];
-    data.related.forEach((r) => {
-      const normalized = normalizeWikiLink(r);
-      const target = wikiLinkTarget(normalized);
-      if (!target || seen.has(target.toLowerCase()))
-        return;
-      seen.add(target.toLowerCase());
-      links.push(normalized);
-    });
-    if (links.length)
-      content = replaceSectionBody(content, "## Related", links.map((l) => `- ${l}`).join("\n"));
+    const items = resolveWikiLinks(data.related, existingNotes);
+    if (items.length)
+      content = replaceSectionBody(content, "## Related", items.map((i) => `- ${i.text}`).join("\n"));
   }
   return content;
 }
@@ -552,7 +582,7 @@ The note was left unchanged. See the console for the full response.`,
       file,
       snapshot,
       DEV_OWNED_SECTIONS,
-      (current) => applyDevEnrichment(current, devResult.data)
+      (current) => applyDevEnrichment(current, devResult.data, existingNotes)
     );
     new Notice(`\u2728 Dev note "${noteTitle}" enriched with AI! (${devResult.model})${formatConflictNotice(conflicts)}`);
   } catch (err) {
@@ -568,7 +598,7 @@ var LEARNING_OWNED_SECTIONS = [
   "## \u{1F4BB} Reusable Code Patterns & Snippets",
   "## \u2753 Active Recall & Self-Quiz"
 ];
-function applyLearningEnrichment(source, data) {
+function applyLearningEnrichment(source, data, existingNotes) {
   let content = source;
   if (data.topicTag) {
     content = addFrontmatterTag(content, data.topicTag);
@@ -588,16 +618,16 @@ function applyLearningEnrichment(source, data) {
     }
   }
   if (Array.isArray(data.extractedConcepts) && data.extractedConcepts.length > 0) {
-    const links = data.extractedConcepts.map(normalizeWikiLink).filter(Boolean);
-    if (links.length) {
-      const text = "*Atomic concepts distilled into `08-Concepts/`:*\n" + links.map((l) => `- ${l}`).join("\n");
+    const items = resolveWikiLinks(data.extractedConcepts, existingNotes);
+    if (items.length) {
+      const text = "*Atomic concepts distilled into `08-Concepts/`:*\n" + items.map((i) => `- ${i.text}`).join("\n");
       content = replaceSectionBody(content, "## \u{1F4A1} Extracted Evergreen Concepts", text);
     }
   }
   if (Array.isArray(data.extractedSnippets) && data.extractedSnippets.length > 0) {
-    const snippets = data.extractedSnippets.map(normalizeWikiLink).filter(Boolean);
-    if (snippets.length) {
-      const text = "*Practical snippets & solutions saved to `03-Dev/`:*\n" + snippets.map((s) => `- ${s}`).join("\n");
+    const items = resolveWikiLinks(data.extractedSnippets, existingNotes);
+    if (items.length) {
+      const text = "*Practical snippets & solutions saved to `03-Dev/`:*\n" + items.map((i) => `- ${i.text}`).join("\n");
       content = replaceSectionBody(content, "## \u{1F4BB} Reusable Code Patterns & Snippets", text);
     }
   }
@@ -686,7 +716,7 @@ The note was left unchanged. See the console for the full response.`,
       file,
       snapshot,
       LEARNING_OWNED_SECTIONS,
-      (current) => applyLearningEnrichment(current, result.data)
+      (current) => applyLearningEnrichment(current, result.data, existingNotes)
     );
     new Notice(`\u2728 Learning note "${noteTitle}" enriched with AI! (${result.model})${formatConflictNotice(conflicts)}`);
   } catch (err) {
