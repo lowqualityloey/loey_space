@@ -3,6 +3,7 @@ import type { QuickAddParams } from './types';
 import { parseGeminiError, formatGeminiFailure, type GeminiFailure } from './lib/gemini';
 import { stripTaskMetadata } from './lib/markdown';
 import { buildWeeklyWindow, describeCoverage, selectWeeklyNotes } from './lib/weekly-window';
+import { extractDailyData, summarizeWeek, describeWeekCoverage } from './lib/weekly-extract';
 
 interface WeeklySummaryJson {
   weeklyTitle?: string;
@@ -71,6 +72,11 @@ export = async function weeklyAISummary(params?: QuickAddParams): Promise<void> 
 
   const weekData = weekDataResults.filter((data): data is NonNullable<typeof data> => data !== null);
 
+  // 3b. Summarise what the week actually contains (#58). Averages exclude
+  // unknown readings and are returned with the coverage they rest on, so a
+  // mean over two logged days cannot be read as a mean over seven.
+  const weekSummary = summarizeWeek(weekData);
+
   // 4. Prepare prompt for AI
   const systemPrompt = `You are an insightful personal coach and productivity analyst. Analyze weekly data and provide comprehensive insights with actionable recommendations.`;
 
@@ -82,6 +88,9 @@ to: ${reviewWindow.endDate}
 calendar days: ${reviewWindow.days}
 timezone: ${reviewWindow.timeZone}
 coverage: ${coverage}
+
+WEEK SUMMARY (computed from the notes below; absent values are excluded from every average, and each coverage line states what its average rests on — do not present an average as covering more days than its coverage says):
+${JSON.stringify(weekSummary, null, 2)}
 
 These notes were selected BY this window. Do not describe the week as more complete than the coverage says, and treat a day with no note as unknown rather than as a zero.
 
@@ -210,6 +219,7 @@ tags:
 **Theme**: ${data.weeklyTitle || "Weekly Analysis"}
 
 ${coverage}
+${describeWeekCoverage(weekSummary)}
 
 ---
 
@@ -344,89 +354,6 @@ SORT updated DESC
 };
 
 // Helper function to extract data from daily notes
-function extractDailyData(content: string, noteDate: string) {
-  const lines = content.split('\n');
-
-  let mood = "neutral";
-  let energy = "3";
-  let sleepHours = "7";
-  const completedTasks: string[] = [];
-  const unfinishedTasks: string[] = [];
-  const checkedHabits: string[] = [];
-  const winsLog: string[] = [];
-  const blockersLog: string[] = [];
-
-  // Extract frontmatter
-  const moodMatch = content.match(/^mood:\s*(.*)$/m);
-  const energyMatch = content.match(/^energy:\s*(.*)$/m);
-  const sleepMatch = content.match(/^sleep_hours:\s*(.*)$/m);
-
-  if (moodMatch && moodMatch[1].trim()) mood = moodMatch[1].trim();
-  if (energyMatch && energyMatch[1].trim()) energy = energyMatch[1].trim();
-  if (sleepMatch && sleepMatch[1].trim()) sleepHours = sleepMatch[1].trim();
-
-  let currentSec = "";
-  for (const line of lines) {
-    const trimmed = line.trim();
-
-    // Update current section
-    if (trimmed.startsWith("## ")) {
-      currentSec = trimmed.toLowerCase();
-    }
-
-    if (!trimmed || trimmed.startsWith(">") || trimmed.startsWith("|")) {
-      continue;
-    }
-
-    // Extract tasks
-    if (currentSec.includes("task")) {
-      const doneMatch = trimmed.match(/^\s*-\s*\[x\]\s+(.*)$/i);
-      const openMatch = trimmed.match(/^\s*-\s*\[ \]\s+(.*)$/);
-      if (doneMatch && doneMatch[1].trim()) {
-        const itemText = doneMatch[1].trim();
-        if (!completedTasks.includes(itemText)) completedTasks.push(itemText);
-      } else if (openMatch && openMatch[1].trim() && openMatch[1].trim() !== "..." && openMatch[1].trim() !== "None") {
-        const itemText = openMatch[1].trim();
-        if (!unfinishedTasks.includes(itemText)) unfinishedTasks.push(itemText);
-      }
-    }
-
-    // Extract habits
-    if (currentSec.includes("habit")) {
-      const habitMatch = trimmed.match(/^\s*-\s*\[x\]\s+(.*)$/i);
-      if (habitMatch && habitMatch[1].trim()) {
-        const habitText = stripTaskMetadata(habitMatch[1]);
-        if (habitText && !checkedHabits.includes(habitText)) checkedHabits.push(habitText);
-      }
-    }
-
-    // Extract wins
-    if (currentSec.includes("win")) {
-      const cleanItem = trimmed.replace(/^-\s*/, "").trim();
-      if (cleanItem) winsLog.push(cleanItem);
-    }
-
-    // Extract blockers
-    if (currentSec.includes("blocker")) {
-      const cleanItem = trimmed.replace(/^-\s*/, "").trim();
-      if (cleanItem) blockersLog.push(cleanItem);
-    }
-  }
-
-  return {
-    date: noteDate,
-    mood: mood,
-    energy: parseInt(energy) || 3,
-    sleepHours: parseFloat(sleepHours) || 7,
-    completedTasks: completedTasks,
-    unfinishedTasks: unfinishedTasks,
-    completedHabits: checkedHabits,
-    wins: winsLog,
-    blockers: blockersLog,
-    taskCompletionRate: completedTasks.length / (completedTasks.length + unfinishedTasks.length) || 0,
-    habitCompletionRate: checkedHabits.length // Assuming 5 habits per day as baseline
-  };
-}
 
 // Helper function to format weekly summary
 function formatWeeklySummary(data: WeeklySummaryJson): string {
