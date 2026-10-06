@@ -1,6 +1,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+// The two parsers live in `lib/links.ts` so that importing them from another script
+// cannot execute this file's CLI (see the header there). Re-exported so every existing
+// `import { parseAliases } from '../audit-links.js'` keeps resolving against the bundle.
+import { parseAliases, extractWikilinks } from './lib/links';
+export { parseAliases, extractWikilinks };
+
 interface NoteInfo {
   relativePath: string;
   basename: string;
@@ -87,66 +93,6 @@ function findFuzzyMatch(target: string, candidates: string[]): string | undefine
   }
 
   return bestCandidate;
-}
-
-export function parseAliases(content: string): string[] {
-  const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-  if (!fmMatch) return [];
-
-  const fm = fmMatch[1];
-  const aliasesMatch = fm.match(/^aliases:\s*(.*)$/m);
-  if (!aliasesMatch) return [];
-
-  const raw = aliasesMatch[1].trim();
-  if (raw.startsWith('[') && raw.endsWith(']')) {
-    return raw.slice(1, -1).split(',').map(s => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
-  }
-
-  const listMatches = fm.match(/^aliases:\s*\r?\n((?:\s*-\s*.*(?:\r?\n|$))+)/m);
-  if (listMatches) {
-    return listMatches[1]
-      .split('\n')
-      .map(line => line.replace(/^\s*-\s*/, '').trim().replace(/^["']|["']$/g, ''))
-      .filter(Boolean);
-  }
-
-  return raw ? [raw.replace(/^["']|["']$/g, '')] : [];
-}
-
-export function extractWikilinks(content: string): Array<{ target: string; raw: string; line: number }> {
-  const links: Array<{ target: string; raw: string; line: number }> = [];
-  const lines = content.split('\n');
-
-  let inFence = false;
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (line.trim().startsWith('```')) {
-      inFence = !inFence;
-      continue;
-    }
-    if (inFence) continue;
-
-    // Strip inline code blocks before scanning for wikilinks
-    const strippedLine = line.replace(/`[^`]+`/g, ' ');
-
-    const matches = strippedLine.matchAll(/!?\[\[([^\[\]]+)\]\]/g);
-    for (const match of matches) {
-      const raw = match[0];
-      const inner = match[1].trim();
-      const cleanInner = inner.replace(/\\\|/g, '|');
-      const targetOnly = cleanInner.split('|')[0].split('#')[0].trim();
-      if (targetOnly && targetOnly !== '|' && targetOnly !== '#') {
-        links.push({
-          target: targetOnly.replace(/\.md$/i, ''),
-          raw: raw,
-          line: i + 1
-        });
-      }
-    }
-  }
-
-  return links;
 }
 
 export function auditVaultLinks(vaultRoot: string): AuditReport {
