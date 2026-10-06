@@ -1,6 +1,6 @@
 ---
 created: 2026-08-09
-updated: 2026-08-29
+updated: 2026-10-07
 type: dashboard
 status: active
 area: reviews
@@ -298,10 +298,33 @@ if (habitNames.length === 0) {
   for (let habit of habitNames) {
     let longestStreak = 0;
     let tempStreak = 0;
+    let currentStreak = 0;
+    let previousDate = null;
 
-    // Walk through pages chronologically
-    for (let p of pages) {
+    // Walk through pages chronologically. A streak is a run of CONSECUTIVE calendar days on
+    // which the habit was observed AND completed — a logged day with the habit absent, a day
+    // with no note at all, or a gap in the calendar breaks it. The previous code let a streak
+    // bridge across days where the habit was not recorded, so "5 days" could mean five
+    // observations spread over two weeks with gaps in between.
+    for (let i = 0; i < pages.length; i++) {
+      const p = pages.at(i);
+      const pageDate = p.file.name;
+
+      // Parse the page date to check for calendar gaps.
+      const pageDateObj = new Date(pageDate + "T00:00:00");
+
+      if (previousDate !== null) {
+        const diffTime = pageDateObj.getTime() - previousDate.getTime();
+        const diffDays = diffTime / (1000 * 60 * 60 * 24);
+        if (diffDays > 1) {
+          // Gap in the calendar — the streak breaks.
+          tempStreak = 0;
+        }
+      }
+      previousDate = pageDateObj;
+
       if (!p.file.tasks) {
+        // No note at all on this day — the current streak ends here.
         tempStreak = 0;
         continue;
       }
@@ -322,19 +345,18 @@ if (habitNames.length === 0) {
       if (found && completed) {
         tempStreak++;
         if (tempStreak > longestStreak) longestStreak = tempStreak;
-      } else if (found && !completed) {
+        currentStreak = tempStreak;
+      } else {
+        // habit absent on a logged day, or present but not done — the streak ends.
         tempStreak = 0;
       }
-      // If habit not found on this day, don't break streak
     }
-
-    const currentStreak = tempStreak;
     streakRows.push([habit, currentStreak + " days", longestStreak + " days"]);
   }
 
-  // A streak counts logged days and an unlogged day does not break it, so the number is only
-  // meaningful next to how many days it was computed from.
-  dv.paragraph(`**Coverage**: streaks computed over ${pages.length} logged day(s); unlogged days neither extend nor break a streak`);
+  // Streaks are computed over logged days only, and a logged day without the habit breaks the
+  // run — so the number is only meaningful next to how many days it was computed from.
+  dv.paragraph(`**Coverage**: streaks computed over ${pages.length} logged day(s); a logged day without the habit breaks the streak, and unlogged days end the current run`);
   dv.table(["Habit", "Current Streak", "Best Streak"], streakRows);
 }
 ```
