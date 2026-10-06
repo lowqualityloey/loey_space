@@ -86,15 +86,18 @@ const inScope = (p) => p.file.name !== "Tasks Kanban" && (!p.file.path.startsWit
   (currentDailyDate !== "" && p.file.name.startsWith(currentDailyDate)));
 
 function getPriorityRank(text) {
-  // `urgent` and `normal` were removed here as a deliberate drift call: neither is in
-  // the canonical § 5 taxonomy, and a census of the real vault found 0 uses of either,
-  // so nothing could regress. Note that the word aliases which REMAIN are still off by
-  // one against that taxonomy — `high` and `medium` each rank one step too urgent.
-  // That is tracked separately; this change is alias removal only and deliberately
-  // does not redefine the scale.
-  if (/#priority\/(p0|high)/i.test(text)) return 0;
-  if (/#priority\/(p1|medium)/i.test(text)) return 1;
-  if (/#priority\/p2/i.test(text)) return 2;
+  // Canonical mapping from `06-Resources/Guides/Tagging & Properties.md` § 5, which
+  // sanctions TWO vocabularies for each of the same four levels.
+  //
+  // Issue #95: `critical` was matched by none of these patterns, so it fell through to
+  // the unranked 4, while `high` and `medium` each ranked one step too urgent — a
+  // `#priority/high` card sorted as Critical and `#priority/medium` as High.
+  //
+  // `urgent` and `normal` stay unranked: they are not in § 5, a census found 0 real
+  // uses, and their removal is pinned by `priority-contract.test.mjs`.
+  if (/#priority\/(p0|critical)/i.test(text)) return 0;
+  if (/#priority\/(p1|high)/i.test(text)) return 1;
+  if (/#priority\/(p2|medium)/i.test(text)) return 2;
   if (/#priority\/(p3|low)/i.test(text)) return 3;
   return 4;
 }
