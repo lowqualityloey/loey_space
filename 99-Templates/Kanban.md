@@ -22,6 +22,8 @@ kanban-plugin: board
 
 ## Done
 
+## Archive
+
 %% kanban:settings
 ```
 {"kanban-plugin":"board"}

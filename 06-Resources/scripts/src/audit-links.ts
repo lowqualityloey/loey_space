@@ -221,9 +221,19 @@ export function auditVaultLinks(vaultRoot: string): AuditReport {
   let totalLinks = 0;
 
   for (const [relPath, note] of notes) {
-    if (relPath.startsWith('99-Templates/')) continue;
-
+    // Issue #54: templates used to be skipped here, so a blueprint could ship a wikilink
+    // that cannot resolve in any note it produces and no audit would ever say so.
+    // `99-Templates/Project.md` carried `[[08-Concepts/ ]]` and `[[04-Learning/ ]]` —
+    // folder targets, not the notes the template asks the author to add. A template is a
+    // metadata contract in its own right (the validator already fails one that declares no
+    // `type`), so its links are audited like any other note's.
     for (const link of note.outgoingLinks) {
+      // A Templater blueprint resolves some targets at RENDER time: `[[<% tp.file.title %>
+      // Kanban]]` has no target until the template runs, so it cannot be resolved
+      // statically and is not a broken link. An EMPTY `[[ ]]` placeholder never reaches
+      // here at all — `extractWikilinks` drops a link whose target is blank.
+      if (link.target.includes('<%')) continue;
+
       totalLinks++;
       const lowerTarget = link.target.toLowerCase();
 

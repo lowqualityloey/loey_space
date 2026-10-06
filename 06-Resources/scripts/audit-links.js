@@ -208,9 +208,9 @@ function auditVaultLinks(vaultRoot) {
   const brokenLinks = [];
   let totalLinks = 0;
   for (const [relPath, note] of notes) {
-    if (relPath.startsWith("99-Templates/"))
-      continue;
     for (const link of note.outgoingLinks) {
+      if (link.target.includes("<%"))
+        continue;
       totalLinks++;
       const lowerTarget = link.target.toLowerCase();
       const resolvesToNote = noteLookup.has(lowerTarget);
