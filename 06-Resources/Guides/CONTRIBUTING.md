@@ -141,6 +141,22 @@ Please include the check you ran in the PR description. Node's built-in `assert`
 
 5. **Don't reformat** files you aren't otherwise changing.
 
+### Stacked pull requests
+
+If a change is too big for one review, open it as a **stack**: a second PR whose base is the
+first PR's branch rather than `main`. Stacks are supported here, and every pull request is
+checked regardless of what it targets — the workflow does not filter on `main`, because a
+`branches` filter matches the *base* branch and so silently skipped every stacked PR.
+
+Two caveats come from GitHub rather than from this repository, and both bite a stack harder
+than they bite a PR against `main`:
+
+* **Pushing to a base branch does not re-run the checks on the PRs stacked on it.** Re-run the
+  check yourself once the branch beneath yours moves, or you are reading a result computed
+  against code that no longer exists.
+* **No run happens at all while the pull request has a merge conflict.** An absent check is not
+  a passing one, and a stack is likelier to be in that state than a PR against `main`.
+
 ## 🐛 Bug reports
 
 Include your Obsidian version, desktop or mobile, the relevant console output (`Ctrl + Shift + I`), and what you expected. For AI features, note whether the notice mentioned a **quota limit** — a 429 means Gemini refused the request, which is not a bug in this code.
