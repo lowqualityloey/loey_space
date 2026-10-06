@@ -1,6 +1,6 @@
 ---
 created: <% tp.date.now("YYYY-MM-DD") %>
-updated: 2026-08-10
+updated: <% tp.date.now("YYYY-MM-DD") %>
 last_reviewed: <% tp.date.now("YYYY-MM-DD") %>
 review_cycle: 90d
 type: concept

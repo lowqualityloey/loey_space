@@ -39,6 +39,23 @@ test("buildKanban: generates valid kanban board structure", () => {
   assert.ok(kanban.includes("## To Do"));
   assert.ok(kanban.includes("## In Progress"));
   assert.ok(kanban.includes("## Done"));
+
+  // Issue #54: a board generated here used to declare no `type` at all, so the validator
+  // treated it as out of contract BY DESIGN — a board created for a project could not be
+  // checked against the project contract, and its missing metadata was invisible. It now
+  // carries the same metadata the standalone `Kanban.md` blueprint does, plus every standard
+  // lane. `docs/tasks/` records the lane set; AGENTS.md's scaffolding protocol names it.
+  for (const field of ["created", "updated", "type", "status", "priority", "area", "tags"]) {
+    assert.ok(
+      new RegExp(`^${field}:`, "m").test(kanban),
+      `the generated board must declare \`${field}\`\n--- board ---\n${kanban}`
+    );
+  }
+  assert.ok(/^type: project$/m.test(kanban), "the board is created for a project, so it declares that type");
+
+  for (const lane of ["## Backlog", "## To Do", "## In Progress", "## Review / Test", "## Done", "## Archive"]) {
+    assert.ok(kanban.includes(lane), `the generated board must declare the \`${lane}\` lane\n--- board ---\n${kanban}`);
+  }
 });
 
 test("insertTask: places task in Tasks section or replaces empty task checkbox", () => {

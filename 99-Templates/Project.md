@@ -19,9 +19,17 @@ tags:
   if (title && title !== "Project") {
     const kanbanPath = `${folder}/${title} Kanban.md`;
     const kanbanContent = `---
-
+created: ${tp.date.now("YYYY-MM-DD")}
+updated: ${tp.date.now("YYYY-MM-DD")}
+type: project
+status: active
+priority: medium
+area: dev
+tags:
+  - type/project
+  - area/dev
+  - status/active
 kanban-plugin: board
-
 ---
 
 ## Backlog
@@ -33,6 +41,8 @@ kanban-plugin: board
 ## Review / Test
 
 ## Done
+
+## Archive
 
 %% kanban:settings
 \`\`\`
@@ -73,8 +83,8 @@ graph TD
 | **Deployment / CI** | | |
 
 ## 💡 Applied Architectural Concepts & Knowledge Links
-- [[08-Concepts/ ]] — 
-- [[04-Learning/ ]] — 
+- Concept: link one from `08-Concepts/`
+- Learning: link one from `04-Learning/`
 
 ## 🔗 Key Links & Resources
 - **Repository**: 
