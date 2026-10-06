@@ -3,8 +3,21 @@ name: CI
 on:
   push:
     branches: [main]
+
+  # No `branches` filter here, deliberately. A `branches` filter on `pull_request`
+  # matches the BASE branch, so `branches: [main]` silently skipped every pull
+  # request opened against another feature branch — a stacked PR. Measured on #102:
+  # no run was created for it at all, so its whole suite had to be replicated by
+  # hand in a scratch clone, and the reviewer got a transcript to trust instead of
+  # a run GitHub performed.
+  #
+  # `push` stays filtered to `main`, because that is the run which verifies the
+  # canonical branch after a merge; an unrestricted `push` would repeat this job
+  # for every feature-branch push, alongside the pull-request run it duplicates.
+  #
+  # Guarded by 06-Resources/scripts/tests/ci-workflow-trigger.test.mjs, so
+  # restoring the filter fails the suite rather than quietly going dark again.
   pull_request:
-    branches: [main]
 
 jobs:
   validate:
