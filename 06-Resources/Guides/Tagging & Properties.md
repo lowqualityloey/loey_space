@@ -22,8 +22,8 @@ areas, statuses, required fields, and review metadata are defined here once, and
 every table below is the contract that templates, MOCs, and scripts are checked
 against.
 
-Where the machine disagrees with this document, that gap is recorded explicitly in
-[⚠️ Enforcement Gap](#enforcement-gap-code-lags-the-contract). A schema
+Where the machine disagrees with this document, that disagreement is recorded
+explicitly in [Enforcement Status](#enforcement-status). A schema
 that silently disagrees with its own tooling is worse than one that names the
 disagreement, so this document states both sides rather than picking a winner and
 hoping nobody runs the validator.
@@ -99,8 +99,8 @@ required and may be blank.
 | `moc` ‡ | `status` | _(none)_ | none |
 
 † Documented exception: see [Capture and Software-Document Exceptions](#capture-and-software-document-exceptions).
-‡ Documented exception: real and widely used, but not registered in the validator; see
-[Enforcement Gap](#enforcement-gap-code-lags-the-contract).
+‡ Documented exception: real and widely used. Registered in the validator by #93; see
+[Enforcement Status](#enforcement-status).
 
 `review_cycle` accepts exactly three values: `14d`, `30d`, `90d`. `7d` appeared in
 earlier drafts of this guide but **no template and no script emits it**, so it is not
@@ -191,22 +191,27 @@ whether it is canonical, an explicit exception, or reserved.
 | `template` | A template file under the templates folder | canonical | validator | Blueprint, not content |
 | `capture` | Raw, unprocessed inbound item | documented exception | validator | Adopts `type`/`area` naming it was given. Not a knowledge type; it is a queue entry |
 | `task` | A single actionable item | documented exception | validator | Adopts `type`/`area` naming it was given. A task is not yet a project |
-| `dashboard` | Central command pages | documented exception | **documentation only** | Real and load-bearing (the vault's home page is one), but absent from the validator registry |
-| `guide` | How-to and process documentation | documented exception | **documentation only** | Real, widely used, absent from the validator registry. This file is one |
-| `moc` | Map of Content, a hub that links a section together | documented exception | **documentation only** | The highest-volume type in the vault and absent from the validator registry |
-| `triage` | _(no description yet)_ | **reserved and unused** | validator (dead entry) | No template declares it; the triage template declares `type: personal`. Keeping the entry preserves a name that was reserved for the triage queue. See the enforcement gap |
+| `dashboard` | Central command pages | documented exception | validator | Real and load-bearing (the vault's home page is one). Registered by #93, which also widened the scan so it is actually reached |
+| `guide` | How-to and process documentation | documented exception | validator | Real, widely used; this file is one. Registered by #93 |
+| `moc` | Map of Content, a hub that links a section together | documented exception | validator | The highest-volume type in the vault. Registered by #93 |
 
-**Which component enforces what.** `npm run validate-templates` reads only
-`99-Templates/*.md` and checks each one against its registered type. The
-`dashboard`, `guide`, and `moc` types are used by tracked notes but no template
-declares them, so the validator never sees them and cannot reject them. The rows
-above marked *documentation only* are therefore normative by this document alone.
-Conversely, `capture` and `task` **are** enforced: templates exist, so the validator
-checks them, and the vocabulary had to be registered to keep those templates passing.
+`triage` was previously a registry key that no template and no note ever declared. It
+was removed as a dead entry by #93, so it is now neither used nor accepted; see the
+enforcement section.
 
-> [!WARNING] A typo in `type` is currently indistinguishable from valid
-> Because the registry is keyed on the raw string, `type: triag` and the dead
-> `type: triage` both validate. See [Enforcement Gap](#enforcement-gap-code-lags-the-contract).
+**Which component enforces what.** `npm run validate-templates` enumerates every
+tracked markdown file with `git ls-files -z -- '*.md'` and checks each one that declares
+a `type` against its registered type. It is no longer template-only, so `dashboard`,
+`guide`, and `moc` are enforced like every other type, as are `capture` and `task`.
+Two paths are exempt by explicit declaration rather than by prefix: `memory.md` and
+`handoff.md`, the owner's private records, whose types are not in this taxonomy. Both
+exemptions are printed on every run, so an exempt note is never mistaken for a passing
+one.
+
+> [!NOTE] A typo in `type` now fails
+> The registry is keyed on the raw string, so `type: triag` was indistinguishable from
+> the dead `type: triage` — both validated. `triage` has been removed as a dead entry,
+> so a typo in that position is a failure rather than a silent pass.
 
 ### 2. Area Taxonomy (`area/*`)
 Knowledge domains and functional areas.
@@ -527,46 +532,54 @@ the validator does not know them yet. That is recorded below.
 
 ---
 
-## Enforcement Gap (code lags the contract)
+## Enforcement Status
 
-`06-Resources/scripts/src/validate-templates.ts` defines the `expectedProperties`
-registry, keyed by `type`. **It does not implement the canonical list in this
-document.** This section exists so the next engineer does not assume the doc and the
-code agree.
+`06-Resources/scripts/src/validate-templates.ts` implements the canonical list in this
+document. The registry is keyed by `type`, and every tracked markdown file that
+declares a `type` is checked against it.
 
-Specifically, as of this revision:
+Coverage, as measured by running `npm run validate-templates` on this repository:
+
+```
+Inspected 43 note(s); 45 of 87 tracked markdown file(s) declare a `type`, 2 exempted.
+```
+
+**Closed by #93.** These were the gaps this section previously recorded as open, and
+they are listed here so the change is auditable rather than silent:
+
+| Previously open | Now |
+|-----------------|-----|
+| `dashboard`, `guide`, and `moc` absent from the registry, leaving 21 of 43 typed notes (~48%) unchecked | All three registered with their required fields and enforced |
+| The scan read only `99-Templates/*.md`, so most of the vault was never inspected | The scan enumerates all tracked markdown; the type registry and the scan were widened as one change, because either half alone is useless |
+| `triage` was a registry key no template declared, so `type: triag` validated | `triage` removed as a dead entry; an unregistered type is a failure |
+| A typo in `type` was silently accepted | An unknown `type` fails validation and sets a nonzero exit code |
+
+Widening the scan surfaced **two genuine violations that the type-only census could not
+see**, because they were missing required fields rather than an unregistered type:
+`06-Resources/APIs/_APIs MOC.md` and `99-Attachments/_Attachments MOC.md`. Both are now
+conformant. This is the argument for enforcing the contract rather than documenting it
+— a census of *types* would have reported both as fine.
+
+### Still open
 
 | Gap | Detail | Impact |
 |-----|--------|--------|
-| **Missing types** | The registry has no entry for `dashboard`, `guide`, or `moc` | **21 of the 43 tracked notes that declare a `type` (~48%) use a type the validator would reject** — every MOC in the vault, every guide including this file, and the home page. The validator only reads `99-Templates/*.md`, so none of them are ever checked. Breakdown: `moc` ×13, `guide` ×6, `dashboard` ×2 |
-| **Dead type** | `triage` is registered, but no template declares it; the triage template declares `type: personal` | A reserved name that validates but describes nothing |
-| **Unvalidated typo surface** | The registry keys on a raw string, so `type: triag` validates exactly like `type: triage` | A typo in a template's type is silently accepted |
-| **Two other copies of the schema** | `AGENTS.md` (lines 68-70) carries its own type, area, and status lists | Two further descriptions of the taxonomy that can drift from both this file and the registry. The `AGENTS.md` lists omit `moc`, `capture`, `task`, `area/inbox`, and `status/review-needed` — all defined above. Updating it is out of scope for this documentation change |
+| **Two other copies of the schema** | `AGENTS.md` (lines 68-70) carries its own type, area, and status lists | Two further descriptions of the taxonomy that can drift from both this file and the registry. The `AGENTS.md` lists omit `moc`, `capture`, `task`, `area/inbox`, and `status/review-needed` — all defined above |
 | **Duration syntax** | Compact durations such as `dur(7d)` and `dur(review_cycle)` appear in templates and one MOC; the working form is `dur(7 days)` | Those expressions do not evaluate. See the query section |
+| **Numeric `mood`** | The daily-note readers do not implement the numeric-mood tolerance rule | Either implement it or state plainly that legacy numeric values are unsupported |
 
-**Why this is not fixed here.** Aligning the registry with this document is a code
-change to `validate-templates.ts` and to the affected templates and MOCs. This issue is
-documentation-only by design, and a validator change that added `dashboard`, `guide`,
-and `moc` would need its own tests before it landed. So the gap is recorded rather than
-silently closed.
+### Declared exemptions
 
-**What closing it should involve**, as a checklist for that future issue:
+`memory.md` and `handoff.md` are the owner's private cross-session records. Their types
+(`memory`, `handoff`) are not in this taxonomy and they are not vault notes. They are
+exempt **by explicit path with a stated reason**, printed on every run — not skipped by
+prefix and not silently tolerated. A note that declares no `type` at all is likewise not
+a contract violation, since the contract binds notes that declare metadata.
 
-1. Add `dashboard`, `guide`, and `moc` to `expectedProperties` with their required
-   fields. Until this lands, **21 tracked notes are outside the schema** — widening the
-   validator to the whole vault would fail every one of them at once, so this step and
-   step 2 are one piece of work, not two.
-2. Decide whether the validator stops being template-only. `resolveTemplatesPath()`
-   returns `99-Templates` and nothing else, which is the **root cause** of the silent
-   gap: widening the registry without widening the scan would still leave those 21
-   unchecked.
-3. Remove `triage`, or add a template that actually declares it.
-4. Fail loudly on an unregistered `type` so a typo is an error, not a pass. The
-   validator already treats an absent registry entry as a failure; the gap is that
-   `triage` is present as a key.
-5. Bring the `AGENTS.md` lists in line, or replace them with a pointer to this file.
-5. Add the numeric-mood tolerance rule to the daily-note readers, or state plainly that
-   legacy numeric values are unsupported.
+> [!NOTE] Not every tracked note is validated
+> `CONTRIBUTING.md` sits in `Guides/` and declares no `type`, so the contract does not
+> bind it. That is a real hole in coverage rather than an exemption, and is worth a
+> follow-up.
 
 ---
 
@@ -671,9 +684,9 @@ unreviewed note has no interval to be overdue against.
 - [x] Give `mood` a single representation and a migration policy that needs no rewrite
 - [x] Separate `updated` from `last_reviewed`
 - [x] Correct the review-due query and record the duration-syntax trap
-- [ ] Add `dashboard`, `guide`, and `moc` to the validator registry (tracked in
-      [Enforcement Gap](#enforcement-gap-code-lags-the-contract))
-- [ ] Remove or implement the dead `triage` type
+- [x] Add `dashboard`, `guide`, and `moc` to the validator registry, and widen the scan
+      beyond `99-Templates/` (#93; see [Enforcement Status](#enforcement-status))
+- [x] Remove or implement the dead `triage` type (removed by #93)
 - [ ] Reconcile the four section-index areas with their MOC files
 - [ ] Bring the schema copy in `AGENTS.md` in line with this file
 - [ ] Audit existing notes for consistency, without bulk-migrating their content
