@@ -1,6 +1,6 @@
 import type { App, TFile } from 'obsidian';
 import { callGeminiJson, formatGeminiFailure } from '../gemini';
-import { addFrontmatterTag, replaceSectionBody, normalizeWikiLink, wikiLinkTarget, toSingleLine, applyEnrichmentToCurrentContent, formatConflictNotice } from '../markdown';
+import { addFrontmatterTag, replaceSectionBody, resolveWikiLinks, normalizeWikiLink, wikiLinkTarget, toSingleLine, applyEnrichmentToCurrentContent, formatConflictNotice } from '../markdown';
 
 const CONCEPT_OWNED_SECTIONS = [
   "## Summary",
@@ -45,29 +45,17 @@ function applyConceptEnrichment(source: string, data: any, existingNotes: string
   }
 
   if (Array.isArray(data.relatedConcepts)) {
-    const validTargets = new Map<string, string>();
-    existingNotes.forEach((n: string) => validTargets.set(n.toLowerCase(), n));
-
-    const links: string[] = [];
-    const seen = new Set<string>();
-
-    const addLink = (candidate: any) => {
-      const normalized = normalizeWikiLink(candidate);
-      const target = wikiLinkTarget(normalized);
-      if (!target) return;
-      const resolved = validTargets.get(target.toLowerCase());
-      if (!resolved) {
-        console.warn(`Concept Enrich: dropped link to non-existent note "${target}"`);
-        return;
-      }
-      const key = resolved.toLowerCase();
-      if (seen.has(key)) return;
-      seen.add(key);
-      links.push(normalized.startsWith("==") ? `==[[${resolved}]]==` : `[[${resolved}]]`);
-    };
-
-    existingLinksInNote.forEach(addLink);
-    data.relatedConcepts.forEach(addLink);
+    // #62: this was the only path that already resolved targets. It now shares
+    // the vault-wide resolver so all four enrichers apply one rule. Concept
+    // keeps the strictest reading of it: a Related References entry is a claim
+    // that the link works, so an unresolvable suggestion is dropped and logged
+    // rather than shown as plain text.
+    const candidates = [...existingLinksInNote, ...data.relatedConcepts];
+    const resolvedItems = resolveWikiLinks(candidates, existingNotes);
+    const links = resolvedItems.filter((item) => item.resolved).map((item) => item.text);
+    resolvedItems.filter((item) => !item.resolved).forEach((item) => {
+      console.warn(`Concept Enrich: dropped link to non-existent note "${item.text}"`);
+    });
 
     if (links.length) {
       const rcText = links.map(l => `- ${l}`).join("\n");

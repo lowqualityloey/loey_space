@@ -1,6 +1,6 @@
 import type { App, TFile } from 'obsidian';
 import { callGeminiJson, formatGeminiFailure } from '../gemini';
-import { addFrontmatterTag, readFrontmatterValue, replaceSectionBody, normalizeWikiLink, toSingleLine, applyEnrichmentToCurrentContent, formatConflictNotice } from '../markdown';
+import { addFrontmatterTag, readFrontmatterValue, replaceSectionBody, resolveWikiLinks, toSingleLine, applyEnrichmentToCurrentContent, formatConflictNotice } from '../markdown';
 
 const LEARNING_OWNED_SECTIONS = [
   "## 🎯 Learning Objectives & Motivation",
@@ -9,7 +9,7 @@ const LEARNING_OWNED_SECTIONS = [
   "## ❓ Active Recall & Self-Quiz"
 ];
 
-function applyLearningEnrichment(source: string, data: any): string {
+function applyLearningEnrichment(source: string, data: any, existingNotes: string[]): string {
   let content = source;
 
   if (data.topicTag) {
@@ -31,17 +31,21 @@ function applyLearningEnrichment(source: string, data: any): string {
   }
 
   if (Array.isArray(data.extractedConcepts) && data.extractedConcepts.length > 0) {
-    const links = data.extractedConcepts.map(normalizeWikiLink).filter(Boolean);
-    if (links.length) {
-      const text = "*Atomic concepts distilled into `08-Concepts/`:*\n" + links.map((l: string) => `- ${l}`).join("\n");
+    // #62: a suggested concept that does not exist is written as plain text, not
+    // as a wikilink. The model is asked to propose NEW names, so linking them
+    // unverified would put a phantom link in the note on every run.
+    const items = resolveWikiLinks(data.extractedConcepts, existingNotes);
+    if (items.length) {
+      const text = "*Atomic concepts distilled into `08-Concepts/`:*\n" + items.map((i) => `- ${i.text}`).join("\n");
       content = replaceSectionBody(content, "## 💡 Extracted Evergreen Concepts", text);
     }
   }
 
   if (Array.isArray(data.extractedSnippets) && data.extractedSnippets.length > 0) {
-    const snippets = data.extractedSnippets.map(normalizeWikiLink).filter(Boolean);
-    if (snippets.length) {
-      const text = "*Practical snippets & solutions saved to `03-Dev/`:*\n" + snippets.map((s: string) => `- ${s}`).join("\n");
+    // #62: same rule as concepts — an uncreated snippet is plain text.
+    const items = resolveWikiLinks(data.extractedSnippets, existingNotes);
+    if (items.length) {
+      const text = "*Practical snippets & solutions saved to `03-Dev/`:*\n" + items.map((i) => `- ${i.text}`).join("\n");
       content = replaceSectionBody(content, "## 💻 Reusable Code Patterns & Snippets", text);
     }
   }
@@ -139,7 +143,7 @@ JSON format:
 try {
     const conflicts = await applyEnrichmentToCurrentContent(
       app.vault, file, snapshot, LEARNING_OWNED_SECTIONS,
-      (current) => applyLearningEnrichment(current, result.data)
+      (current) => applyLearningEnrichment(current, result.data, existingNotes)
     );
 
     new Notice(`✨ Learning note "${noteTitle}" enriched with AI! (${result.model})${formatConflictNotice(conflicts)}`);

@@ -74,6 +74,89 @@ export function wikiLinkTarget(link: any): string {
   return inner[1].split("|")[0].split("#")[0].trim();
 }
 
+// Builds lowercase-name -> exact-name, omitting any name that is ambiguous.
+// Two notes differing only in case must never silently resolve to one another,
+// so an ambiguous key is absent from the map and the candidate stays unresolved.
+function exactNameIndex(existingNotes: string[]): Map<string, string> {
+  const index = new Map<string, string>();
+  const ambiguous = new Set<string>();
+
+  for (const name of existingNotes || []) {
+    const key = String(name).toLowerCase();
+    const seen = index.get(key);
+    if (seen === undefined) index.set(key, name);
+    else if (seen !== name) ambiguous.add(key);
+  }
+
+  for (const key of ambiguous) index.delete(key);
+  return index;
+}
+
+// The readable words of a candidate that resolves to nothing: the alias when it
+// carried one, otherwise the target, with bracket syntax and highlight gone.
+function unresolvedDisplay(normalized: string, target: string): string {
+  const alias = String(normalized).match(/\[\[[^\[\]]*\|([^\[\]]+)\]\]/);
+  return toSingleLine(alias ? alias[1] : target).replace(/^==|==$/g, "").trim();
+}
+
+// Resolves model-suggested wikilinks against the notes that actually exist.
+//
+// Each candidate yields its display text in input order: one that resolves to a
+// real note becomes a wikilink to that note's EXACT name, one that does not
+// becomes plain text. Enrichment is written by an automated writer, so it must
+// never publish a link a reader cannot follow — the "no phantom wikilinks"
+// invariant applies to it at least as much as to a human typo. Duplicates
+// collapse case-insensitively. `resolved` lets a caller that wants only links
+// (concept's Related References) drop the suggestions.
+export function resolveWikiLinks(
+  candidates: any[],
+  existingNotes: string[]
+): Array<{ text: string; resolved: boolean }> {
+  const index = exactNameIndex(existingNotes);
+  const out: Array<{ text: string; resolved: boolean }> = [];
+  const seen = new Set<string>();
+
+  for (const candidate of candidates || []) {
+    const normalized = normalizeWikiLink(candidate);
+    const target = wikiLinkTarget(normalized);
+    if (!target) continue;
+
+    const key = target.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const resolved = index.get(key);
+    if (resolved) {
+      out.push({
+        text: normalized.startsWith("==") ? `==[[${resolved}]]==` : `[[${resolved}]]`,
+        resolved: true
+      });
+    } else {
+      out.push({ text: unresolvedDisplay(normalized, target), resolved: false });
+    }
+  }
+
+  return out;
+}
+
+// Degrades unresolvable wikilinks inside free text the model wrote, leaving
+// resolvable ones untouched: `[[Ghost]]` becomes `Ghost`, while `[[Real]]` and
+// `[[Real|alias]]` are passed through verbatim. Free-text model fields (dev's
+// Context) are not candidate lists, so they need the text-level counterpart of
+// resolveWikiLinks rather than the list form.
+export function degradeUnresolvableLinks(text: string, existingNotes: string[]): string {
+  const index = exactNameIndex(existingNotes);
+
+  return String(text).replace(/\[\[([^\[\]]+)\]\]/g, (whole, inner) => {
+    const [pathPart, alias] = String(inner).split("|");
+    const target = pathPart.split("#")[0].trim();
+    if (target && index.has(target.toLowerCase())) return whole;
+
+    const display = (alias !== undefined ? alias : pathPart).replace(/#.*$/, "").trim();
+    return display || target;
+  });
+}
+
 function sectionPattern(headingLiteral: string): RegExp {
   const heading = headingLiteral.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return new RegExp(
