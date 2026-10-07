@@ -29,6 +29,31 @@ test("homepulse bundle keeps its locally owned prelude", () => {
   }
 });
 
+// #117: the marker check above was not enough. The 1.0.6 store update deleted the prelude
+// *and* every call site, so re-injecting the prelude text would have restored the markers
+// — and turned this guard green — while habit and focus sync stayed dead, because nothing
+// called the functions any more. Presence is not integration: assert the minified core
+// still calls each bridge symbol, with the counts measured on the last known-good build.
+const REQUIRED_CALL_SITES = [
+  ["syncHabitsToFiles", 2],
+  ["readTodayFocusFromNote", 2],
+  ["saveTodayFocusToNote", 3],
+];
+
+test("homepulse core still calls the owned bridge (presence is not integration)", () => {
+  for (const [symbol, minimum] of REQUIRED_CALL_SITES) {
+    const occurrences = source.split(symbol).length - 1;
+    assert.ok(
+      occurrences >= minimum,
+      `bundle references "${symbol}" ${occurrences} time(s), expected at least ${minimum}: ` +
+        `the prelude text may be present while nothing calls it. A store update replaces the ` +
+        `whole bundle, call sites included — see 06-Resources/Guides/Plugin Ownership.md §4 ` +
+        `and run 06-Resources/scripts/apply-homepulse-prelude.mjs, which refuses to inject ` +
+        `the prelude into a bundle that lost the seam`
+    );
+  }
+});
+
 test("homepulse bundle still parses", () => {
   // Catches a truncated or hand-mangled bundle that markers alone would not.
   execFileSync(process.execPath, ["--check", BUNDLE], { stdio: "pipe" });

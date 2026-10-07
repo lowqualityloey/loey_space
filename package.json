@@ -15,7 +15,8 @@
     "start-task": "node 06-Resources/scripts/start-task-action.js",
     "sync-kanban": "node 06-Resources/scripts/sync-github-kanban.js",
     "validate-templates": "node 06-Resources/scripts/validate-templates.js",
-    "hygiene": "node 06-Resources/scripts/vault-hygiene.js"
+    "hygiene": "node 06-Resources/scripts/vault-hygiene.js",
+    "patch-homepulse": "node 06-Resources/scripts/apply-homepulse-prelude.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

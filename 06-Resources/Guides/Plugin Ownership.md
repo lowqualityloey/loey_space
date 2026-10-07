@@ -1,6 +1,6 @@
 ---
 created: 2026-10-04
-updated: 2026-10-04
+updated: 2026-10-08
 type: resource
 area: resources
 status: active
@@ -25,6 +25,8 @@ Which bundled plugin code this vault owns, which comes from upstream, and how to
 | Plugin | Source of truth | Local build possible | Ownership |
 | :--- | :--- | :--- | :--- |
 | `homepulse` | ⚠️ **No authoritative source available** (see §2) | ❌ No | Prelude only — see §3 |
+
+**Recorded version (2026-10-08, [#117](https://github.com/lowqualityloey/loey_space/issues/117)):** the vendored bundle in the index is **`1.0.2` plus the owned prelude** — the last known-good integration. A store update to **`1.0.6` was rejected, not merged**: it removed the prelude *and* every call site, so the widget's habit/focus bridge was dead code in it. The rejected files are kept out of Git at `.tmp.homepulse-1.0.6/` for reference. Re-run `npm run patch-homepulse` before trusting any future update (it refuses when the seam is gone).
 | `kanban-status-sync` | This repository | ✅ Yes, plain JS, no build step | Fully local |
 | All other `.obsidian/plugins/*` | Upstream plugin stores | ❌ No | None — vendor as-is |
 
@@ -63,18 +65,24 @@ Everything before the first minified line of `.obsidian/plugins/homepulse/main.j
 
 The minified core after the prelude is upstream-generated and must not be hand-edited.
 
+**Canonical source:** `.obsidian/plugins/homepulse/prelude.js` holds both owned blocks (habit sync at the top, the `Today's Focus` bridge below) as readable source. It is injected into `main.js` by [`06-Resources/scripts/apply-homepulse-prelude.mjs`](06-Resources/scripts/apply-homepulse-prelude.mjs) (`npm run patch-homepulse`), so a lost prelude is re-applied from one reviewed file instead of recovered by hand out of Git history.
+
 ---
 
 ## 4. After a plugin update
 
-1. Run `npm test`. The `homepulse bundle keeps its locally owned prelude` guard fails if the prelude markers are gone.
-2. If it fails, re-apply the patches listed in §3 against the new bundle. Keep them in the prelude; never touch the minified core.
-3. Re-run `npm test` until green, then record the new version in §1.
+1. Run `npm test`. Two guards fail if the bundle lost the prelude *or* the call sites: `homepulse bundle keeps its locally owned prelude` and `homepulse core still calls the owned bridge`.
+2. Run `npm run patch-homepulse`. It verifies the call sites **before** writing anything:
+   - **call sites intact →** it injects `.obsidian/plugins/homepulse/prelude.js` right after `"use strict";`, checks the result with `node --check`, and rolls the file back if the result does not parse.
+   - **call sites gone →** it exits 1 and injects nothing. The seam changed; adding the prelude would produce a green guard over a dead bridge.
+3. Re-run `npm test` until green, then record the tested version in §1 — including when the outcome is *not* adopting the update.
 
-The guard is `06-Resources/scripts/tests/homepulse-prelude.test.mjs`. It asserts the prelude symbols exist, the bundle still parses (`node --check`), and the manifest identity is readable.
+### Why the call-site gate exists (#117)
+
+The 1.0.6 store update deleted the prelude and all three call sites (`syncHabitsToFiles`, `readTodayFocusFromNote`, `saveTodayFocusToNote` → 0 occurrences each). The original guard only asserted the markers, so re-injecting the prelude text would have restored those markers, turned the suite green, and left habit and focus sync broken — a false green produced by the very check meant to catch the loss. The guard now asserts the core still references each symbol at the counts measured on the known-good build (2 / 2 / 3).
 
 > [!WARNING]
-> The guard detects a *lost* prelude, not a *changed* one. If an update ships a prelude with the same symbol names but different behaviour, review `syncHabitsToFiles` by hand against §3 before trusting the habit widget.
+> The guard still detects a *lost* or *unwired* prelude, not a *changed* one. If an update ships a prelude with the same symbol names but different behaviour, or calls it from a different path, review `syncHabitsToFiles` and the focus bridge against §3 by hand before trusting the widgets.
 
 ---
 
