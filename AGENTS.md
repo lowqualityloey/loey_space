@@ -65,9 +65,9 @@ Every created note must contain valid YAML frontmatter matching [`06-Resources/G
 ---
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
-type: concept | snippet | learning | project | resource | personal | daily | dashboard | guide
-area: dev | personal | learning | resources | reviews | general | security | system
-status: active | in-progress | planning | completed | archived
+type: concept | snippet | learning | project | resource | personal | daily | dashboard | guide | moc | capture | task
+area: dev | personal | learning | resources | reviews | general | security | system | inbox
+status: active | in-progress | planning | completed | archived | review-needed
 tags:
   - type/<type>
   - area/<area>

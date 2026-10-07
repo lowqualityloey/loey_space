@@ -55,7 +55,11 @@ FROM "" AND !"99-Templates"
 WHERE (type = "concept" OR type = "learning")
   AND last_reviewed AND review_cycle
   AND !contains(file.name, "MOC")
-  AND date(today) - date(last_reviewed) > dur(review_cycle)
+  AND (
+    (review_cycle = "90d" AND date(today) - date(last_reviewed) > dur(90 days))
+    OR (review_cycle = "30d" AND date(today) - date(last_reviewed) > dur(30 days))
+    OR (review_cycle = "14d" AND date(today) - date(last_reviewed) > dur(14 days))
+  )
 SORT last_reviewed ASC
 ```
 
