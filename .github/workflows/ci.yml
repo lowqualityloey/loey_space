@@ -70,3 +70,12 @@ jobs:
 
       - name: 🔐 Scan Tracked Artifacts For Secrets
         run: bash .githooks/lib/secret-scan.sh --tracked
+
+      # Same two-layer argument as the secret scan (#96), for a different defect: the
+      # local hook cannot protect a machine where `git config core.hooksPath .githooks`
+      # was never run, and it only ever sees one clone's staged paths. This re-checks the
+      # whole tracked index, which is the state that actually publishes. Guards against
+      # .gitignore never untracking an already-indexed owner-only record (#116 / A01).
+      # Declarations live in .githooks/lib/private-records.txt; rejection prints paths only.
+      - name: 🚧 Enforce Publication Boundary
+        run: bash .githooks/lib/publication-guard.sh --mode index

@@ -10,6 +10,8 @@
 #     git config core.hooksPath .githooks
 #
 # Checks, in order:
+#   0. Publication boundary — declared owner-only records, staged (blocking) and
+#                            already-indexed (advisory). See #116 / .githooks/lib/private-records.txt
 #   1. Forbidden paths   — .env, .secrets/, 00-Private/, *_secret*, *_private*
 #   2. Added-line content — API-key shapes (Google, OpenAI, GitHub, AWS, PEM)
 #   3. Advisory          — sensitive files already tracked from earlier commits
@@ -28,6 +30,40 @@ fi
 
 fail=0
 problems=()
+
+# Repo root, so the publication guard can resolve its declaration list the same way the
+# hook does — a hook run from a subdirectory must behave identically.
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd -P)"
+guard="$(dirname "$0")/lib/publication-guard.sh"
+
+# ---------------------------------------------------------------------------
+# 0. Publication boundary — declared owner-only records (issue #116 / audit A01)
+#
+# Separate defect class from the checks below: those match credential *shapes*, while a
+# root control record leaks identity and context — a real name, a filesystem path, a
+# project inventory — which has no shape to match. And .gitignore never untracks a file,
+# so a record can be named private and still publish. Runs before the empty-stage fast
+# path below, because the index advisory must fire even on a commit with nothing staged.
+#
+# Rejection prints paths only, never contents.
+# ---------------------------------------------------------------------------
+if ! bash "$guard" --repo "$repo_root" --mode staged; then
+  exit 1
+fi
+
+# Advisory, not blocking: records already in the index publish on the *next* push, not
+# with this commit, and refusing every commit until they are untracked would stall
+# unrelated work. It is the same reasoning as section 3's already-tracked warning.
+if ! index_guard_output="$(bash "$guard" --repo "$repo_root" --mode index 2>&1)"; then
+  {
+    echo ""
+    echo "${YELLOW}⚠ Declared owner-only records are already tracked:${RESET}"
+    printf '%s\n' "$index_guard_output" | grep -E '^  • ' || true
+    echo "  They publish on the next push. Fix: git rm --cached <path> — the local copy"
+    echo "  stays on disk and the .gitignore rules then hold."
+    echo ""
+  } >&2
+fi
 
 # ---------------------------------------------------------------------------
 # Staged files (added/copied/modified), NUL-separated so paths with spaces

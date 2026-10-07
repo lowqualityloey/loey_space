@@ -1,0 +1,31 @@
+# Declared owner-only records — paths only.
+#
+# Why this file exists: `.gitignore` removes nothing that is already in the index. A path
+# can be declared private *and* be tracked, and the ignore rule will never correct it. The
+# secret scanner cannot see the problem either, because it matches credential shapes while
+# these records leak identity and context — a real name, a filesystem path, a profile
+# paragraph, a project inventory.
+#
+# Contract (see docs/specs/2026-10-08-spec-vault-audit-remediation.md §4.1 C1):
+#   • one path or glob per line; `#` starts a comment
+#   • entries are PATHS ONLY — never contents, never a description of what is inside
+#   • a directory entry covers everything beneath it
+#   • keep it small: this is a boundary declaration, not a copy of what it protects
+#
+# Enforced by .githooks/lib/publication-guard.sh, invoked from `.githooks/pre-commit`
+# (staged) and `.github/workflows/ci.yml` (index).
+
+# Root control records: startup/long-term memory and cross-session handoff. Owner-only per
+# README §Security and the `.gitignore` PERSONAL CONTENT block.
+memory.md
+handoff.md
+
+# PromptKit OS profile and generated engineering records (local-only layer; the engine
+# itself is a tracked submodule, these are not).
+PROMPTKIT.md
+GEMINI.md
+docs
+
+# The installer's issue template describes internal workflow, not the product's
+# contribution flow.
+.github/ISSUE_TEMPLATE/task.md
