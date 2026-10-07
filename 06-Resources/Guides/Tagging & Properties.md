@@ -89,7 +89,7 @@ required and may be blank.
 | `personal` | `status` | `category` | `last_reviewed` + `review_cycle: 90d` |
 | `snippet` | `status` | `language` | none |
 | `resource` | `status` | `source`, `author`, `published` | none |
-| `review` | `status` | _(none)_ | none |
+| `review` | `status` | `kind` | none |
 | `daily` | *(none; `status` is not required)* | `topic`, `mood`, `energy`, `sleep_hours` | none |
 | `capture` † | `status` | `priority` | none |
 | `task` † | `status` | `priority`, `source` | none |
@@ -112,6 +112,7 @@ and in the code together. Do not introduce it in one place only.
 ```yaml
 priority: p0/p1/p2/p3            # Required on project; conventional on capture and task
                                # critical/high/medium/low are accepted equivalents — see § 5
+kind: weekly                     # type: review only — weekly | monthly | audit (see Review Records)
 last_reviewed: YYYY-MM-DD        # See "updated vs last_reviewed" above
 review_cycle: 14d/30d/90d        # Required whenever last_reviewed is present
 language: javascript/typescript  # For code snippets
@@ -125,6 +126,36 @@ progress: "40%"                  # Completion progress (e.g. "40%", "2/4 Weeks")
 category: hobbies                # personal: health-fitness | goals | hobbies | finance | travel | reflection
 source: mobile                   # capture and task: where the item entered the vault
 ```
+
+### Review Records (`type: review`)
+
+A `review` note is a point-in-time retrospective or audit. Because the Reviews MOC sorts
+them into histories, each review declares **`kind`**:
+
+| `kind` | Meaning | Name convention |
+|--------|---------|-----------------|
+| `weekly` | A weekly retrospective | `GGGG-[W]WW` (ISO week-year, e.g. `2026-W41`) |
+| `monthly` | A monthly retrospective | `YYYY-MM` (e.g. `2026-09`) |
+| `audit` | A system, architecture, or vault audit — **not** a retrospective | free-form (e.g. `2026-10-04 Vault Architecture Review`) |
+
+The Weekly and Monthly Review templates declare their `kind` for you. Use `kind: audit`
+for any review that is not a recurring retrospective; an audit is listed in its own MOC
+section and never counted as weekly or monthly history.
+
+> [!IMPORTANT] Legacy compatibility: fall back to the name, never guess a period
+> Reviews written before `kind` existed carry none. The MOC classifies such a note by its
+> **name only**:
+>
+> | Legacy name | Classified as |
+> |-------------|---------------|
+> | matches `^\d{4}-W\d{1,2}$` | `weekly` |
+> | matches `^\d{4}-\d{2}$` | `monthly` |
+> | anything else | **neither** — it stays out of both histories |
+>
+> Under the old rule a note matching neither pattern could still enter weekly history via a
+> broad `type = review` fallback. That is exactly what #126 removed: an unrecognised review
+> is left out rather than mis-filed. Add `kind` to such a note when it is next touched; do
+> **not** rewrite its body, and do not invent `period_start`/`period_end` for it.
 
 ### Mood Representation
 
