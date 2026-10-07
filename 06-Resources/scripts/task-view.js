@@ -31,6 +31,29 @@ var PROMOTION_REQUIRED_PREFIXES = ["04-Learning", "05-Personal"];
 function requiresPromotion(path) {
   return PROMOTION_REQUIRED_PREFIXES.some((prefix) => path.startsWith(prefix));
 }
+var PROJECT_ROOT = "02-Projects/";
+function isBoardCard(path) {
+  return path.startsWith(PROJECT_ROOT) && / Kanban\.md$/i.test(path);
+}
+function isProjectHub(path) {
+  return path.startsWith(PROJECT_ROOT) && !isBoardCard(path) && path.endsWith(".md");
+}
+var ACTIVE_LIFECYCLES = [
+  "active",
+  "in progress",
+  "in-progress",
+  "doing",
+  "wip"
+];
+function normalizeLifecycle(value) {
+  return String(value ?? "").toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+}
+function isLifecycleActive(value) {
+  const normalized = normalizeLifecycle(value);
+  if (normalized === "")
+    return true;
+  return ACTIVE_LIFECYCLES.includes(normalized);
+}
 var PRIORITY_TAG = /#priority\/[^\s]+/gi;
 function isShielded(task) {
   const section = (task.section ?? "").toLowerCase();
@@ -42,14 +65,49 @@ function isShielded(task) {
 function isPromoted(task) {
   return (task.text ?? "").toLowerCase().includes(PROMOTION_TAG);
 }
-function isVisible(task) {
+function isVisible(task, context = {}) {
   if (isShielded(task))
     return false;
+  if (context.lane !== void 0 && context.lane !== "" && isShielded({ ...task, section: context.lane })) {
+    return false;
+  }
   if (task.parent !== void 0 && task.parent !== null)
     return false;
   if (requiresPromotion(task.path) && !isPromoted(task))
     return false;
+  if (task.path.startsWith(PROJECT_ROOT)) {
+    if (!isCommitment(task))
+      return false;
+    if (!isLifecycleActive(context.projectLifecycle))
+      return false;
+  }
   return true;
+}
+function isCommitment(task) {
+  return !isProjectHub(task.path);
+}
+function isDone(task) {
+  return String(task.status ?? "").toLowerCase() === "x";
+}
+function summarizeProgress(tasks, context = {}) {
+  const commitments = { done: 0, total: 0 };
+  const criteria = { done: 0, total: 0 };
+  for (const task of tasks) {
+    if (isShielded(task))
+      continue;
+    if (!isCommitment(task)) {
+      criteria.total += 1;
+      if (isDone(task))
+        criteria.done += 1;
+      continue;
+    }
+    if (!isVisible(task, context))
+      continue;
+    commitments.total += 1;
+    if (isDone(task))
+      commitments.done += 1;
+  }
+  return { commitments, criteria };
 }
 function taskIdentity(task) {
   return String(task.text ?? "").toLowerCase().replaceAll(PROMOTION_TAG, " ").replace(PRIORITY_TAG, " ").replace(/\[\[[^\]]+\]\]/g, " ").replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
@@ -93,10 +151,19 @@ function installOnGlobal(scope = globalThis) {
     CORE_SHIELD_KEYWORDS,
     OPT_IN_SHIELD_KEYWORDS,
     PROMOTION_REQUIRED_PREFIXES,
+    PROJECT_ROOT,
+    ACTIVE_LIFECYCLES,
     requiresPromotion,
     isShielded,
     isPromoted,
     isVisible,
+    isBoardCard,
+    isProjectHub,
+    normalizeLifecycle,
+    isLifecycleActive,
+    isCommitment,
+    isDone,
+    summarizeProgress,
     taskIdentity,
     displayText,
     taskSource,

@@ -18,17 +18,19 @@ tags:
   const folder = tp.file.folder(true);
   if (title && title !== "Project") {
     const kanbanPath = `${folder}/${title} Kanban.md`;
+    // The companion board inherits the master's lifecycle (#119): a project that
+    // starts in planning must not generate an active board.
     const kanbanContent = `---
 created: ${tp.date.now("YYYY-MM-DD")}
 updated: ${tp.date.now("YYYY-MM-DD")}
 type: project
-status: active
+status: planning
 priority: medium
 area: dev
 tags:
   - type/project
   - area/dev
-  - status/active
+  - status/planning
 kanban-plugin: board
 ---
 

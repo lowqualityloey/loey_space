@@ -58,6 +58,58 @@ export function requiresPromotion(path: string): boolean {
   return PROMOTION_REQUIRED_PREFIXES.some((prefix) => path.startsWith(prefix));
 }
 
+/**
+ * Project paths: the lifecycle authority (#119).
+ *
+ * A project is a folder under 02-Projects/ holding a master note and its
+ * companion board. Only the board's cards are commitments; the master note's
+ * checklist items are the project's acceptance criteria, attached to the
+ * project rather than surfaced as commitments of their own.
+ */
+export const PROJECT_ROOT = "02-Projects/";
+
+/** True when the note is a project's companion Kanban board — the commitment source. */
+export function isBoardCard(path: string): boolean {
+  return path.startsWith(PROJECT_ROOT) && / Kanban\.md$/i.test(path);
+}
+
+/** True when the note is a project's master/hub note — the criteria source. */
+export function isProjectHub(path: string): boolean {
+  return path.startsWith(PROJECT_ROOT) && !isBoardCard(path) && path.endsWith(".md");
+}
+
+/** Frontmatter lifecycles that expose a project's commitments to active views. */
+export const ACTIVE_LIFECYCLES: readonly string[] = [
+  "active",
+  "in progress",
+  "in-progress",
+  "doing",
+  "wip"
+];
+
+/** Fold a frontmatter status into a comparable form. */
+export function normalizeLifecycle(value?: string): string {
+  return String(value ?? "")
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * True when a project's commitments may appear in the active views.
+ *
+ * A caller that supplies no lifecycle keeps the previous behaviour, so an
+ * unwired view cannot silently empty itself; the wiring is pinned by the test
+ * suite instead. `planning`, `completed` and `archived` all hold commitments
+ * back — the graduation rule only opens on an active lifecycle.
+ */
+export function isLifecycleActive(value?: string): boolean {
+  const normalized = normalizeLifecycle(value);
+  if (normalized === "") return true;
+  return ACTIVE_LIFECYCLES.includes(normalized);
+}
+
 /** Priority tags are bookkeeping and must not fork a commitment's identity. */
 const PRIORITY_TAG = /#priority\/[^\s]+/gi;
 
@@ -102,6 +154,17 @@ export function isPromoted(task: TaskLike): boolean {
 }
 
 /**
+ * What the caller knows about where a task sits.
+ *
+ * `projectLifecycle` is the containing project's frontmatter status (the board's
+ * status for a board card), and `lane` is the Kanban lane a card was read from.
+ */
+export interface TaskContext {
+  projectLifecycle?: string;
+  lane?: string;
+}
+
+/**
  * True when a task should appear in a central task view.
  *
  * Shielded sections and nested checklist items are always rejected: a sub-step
@@ -112,11 +175,83 @@ export function isPromoted(task: TaskLike): boolean {
  * boards do not, because their checkboxes already are and requiring a marker
  * there would empty the dashboard.
  */
-export function isVisible(task: TaskLike): boolean {
+export function isVisible(task: TaskLike, context: TaskContext = {}): boolean {
   if (isShielded(task)) return false;
+  // A lane the shield would exclude stays excluded even when the caller passes
+  // it as a lane rather than as the task's enclosing heading.
+  if (context.lane !== undefined && context.lane !== "" && isShielded({ ...task, section: context.lane })) {
+    return false;
+  }
   if (task.parent !== undefined && task.parent !== null) return false;
   if (requiresPromotion(task.path) && !isPromoted(task)) return false;
+
+  // Project lifecycle authority: hub criteria are never commitments, and a
+  // project's commitments only reach the active views once it is active.
+  if (task.path.startsWith(PROJECT_ROOT)) {
+    if (!isCommitment(task)) return false;
+    if (!isLifecycleActive(context.projectLifecycle)) return false;
+  }
+
   return true;
+}
+
+/**
+ * True when a task is a commitment rather than a nested acceptance criterion.
+ *
+ * A project's board cards are its commitments. The same project's master-note
+ * checklist items are criteria: they belong to a commitment (or to the project)
+ * and are reported as such, never as commitments in their own right.
+ */
+export function isCommitment(task: TaskLike): boolean {
+  return !isProjectHub(task.path);
+}
+
+/** True when the task is checked off. */
+export function isDone(task: TaskLike): boolean {
+  return String(task.status ?? "").toLowerCase() === "x";
+}
+
+/** One level's progress counters. */
+export interface ProgressCount {
+  done: number;
+  total: number;
+}
+
+/** Commitment progress and criterion progress, always reported apart. */
+export interface ProgressSummary {
+  commitments: ProgressCount;
+  criteria: ProgressCount;
+}
+
+/**
+ * Count progress per level, never as one blended ratio.
+ *
+ * Commitments obey the same visibility rules as the views, so a planning
+ * project reports zero commitment progress while its criteria are still
+ * counted — which is what makes the two levels comparable instead of conflated.
+ */
+export function summarizeProgress(
+  tasks: readonly TaskLike[],
+  context: TaskContext = {}
+): ProgressSummary {
+  const commitments: ProgressCount = { done: 0, total: 0 };
+  const criteria: ProgressCount = { done: 0, total: 0 };
+
+  for (const task of tasks) {
+    if (isShielded(task)) continue;
+
+    if (!isCommitment(task)) {
+      criteria.total += 1;
+      if (isDone(task)) criteria.done += 1;
+      continue;
+    }
+
+    if (!isVisible(task, context)) continue;
+    commitments.total += 1;
+    if (isDone(task)) commitments.done += 1;
+  }
+
+  return { commitments, criteria };
 }
 
 /**
@@ -216,10 +351,19 @@ export function installOnGlobal(scope: Record<string, unknown> = globalThis as u
     CORE_SHIELD_KEYWORDS,
     OPT_IN_SHIELD_KEYWORDS,
     PROMOTION_REQUIRED_PREFIXES,
+    PROJECT_ROOT,
+    ACTIVE_LIFECYCLES,
     requiresPromotion,
     isShielded,
     isPromoted,
     isVisible,
+    isBoardCard,
+    isProjectHub,
+    normalizeLifecycle,
+    isLifecycleActive,
+    isCommitment,
+    isDone,
+    summarizeProgress,
     taskIdentity,
     displayText,
     taskSource,

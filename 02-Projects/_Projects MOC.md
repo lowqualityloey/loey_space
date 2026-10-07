@@ -30,6 +30,11 @@ tags:
 const ACTIVE_STATUSES = ["in progress", "active", "doing", "wip"];
 const normalize = (value) => String(value || "").toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
 
+// Commitments and criteria come from the shared authority, never from a local count.
+await dv.load("06-Resources/scripts/task-view.js");
+const TV = globalThis.TaskView;
+if (!TV) throw new Error("task-view.js did not load — run `npm run build` and commit the bundle.");
+
 const projects = dv.pages('"02-Projects"')
     .where(p => p.type === "project" && !p.file.name.includes("Kanban") && !p.file.name.includes("MOC") && ACTIVE_STATUSES.includes(normalize(p.status)));
 
@@ -49,33 +54,36 @@ const priorityWeight = {
 
 projects.forEach(p => {
     const folder = p.file.folder;
-    let totalTasks = 0;
-    let completedTasks = 0;
 
-    // Aggregate tasks from all notes within the project's specific folder.
-    // Backlog (not committed) and Archive (historical) are excluded so progress
-    // reflects the work actually in flight, matching _Tasks MOC's scope.
-    const folderPages = dv.pages(`"${folder}"`);
-    folderPages.forEach(page => {
-        if (page.file.tasks && page.file.tasks.length > 0) {
-            const counted = page.file.tasks.where(t => {
-                const sec = (t.header && t.header.subpath) ? t.header.subpath.toLowerCase() : "";
-                return !sec.includes("backlog") && !sec.includes("archive");
-            });
-            totalTasks += counted.length;
-            completedTasks += counted.where(t => t.completed).length;
+    // Collect every task in the project folder and let the shared authority
+    // classify it: board cards are commitments, master-note checklist items are
+    // the project's criteria. Backlog and Archive stay shielded inside the
+    // authority, so this still reflects work in flight — but the two levels are
+    // reported apart rather than as one blended ratio, and a planning project
+    // therefore reports zero commitment progress.
+    const items = [];
+    dv.pages(`"${folder}"`).forEach(page => {
+        if (!page.file.tasks || page.file.tasks.length === 0) return;
+        for (const t of page.file.tasks) {
+            items.push(TV.normalizeTask(t, page.file.path));
         }
     });
 
-    let progressStr = "No tasks";
-    if (totalTasks > 0) {
-        const percent = Math.round((completedTasks / totalTasks) * 100);
-        progressStr = `<progress value="${percent}" max="100"></progress> ${percent}% (${completedTasks}/${totalTasks})`;
+    const summary = TV.summarizeProgress(items, { projectLifecycle: p.status });
+
+    let progressStr = "No commitments";
+    if (summary.commitments.total > 0) {
+        const percent = Math.round((summary.commitments.done / summary.commitments.total) * 100);
+        progressStr = `<progress value="${percent}" max="100"></progress> ${percent}% (${summary.commitments.done}/${summary.commitments.total})`;
     }
-    
+    const criteriaStr = summary.criteria.total > 0
+        ? `${summary.criteria.done}/${summary.criteria.total}`
+        : "—";
+
     rows.push({
         link: p.file.link,
         progress: progressStr,
+        criteria: criteriaStr,
         status: p.status,
         priority: p.priority || "none",
         weight: priorityWeight[String(p.priority || "").toLowerCase()] || 0
@@ -85,7 +93,7 @@ projects.forEach(p => {
 // Sort by priority weight descending
 rows.sort((a, b) => b.weight - a.weight);
 
-dv.table(["Project", "Progress", "Status", "Priority"], rows.map(r => [r.link, r.progress, r.status, r.priority]));
+dv.table(["Project", "Commitments", "Criteria", "Status", "Priority"], rows.map(r => [r.link, r.progress, r.criteria, r.status, r.priority]));
 ```
 
 ---

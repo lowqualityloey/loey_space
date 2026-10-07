@@ -56,7 +56,7 @@ for (let p of pages) {
     const task = TV.normalizeTask(t, p.file.path);
     if (!task.text || task.text.trim() === "") continue;
     if (task.status !== "/") continue;
-    if (!TV.isVisible(task)) continue;
+    if (!TV.isVisible(task, { projectLifecycle: p.status })) continue;
     candidates.push(task);
   }
 }
@@ -112,7 +112,7 @@ for (let p of pages) {
     const task = TV.normalizeTask(t, p.file.path);
     if (!task.text || task.text.trim() === "") continue;
     if (task.status !== " ") continue;
-    if (!TV.isVisible(task)) continue;
+    if (!TV.isVisible(task, { projectLifecycle: p.status })) continue;
     candidates.push(task);
   }
 }

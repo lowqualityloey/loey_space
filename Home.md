@@ -177,7 +177,7 @@ for (let p of pages) {
   for (let t of p.file.tasks) {
     const task = TV.normalizeTask(t, p.file.path);
     if (!task.text || task.text.trim() === "") continue;
-    if (!TV.isVisible(task)) continue;
+    if (!TV.isVisible(task, { projectLifecycle: p.status })) continue;
 
     const dedupeKey = TV.taskIdentity(task);
     if (seenTasks.has(dedupeKey)) continue;
