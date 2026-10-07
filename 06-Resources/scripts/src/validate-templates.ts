@@ -96,7 +96,7 @@ const exemptNotes: Record<string, string> = {
 // Directories that hold no vault notes. Used only by the non-git fallback walk below: the
 // git path enumerates the index, so it never sees them, but a filesystem walk would
 // otherwise spend its time inside `node_modules` and the binary attachment store.
-const nonNoteDirectories = new Set(['.git', '.obsidian', '.promptkit', 'node_modules', '99-Attachments']);
+const nonNoteDirectories = new Set(['.git', '.obsidian', 'node_modules', '99-Attachments']);
 
 // Issue #93: enumerate markdown NUL-safely. `-z` is mandatory, not stylistic: 31 tracked
 // filenames in this repo contain spaces ("Tagging & Properties.md", every "_Concepts MOC.md"),

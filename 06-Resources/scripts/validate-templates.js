@@ -86,7 +86,7 @@ var exemptNotes = {
   "memory.md": "owner's private long-term memory record; its type is not in the canonical taxonomy",
   "handoff.md": "owner's private cross-session handoff record; its type is not in the canonical taxonomy"
 };
-var nonNoteDirectories = /* @__PURE__ */ new Set([".git", ".obsidian", ".promptkit", "node_modules", "99-Attachments"]);
+var nonNoteDirectories = /* @__PURE__ */ new Set([".git", ".obsidian", "node_modules", "99-Attachments"]);
 function listTrackedMarkdown(root) {
   try {
     const output = (0, import_child_process.execFileSync)("git", ["ls-files", "-z", "--", "*.md"], {

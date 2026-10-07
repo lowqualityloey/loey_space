@@ -103,7 +103,7 @@ function isNoteCandidate(rel: string): boolean {
 }
 
 function walkMarkdown(root: string, prefix: string): string[] {
-  const skipped = new Set(['.git', '.obsidian', '.promptkit', 'node_modules']);
+  const skipped = new Set(['.git', '.obsidian', 'node_modules']);
   const found: string[] = [];
   let entries: fs.Dirent[];
   try {

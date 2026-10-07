@@ -42,7 +42,6 @@ scan_skips_path() {
   case "$1" in
     .githooks/*) return 0 ;;
     .obsidian/themes/*) return 0 ;;
-    .promptkit/*) return 0 ;;
   esac
   return 1
 }

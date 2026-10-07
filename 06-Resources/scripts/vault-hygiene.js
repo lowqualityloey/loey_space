@@ -121,7 +121,7 @@ function isNoteCandidate(rel) {
   return NOTE_FOLDERS.has(rel.split("/")[0]);
 }
 function walkMarkdown(root, prefix) {
-  const skipped = /* @__PURE__ */ new Set([".git", ".obsidian", ".promptkit", "node_modules"]);
+  const skipped = /* @__PURE__ */ new Set([".git", ".obsidian", "node_modules"]);
   const found = [];
   let entries;
   try {
