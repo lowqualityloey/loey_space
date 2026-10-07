@@ -2,6 +2,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { execFileSync } from 'child_process';
+// Issue #120: the owner-local pass asks the same ignore-rule seam the link auditor uses,
+// instead of shelling out to `git check-ignore` again in a second dialect.
+import { readRepoFacts } from './lib/gitpaths';
 
 // Dynamically locate 99-Templates whether run from repo root or scripts dir
 function resolveTemplatesPath(): string {
@@ -97,6 +100,188 @@ const exemptNotes: Record<string, string> = {
 // git path enumerates the index, so it never sees them, but a filesystem walk would
 // otherwise spend its time inside `node_modules` and the binary attachment store.
 const nonNoteDirectories = new Set(['.git', '.obsidian', 'node_modules', '99-Attachments']);
+
+// ---------------------------------------------------------------------------
+// Issue #120: the owner-local contract pass.
+//
+// The scan above reads the git INDEX, and that is the right scope for a check that gates a
+// build: it is what CI sees and what the publication contract covers. It is also why the
+// owner's own notes never hear about this contract at all. Content folders are ignored
+// wholesale (`.gitignore`: `00-Inbox/*`, put back only for `!00-Inbox/_*.md`), so a local note
+// can carry an unknown type, a missing required field, or a frontmatter block that never
+// closes for as long as it exists, and every green CI run says nothing about it.
+//
+// `--include-ignored` adds a second pass over exactly those notes. It is opt-in for the reason
+// `vault-hygiene.ts` gives for the same flag: ignored content is the owner's, and is read only
+// when explicitly asked for.
+//
+// Scope follows the sibling auditor (`audit-links.ts`, #125) rather than inventing a second
+// boundary: the knowledge folders, the template folder and root notes are in scope; every
+// hidden directory, the root `docs/` tree, and `node_modules`/`dist` at any depth are not.
+// That exclusion is load-bearing. The ignored `.md` files in this vault are dominated by engine
+// and vendor material (`.opencode/`, `node_modules/`, `docs/`), and holding those to the vault's
+// note contract would produce noise rather than health.
+const LOCAL_MODE_FLAG = '--include-ignored';
+
+// The folders that hold vault notes, transcribed from `vault-hygiene.ts`'s `NOTE_FOLDERS`
+// (module-local there) plus the template folder, which this validator already treats as its own
+// scope. A folder the vault does not have is skipped rather than treated as an error.
+const KNOWLEDGE_FOLDERS = [
+  '00-Inbox',
+  '01-Daily',
+  '02-Projects',
+  '03-Dev',
+  '04-Learning',
+  '05-Personal',
+  '06-Resources',
+  '07-Reviews',
+  '08-Concepts',
+  '99-Attachments',
+  '99-Templates'
+];
+
+// The same two rules `audit-links.ts` applies: a nested `node_modules`/`dist` is never vault
+// knowledge, and `docs/` is engineering material only at the root — a `docs/` inside a project
+// folder can be real content.
+const ENGINEERING_ANY_DEPTH = new Set(['node_modules', 'dist']);
+const ENGINEERING_ROOT_ONLY = new Set(['docs']);
+
+function isEngineeringDir(name: string, atRoot: boolean): boolean {
+  if (name.startsWith('.')) return true;
+  if (ENGINEERING_ANY_DEPTH.has(name)) return true;
+  if (atRoot && ENGINEERING_ROOT_ONLY.has(name)) return true;
+  return false;
+}
+
+// The artifacts that are not contract notes, declared by CLASS and printed on every local run.
+// The rule is stated rather than inferred, for the reason #116 settled for the publication
+// guard: an inference cannot be reviewed, and a silent skip is indistinguishable from a pass.
+interface DeclaredException {
+  rule: string;
+  matches: (relativePath: string) => boolean;
+  reason: string;
+}
+
+const DECLARED_EXCEPTIONS: DeclaredException[] = [
+  {
+    rule: '00-Inbox/*',
+    matches: (rel) => rel.startsWith('00-Inbox/'),
+    reason: 'capture queue — raw captures are deliberately untyped'
+  },
+  {
+    rule: '* Kanban.md',
+    matches: (rel) => rel.endsWith(' Kanban.md'),
+    reason: 'board — a card store is a task surface, not a typed note'
+  },
+  {
+    rule: '99-Attachments/*',
+    matches: (rel) => rel.startsWith('99-Attachments/'),
+    reason: 'attachment — the media store holds assets, not typed notes'
+  },
+  {
+    rule: 'memory.md, handoff.md',
+    matches: (rel) => rel === 'memory.md' || rel === 'handoff.md',
+    reason: "root control — the owner's cross-session records, not vault notes"
+  }
+];
+
+// The local walk reads FILES; the ignore rules then decide which of them are the owner's. It
+// never writes: no code path in this module opens a file for writing, so the mode cannot invent
+// a date or "fix" a note to make it pass.
+function walkLocalMarkdown(root: string): string[] {
+  const found: string[] = [];
+
+  // Root notes: a `.md` at the vault root is either a note (`Home.md`) or a control record.
+  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    if (entry.isFile() && entry.name.endsWith('.md')) found.push(entry.name);
+  }
+
+  const walk = (prefix: string) => {
+    for (const entry of fs.readdirSync(path.join(root, prefix), { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        if (isEngineeringDir(entry.name, false)) continue;
+        walk(`${prefix}/${entry.name}`);
+      } else if (entry.name.endsWith('.md')) {
+        found.push(`${prefix}/${entry.name}`);
+      }
+    }
+  };
+
+  for (const folder of KNOWLEDGE_FOLDERS) {
+    if (!fs.existsSync(path.join(root, folder))) continue;
+    walk(folder);
+  }
+
+  return found.sort();
+}
+
+// The owner-local pass. `allValid` carries the tracked result in, so one exit status covers
+// both scopes — which is what a job that passes this flag would read.
+function validateLocalNotes(root: string, allValid: boolean): boolean {
+  console.log('');
+  for (const exception of DECLARED_EXCEPTIONS) {
+    console.log(`➖ ${exception.rule} — ${exception.reason}`);
+  }
+
+  const candidates = walkLocalMarkdown(root);
+  const facts = readRepoFacts(root, candidates);
+  // Outside a repository there are no ignore rules to read, so the set cannot be narrowed.
+  // Treating every walked note as local reads MORE than the index would, never less — the same
+  // direction the tracked fallback takes when `git` is unavailable.
+  if (!facts.available) {
+    console.log(`⚠️ git ignore rules unavailable under ${root}; every walked note counts as local`);
+  }
+  const localNotes = candidates.filter((rel) => (facts.available ? facts.ignored.has(rel) : true));
+  console.log('');
+
+  let inspected = 0;
+  let excused = 0;
+  let valid = true;
+
+  for (const relativePath of localNotes) {
+    const exception = DECLARED_EXCEPTIONS.find((candidate) => candidate.matches(relativePath));
+    if (exception) {
+      excused++;
+      console.log(`➖ ${relativePath}: declared exception — ${exception.rule} (${exception.reason})`);
+      continue;
+    }
+
+    let content: string;
+    try {
+      content = fs.readFileSync(path.join(root, relativePath), 'utf8');
+    } catch {
+      console.log(`➖ ${relativePath}: in the ignore set but not on disk — skipped`);
+      continue;
+    }
+
+    const frontmatter = parseFrontmatter(content);
+    if (frontmatter === null) {
+      // A block that OPENS and never closes is not an absent block: the note declared an intent
+      // to carry metadata and handed a reader something unreadable. The tracked pass stays
+      // lenient here — nothing in the index is known to do this — but the local pass is the one
+      // that has to be able to say so. Diagnostics name the path and the reason only (#51).
+      if (/^---\r?\n/.test(content)) {
+        inspected++;
+        console.log(`❌ ${relativePath}: unparseable frontmatter — the block opens but never closes`);
+        valid = false;
+      }
+      continue;
+    }
+
+    const declaredType = frontmatter.props.type;
+    if (declaredType === undefined || declaredType.trim() === '') {
+      // The same line the tracked scan draws: the contract binds notes that DECLARE metadata.
+      continue;
+    }
+
+    inspected++;
+    console.log(`\n🔍 Validating ${relativePath}...`);
+    valid = validateNote(relativePath, content, frontmatter) && valid;
+  }
+
+  console.log(`\n📄 Local coverage: inspected ${inspected} ignored note(s), ${excused} declared exception(s)`);
+  return allValid && valid;
+}
 
 // Issue #93: enumerate markdown NUL-safely. `-z` is mandatory, not stylistic: 31 tracked
 // filenames in this repo contain spaces ("Tagging & Properties.md", every "_Concepts MOC.md"),
@@ -250,9 +435,14 @@ function validateNote(relativePath: string, content: string, frontmatter: Parsed
   return isValid;
 }
 
-function validateAllNotes(): boolean {
+function validateAllNotes(includeIgnored: boolean): boolean {
   console.log('📋 Vault Metadata Validation Report');
   console.log('=' .repeat(40));
+  // The scope is stated when it is the widened one. The default report is what CI and the
+  // publication contract read, so its output stays exactly as it was.
+  if (includeIgnored) {
+    console.log('🗂️  Scope: tracked index + ignored local notes');
+  }
 
   let files: string[];
   try {
@@ -345,6 +535,13 @@ function validateAllNotes(): boolean {
     `\nInspected ${inspected} note(s); ${inspected + exempted} of ${files.length} tracked markdown file(s) declare a \`type\`` +
     `${exempted === 0 ? '.' : `, ${exempted} exempted.`}`
   );
+
+  // Issue #120: the owner-local pass, only when explicitly requested. It adds findings; it
+  // never removes the tracked scan's own.
+  if (includeIgnored) {
+    allValid = validateLocalNotes(vaultRoot, allValid);
+  }
+
   console.log('=' .repeat(40));
   if (allValid) {
     console.log('🎉 All notes are properly structured!');
@@ -355,6 +552,7 @@ function validateAllNotes(): boolean {
 }
 
 // Run validation. A failure must reach the process exit status or CI stays green.
-if (!validateAllNotes()) {
+// `--include-ignored` opts into the owner-local pass and never changes the default scan.
+if (!validateAllNotes(process.argv.slice(2).includes(LOCAL_MODE_FLAG))) {
   process.exitCode = 1;
 }
