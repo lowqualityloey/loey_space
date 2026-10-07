@@ -67,7 +67,7 @@ test("simulation mode does not mutate the timestamps file", () => {
 });
 
 test("recursive discovery finds nested dated notes", () => {
-  const result = runScheduledEnrich([], {
+  const result = runScheduledEnrich(["--simulate"], {
     "01-Daily/2026-10/2026-10-01.md": "content",
     "01-Daily/2026-10/2026-10-02.md": "content",
     "01-Daily/notes.md": "content",
@@ -81,7 +81,7 @@ test("recursive discovery finds nested dated notes", () => {
 });
 
 test("structural files are excluded from discovery", () => {
-  const result = runScheduledEnrich([], {
+  const result = runScheduledEnrich(["--simulate"], {
     "01-Daily/_Daily MOC.md": "content",
     "01-Daily/2026-10-01.md": "content",
   }, {});
@@ -115,5 +115,49 @@ test("recently enriched notes are skipped", () => {
   assert.ok(
     result.stdout.includes("Would enrich: 01-Daily/old.md"),
     `expected old note to be flagged: ${result.stdout}`
+  );
+});
+
+// Issue #123: the live path logged success and advanced timestamps without ever producing
+// enrichment output, suppressing the next attempt for seven days. No live adapter exists, so a
+// live run must be rejected explicitly and must not touch the timestamp map.
+test("unsupported live mode is rejected without recording success", () => {
+  const result = runScheduledEnrich([], {
+    "01-Daily/old.md": "content",
+  }, {
+    "01-Daily/old.md": Date.now() - 86400000 * 10,
+  });
+
+  assert.equal(
+    result.status,
+    1,
+    `expected a non-zero exit for unsupported live mode, got ${result.status}: ${result.stdout}${result.stderr}`
+  );
+  assert.ok(
+    result.stdout.includes("LIVE MODE UNSUPPORTED"),
+    `expected an explicit rejection message: ${result.stdout}`
+  );
+  assert.equal(
+    result.timestampsUnchanged,
+    true,
+    `a rejected live run advanced timestamps: ${result.before} → ${result.after}`
+  );
+  assert.ok(
+    !result.stdout.includes("Enriched "),
+    `a rejected live run must not claim enrichment: ${result.stdout}`
+  );
+});
+
+test("counts keep attempted, succeeded, skipped and failed distinct", () => {
+  const result = runScheduledEnrich([], {
+    "01-Daily/old.md": "content",
+    "01-Daily/recent.md": "content",
+  }, {
+    "01-Daily/recent.md": Date.now() - 86400000,
+  });
+
+  assert.ok(
+    result.stdout.includes("attempted: 0, succeeded: 0, skipped: 1, failed: 0"),
+    `expected distinct attempted/succeeded/skipped/failed counts: ${result.stdout}`
   );
 });

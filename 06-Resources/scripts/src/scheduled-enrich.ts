@@ -1,6 +1,15 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+// Scheduled enrichment scaffold.
+//
+// #61 made simulation explicit and non-mutating, and added nested discovery. #123 closes the
+// remaining honesty gap: the normal (live) path logged "Enriched N notes" and advanced
+// .enriched-timestamps.json without ever producing enrichment output, which then suppressed the
+// next attempt for seven days. No live enrichment adapter exists yet, so an unsupported live run
+// now fails explicitly and never writes timestamps. `--simulate` stays the only supported,
+// explicitly labelled, non-mutating preview path.
+
 // Dynamically locate Vault Root
 function resolveVaultPath(): string {
   const fromCwd = process.cwd();
@@ -30,13 +39,16 @@ try {
   console.log('No existing timestamps file, starting fresh');
 }
 
-// Get today's date for batching
-const today = new Date().toISOString().split('T')[0];
-
-// Whether this run is a simulation. Explicit via --simulate flag so the scaffold never
-// mutates timestamps while pretending it did. The previous code logged "Would enrich"
-// but then wrote the timestamp anyway, so a dry-run left the file changed.
+// Whether this run is a preview. Explicit via --simulate so a dry run never claims to have
+// enriched notes and never mutates the timestamp map.
 const SIMULATE = process.argv.includes('--simulate');
+
+// No live enrichment adapter is implemented yet (#123). Until one exists, a live run must not
+// report success or advance timestamps: either would suppress the next attempt for seven days
+// while producing nothing.
+const LIVE_ENRICHMENT_SUPPORTED = false;
+
+const BATCH_SIZE = 5;
 
 async function getNotesToEnrich(): Promise<string[]> {
   const files: string[] = [];
@@ -80,56 +92,86 @@ async function markEnriched(file: string): Promise<void> {
   await fs.promises.writeFile(ENRICHED_NOTES_FILE, JSON.stringify(enrichedTimestamps, null, 2));
 }
 
-async function processBatch(notes: string[], batchSize: number = 5): Promise<void> {
-  console.log(`Found ${notes.length} notes to check for enrichment`);
-  if (SIMULATE) {
-    console.log('SIMULATION MODE — no timestamps will be written.');
-  }
+// Live enrichment lives here once a real adapter exists. It is intentionally unused while
+// LIVE_ENRICHMENT_SUPPORTED is false, and must persist output before returning so that a
+// success timestamp can only follow an actual change.
+async function enrichNote(_file: string): Promise<void> {
+  throw new Error('no live enrichment adapter is implemented');
+}
 
-  let enrichedCount = 0;
-  let simulatedCount = 0;
+interface RunCounts {
+  attempted: number;
+  succeeded: number;
+  skipped: number;
+  failed: number;
+}
 
-  for (const note of notes) {
-    try {
-      const should = await shouldEnrich(note);
-      if (should) {
-        if (SIMULATE) {
-          console.log(`[Sim ${simulatedCount + 1}/${batchSize}] Would enrich: ${note}`);
-          simulatedCount++;
-        } else {
-          console.log(`[Batch ${enrichedCount + 1}/${batchSize}] Enriching: ${note}`);
-          await markEnriched(note);
-          enrichedCount++;
-        }
-
-        if (!SIMULATE && enrichedCount >= batchSize) {
-          console.log(`Batch size reached (${batchSize}), stopping`);
-          break;
-        }
-        if (SIMULATE && simulatedCount >= batchSize) {
-          console.log(`Batch size reached (${batchSize}), stopping`);
-          break;
-        }
-      } else {
-        console.log(`Skipping (recently enriched): ${note}`);
-      }
-    } catch (e: any) {
-      console.error(`Error processing ${note}:`, e?.message || e);
-    }
-  }
-
-  if (SIMULATE) {
-    console.log(`\n✅ Simulation complete. Would enrich ${simulatedCount} notes.`);
-  } else {
-    console.log(`\n✅ Enrichment batch complete. Enriched ${enrichedCount} notes.`);
-    console.log(`Next batch: 7 days from now.`);
-  }
+// attempted / succeeded / skipped / failed are reported separately so a run can never blend
+// "looked at" with "wrote output".
+function reportCounts(counts: RunCounts): void {
+  console.log(
+    `Counts — attempted: ${counts.attempted}, succeeded: ${counts.succeeded}, skipped: ${counts.skipped}, failed: ${counts.failed}`
+  );
 }
 
 async function main(): Promise<void> {
   const notes = await getNotesToEnrich();
-  await processBatch(notes);
+  console.log(`Found ${notes.length} notes to check for enrichment`);
+
+  const counts: RunCounts = { attempted: 0, succeeded: 0, skipped: 0, failed: 0 };
+  const candidates: string[] = [];
+
+  for (const note of notes) {
+    if (await shouldEnrich(note)) {
+      candidates.push(note);
+    } else {
+      console.log(`Skipping (recently enriched): ${note}`);
+      counts.skipped++;
+    }
+  }
+
+  const batch = candidates.slice(0, BATCH_SIZE);
+
+  if (SIMULATE) {
+    console.log('SIMULATION MODE — no timestamps will be written.');
+    for (const note of batch) {
+      console.log(`Would enrich: ${note}`);
+      counts.attempted++;
+    }
+    reportCounts(counts);
+    console.log(`\n✅ Simulation complete. Would enrich ${counts.attempted} notes.`);
+    return;
+  }
+
+  if (!LIVE_ENRICHMENT_SUPPORTED) {
+    // Rejected: nothing can be persisted, so no success may be recorded and no timestamp moves.
+    console.log('LIVE MODE UNSUPPORTED — no enrichment adapter is implemented; refusing to record success.');
+    reportCounts(counts);
+    console.log(`Rejected without persisting: ${batch.length} note(s). No timestamps were written.`);
+    process.exitCode = 1;
+    return;
+  }
+
+  for (const note of batch) {
+    counts.attempted++;
+    try {
+      await enrichNote(note); // must persist output before success is recorded
+      await markEnriched(note); // only reached after the enrichment actually persisted
+      counts.succeeded++;
+      console.log(`Enriched: ${note}`);
+    } catch (e: any) {
+      counts.failed++;
+      console.error(`Failed to enrich ${note}: ${e?.message || e}`);
+    }
+  }
+
+  reportCounts(counts);
+  if (counts.failed === 0) {
+    console.log(`\n✅ Enrichment complete. Enriched ${counts.succeeded} notes.`);
+  } else {
+    console.log(`\n⚠️ Enrichment incomplete. Enriched ${counts.succeeded}, failed ${counts.failed}.`);
+    process.exitCode = 1;
+  }
 }
 
 main();
-
