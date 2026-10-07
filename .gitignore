@@ -135,6 +135,9 @@ pnpm-debug.log*
 06-Resources/Guides/**/*
 !06-Resources/Guides/_*.md
 !06-Resources/Guides/**/_*.md
+# The setup contract is a distributable guide, not a personal note: a fresh clone needs
+# it to reproduce the named actions the README advertises (#118).
+!06-Resources/Guides/Setup & Configuration.md
 
 07-Reviews/*
 07-Reviews/**/*
