@@ -35,13 +35,45 @@ interface LocalOnlyLink {
   target: string;
 }
 
+// Issue #125: the report has a scope, and it is stated. The vault's knowledge lives in its
+// numbered PARA folders plus its root notes; `99-Templates` is its own scope; everything else
+// at the top level is engineering/control-plane material (`.promptkit`, `.opencode`,
+// `.clinerules`, `docs/`, `node_modules`, and every hidden directory). Obsidian ignores
+// dot-folders when it builds its index, so an engine note is not merely off-topic — it is not a
+// valid link target, which is why this is a scope rule and not only a cosmetic filter.
+interface AuditScope {
+  knowledge: string[];
+  templates: string[];
+  rootNotes: boolean;
+  excluded: string[];
+}
+
 interface AuditReport {
+  scope: AuditScope;
+  // Reachability is measured from literal `[[wikilinks]]` only. Hub/Dataview queries are NOT
+  // evaluated, so this report never claims that a query displays a note.
+  reachability: 'literal-wikilinks-only';
   totalNotes: number;
+  // Counted from physical files, not from resolution keys — see `attachmentFiles` below.
   totalAttachments: number;
   totalLinks: number;
   brokenLinks: BrokenLink[];
   localOnlyLinks: LocalOnlyLink[];
   orphanNotes: string[];
+}
+
+const TEMPLATE_DIR = '99-Templates';
+// Skipped at any depth: a nested `node_modules` or `dist` is never vault knowledge.
+const ENGINEERING_ANY_DEPTH = new Set(['node_modules', 'dist']);
+// Skipped only at the top level: a `docs/` inside a project folder can be real vault content,
+// but the top-level `docs/` is the owner-local execution-record tree.
+const ENGINEERING_ROOT_ONLY = new Set(['docs']);
+
+function isEngineeringDir(name: string, atRoot: boolean): boolean {
+  if (name.startsWith('.')) return true;
+  if (ENGINEERING_ANY_DEPTH.has(name)) return true;
+  if (atRoot && ENGINEERING_ROOT_ONLY.has(name)) return true;
+  return false;
 }
 
 function findVaultRoot(): string {
@@ -136,31 +168,45 @@ function findFuzzyMatch(target: string, candidates: string[]): string | undefine
 }
 
 export function auditVaultLinks(vaultRoot: string): AuditReport {
-  const IGNORED_DIRS = new Set([
-    '.git',
-    '.obsidian',
-    '.trash',
-    '.agents',
-    '.smart-env',
-    '.claudian',
-    '.secrets',
-    'node_modules',
-    'dist'
-  ]);
+  const includedDirs: string[] = [];
+  const excludedDirs: string[] = [];
+  for (const entry of fs.readdirSync(vaultRoot, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    if (isEngineeringDir(entry.name, true)) excludedDirs.push(entry.name);
+    else includedDirs.push(entry.name);
+  }
+  includedDirs.sort();
+  excludedDirs.sort();
+
+  const scope: AuditScope = {
+    knowledge: includedDirs.filter((dir) => dir !== TEMPLATE_DIR),
+    templates: includedDirs.filter((dir) => dir === TEMPLATE_DIR),
+    rootNotes: true,
+    excluded: excludedDirs
+  };
 
   const notes = new Map<string, NoteInfo>();
-  const attachments = new Set<string>();
+  // Two sets, on purpose. `attachmentFiles` counts physical files; `attachmentKeys` holds the
+  // resolution keys (basename and relative path) a link may name. Keeping them apart is what
+  // stops one file reachable two ways from being counted twice, while both still resolve.
+  const attachmentFiles = new Set<string>();
+  const attachmentKeys = new Set<string>();
   const noteLookup = new Map<string, string>(); // lowercase target -> canonical name
   const allTargetNames: string[] = [];
 
-  function walk(dir: string) {
+  function walk(dir: string, atRoot: boolean) {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        if (!IGNORED_DIRS.has(entry.name)) {
-          walk(path.join(dir, entry.name));
+        if (!isEngineeringDir(entry.name, atRoot)) {
+          walk(path.join(dir, entry.name), false);
         }
       } else if (entry.isFile()) {
+        // Obsidian ignores dot-files as well as dot-folders, and a repository's own metadata
+        // (`.gitignore`, `.gitattributes`) is not a vault attachment. Counting those inflated
+        // the attachment total with entries no note could ever link.
+        if (entry.name.startsWith('.')) continue;
+
         const fullPath = path.join(dir, entry.name);
         const relPath = path.relative(vaultRoot, fullPath).replace(/\\/g, '/');
 
@@ -188,15 +234,16 @@ export function auditVaultLinks(vaultRoot: string): AuditReport {
             allTargetNames.push(alias);
           }
         } else {
-          attachments.add(entry.name.toLowerCase());
-          attachments.add(relPath.toLowerCase());
+          attachmentFiles.add(relPath.toLowerCase());
+          attachmentKeys.add(entry.name.toLowerCase());
+          attachmentKeys.add(relPath.toLowerCase());
           allTargetNames.push(entry.name);
         }
       }
     }
   }
 
-  walk(vaultRoot);
+  walk(vaultRoot, true);
 
   const incomingBacklinks = new Map<string, number>();
   for (const [, note] of notes) {
@@ -224,7 +271,7 @@ export function auditVaultLinks(vaultRoot: string): AuditReport {
       const lowerTarget = link.target.toLowerCase();
 
       const resolvesToNote = noteLookup.has(lowerTarget);
-      const resolvesToAttachment = attachments.has(lowerTarget) || attachments.has(link.target.toLowerCase());
+      const resolvesToAttachment = attachmentKeys.has(lowerTarget);
 
       if (resolvesToNote) {
         const canonical = noteLookup.get(lowerTarget)!;
@@ -287,8 +334,10 @@ export function auditVaultLinks(vaultRoot: string): AuditReport {
   }
 
   return {
+    scope,
+    reachability: 'literal-wikilinks-only',
     totalNotes: notes.size,
-    totalAttachments: attachments.size,
+    totalAttachments: attachmentFiles.size,
     totalLinks,
     brokenLinks,
     localOnlyLinks,
@@ -304,6 +353,14 @@ export function main() {
   console.log(`📂 Vault Root: ${vaultRoot}\n`);
 
   const report = auditVaultLinks(vaultRoot);
+
+  const scopeLabel =
+    `knowledge${report.scope.templates.length > 0 ? ' + templates' : ''}` +
+    (report.scope.rootNotes ? ' + root notes' : '');
+  const excludedLabel =
+    report.scope.excluded.length > 0 ? report.scope.excluded.join(', ') : 'none found';
+  console.log(`🗂️  Scope: ${scopeLabel}`);
+  console.log(`   Excluded engineering/control-plane trees: ${excludedLabel}\n`);
 
   console.log('========================================');
   console.log('📊 Vault Link Audit Report');
@@ -340,15 +397,24 @@ export function main() {
     console.log('');
   }
 
+  // Issue #125: this is literal-link reachability, said plainly. A note reached only by a
+  // Dataview/hub query has no literal inbound wikilink, and the report must not imply the
+  // query displays it — the query is not evaluated here.
+  console.log('   Reachability is measured from literal [[wikilinks]] only. Dataview/hub');
+  console.log('   queries are not evaluated, so a note reached only by a query is not claimed');
+  console.log('   to be displayed.\n');
+
   if (report.orphanNotes.length === 0) {
-    console.log('✅ No orphaned notes detected! All notes have incoming backlinks.\n');
+    console.log('✅ No notes are unreachable by literal wikilinks.\n');
   } else {
-    console.log(`🟡 Found ${report.orphanNotes.length} orphan note(s) (0 incoming links):\n`);
+    console.log(
+      `🟡 Found ${report.orphanNotes.length} note(s) with no incoming literal wikilink:\n`
+    );
     for (const orphan of report.orphanNotes.slice(0, 25)) {
       console.log(`  - ${orphan}`);
     }
     if (report.orphanNotes.length > 25) {
-      console.log(`  ...and ${report.orphanNotes.length - 25} more orphan notes.`);
+      console.log(`  ...and ${report.orphanNotes.length - 25} more note(s).`);
     }
     console.log('');
   }

@@ -142,6 +142,18 @@ function readRepoFacts(root, candidates) {
 }
 
 // 06-Resources/scripts/src/audit-links.ts
+var TEMPLATE_DIR = "99-Templates";
+var ENGINEERING_ANY_DEPTH = /* @__PURE__ */ new Set(["node_modules", "dist"]);
+var ENGINEERING_ROOT_ONLY = /* @__PURE__ */ new Set(["docs"]);
+function isEngineeringDir(name, atRoot) {
+  if (name.startsWith("."))
+    return true;
+  if (ENGINEERING_ANY_DEPTH.has(name))
+    return true;
+  if (atRoot && ENGINEERING_ROOT_ONLY.has(name))
+    return true;
+  return false;
+}
 function findVaultRoot() {
   let current = process.cwd();
   for (let i = 0; i < 5; i++) {
@@ -218,29 +230,39 @@ function findFuzzyMatch(target, candidates) {
   return bestCandidate;
 }
 function auditVaultLinks(vaultRoot) {
-  const IGNORED_DIRS = /* @__PURE__ */ new Set([
-    ".git",
-    ".obsidian",
-    ".trash",
-    ".agents",
-    ".smart-env",
-    ".claudian",
-    ".secrets",
-    "node_modules",
-    "dist"
-  ]);
+  const includedDirs = [];
+  const excludedDirs = [];
+  for (const entry of fs.readdirSync(vaultRoot, { withFileTypes: true })) {
+    if (!entry.isDirectory())
+      continue;
+    if (isEngineeringDir(entry.name, true))
+      excludedDirs.push(entry.name);
+    else
+      includedDirs.push(entry.name);
+  }
+  includedDirs.sort();
+  excludedDirs.sort();
+  const scope = {
+    knowledge: includedDirs.filter((dir) => dir !== TEMPLATE_DIR),
+    templates: includedDirs.filter((dir) => dir === TEMPLATE_DIR),
+    rootNotes: true,
+    excluded: excludedDirs
+  };
   const notes = /* @__PURE__ */ new Map();
-  const attachments = /* @__PURE__ */ new Set();
+  const attachmentFiles = /* @__PURE__ */ new Set();
+  const attachmentKeys = /* @__PURE__ */ new Set();
   const noteLookup = /* @__PURE__ */ new Map();
   const allTargetNames = [];
-  function walk(dir) {
+  function walk(dir, atRoot) {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        if (!IGNORED_DIRS.has(entry.name)) {
-          walk(path.join(dir, entry.name));
+        if (!isEngineeringDir(entry.name, atRoot)) {
+          walk(path.join(dir, entry.name), false);
         }
       } else if (entry.isFile()) {
+        if (entry.name.startsWith("."))
+          continue;
         const fullPath = path.join(dir, entry.name);
         const relPath = path.relative(vaultRoot, fullPath).replace(/\\/g, "/");
         if (entry.name.endsWith(".md")) {
@@ -263,14 +285,15 @@ function auditVaultLinks(vaultRoot) {
             allTargetNames.push(alias);
           }
         } else {
-          attachments.add(entry.name.toLowerCase());
-          attachments.add(relPath.toLowerCase());
+          attachmentFiles.add(relPath.toLowerCase());
+          attachmentKeys.add(entry.name.toLowerCase());
+          attachmentKeys.add(relPath.toLowerCase());
           allTargetNames.push(entry.name);
         }
       }
     }
   }
-  walk(vaultRoot);
+  walk(vaultRoot, true);
   const incomingBacklinks = /* @__PURE__ */ new Map();
   for (const [, note] of notes) {
     incomingBacklinks.set(note.basename.toLowerCase(), 0);
@@ -284,7 +307,7 @@ function auditVaultLinks(vaultRoot) {
       totalLinks++;
       const lowerTarget = link.target.toLowerCase();
       const resolvesToNote = noteLookup.has(lowerTarget);
-      const resolvesToAttachment = attachments.has(lowerTarget) || attachments.has(link.target.toLowerCase());
+      const resolvesToAttachment = attachmentKeys.has(lowerTarget);
       if (resolvesToNote) {
         const canonical = noteLookup.get(lowerTarget);
         incomingBacklinks.set(canonical.toLowerCase(), (incomingBacklinks.get(canonical.toLowerCase()) || 0) + 1);
@@ -323,8 +346,10 @@ function auditVaultLinks(vaultRoot) {
     }
   }
   return {
+    scope,
+    reachability: "literal-wikilinks-only",
     totalNotes: notes.size,
-    totalAttachments: attachments.size,
+    totalAttachments: attachmentFiles.size,
     totalLinks,
     brokenLinks,
     localOnlyLinks,
@@ -338,6 +363,11 @@ function main() {
   console.log(`\u{1F4C2} Vault Root: ${vaultRoot}
 `);
   const report = auditVaultLinks(vaultRoot);
+  const scopeLabel = `knowledge${report.scope.templates.length > 0 ? " + templates" : ""}` + (report.scope.rootNotes ? " + root notes" : "");
+  const excludedLabel = report.scope.excluded.length > 0 ? report.scope.excluded.join(", ") : "none found";
+  console.log(`\u{1F5C2}\uFE0F  Scope: ${scopeLabel}`);
+  console.log(`   Excluded engineering/control-plane trees: ${excludedLabel}
+`);
   console.log("========================================");
   console.log("\u{1F4CA} Vault Link Audit Report");
   console.log("========================================");
@@ -367,16 +397,21 @@ function main() {
     }
     console.log("");
   }
+  console.log("   Reachability is measured from literal [[wikilinks]] only. Dataview/hub");
+  console.log("   queries are not evaluated, so a note reached only by a query is not claimed");
+  console.log("   to be displayed.\n");
   if (report.orphanNotes.length === 0) {
-    console.log("\u2705 No orphaned notes detected! All notes have incoming backlinks.\n");
+    console.log("\u2705 No notes are unreachable by literal wikilinks.\n");
   } else {
-    console.log(`\u{1F7E1} Found ${report.orphanNotes.length} orphan note(s) (0 incoming links):
-`);
+    console.log(
+      `\u{1F7E1} Found ${report.orphanNotes.length} note(s) with no incoming literal wikilink:
+`
+    );
     for (const orphan of report.orphanNotes.slice(0, 25)) {
       console.log(`  - ${orphan}`);
     }
     if (report.orphanNotes.length > 25) {
-      console.log(`  ...and ${report.orphanNotes.length - 25} more orphan notes.`);
+      console.log(`  ...and ${report.orphanNotes.length - 25} more note(s).`);
     }
     console.log("");
   }
