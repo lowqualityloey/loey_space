@@ -48,8 +48,9 @@ try {
 } catch (e) {
   console.log("No existing timestamps file, starting fresh");
 }
-var today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
 var SIMULATE = process.argv.includes("--simulate");
+var LIVE_ENRICHMENT_SUPPORTED = false;
+var BATCH_SIZE = 5;
 async function getNotesToEnrich() {
   const files = [];
   const folders = ["01-Daily", "02-Projects", "03-Dev", "04-Learning", "08-Concepts"];
@@ -82,51 +83,66 @@ async function markEnriched(file) {
   enrichedTimestamps[file] = Date.now();
   await fs.promises.writeFile(ENRICHED_NOTES_FILE, JSON.stringify(enrichedTimestamps, null, 2));
 }
-async function processBatch(notes, batchSize = 5) {
-  console.log(`Found ${notes.length} notes to check for enrichment`);
-  if (SIMULATE) {
-    console.log("SIMULATION MODE \u2014 no timestamps will be written.");
-  }
-  let enrichedCount = 0;
-  let simulatedCount = 0;
-  for (const note of notes) {
-    try {
-      const should = await shouldEnrich(note);
-      if (should) {
-        if (SIMULATE) {
-          console.log(`[Sim ${simulatedCount + 1}/${batchSize}] Would enrich: ${note}`);
-          simulatedCount++;
-        } else {
-          console.log(`[Batch ${enrichedCount + 1}/${batchSize}] Enriching: ${note}`);
-          await markEnriched(note);
-          enrichedCount++;
-        }
-        if (!SIMULATE && enrichedCount >= batchSize) {
-          console.log(`Batch size reached (${batchSize}), stopping`);
-          break;
-        }
-        if (SIMULATE && simulatedCount >= batchSize) {
-          console.log(`Batch size reached (${batchSize}), stopping`);
-          break;
-        }
-      } else {
-        console.log(`Skipping (recently enriched): ${note}`);
-      }
-    } catch (e) {
-      console.error(`Error processing ${note}:`, e?.message || e);
-    }
-  }
-  if (SIMULATE) {
-    console.log(`
-\u2705 Simulation complete. Would enrich ${simulatedCount} notes.`);
-  } else {
-    console.log(`
-\u2705 Enrichment batch complete. Enriched ${enrichedCount} notes.`);
-    console.log(`Next batch: 7 days from now.`);
-  }
+async function enrichNote(_file) {
+  throw new Error("no live enrichment adapter is implemented");
+}
+function reportCounts(counts) {
+  console.log(
+    `Counts \u2014 attempted: ${counts.attempted}, succeeded: ${counts.succeeded}, skipped: ${counts.skipped}, failed: ${counts.failed}`
+  );
 }
 async function main() {
   const notes = await getNotesToEnrich();
-  await processBatch(notes);
+  console.log(`Found ${notes.length} notes to check for enrichment`);
+  const counts = { attempted: 0, succeeded: 0, skipped: 0, failed: 0 };
+  const candidates = [];
+  for (const note of notes) {
+    if (await shouldEnrich(note)) {
+      candidates.push(note);
+    } else {
+      console.log(`Skipping (recently enriched): ${note}`);
+      counts.skipped++;
+    }
+  }
+  const batch = candidates.slice(0, BATCH_SIZE);
+  if (SIMULATE) {
+    console.log("SIMULATION MODE \u2014 no timestamps will be written.");
+    for (const note of batch) {
+      console.log(`Would enrich: ${note}`);
+      counts.attempted++;
+    }
+    reportCounts(counts);
+    console.log(`
+\u2705 Simulation complete. Would enrich ${counts.attempted} notes.`);
+    return;
+  }
+  if (!LIVE_ENRICHMENT_SUPPORTED) {
+    console.log("LIVE MODE UNSUPPORTED \u2014 no enrichment adapter is implemented; refusing to record success.");
+    reportCounts(counts);
+    console.log(`Rejected without persisting: ${batch.length} note(s). No timestamps were written.`);
+    process.exitCode = 1;
+    return;
+  }
+  for (const note of batch) {
+    counts.attempted++;
+    try {
+      await enrichNote(note);
+      await markEnriched(note);
+      counts.succeeded++;
+      console.log(`Enriched: ${note}`);
+    } catch (e) {
+      counts.failed++;
+      console.error(`Failed to enrich ${note}: ${e?.message || e}`);
+    }
+  }
+  reportCounts(counts);
+  if (counts.failed === 0) {
+    console.log(`
+\u2705 Enrichment complete. Enriched ${counts.succeeded} notes.`);
+  } else {
+    console.log(`
+\u26A0\uFE0F Enrichment incomplete. Enriched ${counts.succeeded}, failed ${counts.failed}.`);
+    process.exitCode = 1;
+  }
 }
 main();
