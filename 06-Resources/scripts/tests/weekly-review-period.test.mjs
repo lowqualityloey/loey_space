@@ -24,6 +24,7 @@ import path from "node:path";
 import {
   REPO_ROOT,
   TEMPLATE,
+  REVIEWS_MOC,
   STATISTICS_SECTIONS,
   RESOLVER_START,
   RESOLVER_END,
@@ -32,6 +33,7 @@ import {
   resolverSource,
   runBlock,
   reviewNote,
+  reviewRecord,
   dailyNote,
   learningNote,
   task,
@@ -430,4 +432,127 @@ test("running the shipped blocks changes nothing on disk", () => {
     runBlock(prefix, { now: LATER, current: reviewNote(NOTE), pages: [dailyNote("2026-10-06", { energy: 4 })] });
   }
   assert.equal(fs.readFileSync(TEMPLATE, "utf8"), before);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// #126: the Reviews MOC's history selectors.
+//
+// The weekly query this replaces was a `type = review` net: `type = "review" AND
+// !contains(file.name, "Monthly")`. Any review whose name lacked "Monthly" — a vault
+// audit, an architecture review — therefore appeared in WEEKLY history even though it
+// has no weekly reporting period. These cases run the SHIPPED selectors through the
+// same harness, so a regression in the classification rule fails here rather than in
+// the rendered vault.
+
+const MOC_SECTORS = {
+  weekly: "📅 Past Weekly Reviews",
+  monthly: "🏆 Past Monthly Reviews",
+  audit: "🗂️ System & Architecture Audits",
+};
+const MOC_BLOCKS = shippedBlocks(REVIEWS_MOC);
+const MOC_MARKER = "#126 review classification";
+const MOC_MARKER_END = "// end #126 review classification";
+
+function mocResolver(code) {
+  const start = code.indexOf(MOC_MARKER);
+  const end = code.indexOf(MOC_MARKER_END);
+  return start >= 0 && end >= 0 && end > start ? code.slice(start, end + MOC_MARKER_END.length) : null;
+}
+
+function runSelector(sector, pages) {
+  return runBlock(MOC_SECTORS[sector], { now: LATER, current: null, pages, file: REVIEWS_MOC });
+}
+
+test("#126: the MOC carries a distinct selector for weekly, monthly, and audit history", () => {
+  for (const [kind, prefix] of Object.entries(MOC_SECTORS)) {
+    assert.ok(
+      [...MOC_BLOCKS.keys()].some((heading) => heading.startsWith(prefix)),
+      `no ${kind} selector under ${prefix}; found ${[...MOC_BLOCKS.keys()].join(" | ")}`
+    );
+  }
+});
+
+test("#126: every MOC selector carries the same classification resolver, verbatim", () => {
+  const sources = Object.values(MOC_SECTORS).map((prefix) => mocResolver(requireSection(MOC_BLOCKS, prefix).code));
+  for (const source of sources) {
+    assert.ok(source, "a selector carries no #126 review classification block");
+    assert.match(source, /function reviewKind/, "the marker must bracket the resolver itself");
+  }
+  for (const source of sources.slice(1)) {
+    assert.equal(source, sources[0], "the resolver copies drifted apart; they must stay identical");
+  }
+});
+
+test("#126: weekly history selects genuine weekly records, not every review", () => {
+  const pages = [
+    reviewRecord("2026-W41", { kind: "weekly" }),
+    reviewRecord("2026-W40", {}), // legacy: no kind, ISO-week name
+    reviewRecord("2026-09", { kind: "monthly" }),
+    reviewRecord("2026-08", {}), // legacy: no kind, month name
+    reviewRecord("Vault Architecture Review", { kind: "audit" }),
+    reviewRecord("Some Type Review", { kind: "review" }), // the old trap: a period-less review
+  ];
+  const weekly = runSelector("weekly", pages).text;
+
+  assert.match(weekly, /2026-W41/);
+  assert.match(weekly, /2026-W40/, "a legacy ISO-week name must still count as weekly");
+  assert.doesNotMatch(weekly, /2026-09/, "a monthly review must not appear in weekly history");
+  assert.doesNotMatch(weekly, /2026-08/);
+  assert.doesNotMatch(weekly, /Vault Architecture Review/, "an audit must not appear in weekly history");
+  assert.doesNotMatch(weekly, /Some Type Review/, "a period-less review must not appear in weekly history");
+});
+
+test("#126: monthly history and system-audit navigation stay distinct", () => {
+  const pages = [
+    reviewRecord("2026-W41", { kind: "weekly" }),
+    reviewRecord("2026-09", { kind: "monthly" }),
+    reviewRecord("2026-08", {}),
+    reviewRecord("Vault Architecture Review", { kind: "audit" }),
+  ];
+
+  const monthly = runSelector("monthly", pages).text;
+  assert.match(monthly, /2026-09/);
+  assert.match(monthly, /2026-08/, "a legacy month name must still count as monthly");
+  assert.doesNotMatch(monthly, /2026-W41/, "a weekly review must not appear in monthly history");
+  assert.doesNotMatch(monthly, /Vault Architecture Review/);
+
+  const audit = runSelector("audit", pages).text;
+  assert.match(audit, /Vault Architecture Review/, "system audits must remain reachable");
+  assert.doesNotMatch(audit, /2026-W41/);
+  assert.doesNotMatch(audit, /2026-09/);
+});
+
+test("#126: a declared kind overrides a misleading name", () => {
+  const pages = [
+    reviewRecord("2026-W41", { kind: "monthly" }),
+    reviewRecord("2026-09", { kind: "weekly" }),
+  ];
+  const weekly = runSelector("weekly", pages).text;
+  assert.match(weekly, /2026-09/, "an explicit kind: weekly must win over the month-shaped name");
+  assert.doesNotMatch(weekly, /2026-W41/, "kind: monthly must keep the week-named record out of weekly history");
+  assert.match(runSelector("monthly", pages).text, /2026-W41/);
+});
+
+test("#126: a record matching no kind and no legacy name stays out of every history", () => {
+  const pages = [reviewRecord("Untitled", {}), reviewRecord("Vault Audit", { kind: "audit" })];
+  for (const sector of ["weekly", "monthly"]) {
+    assert.doesNotMatch(runSelector(sector, pages).text, /Untitled/, `${sector} absorbed a period-less record`);
+  }
+  assert.match(runSelector("audit", pages).text, /Vault Audit/);
+});
+
+test("#126: the MOC and the dashboard are never listed as reviews", () => {
+  const pages = [reviewRecord("_Reviews MOC", {}), reviewRecord("Habit Analytics Dashboard", {})];
+  for (const sector of Object.keys(MOC_SECTORS)) {
+    const text = runSelector(sector, pages).text;
+    assert.doesNotMatch(text, /_Reviews MOC/, `${sector} listed the MOC itself`);
+    assert.doesNotMatch(text, /Habit Analytics Dashboard/);
+  }
+});
+
+test("#126: the creation templates declare their kind", () => {
+  const weekly = fs.readFileSync(TEMPLATE, "utf8");
+  const monthly = fs.readFileSync(path.join(REPO_ROOT, "99-Templates", "Monthly Review.md"), "utf8");
+  assert.match(weekly, /^kind: weekly$/m, "the Weekly Review template must declare kind: weekly");
+  assert.match(monthly, /^kind: monthly$/m, "the Monthly Review template must declare kind: monthly");
 });

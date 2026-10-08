@@ -41,6 +41,7 @@ export const REPO_ROOT = path.resolve(
   ".."
 );
 export const TEMPLATE = path.join(REPO_ROOT, "99-Templates", "Weekly Review.md");
+export const REVIEWS_MOC = path.join(REPO_ROOT, "07-Reviews", "_Reviews MOC.md");
 
 // The statistics blocks, by the heading above the fence. Pinned so that renaming or
 // deleting one fails loudly instead of leaving a guard that matches nothing.
@@ -61,8 +62,8 @@ export const RESOLVER_END = "// end #59 period resolution";
 
 // Shipped blocks, keyed by the heading above the fence, read from disk every call:
 // the subject is what ships.
-export function shippedBlocks() {
-  const text = fs.readFileSync(TEMPLATE, "utf8");
+export function shippedBlocks(file = TEMPLATE) {
+  const text = fs.readFileSync(file, "utf8");
   const blocks = new Map();
   const sections = text.split(/^#{2,3} /m).slice(1);
   for (const section of sections) {
@@ -318,8 +319,8 @@ function at(instant) {
  * `file.day` is supplied per fixture, so the same note can be run with a
  * Luxon-like date, a Moment-like one, an ISO string, or none at all.
  */
-export function runBlock(headingPrefix, { now, current, pages }) {
-  const blocks = shippedBlocks();
+export function runBlock(headingPrefix, { now, current, pages, file = TEMPLATE }) {
+  const blocks = shippedBlocks(file);
   const { heading, code } = requireSection(blocks, headingPrefix);
   const { dv, output, tables } = makeDv({ now, current, pages });
   new Function("dv", "moment", code)(dv, makeMoment(now));
@@ -396,6 +397,25 @@ export function projectNote(name, { last_reviewed = null, review_cycle = "14d" }
 /** A review note: its own period comes from its name (or its frontmatter). */
 export function reviewNote(name, frontmatter = {}) {
   return Object.assign({ file: { name, path: `07-Reviews/${name}.md`, day: null } }, frontmatter);
+}
+
+/**
+ * A review record as the `_Reviews MOC` history selectors see it (#126). `kind` is
+ * what the selectors classify on; omit it to exercise the legacy name-only path.
+ */
+export function reviewRecord(name, { kind, updated = null, ctime = "2026-01-01", mtime = "2026-01-01" } = {}) {
+  return {
+    file: {
+      name,
+      path: `07-Reviews/${name}.md`,
+      link: `[[${name}]]`,
+      ctime: luxonLike(ctime),
+      mtime: luxonLike(mtime),
+      day: null,
+    },
+    kind,
+    updated,
+  };
 }
 
 export function daysBetween(startKey, endKey) {
