@@ -37,7 +37,10 @@ if (files.length > 0) {
 ## 🧹 Attachment Hygiene & Tips
 
 > [!TIP] **Pasting Screenshots**
-> When you copy-paste screenshots or images into any note, Obsidian automatically stores them cleanly inside `99-Attachments/YYYY-MM/`.
+> The **Custom Attachment Location** plugin is the single placement authority for new attachments. Configured with the pattern `99-Attachments/${date:{momentJsFormat:'YYYY-MM'}}`, it files pasted images and screenshots into `99-Attachments/YYYY-MM/`. Obsidian's core attachment root stays at `99-Attachments` as the compatible fallback, so nothing lands outside this folder even with the plugin off. See [[Setup & Configuration]] §1.1 for the sanitized settings.
+
+> [!NOTE] **Drawings & Markdown are notes, not media**
+> Excalidraw drawings (`.excalidraw.md`) and any Markdown file are notes, so they stay with their peers and are excluded from attachment collection — they are never pulled into `99-Attachments`. Their hygiene is note hygiene (frontmatter, links, review cycle), not an image sweep.
 
 > [!NOTE] **Cleaning Up Unused Images**
-> If you delete notes over time, leftover images can linger in `99-Attachments`. You can use plugins like **Clear Unused Images** to scan and delete unused attachment files in one click!
+> If you delete notes over time, leftover images can linger in `99-Attachments`. You can use plugins like **Clear Unused Images** to scan and delete unused attachment files in one click! Back up first, and prefer link-preserving moves so no reference is silently broken.

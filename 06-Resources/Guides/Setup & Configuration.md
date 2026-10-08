@@ -30,10 +30,34 @@ These are tracked, so they work in a fresh clone before any in-app step:
 | Daily note format | `.obsidian/daily-notes.json` | `YYYY-MM/YYYY-MM-DD` (the monthly path) |
 | Daily note template | `.obsidian/daily-notes.json` | `99-Templates/Daily` |
 | Template folder | `.obsidian/templates.json` | `99-Templates` |
-| Attachment folder | `.obsidian/app.json` | `99-Attachments` |
-| New-note default | `.obsidian/app.json` | `08-Concepts` |
+| Attachment root (fallback) | `.obsidian/app.json` | `99-Attachments` |
+| New-note default (generic capture) | `.obsidian/app.json` | `00-Inbox` |
 
 `06-Resources/scripts/tests/setup-contract.test.mjs` asserts every row above, so this table cannot rot silently.
+
+### 1.1 Capture & attachment placement policy (one authority each)
+
+**Capture.** Generic note creation (the core *New note* command, `Ctrl/Cmd + N`) lands in `00-Inbox`. Raw, unprocessed material stays there and out of `08-Concepts`, and because `00-Inbox/*` is git-ignored it also stays private until it is deliberately promoted. Nothing generic is ever created straight into `08-Concepts`.
+
+A concept is created **deliberately**, through the concept workflow: either the **Concept** template (`99-Templates/Concept.md`, rendered by Templater) or the distill action (`06-Resources/scripts/distill-concept-action.js`). Both set `type: concept` and file the note under `08-Concepts/` — that is the only door into the evergreen folder.
+
+**Attachment placement authority.** The **Custom Attachment Location** plugin (`obsidian-custom-attachment-location`) is the single authority for where a new attachment lands. It is the only component that can express the vault's declared monthly `YYYY-MM/` subfolder architecture, so it owns the pattern. Runtime plugin state (`.obsidian/plugins/*/data.json`) is git-ignored on purpose, so enter these sanitized values by hand:
+
+```json
+{
+  "plugin": "obsidian-custom-attachment-location",
+  "attachmentFolderPath": "99-Attachments/${date:{momentJsFormat:'YYYY-MM'}}",
+  "attachmentRenameMode": "Only pasted images"
+}
+```
+
+Obsidian's core setting (`.obsidian/app.json`, tracked) keeps `attachmentFolderPath` at the same root — `99-Attachments` — so an attachment never lands outside the media root even when the plugin is disabled. The core setting is a **root, never a second pattern**: the plugin's pattern must always start with the core value, which is what ties the two into one policy.
+
+**Drawing / Markdown exceptions.** Excalidraw drawings are Markdown notes (`.excalidraw.md`), and every Markdown file is a note, not binary media. They are excluded from attachment collection (the plugin's path exclusions) so they stay beside their peers instead of being pulled into `99-Attachments`. Their hygiene is note hygiene — frontmatter, wikilinks, and the normal review cycle — not the unused-attachment sweep that applies to binary media.
+
+**Optional migration.** If you move existing files to match this policy, back the vault up first, use link-preserving moves (Obsidian's own file move, or `git mv` on a clean tree), and re-resolve every link afterwards. Applying these documented defaults never moves existing attachments on its own.
+
+**Guides, resources and code snippets stay distinct.** Long operational guides (`06-Resources/Guides/`) and reference material (`06-Resources/`) are notes; reusable code lives in `03-Dev/` (`type: snippet`). Do not bulk-move private records (`memory.md`, `handoff.md`, `01-Daily/`, `07-Reviews/`) as part of a placement change.
 
 ## 2. What must be configured once, in the app (~5 minutes)
 
@@ -72,11 +96,12 @@ Create each as a **Macro** choice (**Settings → QuickAdd → Manage Macros →
 
 Repeatable checks, all runnable any time:
 
-1. `npm test` — includes `setup-contract.test.mjs`, which asserts §1's values, that every script named above exists, that the tracked hotkey's choice ID is the one this file declares, and that no runtime `data.json` is tracked.
+1. `npm test` — includes `setup-contract.test.mjs`, which asserts §1's values, that the generic-capture default is `00-Inbox` and the Concept template is the explicit concept door, that the single attachment authority's pattern sits under the tracked core root with the `YYYY-MM` form, that the drawing/Markdown exceptions and link-preserving migration are documented, that every script named above exists, that the tracked hotkey's choice ID is the one this file declares, and that no runtime `data.json` is tracked.
 2. **Command palette (`Ctrl/Cmd + P`)** — after §2.1, these five appear by name: *Create Daily Note*, *Quick Capture*, *Triage Sweep*, *Weekly Review*, *AI Enrich Note*.
 3. **Daily path** — `Ctrl/Cmd + P` → *Daily notes: Open today's daily note* creates `01-Daily/YYYY-MM/YYYY-MM-DD.md` with the template's frontmatter rendered (no unrendered `<% %>` markers left).
 4. **Hotkey** — `Ctrl/Cmd + Shift + A` runs the AI action on the active note (needs `GEMINI_API_KEY`; without one it reports a quota/key notice rather than failing silently).
 5. **Capture → triage loop** — append a line to `00-Inbox/quick-capture-dump.md`, tag it `#do`, run *Triage Sweep* on a day whose daily note exists, and confirm the line lands in the note and the dump entry is logged as swept.
+6. **Placement policy (disposable vault)** — create a generic scratch note and confirm it opens in `00-Inbox`; create a concept from the Concept template and confirm it lands in `08-Concepts/`; paste an image and draw an Excalidraw sketch, then confirm the image lands under `99-Attachments/YYYY-MM/` while the drawing stays a note. Existing attachments must be untouched by merely applying the defaults.
 
 Steps 2–5 need the app; they are marked **unavailable** in any headless run rather than assumed passed.
 
