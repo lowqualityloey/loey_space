@@ -12,6 +12,8 @@ tags:
   - status/active
 ---
 
+%% Created through the concept workflow (Concept template or the distill action) — never a generic new note. Generic, unprocessed capture belongs in 00-Inbox. %%
+
 # <% tp.file.title %>
 
 ## Summary
