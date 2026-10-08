@@ -35,6 +35,7 @@ export const REPO_ROOT = path.resolve(
   ".."
 );
 export const DASHBOARD = path.join(REPO_ROOT, "07-Reviews", "Habit Analytics Dashboard.md");
+export const DAILY_MOC = path.join(REPO_ROOT, "01-Daily", "_Daily MOC.md");
 
 // The sections the guards below rely on. Pinned so that renaming or deleting one fails loudly
 // instead of leaving a guard that silently matches nothing.
@@ -55,8 +56,8 @@ export const EXPECTED_SECTIONS = [
 // between its heading and its code: the block vanished from this map and four of the five
 // guards would have passed over a section they never read. `requireSection` is what caught it,
 // which is exactly why it exists.
-export function shippedBlocks() {
-  const text = fs.readFileSync(DASHBOARD, "utf8");
+export function shippedBlocks(file = DASHBOARD) {
+  const text = fs.readFileSync(file, "utf8");
   const blocks = new Map();
   const sections = text.split(/^## /m).slice(1);
   for (const section of sections) {
@@ -203,8 +204,8 @@ export function makeDv({ now, pages }) {
 
 // Run one shipped block against a fixture. `now` is an ISO instant string, not a date, so a
 // case can pin a moment that falls on different calendar days in different zones.
-export function runBlock(headingPrefix, { now, pages }) {
-  const blocks = shippedBlocks();
+export function runBlock(headingPrefix, { now, pages, file = DASHBOARD }) {
+  const blocks = shippedBlocks(file);
   const { heading, code } = requireSection(blocks, headingPrefix);
   const { dv, output, tables } = makeDv({ now, pages });
   new Function("dv", code)(dv);
@@ -237,21 +238,49 @@ export function daysBefore(iso, days) {
   return at.toISOString().slice(0, 10);
 }
 
+// A daily note as the Daily MOC's vitals views see it. Only the fields those views read are
+// carried, and a field left OUT is genuinely missing rather than zero — which is exactly the
+// distinction the coverage lines (#122) exist to disclose. `mtime` defaults to a stable,
+// timezone-neutral instant so a case never depends on the clock it runs at.
+export function vitalsNote(date, vitals = {}) {
+  return {
+    file: {
+      name: date,
+      path: `01-Daily/${date.slice(0, 7)}/${date}.md`,
+      day: date,
+      mtime: vitals.mtime ?? `${date}T06:00:00Z`,
+    },
+    mood: vitals.mood,
+    energy: vitals.energy,
+    sleep_hours: vitals.sleep_hours,
+  };
+}
+
 // Direct execution is the timezone probe: print the window the SHIPPED view computes for a
 // pinned instant under whatever `TZ` this process has. Kept here, not in the test, so the test
 // and the probe evaluate the same shipped text through the same code path.
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const now = process.argv[2] ?? "2026-10-07T11:30:00Z";
-  const dates = process.argv.slice(3);
-  const pages = dates.map((date) => dailyNote(date, ["water", "read"]));
-  const thirty = runBlock("📈 Overall Habit Performance", { now, pages });
-  const fourteen = runBlock("📊 Daily Habit Heatmap", { now, pages });
-  process.stdout.write(
-    JSON.stringify({
-      zone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      now,
-      thirtyDay: thirty.text,
-      fourteenDay: fourteen.text,
-    })
-  );
+  const args = process.argv.slice(2);
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  // `--moc` selects the Daily MOC's vitals views; the default stays the habit dashboard so the
+  // #55 timezone probe and its test keep working unchanged.
+  if (args[0] === "--moc") {
+    const now = args[1] ?? "2026-10-07T11:30:00Z";
+    const dates = args.slice(2);
+    const pages = dates.map((date) => vitalsNote(date, { mood: 3, energy: 3, sleep_hours: 7 }));
+    const pulse = runBlock("📊 14-Day Vitals Rollup", { now, pages, file: DAILY_MOC });
+    const table = runBlock("🚀 Recent Daily Notes", { now, pages, file: DAILY_MOC });
+    process.stdout.write(
+      JSON.stringify({ zone, now, pulse: pulse.text, table: table.text })
+    );
+  } else {
+    const now = args[0] ?? "2026-10-07T11:30:00Z";
+    const dates = args.slice(1);
+    const pages = dates.map((date) => dailyNote(date, ["water", "read"]));
+    const thirty = runBlock("📈 Overall Habit Performance", { now, pages });
+    const fourteen = runBlock("📊 Daily Habit Heatmap", { now, pages });
+    process.stdout.write(
+      JSON.stringify({ zone, now, thirtyDay: thirty.text, fourteenDay: fourteen.text })
+    );
+  }
 }
