@@ -300,12 +300,19 @@ function parseFrontmatter(content) {
   const props = {};
   let inTags = false;
   const tags = [];
+  const stripYamlQuotes = (raw) => {
+    const trimmed = raw.trim();
+    if (trimmed.length >= 2 && (trimmed.startsWith('"') && trimmed.endsWith('"') || trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+      return trimmed.slice(1, -1).trim();
+    }
+    return trimmed;
+  };
   for (const line of lines) {
     if (line.trim() === "")
       continue;
     if (inTags) {
       if (line.trim().startsWith("-")) {
-        const tag = line.trim().substring(1).trim();
+        const tag = stripYamlQuotes(line.trim().substring(1));
         tags.push(tag);
       } else {
         inTags = false;
@@ -315,7 +322,7 @@ function parseFrontmatter(content) {
       const propMatch = line.match(/^(\w+):\s*(.*)$/);
       if (propMatch) {
         const [_, key, value] = propMatch;
-        props[key] = value.trim();
+        props[key] = stripYamlQuotes(value);
         if (key === "tags") {
           inTags = true;
         }

@@ -6,8 +6,9 @@ status: active
 area: general
 source_type: documentation
 tags:
-  - type/resource
+  - type/guide
   - area/general
+  - status/active
   - topic/guide
 ---
 

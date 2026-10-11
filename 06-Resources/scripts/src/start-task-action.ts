@@ -62,11 +62,7 @@ async function startTaskAction(params?: QuickAddParams): Promise<void> {
 
   // Filter tasks in To Do or Backlog that don't already have an issue link.
   // Read identity from issueNumber, never from title text: badges are stripped.
-  const openTasks = tasks.filter((t) => {
-    const lane = normalizeLaneName(t.section);
-    const isOpenLane = lane === 'to do' || lane === 'backlog';
-    return isOpenLane && t.issueNumber == null;
-  });
+  const openTasks = selectEligibleStartTasks(tasks);
 
   if (openTasks.length === 0) {
     if (Notice) new Notice('⚠️ No unlinked tasks found in "To Do" or "Backlog" lanes!');
@@ -147,6 +143,41 @@ async function startTaskAction(params?: QuickAddParams): Promise<void> {
   }
 }
 
+function isEligibleStartLane(section: string): boolean {
+  const lane = normalizeLaneName(section);
+  return lane === 'to do' || lane === 'backlog';
+}
+
+function selectEligibleStartTasks(tasks: readonly LocalTaskItem[]): LocalTaskItem[] {
+  return tasks.filter((t) => isEligibleStartLane(t.section) && t.issueNumber == null);
+}
+
+type CliStartCandidateResult =
+  | { status: 'eligible'; task: LocalTaskItem }
+  | { status: 'already-linked'; task: LocalTaskItem }
+  | { status: 'not-open'; task: LocalTaskItem }
+  | { status: 'not-found' };
+
+function resolveCliStartCandidate(
+  tasks: readonly LocalTaskItem[],
+  query: string
+): CliStartCandidateResult {
+  const q = query.trim().toLowerCase();
+  if (!q) return { status: 'not-found' };
+
+  const matches = tasks.filter((t) => t.title.toLowerCase().includes(q));
+  if (matches.length === 0) return { status: 'not-found' };
+
+  // Prefer an eligible unlinked task in To Do / Backlog if multiple cards match
+  const eligible = matches.find((t) => isEligibleStartLane(t.section) && t.issueNumber == null);
+  if (eligible) return { status: 'eligible', task: eligible };
+
+  const linked = matches.find((t) => t.issueNumber != null);
+  if (linked) return { status: 'already-linked', task: linked };
+
+  return { status: 'not-open', task: matches[0] };
+}
+
 function runCli() {
   const vaultRoot = resolveVaultPath();
   const args = process.argv.slice(2);
@@ -194,18 +225,33 @@ function runCli() {
   const repo = repoMatch ? repoMatch[1].trim() : projectName.toLowerCase();
 
   const { tasks } = extractLocalKanbanTasks(content);
-  const matchedTask = tasks.find((t) => t.title.toLowerCase().includes(taskQuery.toLowerCase()));
+  const resolution = resolveCliStartCandidate(tasks, taskQuery);
 
-  if (!matchedTask) {
+  if (resolution.status === 'not-found') {
     console.error(`❌ Task matching "${taskQuery}" not found in ${targetPath}.`);
     process.exit(1);
   }
 
-  const { cleanText, priority } = parsePriorityTag(matchedTask.title);
+  if (resolution.status === 'already-linked') {
+    const existing = resolution.task;
+    const { cleanText } = parsePriorityTag(existing.title);
+    console.log(`ℹ️ Task "${cleanText}" is already linked to Issue #${existing.issueNumber} (Lane: ${existing.section}).`);
+    return;
+  }
+
+  if (resolution.status === 'not-open') {
+    const nonOpen = resolution.task;
+    const { cleanText } = parsePriorityTag(nonOpen.title);
+    console.error(`❌ Task "${cleanText}" is in lane "${nonOpen.section}" (must be in "To Do" or "Backlog").`);
+    process.exit(1);
+  }
+
+  const matchedTask = resolution.task;
+  const { cleanText, priority: parsedPriority } = parsePriorityTag(matchedTask.title);
+  const priority = parsedPriority || matchedTask.priority;
   console.log(`📋 Found Task: "${cleanText}" (Lane: ${matchedTask.section})`);
   console.log(`🚀 Creating GitHub Issue in ${owner}/${repo}...`);
 
-  const priorityLabel = priority ? `--label "${priority}"` : '';
   let issueUrl = '';
   let issueNumber = 0;
 
@@ -234,6 +280,11 @@ function runCli() {
     process.exit(1);
   }
 
+  if (!issueNumber) {
+    console.error(`❌ Could not determine issue number from "${issueUrl}". Board left unchanged.`);
+    process.exit(1);
+  }
+
   const branchName = createBranchSlug(issueNumber, cleanText);
   const updatedCard = formatCardWithIssue(issueNumber, issueUrl, cleanText, priority);
   const updatedContent = moveCardToInProgress(content, cleanText, updatedCard);
@@ -254,5 +305,8 @@ if (require.main === module) {
 export = Object.assign(startTaskAction, {
   createBranchSlug,
   formatCardWithIssue,
-  moveCardToInProgress
+  moveCardToInProgress,
+  isEligibleStartLane,
+  selectEligibleStartTasks,
+  resolveCliStartCandidate
 });

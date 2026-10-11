@@ -8,7 +8,7 @@
     "watch": "node build.mjs --watch",
     "check-bundles": "node check-bundle-parity.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test \"06-Resources/scripts/tests/*.test.mjs\"",
+    "test": "node -e \"const fs=require('fs'),cp=require('child_process');const files=fs.readdirSync('06-Resources/scripts/tests').filter(f=>f.endsWith('.test.mjs')).sort().map(f=>'06-Resources/scripts/tests/'+f);process.exit(cp.spawnSync(process.execPath,['node_modules/tsx/dist/cli.mjs','--test',...files],{stdio:'inherit'}).status??1)\"",
     "audit-links": "node 06-Resources/scripts/audit-links.js",
     "distill": "node 06-Resources/scripts/distill-concept-action.js",
     "log-github": "node 06-Resources/scripts/sync-github-activity.js",

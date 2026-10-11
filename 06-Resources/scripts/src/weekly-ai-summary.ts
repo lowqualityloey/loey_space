@@ -18,7 +18,7 @@ interface WeeklySummaryJson {
   weeklyQuote?: string;
 }
 
-export = async function weeklyAISummary(params?: QuickAddParams): Promise<void> {
+async function weeklyAISummary(params?: QuickAddParams): Promise<void> {
   const app = params?.app || (window as any).app || (globalThis as any).app;
   const Notice = (window as any).Notice || (globalThis as any).Notice;
 
@@ -179,14 +179,14 @@ JSON FORMAT:
     const cleanJsonText = responseText.replace(/^```json\s*/i, "").replace(/^```\s*/, "").replace(/```$/, "").trim();
     const data = JSON.parse(cleanJsonText);
 
-    // Create weekly review note
+    // Create weekly review note using ISO-8601 week-year identity (F04)
     const currentDate = new Date();
     const year = currentDate.getFullYear();
     const month = String(currentDate.getMonth() + 1).padStart(2, '0');
     const day = String(currentDate.getDate()).padStart(2, '0');
-    const weekNumber = getWeekNumber(currentDate);
+    const { isoYear, isoWeekPadded, weekKey } = getIsoWeekParts(currentDate);
 
-    const fileName = `${year}-W${weekNumber}.md`;
+    const fileName = `${weekKey}.md`;
     const folderPath = "07-Reviews/";
     const fullPath = folderPath + fileName;
 
@@ -199,27 +199,26 @@ JSON FORMAT:
       // Append to existing weekly review
       content += "\n\n---\n\n## 🤖 AI Weekly Summary\n\n" + formatWeeklySummary(data);
     } else {
-      // Create new weekly review
+      // Create new weekly review (valid YAML frontmatter with explicit kind: weekly — F03)
+      // The exact window this run analysed (#59) is written into `period_start` / `period_end`
+      // as well as the body so statistics stay anchored to the analysed period.
       content = `---
 created: ${year}-${month}-${day}
 updated: ${year}-${month}-${day}
-// The exact window this run analysed (#59). Written into the note as well as
-// into its body because a review's statistics must be anchored to the period it
-// was written for, not to the day someone opens it — and the note's own name is
-// not a dependable source: this script numbers its files with a calendar-year
-// formula that disagrees with the ISO week on about half of all days.
 period_start: ${reviewWindow.startDate}
 period_end: ${reviewWindow.endDate}
 type: review
+kind: weekly
 status: active
 area: general
 tags:
   - type/review
   - area/general
+  - status/active
   - period/weekly
 ---
 
-# 📊 Weekly Review: Week ${weekNumber}, ${year}
+# 📊 Weekly Review: Week ${isoWeekPadded}, ${isoYear}
 
 **Period**: ${getWeekRange(currentDate)}
 **Analysed window**: ${reviewWindow.startDate} to ${reviewWindow.endDate} (${reviewWindow.timeZone})
@@ -429,20 +428,36 @@ function formatWeeklySummary(data: WeeklySummaryJson): string {
   return formatted;
 }
 
-// Helper function to get week number
-function getWeekNumber(date: Date): number {
-  const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
-  const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000;
-  return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+// Helper function to compute ISO-8601 week-year and week number (F04)
+function getIsoWeekParts(date: Date): {
+  isoYear: number;
+  isoWeek: number;
+  isoWeekPadded: string;
+  weekKey: string;
+} {
+  const utc = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const rawDay = utc.getUTCDay();
+  const dayNum = rawDay === 0 ? 7 : rawDay;
+  utc.setUTCDate(utc.getUTCDate() + 4 - dayNum);
+  const isoYear = utc.getUTCFullYear();
+  const yearStart = new Date(Date.UTC(isoYear, 0, 1));
+  const isoWeek = Math.ceil(((utc.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  const isoWeekPadded = String(isoWeek).padStart(2, '0');
+  return {
+    isoYear,
+    isoWeek,
+    isoWeekPadded,
+    weekKey: `${isoYear}-W${isoWeekPadded}`,
+  };
 }
 
-// Helper function to get week range
+// Helper function to get week range (Monday to Sunday)
 function getWeekRange(date: Date): string {
-  const d = new Date(date.getTime());
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
-  const monday = new Date(d.setDate(diff));
-  const sunday = new Date(d.setDate(diff + 6));
+  const monday = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const day = monday.getDay();
+  const offsetToMonday = day === 0 ? -6 : 1 - day;
+  monday.setDate(monday.getDate() + offsetToMonday);
+  const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
 
   const formatDate = (dt: Date) => {
     const month = String(dt.getMonth() + 1).padStart(2, '0');
@@ -453,3 +468,7 @@ function getWeekRange(date: Date): string {
   return `${formatDate(monday)} to ${formatDate(sunday)}`;
 }
 
+export = Object.assign(weeklyAISummary, {
+  getIsoWeekParts,
+  getWeekRange,
+});

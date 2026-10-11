@@ -12,7 +12,8 @@ import { readFileSync } from "node:fs";
 //
 // Production source is untouched by this milestone: these fixtures define the
 // contract, the implementation follows in the owning workflow.
-import * as TaskView from "../src/lib/task-view.ts";
+import * as TaskViewNamespace from "../src/lib/task-view.ts";
+const TaskView = TaskViewNamespace.default ?? TaskViewNamespace;
 
 /** Factory: a task in the normalised shape the vault views pass to the module. */
 function task(overrides = {}) {

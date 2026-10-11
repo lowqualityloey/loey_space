@@ -356,98 +356,7 @@ function describeWeekCoverage(summary) {
 }
 
 // 06-Resources/scripts/src/weekly-ai-summary.ts
-function formatWeeklySummary(data) {
-  let formatted = "";
-  if (data.executiveSummary) {
-    formatted += `### \u{1F4CB} Executive Summary
-${data.executiveSummary}
-
-`;
-  }
-  if (data.keyAccomplishments && data.keyAccomplishments.length > 0) {
-    formatted += `### \u{1F3C6} Key Accomplishments
-`;
-    data.keyAccomplishments.forEach((item) => {
-      formatted += `- ${item}
-`;
-    });
-    formatted += "\n";
-  }
-  if (data.challengesFaced && data.challengesFaced.length > 0) {
-    formatted += `### \u{1F6A7} Challenges Faced
-`;
-    data.challengesFaced.forEach((item) => {
-      formatted += `- ${item}
-`;
-    });
-    formatted += "\n";
-  }
-  if (data.productivityPatterns && data.productivityPatterns.length > 0) {
-    formatted += `### \u26A1 Productivity Patterns
-`;
-    data.productivityPatterns.forEach((item) => {
-      formatted += `- ${item}
-`;
-    });
-    formatted += "\n";
-  }
-  if (data.moodEnergyTrends && data.moodEnergyTrends.length > 0) {
-    formatted += `### \u{1F60A} Mood & Energy Trends
-`;
-    data.moodEnergyTrends.forEach((item) => {
-      formatted += `- ${item}
-`;
-    });
-    formatted += "\n";
-  }
-  if (data.habitAnalysis && data.habitAnalysis.length > 0) {
-    formatted += `### \u{1F504} Habit Analysis
-`;
-    data.habitAnalysis.forEach((item) => {
-      formatted += `- ${item}
-`;
-    });
-    formatted += "\n";
-  }
-  if (data.topInsights && data.topInsights.length > 0) {
-    formatted += `### \u{1F4A1} Top Insights
-`;
-    data.topInsights.forEach((item) => {
-      formatted += `- ${item}
-`;
-    });
-    formatted += "\n";
-  }
-  if (data.recommendations && data.recommendations.length > 0) {
-    formatted += `### \u{1F3AF} Recommendations for Next Week
-`;
-    data.recommendations.forEach((item) => {
-      formatted += `- ${item}
-`;
-    });
-    formatted += "\n";
-  }
-  return formatted;
-}
-function getWeekNumber(date) {
-  const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
-  const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 864e5;
-  return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
-}
-function getWeekRange(date) {
-  const d = new Date(date.getTime());
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  const monday = new Date(d.setDate(diff));
-  const sunday = new Date(d.setDate(diff + 6));
-  const formatDate2 = (dt) => {
-    const month = String(dt.getMonth() + 1).padStart(2, "0");
-    const dayNum = String(dt.getDate()).padStart(2, "0");
-    return `${dt.getFullYear()}-${month}-${dayNum}`;
-  };
-  return `${formatDate2(monday)} to ${formatDate2(sunday)}`;
-}
-module.exports = async function weeklyAISummary(params) {
+async function weeklyAISummary(params) {
   const app = params?.app || window.app || globalThis.app;
   const Notice = window.Notice || globalThis.Notice;
   new Notice("\u{1F916} Generating weekly AI summary...");
@@ -579,8 +488,8 @@ JSON FORMAT:
     const year = currentDate.getFullYear();
     const month = String(currentDate.getMonth() + 1).padStart(2, "0");
     const day = String(currentDate.getDate()).padStart(2, "0");
-    const weekNumber = getWeekNumber(currentDate);
-    const fileName = `${year}-W${weekNumber}.md`;
+    const { isoYear, isoWeekPadded, weekKey } = getIsoWeekParts(currentDate);
+    const fileName = `${weekKey}.md`;
     const folderPath = "07-Reviews/";
     const fullPath = folderPath + fileName;
     let existingFile = app.vault.getAbstractFileByPath(fullPath);
@@ -592,23 +501,20 @@ JSON FORMAT:
       content = `---
 created: ${year}-${month}-${day}
 updated: ${year}-${month}-${day}
-// The exact window this run analysed (#59). Written into the note as well as
-// into its body because a review's statistics must be anchored to the period it
-// was written for, not to the day someone opens it \u2014 and the note's own name is
-// not a dependable source: this script numbers its files with a calendar-year
-// formula that disagrees with the ISO week on about half of all days.
 period_start: ${reviewWindow.startDate}
 period_end: ${reviewWindow.endDate}
 type: review
+kind: weekly
 status: active
 area: general
 tags:
   - type/review
   - area/general
+  - status/active
   - period/weekly
 ---
 
-# \u{1F4CA} Weekly Review: Week ${weekNumber}, ${year}
+# \u{1F4CA} Weekly Review: Week ${isoWeekPadded}, ${isoYear}
 
 **Period**: ${getWeekRange(currentDate)}
 **Analysed window**: ${reviewWindow.startDate} to ${reviewWindow.endDate} (${reviewWindow.timeZone})
@@ -741,4 +647,110 @@ SORT updated DESC
     console.error("Failed to parse weekly JSON:", err);
     new Notice("\u26A0\uFE0F Failed to parse weekly AI response.");
   }
-};
+}
+function formatWeeklySummary(data) {
+  let formatted = "";
+  if (data.executiveSummary) {
+    formatted += `### \u{1F4CB} Executive Summary
+${data.executiveSummary}
+
+`;
+  }
+  if (data.keyAccomplishments && data.keyAccomplishments.length > 0) {
+    formatted += `### \u{1F3C6} Key Accomplishments
+`;
+    data.keyAccomplishments.forEach((item) => {
+      formatted += `- ${item}
+`;
+    });
+    formatted += "\n";
+  }
+  if (data.challengesFaced && data.challengesFaced.length > 0) {
+    formatted += `### \u{1F6A7} Challenges Faced
+`;
+    data.challengesFaced.forEach((item) => {
+      formatted += `- ${item}
+`;
+    });
+    formatted += "\n";
+  }
+  if (data.productivityPatterns && data.productivityPatterns.length > 0) {
+    formatted += `### \u26A1 Productivity Patterns
+`;
+    data.productivityPatterns.forEach((item) => {
+      formatted += `- ${item}
+`;
+    });
+    formatted += "\n";
+  }
+  if (data.moodEnergyTrends && data.moodEnergyTrends.length > 0) {
+    formatted += `### \u{1F60A} Mood & Energy Trends
+`;
+    data.moodEnergyTrends.forEach((item) => {
+      formatted += `- ${item}
+`;
+    });
+    formatted += "\n";
+  }
+  if (data.habitAnalysis && data.habitAnalysis.length > 0) {
+    formatted += `### \u{1F504} Habit Analysis
+`;
+    data.habitAnalysis.forEach((item) => {
+      formatted += `- ${item}
+`;
+    });
+    formatted += "\n";
+  }
+  if (data.topInsights && data.topInsights.length > 0) {
+    formatted += `### \u{1F4A1} Top Insights
+`;
+    data.topInsights.forEach((item) => {
+      formatted += `- ${item}
+`;
+    });
+    formatted += "\n";
+  }
+  if (data.recommendations && data.recommendations.length > 0) {
+    formatted += `### \u{1F3AF} Recommendations for Next Week
+`;
+    data.recommendations.forEach((item) => {
+      formatted += `- ${item}
+`;
+    });
+    formatted += "\n";
+  }
+  return formatted;
+}
+function getIsoWeekParts(date) {
+  const utc = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const rawDay = utc.getUTCDay();
+  const dayNum = rawDay === 0 ? 7 : rawDay;
+  utc.setUTCDate(utc.getUTCDate() + 4 - dayNum);
+  const isoYear = utc.getUTCFullYear();
+  const yearStart = new Date(Date.UTC(isoYear, 0, 1));
+  const isoWeek = Math.ceil(((utc.getTime() - yearStart.getTime()) / 864e5 + 1) / 7);
+  const isoWeekPadded = String(isoWeek).padStart(2, "0");
+  return {
+    isoYear,
+    isoWeek,
+    isoWeekPadded,
+    weekKey: `${isoYear}-W${isoWeekPadded}`
+  };
+}
+function getWeekRange(date) {
+  const monday = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const day = monday.getDay();
+  const offsetToMonday = day === 0 ? -6 : 1 - day;
+  monday.setDate(monday.getDate() + offsetToMonday);
+  const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
+  const formatDate2 = (dt) => {
+    const month = String(dt.getMonth() + 1).padStart(2, "0");
+    const dayNum = String(dt.getDate()).padStart(2, "0");
+    return `${dt.getFullYear()}-${month}-${dayNum}`;
+  };
+  return `${formatDate2(monday)} to ${formatDate2(sunday)}`;
+}
+module.exports = Object.assign(weeklyAISummary, {
+  getIsoWeekParts,
+  getWeekRange
+});

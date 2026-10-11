@@ -211,11 +211,7 @@ async function startTaskAction(params) {
   const projectNumber = fm?.github_project_number ? Number(fm.github_project_number) : null;
   const content = await app.vault.read(activeFile);
   const { tasks } = extractLocalKanbanTasks(content);
-  const openTasks = tasks.filter((t) => {
-    const lane = normalizeLaneName(t.section);
-    const isOpenLane = lane === "to do" || lane === "backlog";
-    return isOpenLane && t.issueNumber == null;
-  });
+  const openTasks = selectEligibleStartTasks(tasks);
   if (openTasks.length === 0) {
     if (Notice)
       new Notice('\u26A0\uFE0F No unlinked tasks found in "To Do" or "Backlog" lanes!');
@@ -286,6 +282,28 @@ async function startTaskAction(params) {
     );
   }
 }
+function isEligibleStartLane(section) {
+  const lane = normalizeLaneName(section);
+  return lane === "to do" || lane === "backlog";
+}
+function selectEligibleStartTasks(tasks) {
+  return tasks.filter((t) => isEligibleStartLane(t.section) && t.issueNumber == null);
+}
+function resolveCliStartCandidate(tasks, query) {
+  const q = query.trim().toLowerCase();
+  if (!q)
+    return { status: "not-found" };
+  const matches = tasks.filter((t) => t.title.toLowerCase().includes(q));
+  if (matches.length === 0)
+    return { status: "not-found" };
+  const eligible = matches.find((t) => isEligibleStartLane(t.section) && t.issueNumber == null);
+  if (eligible)
+    return { status: "eligible", task: eligible };
+  const linked = matches.find((t) => t.issueNumber != null);
+  if (linked)
+    return { status: "already-linked", task: linked };
+  return { status: "not-open", task: matches[0] };
+}
 function runCli() {
   const vaultRoot = resolveVaultPath();
   const args = process.argv.slice(2);
@@ -323,15 +341,28 @@ function runCli() {
   const owner = ownerMatch ? ownerMatch[1].trim() : "lowqualityloey";
   const repo = repoMatch ? repoMatch[1].trim() : projectName.toLowerCase();
   const { tasks } = extractLocalKanbanTasks(content);
-  const matchedTask = tasks.find((t) => t.title.toLowerCase().includes(taskQuery.toLowerCase()));
-  if (!matchedTask) {
+  const resolution = resolveCliStartCandidate(tasks, taskQuery);
+  if (resolution.status === "not-found") {
     console.error(`\u274C Task matching "${taskQuery}" not found in ${targetPath}.`);
     process.exit(1);
   }
-  const { cleanText, priority } = parsePriorityTag(matchedTask.title);
+  if (resolution.status === "already-linked") {
+    const existing = resolution.task;
+    const { cleanText: cleanText2 } = parsePriorityTag(existing.title);
+    console.log(`\u2139\uFE0F Task "${cleanText2}" is already linked to Issue #${existing.issueNumber} (Lane: ${existing.section}).`);
+    return;
+  }
+  if (resolution.status === "not-open") {
+    const nonOpen = resolution.task;
+    const { cleanText: cleanText2 } = parsePriorityTag(nonOpen.title);
+    console.error(`\u274C Task "${cleanText2}" is in lane "${nonOpen.section}" (must be in "To Do" or "Backlog").`);
+    process.exit(1);
+  }
+  const matchedTask = resolution.task;
+  const { cleanText, priority: parsedPriority } = parsePriorityTag(matchedTask.title);
+  const priority = parsedPriority || matchedTask.priority;
   console.log(`\u{1F4CB} Found Task: "${cleanText}" (Lane: ${matchedTask.section})`);
   console.log(`\u{1F680} Creating GitHub Issue in ${owner}/${repo}...`);
-  const priorityLabel = priority ? `--label "${priority}"` : "";
   let issueUrl = "";
   let issueNumber = 0;
   try {
@@ -357,6 +388,10 @@ function runCli() {
     console.error("\u274C Failed to create GitHub issue:", err?.message || err);
     process.exit(1);
   }
+  if (!issueNumber) {
+    console.error(`\u274C Could not determine issue number from "${issueUrl}". Board left unchanged.`);
+    process.exit(1);
+  }
   const branchName = createBranchSlug(issueNumber, cleanText);
   const updatedCard = formatCardWithIssue(issueNumber, issueUrl, cleanText, priority);
   const updatedContent = moveCardToInProgress(content, cleanText, updatedCard);
@@ -376,5 +411,8 @@ if (require.main === module) {
 module.exports = Object.assign(startTaskAction, {
   createBranchSlug,
   formatCardWithIssue,
-  moveCardToInProgress
+  moveCardToInProgress,
+  isEligibleStartLane,
+  selectEligibleStartTasks,
+  resolveCliStartCandidate
 });

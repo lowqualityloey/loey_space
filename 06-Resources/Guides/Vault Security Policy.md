@@ -3,11 +3,12 @@ created: 2026-08-02
 updated: 2026-10-04
 type: resource
 status: active
-area: dev
+area: security
 tags:
   - type/resource
   - type/policy
   - area/security
+  - status/active
 ---
 
 # 🛡️ Vault Security Policy

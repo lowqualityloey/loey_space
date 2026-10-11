@@ -25,10 +25,13 @@ export interface ManifestEntry {
   sha256: string;
 }
 
+export type GitBundleStatus = 'included' | 'no-head' | 'failed';
+
 export interface BackupManifest {
   createdAt: string;
   vaultRoot: string;
   hasGitBundle: boolean;
+  gitBundleStatus?: GitBundleStatus;
   entries: ManifestEntry[];
 }
 
@@ -49,19 +52,25 @@ export interface BackupOptions {
   backupRoot?: string;
   now?: Date;
   retention?: RetentionOptions;
+  gitExecutable?: string;
 }
 
-const OWNER_FILES = ['memory.md', 'handoff.md', '.env'];
-const OWNER_DIRS = [
+export const OWNER_FILES = ['memory.md', 'handoff.md', '.env', 'PROMPTKIT.md'];
+export const OWNER_DIRS = [
   '.secrets',
+  '00-Private',
   '00-Inbox',
   '01-Daily',
   '02-Projects',
   '03-Dev',
   '04-Learning',
   '05-Personal',
+  '06-Resources/Guides',
+  '06-Resources/Articles',
   '07-Reviews',
   '08-Concepts',
+  '99-Attachments',
+  'docs',
 ];
 
 function sha256File(absPath: string): string {
@@ -93,11 +102,29 @@ function copyDirRecursive(srcDir: string, destDir: string, relPrefix: string, re
   }
 }
 
-function buildRestoreInstructions(snapshotName: string, hasGitBundle: boolean): string {
+function copyPluginRuntimeSettings(root: string, ownerStateDir: string, recorded: string[]): void {
+  const pluginsDir = path.join(root, '.obsidian', 'plugins');
+  if (!fs.existsSync(pluginsDir) || !fs.statSync(pluginsDir).isDirectory()) return;
+
+  const entries = fs.readdirSync(pluginsDir, { withFileTypes: true });
+  for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+    if (!entry.isDirectory()) continue;
+    const dataSrc = path.join(pluginsDir, entry.name, 'data.json');
+    if (fs.existsSync(dataSrc) && fs.statSync(dataSrc).isFile()) {
+      const rel = `.obsidian/plugins/${entry.name}/data.json`;
+      const dataDest = path.join(ownerStateDir, rel);
+      fs.mkdirSync(path.dirname(dataDest), { recursive: true });
+      fs.copyFileSync(dataSrc, dataDest);
+      recorded.push(`owner-state/${rel}`);
+    }
+  }
+}
+
+function buildRestoreInstructions(snapshotName: string, gitBundleStatus: GitBundleStatus): string {
   return [
     `# 🔄 Self-Restore Instructions (${snapshotName})`,
     '',
-    'This backup archive was generated deterministically (`no_agent`). Follow these steps to restore a fresh instance of `loey_space`:',
+    'This backup archive was generated deterministically (`no_agent`). Run these steps from inside this snapshot directory to restore a fresh instance of `loey_space`:',
     '',
     '## 1. Verify Snapshot Integrity',
     '```bash',
@@ -105,20 +132,29 @@ function buildRestoreInstructions(snapshotName: string, hasGitBundle: boolean): 
     '```',
     '',
     '## 2. Restore Git Repository',
-    hasGitBundle
+    gitBundleStatus === 'included'
       ? [
           '```bash',
-          'git clone ./repo.bundle loey_space',
-          'cd loey_space',
+          'SNAPSHOT_DIR="$(pwd)"',
+          'RESTORE_DIR="${RESTORE_DIR:-./loey_space}"',
+          'git clone "$SNAPSHOT_DIR/repo.bundle" "$RESTORE_DIR"',
           '```',
         ].join('\n')
-      : '_No git bundle was present at snapshot time; clone from your remote origin first._',
+      : gitBundleStatus === 'failed'
+      ? '_⚠️ Git bundle creation failed during this snapshot; clone from your remote origin or a prior snapshot bundle into `"$RESTORE_DIR"` first._'
+      : '_No git bundle was present at snapshot time (no git HEAD); clone from your remote origin into `"$RESTORE_DIR"` first._',
     '',
-    '## 3. Restore Owner-Only Ignored State',
-    'Copy the contents of `owner-state/` (`memory.md`, `handoff.md`, `.env`, `.secrets/`) into the root of your restored `loey_space` working tree:',
+    '## 3. Restore Owner-Only & Working-Tree State',
+    'Overlay `owner-state/` (`memory.md`, `handoff.md`, `.env`, `PROMPTKIT.md`, `.secrets/`, `00-Private/`, knowledge folders, `06-Resources/Guides/` & `Articles/`, `99-Attachments/`, `docs/`, and `.obsidian/plugins/*/data.json`) onto the restored working tree. Conflict policy: `cp -r` overwrites files checked out from `repo.bundle` so uncommitted working-tree edits captured in `owner-state/` take precedence over older committed versions:',
     '```bash',
-    'cp -rn ./owner-state/. /path/to/loey_space/',
+    'SNAPSHOT_DIR="${SNAPSHOT_DIR:-$(pwd)}"',
+    'RESTORE_DIR="${RESTORE_DIR:-./loey_space}"',
+    'mkdir -p "$RESTORE_DIR"',
+    'cp -r "$SNAPSHOT_DIR/owner-state/." "$RESTORE_DIR/"',
+    'cd "$RESTORE_DIR"',
+    'git status -s',
     '```',
+    '_Explicit exclusions (regenerated on setup): `node_modules/`, `.git/`, and transient OS/editor caches._',
     '',
     '## 4. Verify Vault Health',
     '```bash',
@@ -210,31 +246,45 @@ export function verifySnapshotIntegrity(snapshotDir: string): boolean {
 export function backupVault(root: string, options: BackupOptions = {}): BackupResult {
   const now = options.now ?? new Date();
   const backupRoot = options.backupRoot ?? path.join(os.homedir(), '.loey_backups');
+  const gitBin = options.gitExecutable ?? 'git';
   const snapshotName = `snapshot-${formatTimestamp(now)}`;
   const snapshotDir = path.join(backupRoot, snapshotName);
 
   fs.mkdirSync(snapshotDir, { recursive: true });
   const recordedRelPaths: string[] = [];
 
-  // 1. Create Git bundle if repository has commits
+  // 1. Create Git bundle if repository has commits, separating "no HEAD" from bundle creation failure
   let hasGitBundle = false;
+  let gitBundleStatus: GitBundleStatus = 'no-head';
   const bundleRel = 'repo.bundle';
   const bundleAbs = path.join(snapshotDir, bundleRel);
+  let hasGitHead = false;
   try {
     execFileSync('git', ['rev-parse', '--verify', 'HEAD'], {
       cwd: root,
       stdio: ['ignore', 'ignore', 'ignore'],
     });
-    execFileSync('git', ['bundle', 'create', bundleAbs, '--all'], {
-      cwd: root,
-      stdio: ['ignore', 'ignore', 'ignore'],
-    });
-    if (fs.existsSync(bundleAbs)) {
-      hasGitBundle = true;
-      recordedRelPaths.push(bundleRel);
-    }
+    hasGitHead = true;
   } catch {
-    // Not a git worktree with commits; skip bundle
+    hasGitHead = false;
+  }
+
+  if (hasGitHead) {
+    try {
+      execFileSync(gitBin, ['bundle', 'create', bundleAbs, '--all'], {
+        cwd: root,
+        stdio: ['ignore', 'ignore', 'ignore'],
+      });
+      if (fs.existsSync(bundleAbs)) {
+        hasGitBundle = true;
+        gitBundleStatus = 'included';
+        recordedRelPaths.push(bundleRel);
+      } else {
+        gitBundleStatus = 'failed';
+      }
+    } catch {
+      gitBundleStatus = 'failed';
+    }
   }
 
   // 2. Copy owner-only ignored files into owner-state/
@@ -244,6 +294,7 @@ export function backupVault(root: string, options: BackupOptions = {}): BackupRe
     const srcAbs = path.join(root, file);
     if (fs.existsSync(srcAbs) && fs.statSync(srcAbs).isFile()) {
       const destAbs = path.join(ownerStateDir, file);
+      fs.mkdirSync(path.dirname(destAbs), { recursive: true });
       fs.copyFileSync(srcAbs, destAbs);
       recordedRelPaths.push(`owner-state/${file}`);
     }
@@ -254,12 +305,13 @@ export function backupVault(root: string, options: BackupOptions = {}): BackupRe
       copyDirRecursive(srcAbs, path.join(ownerStateDir, dir), `owner-state/${dir}`, recordedRelPaths);
     }
   }
+  copyPluginRuntimeSettings(root, ownerStateDir, recordedRelPaths);
 
   // 3. Write RESTORE.md instructions
   const restoreRel = 'RESTORE.md';
   fs.writeFileSync(
     path.join(snapshotDir, restoreRel),
-    buildRestoreInstructions(snapshotName, hasGitBundle),
+    buildRestoreInstructions(snapshotName, gitBundleStatus),
     'utf8'
   );
   recordedRelPaths.push(restoreRel);
@@ -279,6 +331,7 @@ export function backupVault(root: string, options: BackupOptions = {}): BackupRe
     createdAt: now.toISOString(),
     vaultRoot: root,
     hasGitBundle,
+    gitBundleStatus,
     entries,
   };
   fs.writeFileSync(path.join(snapshotDir, 'manifest.json'), JSON.stringify(manifest, null, 2), 'utf8');
@@ -289,8 +342,8 @@ export function backupVault(root: string, options: BackupOptions = {}): BackupRe
     throw new Error(`Backup integrity verification failed for ${snapshotDir}`);
   }
 
-  // 6. Prune old snapshots according to retention policy
-  const pruned = pruneSnapshots(backupRoot, options.retention);
+  // 6. Prune old snapshots according to retention policy — skip pruning if git bundle creation failed
+  const pruned = gitBundleStatus === 'failed' ? [] : pruneSnapshots(backupRoot, options.retention);
 
   return {
     snapshotDir,
@@ -307,10 +360,16 @@ export function main(): void {
   const root = process.cwd();
 
   const result = backupVault(root, { backupRoot });
+  const bundleLabel =
+    result.manifest.gitBundleStatus === 'included'
+      ? '✅ included'
+      : result.manifest.gitBundleStatus === 'failed'
+      ? '⚠️ failed (git bundle creation error; pruning skipped)'
+      : 'ℹ️ skipped (no git HEAD)';
   console.log('🛡️  Vault Deterministic Backup (`no_agent`)');
   console.log('='.repeat(40));
   console.log(`📦 Snapshot: ${result.snapshotDir}`);
-  console.log(`🧬 Git Bundle: ${result.manifest.hasGitBundle ? '✅ included' : 'ℹ️ skipped (no git HEAD)'}`);
+  console.log(`🧬 Git Bundle: ${bundleLabel}`);
   console.log(`🔒 Verified Artifacts (${result.manifest.entries.length}):`);
   for (const entry of result.manifest.entries) {
     console.log(`   - ${entry.relPath} (${entry.bytes} bytes, sha256:${entry.sha256.slice(0, 12)})`);
@@ -320,6 +379,9 @@ export function main(): void {
   }
   console.log('='.repeat(40));
   console.log('✅ Integrity verified. Restore guide written to RESTORE.md.');
+  if (result.manifest.gitBundleStatus === 'failed') {
+    process.exitCode = 1;
+  }
 }
 
 if (require.main === module) {

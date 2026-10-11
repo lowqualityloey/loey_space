@@ -400,30 +400,23 @@ test("the generated review declares the window it analysed as its period", () =>
   assert.match(fs.readFileSync(TEMPLATE, "utf8"), /page\.period_start/, "nothing reads period_start");
 });
 
-test("the weekly summary's file name is not a reliable week, which is why the period is declared", () => {
-  // Measured, not asserted from memory: the script numbers its notes with
-  // `Math.ceil((daysIntoYear + weekdayOfJan1 + 1) / 7)`, which is not an ISO week.
-  // Extracted from the shipped bundle rather than retyped, the way
-  // `homepulse-habit-sync` reads its prelude.
+test("the weekly summary's file name uses ISO week-year identity alongside the declared period", () => {
   const bundle = fs.readFileSync(
     path.join(REPO_ROOT, "06-Resources", "scripts", "weekly-ai-summary.js"),
     "utf8"
   );
-  const start = bundle.indexOf("function getWeekNumber");
-  assert.ok(start > 0, "the shipped bundle no longer defines getWeekNumber");
+  const start = bundle.indexOf("function getIsoWeekParts");
+  assert.ok(start > 0, "the shipped bundle must define getIsoWeekParts");
   const source = bundle.slice(start, bundle.indexOf("\n}", start) + 2);
-  const getWeekNumber = new Function(`${source}\nreturn getWeekNumber;`)();
+  const getIsoWeekParts = new Function(`${source}\nreturn getIsoWeekParts;`)();
 
-  const disagreeing = [];
-  for (const day of ["2026-09-06", "2026-11-01", "2026-03-01"]) {
+  for (const day of ["2026-09-06", "2026-10-11", "2026-11-01", "2026-03-01", "2027-01-01"]) {
     const date = localDate(day);
     const iso = isoWeekParts(date);
-    if (getWeekNumber(date) !== iso.week) disagreeing.push(`${day}: name says W${getWeekNumber(date)}, ISO is W${iso.week}`);
+    const actual = getIsoWeekParts(date);
+    assert.equal(actual.isoYear, iso.year, `${day}: expected ISO year ${iso.year}, got ${actual.isoYear}`);
+    assert.equal(actual.isoWeek, iso.week, `${day}: expected ISO week ${iso.week}, got ${actual.isoWeek}`);
   }
-  assert.ok(
-    disagreeing.length > 0,
-    "if the script has become ISO-correct, delete this case and the period declaration may become optional"
-  );
 });
 
 test("running the shipped blocks changes nothing on disk", () => {
