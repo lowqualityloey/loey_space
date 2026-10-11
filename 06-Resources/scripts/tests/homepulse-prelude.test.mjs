@@ -13,6 +13,8 @@ const source = readFileSync(BUNDLE, "utf8");
 const PRELUDE_MARKERS = [
   "getLocalDateStr",
   "syncHabitsToFiles",
+  "ensureVaultHomePulseState",
+  "syncVaultHabitsToHomePulse",
   "readTodayFocusFromNote",
   "saveTodayFocusToNote",
 ];

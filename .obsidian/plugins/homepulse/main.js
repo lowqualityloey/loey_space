@@ -335,10 +335,179 @@ function getLocalDateStr() {
   return `${year}-${month}-${day}`;
 }
 
+function ensureVaultHomePulseState(app) {
+  try {
+    let targetApp = app || (typeof window !== "undefined" ? window.app : null);
+    let hp = targetApp && targetApp.plugins && targetApp.plugins.plugins && targetApp.plugins.plugins.homepulse;
+    if (!hp || !hp.data || !hp.data.widgets) return false;
+    let todayStr = getLocalDateStr();
+    let widgets = hp.data.widgets;
+    let healed = false;
+
+    // Prevent focus.render() from calling saveState() -> saveData() on every render:
+    // upstream _e("focus") strips lastFocusDate, which otherwise makes every vault
+    // modify event overwrite data.json with in-memory state.
+    if (widgets["focus-main"] && widgets["focus-main"].state) {
+      if (widgets["focus-main"].state.lastFocusDate !== todayStr) {
+        widgets["focus-main"].state.lastFocusDate = todayStr;
+      }
+    }
+
+    if (hp.data.settings) {
+      if (!hp.data.settings.obsidianStartDate) {
+        hp.data.settings.obsidianStartDate = "2026-08-22";
+        healed = true;
+      }
+      if (!hp.data.settings.profileName || hp.data.settings.profileName === "My Homepage") {
+        hp.data.settings.profileName = "LOEY SPACE";
+        healed = true;
+      }
+    }
+
+    for (let [id, entry] of Object.entries(widgets)) {
+      if (!entry || typeof entry !== "object") continue;
+      let cfg = entry.config = entry.config || {};
+      let st = entry.state = entry.state || {};
+
+      if (id.startsWith("music-player") && (cfg.serviceName === "NetEase Cloud Music" || cfg.playUrl === "https://music.163.com/")) {
+        cfg.title = "music player";
+        cfg.serviceName = "YouTube Music";
+        cfg.loginUrl = "https://accounts.google.com/";
+        cfg.playUrl = "https://music.youtube.com/";
+        healed = true;
+      } else if (id.startsWith("habits")) {
+        if (!Array.isArray(st.habits) || st.habits.length === 0) {
+          st.habits = ["prioritised", "water", "move", "read", "tidy", "disconnect"];
+          if (!st.completions || typeof st.completions !== "object") st.completions = {};
+          hp._needsVaultHabitSync = true;
+          healed = true;
+        } else if (!st.completions || Object.keys(st.completions).length === 0) {
+          st.completions = {};
+          hp._needsVaultHabitSync = true;
+        }
+      } else if (id.startsWith("knowledge") && Array.isArray(cfg.projectNamePrefixes) && cfg.projectNamePrefixes.includes("Project_")) {
+        cfg.projectNamePrefixes = [];
+        cfg.projectFolders = ["02-Projects"];
+        cfg.projectTags = ["type/project"];
+        healed = true;
+      } else if (id.startsWith("tasks") && Array.isArray(cfg.projectNamePrefixes) && cfg.projectNamePrefixes.includes("Project_")) {
+        cfg.projectFolders = ["02-Projects", "01-Daily"];
+        cfg.projectTags = [];
+        cfg.projectNamePrefixes = [];
+        cfg.limit = 12;
+        healed = true;
+      } else if (id.startsWith("projects") && Array.isArray(cfg.projectNamePrefixes) && cfg.projectNamePrefixes.includes("Project_")) {
+        cfg.projectFolders = ["02-Projects"];
+        cfg.projectTags = ["type/project"];
+        cfg.projectNamePrefixes = [];
+        cfg.limit = 10;
+        healed = true;
+      } else if (id.startsWith("tech-tree") && Array.isArray(cfg.projectNamePrefixes) && cfg.projectNamePrefixes.includes("Project_")) {
+        cfg.areaRoot = "";
+        cfg.projectFolders = ["02-Projects"];
+        cfg.projectTags = ["type/project"];
+        cfg.projectNamePrefixes = [];
+        healed = true;
+      } else if (id.startsWith("pomodoro") && Array.isArray(cfg.projectNamePrefixes) && cfg.projectNamePrefixes.includes("Project_")) {
+        cfg.projectFolders = ["02-Projects"];
+        cfg.projectTags = ["type/project"];
+        cfg.projectNamePrefixes = [];
+        cfg.areaFolders = ["03-Dev", "04-Learning", "05-Personal", "08-Concepts"];
+        cfg.areaTags = [];
+        cfg.areaNamePrefixes = [];
+        cfg.taskFile = "00-Inbox/quick-capture-dump.md";
+        healed = true;
+      } else if (id.startsWith("bookmarks") && (!Array.isArray(cfg.items) || cfg.items.length === 0)) {
+        cfg.useFavicons = true;
+        cfg.items = [
+          { label: "github", type: "url", value: "https://github.com/lowqualityloey" },
+          { label: "gmail", type: "url", value: "https://mail.google.com" },
+          { label: "chatgpt", type: "url", value: "https://chatgpt.com" },
+          { label: "calendar", type: "url", value: "https://calendar.google.com" }
+        ];
+        healed = true;
+      } else if (id.startsWith("quick-actions") && (!Array.isArray(cfg.items) || cfg.items.length <= 2)) {
+        cfg.items = [
+          { label: "daily", type: "daily-note", value: "" },
+          { label: "capture", type: "command", value: "quickadd:choice:capture-to-inbox" },
+          { label: "start task", type: "command", value: "quickadd:choice:f8e2c1a0-4b3d-4e5f-9a1b-2c3d4e5f6a7b" },
+          { label: "done task", type: "command", value: "quickadd:choice:a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d" },
+          { label: "sync board", type: "command", value: "quickadd:choice:d4c3b2a1-6f5e-4b5a-9d8c-1f0e3b2a5d4c" },
+          { label: "weekly ai", type: "command", value: "quickadd:choice:weekly-ai-review-id" },
+          { label: "archive", type: "command", value: "quickadd:choice:archive-capture-dump" },
+          { label: "backup", type: "command", value: "quickadd:choice:backup-vault-id" }
+        ];
+        healed = true;
+      }
+    }
+
+    if (healed) {
+      hp._needsPersistHeal = true;
+    }
+    return healed;
+  } catch (err) {
+    return false;
+  }
+}
+
+async function syncVaultHabitsToHomePulse(app) {
+  try {
+    let targetApp = app || (typeof window !== "undefined" ? window.app : null);
+    let hp = targetApp && targetApp.plugins && targetApp.plugins.plugins && targetApp.plugins.plugins.homepulse;
+    if (!hp || !hp.data || !hp.data.widgets) return;
+    let needSync = !!hp._needsVaultHabitSync;
+    let needPersist = !!hp._needsPersistHeal;
+    hp._needsVaultHabitSync = false;
+    hp._needsPersistHeal = false;
+
+    let habitsEntry = Object.entries(hp.data.widgets).find(([k]) => k.startsWith("habits"));
+    if (!habitsEntry) return;
+    let st = habitsEntry[1].state = habitsEntry[1].state || {};
+    let habits = Array.isArray(st.habits) && st.habits.length ? st.habits : ["prioritised", "water", "move", "read", "tidy", "disconnect"];
+    st.completions = st.completions || {};
+
+    let changed = false;
+    let files = targetApp.vault.getMarkdownFiles().filter(f => {
+      let norm = f.path.replace(/\\/g, "/");
+      return norm.startsWith("01-Daily/") && /^\d{4}-\d{2}-\d{2}$/.test(f.basename);
+    });
+    let targetFiles = needSync ? files : files.filter(f => f.basename === getLocalDateStr());
+
+    for (let f of targetFiles) {
+      let content = await targetApp.vault.cachedRead(f);
+      for (let h of habits) {
+        let esc = h.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        let rx = new RegExp("^- \\[([xX ])\\] \\*?" + esc + "\\b", "m");
+        let m = rx.exec(content);
+        if (!m) continue;
+        let key = h + "|" + f.basename;
+        let checked = m[1].toLowerCase() === "x";
+        if (checked && !st.completions[key]) {
+          st.completions[key] = true;
+          changed = true;
+        } else if (!checked && st.completions[key] && f.basename === getLocalDateStr()) {
+          delete st.completions[key];
+          changed = true;
+        }
+      }
+    }
+
+    if (needPersist || needSync || changed) {
+      await hp.persist();
+      if (needSync || changed) {
+        hp.scheduleRefresh();
+      }
+    }
+  } catch (err) {
+    console.error("syncVaultHabitsToHomePulse error:", err);
+  }
+}
+
 function getTodayDailyFile(app) {
   try {
     let targetApp = app || (typeof window !== "undefined" ? window.app : null);
     if (!targetApp || !targetApp.vault) return null;
+    ensureVaultHomePulseState(targetApp);
     let todayStr = getLocalDateStr();
     let files = targetApp.vault.getMarkdownFiles().filter(f => f.path.startsWith("01-Daily/") && !f.name.startsWith("_"));
     let exact = files.find(f => f.basename === todayStr || f.name === todayStr + ".md");
@@ -352,6 +521,7 @@ function getTodayDailyFile(app) {
 async function readTodayFocusFromNote(app) {
   try {
     let targetApp = app || (typeof window !== "undefined" ? window.app : null);
+    await syncVaultHabitsToHomePulse(targetApp);
     let file = getTodayDailyFile(targetApp);
     if (!file) return "";
     let content = await targetApp.vault.read(file);

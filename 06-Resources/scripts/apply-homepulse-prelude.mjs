@@ -37,7 +37,14 @@ const REQUIRED_CALL_SITES = [
   { symbol: "saveTodayFocusToNote", minimum: 3, purpose: "focus widget writes the note" },
 ];
 
-const PRELUDE_MARKERS = ["getLocalDateStr", "syncHabitsToFiles", "readTodayFocusFromNote", "saveTodayFocusToNote"];
+const PRELUDE_MARKERS = [
+  "getLocalDateStr",
+  "syncHabitsToFiles",
+  "ensureVaultHomePulseState",
+  "syncVaultHabitsToHomePulse",
+  "readTodayFocusFromNote",
+  "saveTodayFocusToNote",
+];
 
 function usage(message) {
   if (message) console.error(`apply-homepulse-prelude: ${message}`);
