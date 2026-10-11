@@ -85,25 +85,29 @@ Each project gets a board. Card checkboxes follow their lane automatically — `
 
 `loey_space` features a built-in AI Assistant & Chief of Staff powered by [`AGENTS.md`](AGENTS.md). 
 
-Prefix any prompt with **`"hey loey"`** in your AI interface to trigger fast, context-aware workflows:
+Prefix any prompt with **`"heyloey"`** or **`"hey loey"`** in your AI interface to trigger fast, context-aware workflows:
 
 | Trigger | Action & Workflow |
 | :--- | :--- |
-| **`hey loey status`** (or `hey loey`) | **Pulse Check**: Counts inbox items, checks daily note/habits, and lists active project tasks |
-| **`hey loey morning`** | **Morning Kick-off**: Preps today's note with an inspirational quote, surfaces in-flight tasks, and prompts for intentions & vitals |
-| **`hey loey evening`** | **Evening Wind-down**: Auto-syncs GitHub, reconciles morning focus, logs reflections & habits, and generates AI summary |
-| **`hey loey sweep`** | **Inbox Triage**: Analyzes `quick-capture-dump.md`, tags tokens, and runs triage sweep |
-| **`hey loey distill`** | **Concept Extraction**: Distills raw notes/dev logs into atomic concepts in `08-Concepts/` (90d review) |
-| **`hey loey weekly`** | **Weekly Review**: Aggregates 7-day habits and project progress into `07-Reviews/YYYY-[W]WW.md` |
-| **`hey loey health`** | **Vault Audit**: Validates frontmatter, detects broken wikilinks, and verifies secret exclusion |
-| **`hey loey remind`** | **Proactive Reminders**: Sets one-shot timers or recurring cron reminders for routines and task reviews |
+| **`heyloey status`** / **`hey loey status`** (or `heyloey` / `hey loey`) | **Pulse Check**: Counts inbox items, checks daily note/habits, and lists active project tasks |
+| **`heyloey morning`** / **`hey loey morning`** | **Morning Kick-off**: Preps today's note with an inspirational quote, surfaces in-flight tasks, and prompts for intentions & vitals |
+| **`heyloey log`** / **`heyloey sync`** (or `hey loey log` / `sync`) | **Fast Session Log**: Non-destructively records session progress, wins, blockers, and git commits into today's note |
+| **`heyloey handoff`** / **`heyloey save`** (or `hey loey handoff` / `save`) | **Session Handoff**: Updates `handoff.md` with in-flight objectives, completed milestones, and immediate next moves |
+| **`heyloey evening`** / **`hey loey evening`** | **Evening Wind-down**: Auto-syncs GitHub, reconciles morning focus, logs reflections & habits, and generates AI summary |
+| **`heyloey activity`** / **`github`** (or `hey loey activity`) | **GitHub Activity Sync**: Fetches today's GitHub commits, PRs, and issues and merges them into today's daily log (`npm run log-github`) |
+| **`heyloey sweep`** / **`hey loey sweep`** | **Inbox Triage**: Analyzes `quick-capture-dump.md`, tags tokens, and runs triage sweep |
+| **`heyloey distill`** / **`heyloey dream`** (or `hey loey distill` / `dream`) | **Knowledge Distillation & Dream Loop**: Extracts atomic concepts into `08-Concepts/` or patterns into `03-Dev/`, runs `--check-rot`, and proposes consolidations |
+| **`heyloey weekly`** / **`hey loey weekly`** | **Weekly Review**: Aggregates 7-day habits and project progress into `07-Reviews/YYYY-[W]WW.md` |
+| **`heyloey plan`** / **`project`** (or `hey loey plan`) | **Project Planning**: Scaffolds project folder, master note, and visual Kanban with Backlog Shield |
+| **`heyloey health`** / **`audit`** (or `hey loey health`) | **Vault Hygiene & Anti-Rot**: Validates frontmatter, detects broken wikilinks, runs `npm run check-rot`, and verifies secret exclusion |
+| **`heyloey remind`** / **`hey loey remind`** | **Proactive Reminders**: Sets one-shot timers or recurring cron reminders for routines and task reviews |
 
 ### 🛠️ Specialized Vault Skills (`.agents/skills/`)
-1. **`vault-concept-distiller`**: Synthesizes articles/snippets into atomic `08-Concepts/` notes with 90-day review cycles.
-2. **`kanban-project-planner`**: Decomposes project goals into priority-tagged cards (`#priority/p0-p3`) and syncs with GitHub Projects v2.
-3. **`vault-hygiene-auditor`**: Validates frontmatter tags, scans for dead links, and audits Git secret exclusion.
-4. **`habit-trend-analyzer`**: Correlates multi-day mood/energy/sleep metrics and generates weekly retrospective rollups.
-5. **`dev-snippet-indexer`**: Formats reusable technical patterns into `03-Dev/` with language syntax tags and MOC links.
+1. **`vault-concept-distiller`** (`pinned: true`): Synthesizes articles/snippets into atomic `08-Concepts/` notes with 90-day review cycles.
+2. **`kanban-project-planner`** (`pinned: true`): Decomposes project goals into priority-tagged cards (`#priority/p0-p3`) and syncs with GitHub Projects v2.
+3. **`vault-hygiene-auditor`** (`pinned: true`): Validates frontmatter tags, scans for dead links, audits Git secret exclusion, and runs `--check-rot`.
+4. **`habit-trend-analyzer`** (`pinned: true`): Correlates multi-day mood/energy/sleep metrics and generates weekly retrospective rollups.
+5. **`dev-snippet-indexer`** (`pinned: true`): Formats reusable technical patterns into `03-Dev/` with language syntax tags and MOC links.
 
 ### ⚙️ Supported Agents & Recommended Models
 
@@ -435,10 +439,12 @@ Placeholders such as `your_google_gemini_api_key_here` are allowed, so `.env.exa
 * **TypeScript & Bundling Engine** — User scripts are authored in TypeScript under [`06-Resources/scripts/src/`](06-Resources/scripts/src/) (modularized under `src/lib/`) and bundled into single-file CommonJS via `npm run build` (`esbuild`) for seamless Obsidian QuickAdd & Node CLI compatibility.
 * **Automated CLI Commands**:
   - `npm run typecheck` — Strict TypeScript typecheck across all scripts.
-  - `npm run build` — Bundles all 14 user scripts in under 50ms.
+  - `npm run build` — Bundles all 15 user scripts in under 50ms.
   - `npm test` — Runs the Node test suite via the pinned `tsx` runner (imports `src/**/*.ts` directly, so no separate compile step).
   - `npm run audit-links` — Scans vault for broken wikilinks, fuzzy fix suggestions, and orphan notes. A link whose candidate path is excluded by `.gitignore` is reported as **local-only content** rather than broken, because a tracked MOC linking its own untracked content is this vault's architecture; add `--strict` to exit 1 on genuinely dangling links, which is the form CI runs. Local `--strict` is deliberately the stricter of the two: an untracked note and its links only exist on this machine, so a dangling link in one is a defect CI cannot see rather than one it forgives.
   - `npm run hygiene` — Read-only report of unclassified records, review metadata the overdue query needs and a note does not carry, and notes no hub reaches. Prints paths and field names only, never note content. Add `--include-ignored` to audit local notes instead of the tracked index, and `--strict` to exit 1 when findings exist. The three readers divide the work: `validate-templates` enforces the publication contract over declared types, `audit-links` owns the literal link graph, and this one reports what both leave silent.
+  - `npm run check-rot` — Runs the deterministic Anti-Rot Sensor (`vault-hygiene.js --check-rot --include-ignored`) checking `memory.md` capacity budget & routing header, overdue `review_cycle` notes, and `.agents/skills/` regression guardrails (`pinned`, `version`, `absorbed_by`, `## 🧪 Regression Cases`).
+  - `npm run backup` — Creates a deterministic `no_agent` local vault snapshot (`~/.loey_backups/snapshot-YYYY-MM-DD_HHMMSS`) with a SHA-256 `manifest.json` and 14-snapshot rotation (`--dry-run` supported).
   - `npm run distill -- <file>` — Distills atomic evergreen concepts into `08-Concepts/`.
   - `npm run log-github` — Syncs today's GitHub activity into a collapsible table callout (`> [!NOTE]-`) sorted AM $\rightarrow$ PM with non-breaking timestamps.
   - `npm run start-task -- <proj> <title>` — Converts a Kanban card to a GitHub Issue and creates a Git branch.
@@ -448,6 +454,7 @@ Placeholders such as `your_google_gemini_api_key_here` are allowed, so `.env.exa
   - `npm run validate-templates` — Validates all tracked notes against the canonical frontmatter schema and tag taxonomy.
   - `npm run audit-links` — Scans for broken wikilinks and reports orphan notes.
   - `npm run hygiene` — Surfaces unclassified records, missing review metadata, and notes no hub reaches.
+  - `npm run check-rot` — Audits core memory budget, overdue review cycles, and skill regression invariants.
 * **Updating plugins** — safe for store plugins (Dataview, Templater, QuickAdd, Kanban, Calendar, Activity History). Never for `homepulse` or `kanban-status-sync`, which are local builds with no store equivalent.
 * **Restyling the dashboard** — HomePulse's own `styles.css` is regenerated on rebuild, so put overrides in `.obsidian/snippets/` instead. That's what `homepulse-mobile.css` and `dashboard-cards.css` do.
 
@@ -479,6 +486,8 @@ See [CONTRIBUTING.md](06-Resources/Guides/CONTRIBUTING.md) for the full scope, p
 | **2-Way Habit Sync** | Toggle habits in the dashboard and they instantly update in today's daily note (and vice versa) |
 | **Multi-Domain AI Enrichment** | One shortcut (`Ctrl+Shift+A`) analyzes any note — generates summaries for daily notes, explanations for concepts, code breakdowns for dev notes, study quizzes & concept extraction for learning notes |
 | **Automatic Concept Distiller** | Extracts atomic evergreen mental models and principles from articles or dev notes into `08-Concepts/` with 90-day review cycles (`QuickAdd` / `npm run distill`) |
+| **Dream Loop & Anti-Rot Sensor** | Propose-first knowledge distillation (`heyloey dream`) backed by deterministic memory budget, overdue review, and skill regression checks (`npm run check-rot`) |
+| **Deterministic Vault Backup** | Zero-LLM local snapshot utility (`npm run backup`) with SHA-256 `manifest.json` verification and 14-snapshot rotation |
 | **Kanban Issue & Branch Generator** | Converts Kanban cards into real GitHub Issues, switches git branch, and moves cards to In Progress (`QuickAdd` / `npm run start-task`) |
 | **Vault Link & Graph Auditor** | Vault-wide scanner for broken wikilinks, fuzzy match fix suggestions, and orphan note discovery, with links into gitignored content reported separately from genuinely dangling ones (`npm run audit-links -- --strict`, as CI runs it) |
 | **Vault Hygiene Reporter** | Surfaces what the contract and the link graph both leave silent — records with no `type`, review metadata the overdue query requires and a note lacks, and notes no hub's query reaches (`npm run hygiene`) |

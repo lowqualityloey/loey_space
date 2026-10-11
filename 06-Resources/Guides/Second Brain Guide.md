@@ -1,6 +1,6 @@
 ---
 created: 2026-08-02
-updated: 2026-09-01
+updated: 2026-10-11
 type: guide
 status: active
 area: general
@@ -298,25 +298,29 @@ For conversational management of the vault, the assistant acts as a digital Chie
 
 ### 🎙️ The `"Hey Loey"` Command Catalog
 
-Start any prompt in your AI agent interface with `"hey loey"` to trigger fast workflows:
+Start any prompt in your AI agent interface with `"heyloey"` or `"hey loey"` to trigger fast workflows:
 
-| Trigger Command        | Workflow Executed                                                                                                                |
-| :--------------------- | :------------------------------------------------------------------------------------------------------------------------------- |
-| **`hey loey status`**  | **Vault Pulse Check**: Summarizes inbox dump status, daily note/habit completeness, and active project tasks.                    |
-| **`hey loey morning`** | **Morning Kick-off**: Preps today's note with a real inspirational quote (`Daily Spark`), surfaces in-flight project tasks for awareness, prompts for personal focus intentions & vitals, and auto-ticks `prioritised`. |
-| **`hey loey evening`** | **Evening Wind-down**: Auto-syncs GitHub events, reconciles morning focus, prompts for reflections & habits, and generates the AI Daily Summary. |
-| **`hey loey sweep`**   | **Inbox Triage**: Analyzes `quick-capture-dump.md`, appends routing tokens, and runs triage sweep.                               |
-| **`hey loey distill`** | **Concept Extraction**: Converts raw notes and dev logs into atomic evergreen concepts in `08-Concepts/` with 90d review cycles. |
-| **`hey loey weekly`**  | **Weekly Retrospective**: Aggregates 7-day habit trends and project progress into `07-Reviews/YYYY-[W]WW.md`.                    |
-| **`hey loey health`**  | **Hygiene Audit**: Runs template validation, checks for broken links, and verifies Git secret exclusion.                         |
-| **`hey loey remind`**  | **Proactive Reminders & Scheduling**: Set one-shot timers or recurring reminders for routines, reviews, or task follow-ups.      |
+| Trigger Command                                                                 | Workflow Executed                                                                                                                |
+| :------------------------------------------------------------------------------ | :------------------------------------------------------------------------------------------------------------------------------- |
+| **`heyloey status`** / **`hey loey status`** (or `heyloey` / `hey loey`)        | **Vault Pulse Check**: Summarizes inbox dump status, daily note/habit completeness, and active project tasks.                    |
+| **`heyloey morning`** / **`hey loey morning`**                                  | **Morning Kick-off**: Preps today's note with a real inspirational quote (`Daily Spark`), surfaces in-flight project tasks for awareness, prompts for personal focus intentions & vitals, and auto-ticks `prioritised`. |
+| **`heyloey log`** / **`heyloey sync`** (or `hey loey log` / `sync`)              | **Fast Session Log**: Non-destructively records session progress, wins, blockers, and git commits into today's note.            |
+| **`heyloey handoff`** / **`heyloey save`** (or `hey loey handoff` / `save`)      | **Session Handoff**: Updates `handoff.md` with in-flight objectives, completed milestones, and immediate next moves.             |
+| **`heyloey evening`** / **`hey loey evening`**                                  | **Evening Wind-down**: Auto-syncs GitHub events, reconciles morning focus, prompts for reflections & habits, and generates the AI Daily Summary. |
+| **`heyloey activity`** / **`github`** (or `hey loey activity`)                  | **GitHub Activity Sync**: Fetches today's GitHub commits, PRs, and issues and merges them into today's daily log (`npm run log-github`). |
+| **`heyloey sweep`** / **`hey loey sweep`**                                      | **Inbox Triage**: Analyzes `quick-capture-dump.md`, appends routing tokens, and runs triage sweep.                               |
+| **`heyloey distill`** / **`heyloey dream`** (or `hey loey distill` / `dream`)    | **Knowledge Distillation & Dream Loop**: Extracts atomic concepts into `08-Concepts/` or patterns into `03-Dev/`, audits memory capacity (`--check-rot`), and proposes consolidations. |
+| **`heyloey weekly`** / **`hey loey weekly`**                                    | **Weekly Retrospective**: Aggregates 7-day habit trends and project progress into `07-Reviews/YYYY-[W]WW.md`.                    |
+| **`heyloey plan`** / **`project`** (or `hey loey plan`)                          | **Project Planning**: Scaffolds project folder, master note, and visual Kanban with Backlog Shield.                              |
+| **`heyloey health`** / **`audit`** (or `hey loey health`)                        | **Hygiene & Anti-Rot Audit**: Runs template validation, checks for broken links, runs `npm run check-rot` (memory budget, overdue reviews, skill guardrails), and verifies Git secret exclusion. |
+| **`heyloey remind`** / **`hey loey remind`**                                    | **Proactive Reminders & Scheduling**: Set one-shot timers or recurring reminders for routines, reviews, or task follow-ups.      |
 
 ### 🛠️ Specialized Vault Skills (`.agents/skills/`)
-1. **`vault-concept-distiller`**: Synthesizes articles/snippets into atomic `08-Concepts/` notes with 90-day review cycles.
-2. **`kanban-project-planner`**: Decomposes project goals into priority-tagged cards (`#priority/p0-p3`) and syncs with GitHub Projects v2.
-3. **`vault-hygiene-auditor`**: Validates frontmatter tags, scans for dead links, and audits Git secret exclusion.
-4. **`habit-trend-analyzer`**: Correlates multi-day mood/energy/sleep metrics and generates weekly retrospective rollups.
-5. **`dev-snippet-indexer`**: Formats reusable technical patterns into `03-Dev/` with language syntax tags and MOC links.
+1. **`vault-concept-distiller`** (`pinned: true`): Synthesizes articles/snippets into atomic `08-Concepts/` notes with 90-day review cycles.
+2. **`kanban-project-planner`** (`pinned: true`): Decomposes project goals into priority-tagged cards (`#priority/p0-p3`) and syncs with GitHub Projects v2.
+3. **`vault-hygiene-auditor`** (`pinned: true`): Validates frontmatter tags, scans for dead links, audits Git secret exclusion, and runs `--check-rot`.
+4. **`habit-trend-analyzer`** (`pinned: true`): Correlates multi-day mood/energy/sleep metrics and generates weekly retrospective rollups.
+5. **`dev-snippet-indexer`** (`pinned: true`): Formats reusable technical patterns into `03-Dev/` with language syntax tags and MOC links.
 
 ### ⚙️ Supported Agents & Recommended Models
 
