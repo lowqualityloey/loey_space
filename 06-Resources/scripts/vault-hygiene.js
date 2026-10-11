@@ -29,6 +29,7 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // 06-Resources/scripts/src/vault-hygiene.ts
 var vault_hygiene_exports = {};
 __export(vault_hygiene_exports, {
+  auditRot: () => auditRot,
   auditVaultHygiene: () => auditVaultHygiene,
   main: () => main
 });
@@ -261,10 +262,133 @@ function auditVaultHygiene(root, options = {}) {
     dynamicMocOnly
   };
 }
+var CYCLE_DAYS = {
+  "14d": 14,
+  "30d": 30,
+  "90d": 90
+};
+function parseIsoDateUtc(dateStr) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr))
+    return null;
+  const ms = Date.parse(`${dateStr}T00:00:00Z`);
+  return Number.isNaN(ms) ? null : ms;
+}
+function auditRot(root, options = {}) {
+  const referenceDate = options.today ?? (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+  const refMs = parseIsoDateUtc(referenceDate) ?? Date.now();
+  const maxLines = options.maxMemoryLines ?? 200;
+  const maxBytes = options.maxMemoryBytes ?? 8192;
+  const warnLines = Math.floor(maxLines * 0.75);
+  const warnBytes = Math.floor(maxBytes * 0.75);
+  const memPath = path.join(root, "memory.md");
+  let memoryBudget = {
+    present: false,
+    lines: 0,
+    bytes: 0,
+    maxLines,
+    maxBytes,
+    warnLines,
+    warnBytes,
+    overThreshold: false,
+    hasRoutingRule: false
+  };
+  try {
+    const raw = fs.readFileSync(memPath, "utf8");
+    const bytes = Buffer.byteLength(raw, "utf8");
+    const lines = raw.split(/\r?\n/).length;
+    const hasRoutingRule = /Core Memory Rule\**\s*:/i.test(raw);
+    memoryBudget = {
+      present: true,
+      lines,
+      bytes,
+      maxLines,
+      maxBytes,
+      warnLines,
+      warnBytes,
+      overThreshold: lines >= warnLines || bytes >= warnBytes,
+      hasRoutingRule
+    };
+  } catch {
+  }
+  const { files } = enumerate(root, options.includeIgnored === true);
+  const overdueReviews = [];
+  for (const rel of files) {
+    if (!isNoteCandidate(rel))
+      continue;
+    let content;
+    try {
+      content = fs.readFileSync(path.join(root, rel), "utf8");
+    } catch {
+      continue;
+    }
+    const block = frontmatterOf(content);
+    const type = fieldOf(block, "type");
+    if (!REVIEW_TYPES.has(type))
+      continue;
+    const status = fieldOf(block, "status");
+    if (status === "archived" || status === "completed")
+      continue;
+    const lastReviewed = fieldOf(block, "last_reviewed");
+    const cycle = fieldOf(block, "review_cycle");
+    const cycleDays = CYCLE_DAYS[cycle];
+    const reviewedMs = parseIsoDateUtc(lastReviewed);
+    if (!cycleDays || reviewedMs === null)
+      continue;
+    const elapsedDays = Math.floor((refMs - reviewedMs) / (1e3 * 60 * 60 * 24));
+    if (elapsedDays > cycleDays) {
+      overdueReviews.push({
+        path: rel,
+        daysOverdue: elapsedDays - cycleDays
+      });
+    }
+  }
+  const skillGaps = [];
+  const skillsDir = path.join(root, ".agents", "skills");
+  try {
+    const entries = fs.readdirSync(skillsDir, { withFileTypes: true });
+    for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+      if (!entry.isDirectory())
+        continue;
+      const rel = `.agents/skills/${entry.name}/SKILL.md`;
+      const abs = path.join(root, rel);
+      let content;
+      try {
+        content = fs.readFileSync(abs, "utf8");
+      } catch {
+        continue;
+      }
+      const block = frontmatterOf(content);
+      const missing = [];
+      if (fieldOf(block, "version") === "")
+        missing.push("version");
+      if (fieldOf(block, "pinned") === "")
+        missing.push("pinned");
+      if (fieldOf(block, "status") === "deprecated" && fieldOf(block, "absorbed_by") === "") {
+        missing.push("absorbed_by");
+      }
+      if (!/^##\s+.*Regression Cases/m.test(content)) {
+        missing.push("regression_cases");
+      }
+      if (missing.length > 0) {
+        skillGaps.push({ path: rel, missing });
+      }
+    }
+  } catch {
+  }
+  return {
+    referenceDate,
+    memoryBudget,
+    overdueReviews,
+    skillGaps
+  };
+}
 function main() {
   const argv = process.argv.slice(2);
   const includeIgnored = argv.includes("--include-ignored");
   const isStrict = argv.includes("--strict");
+  const checkRot = argv.includes("--check-rot");
+  const todayIdx = argv.indexOf("--today");
+  const todayOpt = todayIdx !== -1 && argv[todayIdx + 1] ? argv[todayIdx + 1] : void 0;
   const root = process.cwd();
   const report = auditVaultHygiene(root, { includeIgnored });
   console.log("\u{1FA7A} Vault Hygiene Report");
@@ -312,8 +436,50 @@ function main() {
       console.log(`   - ${file}`);
     console.log("");
   }
+  let rotFindings = 0;
+  if (checkRot) {
+    const rot = auditRot(root, { includeIgnored, today: todayOpt });
+    const mem = rot.memoryBudget;
+    console.log("\u{1F9E0} CORE MEMORY BUDGET & ANTI-ROT");
+    if (!mem.present) {
+      console.log("   \u2139\uFE0F  Local memory record not present (fresh clone or external).");
+    } else {
+      const linePct = Math.round(mem.lines / mem.maxLines * 100);
+      const bytePct = Math.round(mem.bytes / mem.maxBytes * 100);
+      console.log(`   - Capacity: ${mem.lines}/${mem.maxLines} lines (${linePct}%), ${mem.bytes}/${mem.maxBytes} bytes (${bytePct}%)`);
+      console.log(`   - Routing invariant header: ${mem.hasRoutingRule ? "\u2705 present" : "\u26A0\uFE0F missing"}`);
+      if (mem.overThreshold) {
+        console.log("   \u26A0\uFE0F  Memory exceeds 75% warning threshold \u2014 offload infra/system details to 06-Resources/.");
+        rotFindings++;
+      }
+      if (!mem.hasRoutingRule) {
+        rotFindings++;
+      }
+    }
+    console.log("");
+    console.log(`\u23F3 OVERDUE REVIEWS as of ${rot.referenceDate} (${rot.overdueReviews.length})`);
+    if (rot.overdueReviews.length === 0)
+      console.log("   \u2705 None.");
+    else {
+      for (const item of rot.overdueReviews) {
+        console.log(`   - ${item.path} (${item.daysOverdue}d overdue)`);
+      }
+      rotFindings += rot.overdueReviews.length;
+    }
+    console.log("");
+    console.log(`\u{1F6E1}\uFE0F  SKILL ANTI-ROT GUARDRAILS (${rot.skillGaps.length})`);
+    if (rot.skillGaps.length === 0)
+      console.log("   \u2705 All skills carry version, pinned, and regression cases.");
+    else {
+      for (const gap of rot.skillGaps) {
+        console.log(`   - ${gap.path}: missing ${gap.missing.join(", ")}`);
+      }
+      rotFindings += rot.skillGaps.length;
+    }
+    console.log("");
+  }
   console.log("=".repeat(40));
-  const findings = report.unclassified.length + report.missingReviewMetadata.length + report.noIncomingLinks.length + report.reviewCycleOutsideSchema.length;
+  const findings = report.unclassified.length + report.missingReviewMetadata.length + report.noIncomingLinks.length + report.reviewCycleOutsideSchema.length + rotFindings;
   console.log(`\u{1FA7A} ${findings} finding(s). This report is read-only and changed nothing.`);
   if (isStrict && findings > 0) {
     console.error("\u274C Strict hygiene report failed: findings exist.");
@@ -325,6 +491,7 @@ if (require.main === module) {
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
+  auditRot,
   auditVaultHygiene,
   main
 });

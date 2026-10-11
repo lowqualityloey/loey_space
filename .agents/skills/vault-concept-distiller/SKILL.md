@@ -1,5 +1,7 @@
 ---
 name: vault-concept-distiller
+version: "1.0"
+pinned: true
 description: >-
   Extracts atomic evergreen mental models, principles, and concepts from daily notes,
   articles, dev snippets, or chat conversations, creating properly formatted notes in
@@ -74,3 +76,14 @@ When *not* to use this, trade-offs, or common misunderstandings.
 1. Write the note to `08-Concepts/<Concept Title>.md` (or `YYYY-MM-DD_HHmm <Title>.md` if timestamped).
 2. Check `08-Concepts/_Concepts MOC.md` and link the newly created concept note.
 3. Update source notes with bidirectional wikilinks (`[[Concept Title]]`).
+
+---
+
+## 🧪 Regression Cases
+
+| Case | Trigger / Input | Expected Invariant |
+| :--- | :--- | :--- |
+| **RC-1: Atomic Split** | Daily log contains 2 distinct architectural patterns. | Creates 2 separate `08-Concepts/` notes (`review_cycle: 90d`), never an omnibus note. |
+| **RC-2: MOC & Backlinks** | `heyloey distill` extracts a concept from `01-Daily/2026-10/2026-10-11.md`. | Links new concept in `08-Concepts/_Concepts MOC.md` and adds backreference to origin note. |
+| **RC-3: Link Safety** | Concept mentions external tool with no vault note. | Uses plain text or `#topic/*` tag, never an uncreated `[[Wikilink]]`. |
+

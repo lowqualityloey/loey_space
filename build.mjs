@@ -10,6 +10,7 @@ const isWatch = process.argv.includes('--watch');
 const entryPoints = [
   '06-Resources/scripts/src/ai-enrich-action.ts',
   '06-Resources/scripts/src/audit-links.ts',
+  '06-Resources/scripts/src/backup-vault.ts',
   '06-Resources/scripts/src/clear-capture-dump.ts',
   '06-Resources/scripts/src/distill-concept-action.ts',
   '06-Resources/scripts/src/quick-capture-action.ts',

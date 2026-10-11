@@ -263,10 +263,176 @@ export function auditVaultHygiene(root: string, options: { includeIgnored?: bool
   };
 }
 
+export interface MemoryBudgetReport {
+  present: boolean;
+  lines: number;
+  bytes: number;
+  maxLines: number;
+  maxBytes: number;
+  warnLines: number;
+  warnBytes: number;
+  overThreshold: boolean;
+  hasRoutingRule: boolean;
+}
+
+export interface OverdueReview {
+  path: string;
+  daysOverdue: number;
+}
+
+export interface SkillGap {
+  path: string;
+  missing: string[];
+}
+
+export interface RotReport {
+  referenceDate: string;
+  memoryBudget: MemoryBudgetReport;
+  overdueReviews: OverdueReview[];
+  skillGaps: SkillGap[];
+}
+
+const CYCLE_DAYS: Record<string, number> = {
+  '14d': 14,
+  '30d': 30,
+  '90d': 90,
+};
+
+function parseIsoDateUtc(dateStr: string): number | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return null;
+  const ms = Date.parse(`${dateStr}T00:00:00Z`);
+  return Number.isNaN(ms) ? null : ms;
+}
+
+export function auditRot(
+  root: string,
+  options: {
+    includeIgnored?: boolean;
+    today?: string;
+    maxMemoryLines?: number;
+    maxMemoryBytes?: number;
+  } = {}
+): RotReport {
+  const referenceDate = options.today ?? new Date().toISOString().slice(0, 10);
+  const refMs = parseIsoDateUtc(referenceDate) ?? Date.now();
+  const maxLines = options.maxMemoryLines ?? 200;
+  const maxBytes = options.maxMemoryBytes ?? 8192;
+  const warnLines = Math.floor(maxLines * 0.75);
+  const warnBytes = Math.floor(maxBytes * 0.75);
+
+  // 1. Memory budget check (metrics & boolean flags only; never echoes content)
+  const memPath = path.join(root, 'memory.md');
+  let memoryBudget: MemoryBudgetReport = {
+    present: false,
+    lines: 0,
+    bytes: 0,
+    maxLines,
+    maxBytes,
+    warnLines,
+    warnBytes,
+    overThreshold: false,
+    hasRoutingRule: false,
+  };
+  try {
+    const raw = fs.readFileSync(memPath, 'utf8');
+    const bytes = Buffer.byteLength(raw, 'utf8');
+    const lines = raw.split(/\r?\n/).length;
+    const hasRoutingRule = /Core Memory Rule\**\s*:/i.test(raw);
+    memoryBudget = {
+      present: true,
+      lines,
+      bytes,
+      maxLines,
+      maxBytes,
+      warnLines,
+      warnBytes,
+      overThreshold: lines >= warnLines || bytes >= warnBytes,
+      hasRoutingRule,
+    };
+  } catch {
+    // memory.md is owner-only and optional in fresh clones
+  }
+
+  // 2. Overdue reviews scan across vault note folders
+  const { files } = enumerate(root, options.includeIgnored === true);
+  const overdueReviews: OverdueReview[] = [];
+  for (const rel of files) {
+    if (!isNoteCandidate(rel)) continue;
+    let content: string;
+    try {
+      content = fs.readFileSync(path.join(root, rel), 'utf8');
+    } catch {
+      continue;
+    }
+    const block = frontmatterOf(content);
+    const type = fieldOf(block, 'type');
+    if (!REVIEW_TYPES.has(type)) continue;
+    const status = fieldOf(block, 'status');
+    if (status === 'archived' || status === 'completed') continue;
+
+    const lastReviewed = fieldOf(block, 'last_reviewed');
+    const cycle = fieldOf(block, 'review_cycle');
+    const cycleDays = CYCLE_DAYS[cycle];
+    const reviewedMs = parseIsoDateUtc(lastReviewed);
+    if (!cycleDays || reviewedMs === null) continue;
+
+    const elapsedDays = Math.floor((refMs - reviewedMs) / (1000 * 60 * 60 * 24));
+    if (elapsedDays > cycleDays) {
+      overdueReviews.push({
+        path: rel,
+        daysOverdue: elapsedDays - cycleDays,
+      });
+    }
+  }
+
+  // 3. Skill library anti-rot guardrails (.agents/skills/*/SKILL.md)
+  const skillGaps: SkillGap[] = [];
+  const skillsDir = path.join(root, '.agents', 'skills');
+  try {
+    const entries = fs.readdirSync(skillsDir, { withFileTypes: true });
+    for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+      if (!entry.isDirectory()) continue;
+      const rel = `.agents/skills/${entry.name}/SKILL.md`;
+      const abs = path.join(root, rel);
+      let content: string;
+      try {
+        content = fs.readFileSync(abs, 'utf8');
+      } catch {
+        continue;
+      }
+      const block = frontmatterOf(content);
+      const missing: string[] = [];
+      if (fieldOf(block, 'version') === '') missing.push('version');
+      if (fieldOf(block, 'pinned') === '') missing.push('pinned');
+      if (fieldOf(block, 'status') === 'deprecated' && fieldOf(block, 'absorbed_by') === '') {
+        missing.push('absorbed_by');
+      }
+      if (!/^##\s+.*Regression Cases/m.test(content)) {
+        missing.push('regression_cases');
+      }
+      if (missing.length > 0) {
+        skillGaps.push({ path: rel, missing });
+      }
+    }
+  } catch {
+    // .agents/skills optional in minimal fixtures
+  }
+
+  return {
+    referenceDate,
+    memoryBudget,
+    overdueReviews,
+    skillGaps,
+  };
+}
+
 export function main(): void {
   const argv = process.argv.slice(2);
   const includeIgnored = argv.includes('--include-ignored');
   const isStrict = argv.includes('--strict');
+  const checkRot = argv.includes('--check-rot');
+  const todayIdx = argv.indexOf('--today');
+  const todayOpt = todayIdx !== -1 && argv[todayIdx + 1] ? argv[todayIdx + 1] : undefined;
   const root = process.cwd();
 
   const report = auditVaultHygiene(root, { includeIgnored });
@@ -317,13 +483,57 @@ export function main(): void {
     console.log('');
   }
 
+  let rotFindings = 0;
+  if (checkRot) {
+    const rot = auditRot(root, { includeIgnored, today: todayOpt });
+    const mem = rot.memoryBudget;
+    console.log('🧠 CORE MEMORY BUDGET & ANTI-ROT');
+    if (!mem.present) {
+      console.log('   ℹ️  Local memory record not present (fresh clone or external).');
+    } else {
+      const linePct = Math.round((mem.lines / mem.maxLines) * 100);
+      const bytePct = Math.round((mem.bytes / mem.maxBytes) * 100);
+      console.log(`   - Capacity: ${mem.lines}/${mem.maxLines} lines (${linePct}%), ${mem.bytes}/${mem.maxBytes} bytes (${bytePct}%)`);
+      console.log(`   - Routing invariant header: ${mem.hasRoutingRule ? '✅ present' : '⚠️ missing'}`);
+      if (mem.overThreshold) {
+        console.log('   ⚠️  Memory exceeds 75% warning threshold — offload infra/system details to 06-Resources/.');
+        rotFindings++;
+      }
+      if (!mem.hasRoutingRule) {
+        rotFindings++;
+      }
+    }
+    console.log('');
+
+    console.log(`⏳ OVERDUE REVIEWS as of ${rot.referenceDate} (${rot.overdueReviews.length})`);
+    if (rot.overdueReviews.length === 0) console.log('   ✅ None.');
+    else {
+      for (const item of rot.overdueReviews) {
+        console.log(`   - ${item.path} (${item.daysOverdue}d overdue)`);
+      }
+      rotFindings += rot.overdueReviews.length;
+    }
+    console.log('');
+
+    console.log(`🛡️  SKILL ANTI-ROT GUARDRAILS (${rot.skillGaps.length})`);
+    if (rot.skillGaps.length === 0) console.log('   ✅ All skills carry version, pinned, and regression cases.');
+    else {
+      for (const gap of rot.skillGaps) {
+        console.log(`   - ${gap.path}: missing ${gap.missing.join(', ')}`);
+      }
+      rotFindings += rot.skillGaps.length;
+    }
+    console.log('');
+  }
+
   console.log('='.repeat(40));
 
   const findings =
     report.unclassified.length +
     report.missingReviewMetadata.length +
     report.noIncomingLinks.length +
-    report.reviewCycleOutsideSchema.length;
+    report.reviewCycleOutsideSchema.length +
+    rotFindings;
   console.log(`🩺 ${findings} finding(s). This report is read-only and changed nothing.`);
 
   if (isStrict && findings > 0) {
@@ -335,3 +545,4 @@ export function main(): void {
 if (require.main === module) {
   main();
 }
+

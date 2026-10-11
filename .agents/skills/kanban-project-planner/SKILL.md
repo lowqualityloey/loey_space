@@ -1,5 +1,7 @@
 ---
 name: kanban-project-planner
+version: "1.0"
+pinned: true
 description: >-
   Decomposes project goals and features into actionable subtasks with priority tags (#priority/p0-p3),
   maintains Kanban board lanes (To Do, In Progress, Done), preserves Kanban Status Sync conventions,
@@ -65,3 +67,14 @@ github_owner: lowqualityloey
 ---
 ```
 Run or simulate `06-Resources/scripts/sync-github-kanban.js` to push newly created cards to GitHub Issues/Projects v2 or pull remote state.
+
+---
+
+## 🧪 Regression Cases
+
+| Case | Trigger / Input | Expected Invariant |
+| :--- | :--- | :--- |
+| **RC-1: Graduation & Backlog Shield** | `heyloey plan alpha` scaffolds a new project. | Sets `status: planning` in `alpha.md` and places initial `#priority/p0-p3` tasks in `## Backlog`. |
+| **RC-2: Lane Status Markers** | Moving a card to `## In Progress` or `## Done`. | Uses `- [/]` for In Progress/Review and `- [x] ... ✅ YYYY-MM-DD` for Done. |
+| **RC-3: Non-Destructive Edit** | Adding new cards to existing Kanban board. | Preserves existing cards, subtask checklists, and `kanban-plugin: board` frontmatter. |
+

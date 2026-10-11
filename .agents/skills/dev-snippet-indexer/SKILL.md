@@ -1,5 +1,7 @@
 ---
 name: dev-snippet-indexer
+version: "1.0"
+pinned: true
 description: >-
   Extracts, documents, and formats reusable code patterns, debugging solutions, and architecture
   snippets into 03-Dev/ with language metadata, syntax tags, complexity notes, and MOC links.
@@ -73,3 +75,14 @@ Use the canonical structure:
 1. Save the file to `03-Dev/<Title>.md` (or `YYYY-MM-DD_HHmm <Title>.md`).
 2. Add a link under the appropriate language category in `03-Dev/_Dev MOC.md`.
 3. If the pattern relies on an external API or fundamental concept, add bidirectional links to `06-Resources/APIs/` or `08-Concepts/`.
+
+---
+
+## 🧪 Regression Cases
+
+| Case | Trigger / Input | Expected Invariant |
+| :--- | :--- | :--- |
+| **RC-1: Snippet Frontmatter** | Indexing a reusable TypeScript pattern into `03-Dev/`. | Includes `type: snippet`, `area: dev`, `status: active`, and `language: typescript`. |
+| **RC-2: Dev MOC Registration** | New snippet note created in `03-Dev/`. | Links the new note under its language section in `03-Dev/_Dev MOC.md`. |
+| **RC-3: Zero Secrets** | Code snippet contains an API call example. | Uses placeholder env vars (`process.env.API_KEY`), never real tokens. |
+

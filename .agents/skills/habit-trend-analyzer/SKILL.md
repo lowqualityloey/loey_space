@@ -1,5 +1,7 @@
 ---
 name: habit-trend-analyzer
+version: "1.0"
+pinned: true
 description: >-
   Analyzes multi-day habit completion rates, mood, energy, and sleep correlations,
   identifying burnout indicators, consistency patterns, and generating data-driven weekly retrospectives.
@@ -40,3 +42,14 @@ Inspect `01-Daily/YYYY-MM/` notes for the target period (e.g. last 7 or 30 days)
    - Habit performance bar charts and statistics.
    - Actionable recommendations for the upcoming week.
 3. Update `07-Reviews/_Reviews MOC.md` with the new retrospective link.
+
+---
+
+## 🧪 Regression Cases
+
+| Case | Trigger / Input | Expected Invariant |
+| :--- | :--- | :--- |
+| **RC-1: Burnout Detection** | 3 consecutive daily notes have `energy <= 2` or `sleep_hours < 6`. | Explicitly flags sleep debt / burnout risk and recommends pacing adjustment. |
+| **RC-2: 6-Habit Aggregation** | `heyloey weekly` aggregates 7 daily notes. | Accurately counts `water`, `prioritised`, `move`, `read`, `tidy`, `disconnect` completion ratios. |
+| **RC-3: MOC Registration** | Weekly review `07-Reviews/YYYY-WXX.md` created. | Links the new review note in `07-Reviews/_Reviews MOC.md`. |
+

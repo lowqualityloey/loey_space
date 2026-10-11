@@ -1,5 +1,7 @@
 ---
 name: vault-hygiene-auditor
+version: "1.0"
+pinned: true
 description: >-
   Audits vault health by validating frontmatter properties and tag taxonomy, scanning for broken
   wikilinks, verifying secret leak exclusion (.secrets/ and .env), and flagging stale notes.
@@ -46,3 +48,14 @@ This skill guides the agent in running routine health audits, ensuring metadata 
 1. Inspect `08-Concepts/` for notes where `last_reviewed` > 90 days ago.
 2. Inspect `04-Learning/` for notes where `last_reviewed` > 30 days ago.
 3. Present a tidy summary report with actionable next steps.
+
+---
+
+## 🧪 Regression Cases
+
+| Case | Trigger / Input | Expected Invariant |
+| :--- | :--- | :--- |
+| **RC-1: Read-Only Sentinel** | `heyloey health` runs across vault. | Reports file paths and missing field names only; never echoes note bodies or secret values. |
+| **RC-2: Reachability Partition** | Note has no incoming literal wikilink but sits inside a hub's `FROM` scope. | Reported under `dynamicMocOnly`, separate from `noIncomingLinks`. |
+| **RC-3: Secret Exclusion** | `.env` or `.secrets/` exists locally. | Verified ignored in `.gitignore`; never read or echoed into audit output. |
+

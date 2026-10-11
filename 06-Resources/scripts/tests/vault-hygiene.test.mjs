@@ -22,7 +22,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { auditVaultHygiene } from "../vault-hygiene.js";
+import { auditVaultHygiene, auditRot } from "../vault-hygiene.js";
 
 const BUNDLE = fileURLToPath(new URL("../vault-hygiene.js", import.meta.url));
 
@@ -518,3 +518,55 @@ test("a vault that is not a git worktree falls back to the walk, without a fatal
     cleanup(root);
   }
 });
+
+// ---------------------------------------------------------------------------------------
+// Anti-Rot extensions (auditRot / --check-rot): memory budget, overdue reviews, skills.
+// ---------------------------------------------------------------------------------------
+
+test("auditRot evaluates memory budget, overdue review cycles, and skill guardrails without echoing content", () => {
+  const root = makeFixture({
+    "Home.md": classified("dashboard"),
+    "memory.md": "# Memory\nCore Memory Rule: durable facts only\nMEMORY-SECRET-SENTINEL-9001\n",
+    "08-Concepts/Stale.md": classified("concept", {
+      last_reviewed: "2026-01-01",
+      review_cycle: "90d",
+    }),
+    "08-Concepts/Fresh.md": classified("concept", {
+      last_reviewed: "2026-09-15",
+      review_cycle: "90d",
+    }),
+    ".agents/skills/complete-skill/SKILL.md": `---\nname: complete-skill\nversion: "1.0"\npinned: true\n---\n\n# Complete\n\n## 🧪 Regression Cases\n`,
+    ".agents/skills/incomplete-skill/SKILL.md": `---\nname: incomplete-skill\nstatus: deprecated\n---\n\n# Incomplete\n`,
+  });
+  try {
+    const rot = auditRot(root, {
+      today: "2026-10-11",
+      maxMemoryLines: 4, // 75% warn = 3 lines; fixture has 4 lines -> overThreshold
+    });
+
+    assert.equal(rot.memoryBudget.present, true);
+    assert.equal(rot.memoryBudget.hasRoutingRule, true);
+    assert.equal(rot.memoryBudget.overThreshold, true);
+
+    assert.deepEqual(
+      rot.overdueReviews.map((r) => r.path),
+      ["08-Concepts/Stale.md"]
+    );
+
+    assert.deepEqual(rot.skillGaps, [
+      {
+        path: ".agents/skills/incomplete-skill/SKILL.md",
+        missing: ["version", "pinned", "absorbed_by", "regression_cases"],
+      },
+    ]);
+
+    const spawned = run(root, "--check-rot", "--today", "2026-10-11");
+    const output = `${spawned.stdout}${spawned.stderr}`;
+    assert.ok(!output.includes("MEMORY-SECRET-SENTINEL-9001"), "memory content must never be echoed");
+    assert.match(output, /08-Concepts\/Stale\.md/);
+    assert.match(output, /\.agents\/skills\/incomplete-skill\/SKILL\.md: missing version, pinned, absorbed_by, regression_cases/);
+  } finally {
+    cleanup(root);
+  }
+});
+
