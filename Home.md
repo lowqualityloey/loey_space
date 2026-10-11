@@ -157,7 +157,7 @@ if (dailyPages.length === 0) {
 ## 📌 Daily Focus & Active Tasks
 
 ```dataviewjs
-await dv.load("06-Resources/scripts/task-view.js");
+new Function("module", "exports", await dv.io.load("06-Resources/scripts/task-view.js"))({}, {});
 const TV = globalThis.TaskView;
 if (!TV) throw new Error("task-view.js did not load — run `npm run build` and commit the bundle.");
 

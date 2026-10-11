@@ -31,7 +31,7 @@ const ACTIVE_STATUSES = ["in progress", "active", "doing", "wip"];
 const normalize = (value) => String(value || "").toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
 
 // Commitments and criteria come from the shared authority, never from a local count.
-await dv.load("06-Resources/scripts/task-view.js");
+new Function("module", "exports", await dv.io.load("06-Resources/scripts/task-view.js"))({}, {});
 const TV = globalThis.TaskView;
 if (!TV) throw new Error("task-view.js did not load — run `npm run build` and commit the bundle.");
 

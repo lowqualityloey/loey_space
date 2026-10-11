@@ -1256,23 +1256,25 @@ function applyDailyEnrichment(content, data) {
   const aiSummaryBlock = `## \u{1F916} AI Daily Summary
 
 ### \u{1F4D6} Daily Debrief
-${data.debrief || "Bit of a quiet one today \u2014 not much made it into the log."}
+${(data.debrief || "Bit of a quiet one today \u2014 not much made it into the log.").trim()}
 
 ### \u{1F9E0} Chief of Staff Takeaway
-${data.takeaway || "Keep things simple and plan before you build."}
+${(data.takeaway || "Keep things simple and plan before you build.").trim()}
 
 ### \u{1F3AF} Tomorrow's Move
-${data.tomorrowMove || "Pick your main target first thing in the morning."}
+${(data.tomorrowMove || "Pick your main target first thing in the morning.").trim()}
+
 `;
   const aiSectionRe = /^## 🤖 AI Daily Summary[\s\S]*?(?=^## |^---[ \t]*$|(?![\s\S]))/m;
   if (aiSectionRe.test(updated)) {
     updated = updated.replace(aiSectionRe, escapeReplacement(aiSummaryBlock));
   } else {
-    updated = updated.replace(/\s*$/, "") + "\n\n" + aiSummaryBlock;
+    updated = updated.replace(/\s*$/, "") + "\n\n" + aiSummaryBlock.trimEnd() + "\n";
   }
   const connectedBlock = data.connectedLinks.map((link) => `- ${link}`).join("\n");
   if (/^##### 🔗 Connected Notes[ \t]*$/m.test(updated)) {
     updated = replaceSectionBody(updated, "##### \u{1F517} Connected Notes", connectedBlock);
+    updated = updated.replace(/\n---[ \t]*\r?\n(##### 🔗 Connected Notes)/, "\n---\n\n$1");
   } else {
     updated = updated.replace(/\s*$/, "") + `
 

@@ -202,3 +202,49 @@ type: daily
   assert.ok(updated.includes('- 11:34 AM - [shelf] PR #30 merged'));
 });
 
+test('applyDailyEnrichment: separates Tomorrow\'s Move from --- with a blank line to prevent Setext H2 heading rendering', () => {
+  const initialContent = `---
+type: daily
+---
+
+## 🤖 AI Daily Summary
+
+### 📖 Daily Debrief
+> _What did I do today? The day's story and key outcomes._
+
+- 
+
+### 🧠 Chief of Staff Takeaway
+> _What's the high-signal lesson, pattern, or blind spot from today?_
+
+- 
+
+### 🎯 Tomorrow's Move
+> _Based on today, what's the smartest priority to tackle first?_
+
+- 
+
+
+---
+##### 🔗 Connected Notes
+- [[ ]]
+`;
+
+  const data = {
+    quote: 'Simplicity is prerequisite for reliability.',
+    author: 'Edsger W. Dijkstra',
+    debrief: 'Solid afternoon.',
+    takeaway: 'Plan before you code.',
+    tomorrowMove: 'Get stuck into `Continue PromptKit OS v2.0.0 reconciliation` first thing, aye.',
+    connectedLinks: ['[[2026-10-10]]']
+  };
+
+  const updated = applyDailyEnrichment(initialContent, data);
+
+  assert.ok(
+    updated.includes("### 🎯 Tomorrow's Move\nGet stuck into `Continue PromptKit OS v2.0.0 reconciliation` first thing, aye.\n\n---\n\n##### 🔗 Connected Notes"),
+    "Tomorrow's Move must be followed by a blank line before --- so CommonMark/Obsidian does not render it as a Setext H2 heading"
+  );
+});
+
+

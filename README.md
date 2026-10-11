@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-07
+updated: 2026-10-11
 ---
 # 🧠 `loey_space` — Personal Knowledge Management & Second Brain Architecture
 
@@ -33,14 +33,22 @@ updated: 2026-10-07
 > **Critical Pre-Setup Rules:**
 > 1. **`homepulse` and `kanban-status-sync` are bundled custom builds** in `.obsidian/plugins/`. Do not install or update them from the Community Store — keep **Auto-update plugins: OFF**.
 > 2. **Secrets live only in `.env`**, which is git-ignored. Copy `.env.example`, never commit real keys, and read the [Vault Security Policy](06-Resources/Guides/Vault%20Security%20Policy.md).
+> 3. **Runtime plugin state (`.obsidian/plugins/*/data.json`) is git-ignored by design.** A fresh clone ships core daily-note paths (`01-Daily/YYYY-MM/YYYY-MM-DD.md`) and hotkeys, but you must configure **Templater** and **QuickAdd** once in the app (see the full [Setup & Configuration Guide](06-Resources/Guides/Setup%20&%20Configuration.md)).
 
 Five minutes from clone to a working dashboard:
 
 1. **Clone and open** — `git clone https://github.com/lowqualityloey/loey_space.git`, then in Obsidian choose **Open folder as vault**.
-2. **Leave Restricted Mode** — Settings → Community plugins → **Turn on community plugins**. Nothing loads until you do.
+2. **Leave Restricted Mode** — Settings → Community plugins → **Turn on community plugins**, then enable **HomePulse**, **QuickAdd**, **Templater**, **Dataview**, **Kanban**, **Kanban Status Sync**, **Calendar**, and **Activity History**.
 3. **Turn auto-updates off** — Settings → Community plugins → **Auto-update plugins: OFF**. Two plugins here are local custom builds and an update replaces them.
-4. **Add an API key** *(optional)* — `cp .env.example .env`, then paste a key from [Google AI Studio](https://aistudio.google.com/app/apikey) into `GEMINI_API_KEY`. Everything except AI enrichment works without one.
-5. **Start today** — `Ctrl + P` → **HomePulse: Open Dashboard View**, then `Ctrl + P` → **QuickAdd: Create Daily Note**.
+4. **Configure Templater (`Settings → Templater`)** — Set **Template folder location** to `99-Templates`, **Trigger Templater on new file creation** to **On**, **Enable folder templates** to **Off**, **User script folder** to empty, and **Enable system commands** to **Off**.
+5. **Register QuickAdd actions (`Settings → QuickAdd`)** — Under **Manage Macros**, create a macro with **Add User Script** for each script below, then register each under **Add Choice → Macro** with these exact names and IDs (detailed in [Setup & Configuration.md](06-Resources/Guides/Setup%20&%20Configuration.md#21-quickadd--the-five-required-actions)):
+   - **Quick Capture** → `06-Resources/scripts/quick-capture-action.js` (ID: `e4f0a1b2-ffff-4000-8000-000000000101`)
+   - **Triage Sweep** → `06-Resources/scripts/triage-sweep.js` (ID: `e4f0a1b2-ffff-4000-8000-000000000102`)
+   - **Weekly Review** → `06-Resources/scripts/weekly-ai-summary.js` (ID: `e4f0a1b2-ffff-4000-8000-000000000103`)
+   - **AI Enrich Note** → `06-Resources/scripts/ai-enrich-action.js` (ID: `e4f0a1b2-ffff-4000-8000-000000000100` — required so the tracked `Ctrl/Cmd + Shift + A` shortcut in `.obsidian/hotkeys.json` resolves; or rebind the hotkey to your created choice ID)
+   - *(Optional)* **Create Daily Note** → Template choice pointing to `99-Templates/Daily` (or use the core **Daily notes: Open today's daily note** command, which already uses the tracked monthly path).
+6. **Add an API key** *(optional)* — `cp .env.example .env`, then paste a key from [Google AI Studio](https://aistudio.google.com/app/apikey) into `GEMINI_API_KEY`. Everything except AI enrichment works without one.
+7. **Start today** — `Ctrl + P` → **HomePulse: Open Dashboard View**, then `Ctrl + P` → **Daily notes: Open today's daily note** (or **QuickAdd: Create Daily Note** once registered).
 
 That's it. Habit tracking, task dashboards and the MOC queries all come alive as soon as a daily note exists.
 
@@ -99,7 +107,7 @@ Prefix any prompt with **`"heyloey"`** or **`"hey loey"`** in your AI interface 
 | **`heyloey distill`** / **`heyloey dream`** (or `hey loey distill` / `dream`) | **Knowledge Distillation & Dream Loop**: Extracts atomic concepts into `08-Concepts/` or patterns into `03-Dev/`, runs `--check-rot`, and proposes consolidations |
 | **`heyloey weekly`** / **`hey loey weekly`** | **Weekly Review**: Aggregates 7-day habits and project progress into `07-Reviews/YYYY-[W]WW.md` |
 | **`heyloey plan`** / **`project`** (or `hey loey plan`) | **Project Planning**: Scaffolds project folder, master note, and visual Kanban with Backlog Shield |
-| **`heyloey health`** / **`audit`** (or `hey loey health`) | **Vault Hygiene & Anti-Rot**: Validates frontmatter, detects broken wikilinks, runs `npm run check-rot`, and verifies secret exclusion |
+| **`heyloey health`** / **`audit`** (or `hey loey health`) | **Vault Hygiene & Anti-Rot**: Validates frontmatter, detects broken wikilinks, runs `npm run check-rot -- --include-ignored`, and verifies secret exclusion |
 | **`heyloey remind`** / **`hey loey remind`** | **Proactive Reminders**: Sets one-shot timers or recurring cron reminders for routines and task reviews |
 
 ### 🛠️ Specialized Vault Skills (`.agents/skills/`)
@@ -131,7 +139,7 @@ The Loey Space AI Assistant is tool-agnostic and works natively with any modern 
 
 The heart of `loey_space` is **HomePulse** (`.obsidian/plugins/homepulse`), a high-performance native dashboard plugin built upon and extended from [jukkau/HomePulse](https://github.com/jukkau/HomePulse):
 
-* **🔄 2-Way Real-Time Habit Sync**: Toggling habit checkboxes inside the **Habits** widget instantly updates `- [ ]` / `- [x]` in today's active daily note (`01-Daily/YYYY-MM-DD.md`) and `99-Templates/Daily.md`.
+* **🔄 2-Way Real-Time Habit Sync**: Toggling habit checkboxes inside the **Habits** widget instantly updates `- [ ]` / `- [x]` in today's active daily note (`01-Daily/YYYY-MM/YYYY-MM-DD.md`, with fallback to `01-Daily/YYYY-MM-DD.md`) while leaving `99-Templates/Daily.md` untouched.
 * **⚡ Execution Pulse**: Live productivity analytics tracking daily habit completion percentage, focus/pomodoro minutes, 7-day note creation rhythm, and task completion ratios.
 * **📊 Knowledge Profile**: Real-time vault metric counter displaying total Notes, Areas, Projects, and Tags.
 * **🎯 Today's Focus**: Editable focus widget that live-syncs with your daily note's Focus section (supports multiple focus items).
@@ -192,6 +200,7 @@ loey_space/
 Full operational guides and architecture specifications live **inside the vault** (searchable, linkable, and enrichable in Obsidian):
 
 - [`AGENTS.md`](AGENTS.md) — Master AI Agent persona, "Hey Loey" command dispatcher, and daily/weekly routines.
+- [`Setup & Configuration.md`](06-Resources/Guides/Setup%20&%20Configuration.md) — Tracked core defaults, required in-app QuickAdd choice IDs (`Mod+Shift+A` hotkey binding) and Templater settings, attachment placement policy, and verification steps.
 - [`CONTRIBUTING.md`](06-Resources/Guides/CONTRIBUTING.md) — Open/closed scope, plain Node test mocking, and PR guidelines.
 - [`Second Brain Guide.md`](06-Resources/Guides/Second%20Brain%20Guide.md) — Folder architecture, QuickAdd flows, AI enricher contract, triage tokens, and task rules.
 - [`Mobile Workflow Guide.md`](06-Resources/Guides/Mobile%20Workflow%20Guide.md) — Mobile toolbar configuration and capture-fast / triage-later loop.
@@ -220,21 +229,15 @@ Private handoff records, session telemetry, and owner-only reference material fo
 
 ### Step 2: Environment Credentials Setup (`.env`)
 
-Copy the example file and fill in your API keys:
+Copy the example file and fill in your Gemini API key:
 ```bash
 cp .env.example .env
 ```
 
-Then edit `.env` with your real credentials:
+Then edit `.env` with your real credential (`GEMINI_API_KEY` is the only environment variable consumed by the vault automation scripts in `06-Resources/scripts/`):
 ```env
-# Required for AI enrichment (daily summaries, concept analysis, dev note analysis)
+# Required for AI enrichment (daily summaries, concept analysis, dev note analysis, weekly review)
 GEMINI_API_KEY=your_google_gemini_api_key_here
-
-# Optional - Weather API integration
-VITE_OPENWEATHER_API_KEY=your_openweather_api_key_here
-
-# Optional - OpenAI fallback
-OPENAI_API_KEY=sk-your_openai_api_key_here
 ```
 
 > [!IMPORTANT]
@@ -252,7 +255,7 @@ OPENAI_API_KEY=sk-your_openai_api_key_here
 > - Concept, Dev, and Learning note enrichment will not work
 > - All other vault features (tasks, habits, navigation, dataview queries) work normally without an API key
 
-### Step 3: Enable Core Community Plugins
+### Step 3: Enable & Configure Core Community Plugins
 Go to **Obsidian Settings -> Community Plugins** and ensure the following plugins are enabled:
 * **HomePulse** — Dashboard command center & 2-way habit synchronization.
 * **QuickAdd** — Automation macros & 1-click note generation blueprints.
@@ -262,6 +265,8 @@ Go to **Obsidian Settings -> Community Plugins** and ensure the following plugin
 * **Kanban Status Sync** — Keeps card checkboxes in step with their lane (bundled in this vault, not from the store).
 * **Calendar** — Visual daily note navigator.
 * **Activity History** — Contribution heatmap for the dashboard.
+
+Because runtime plugin state (`.obsidian/plugins/*/data.json`) is git-ignored, complete the one-time in-app configuration for **Templater** (`Template folder location: 99-Templates`, `Trigger Templater on new file creation: On`, `Enable system commands: Off`) and **QuickAdd** (register `Quick Capture`, `Triage Sweep`, `Weekly Review`, and `AI Enrich Note` with choice ID `e4f0a1b2-ffff-4000-8000-000000000100` for `Ctrl/Cmd + Shift + A`) as specified in [`Setup & Configuration.md`](06-Resources/Guides/Setup%20&%20Configuration.md).
 
 > [!IMPORTANT]
 > **Pre-Configured HomePulse Plugin**:
@@ -412,17 +417,19 @@ Placeholders such as `your_google_gemini_api_key_here` are allowed, so `.env.exa
 | `🧹 Triage Sweep` missing from the palette | Register it once: Settings → QuickAdd → Manage Macros → new macro → **Add User Script** → `triage-sweep.js`, then add it as a Macro choice. |
 | Sweep says *"no daily note for &lt;date&gt;"* | `#do` files into **today's** note, which must already exist. Run **QuickAdd: Create Daily Note** first. |
 | HomePulse lost its custom behaviour | It was updated from the Community Store. Restore `.obsidian/plugins/homepulse/` from Git history and set **Auto-update plugins: OFF**. |
-| Habit toggles don't reach the daily note | Sync needs today's note at `01-Daily/YYYY-MM-DD.md` with a `## 🔁 Habits` section, and Dataview enabled. |
+| Habit toggles don't reach the daily note | Sync needs today's note at `01-Daily/YYYY-MM/YYYY-MM-DD.md` (with fallback to `01-Daily/YYYY-MM-DD.md`) containing a `## 🔁 Habits` section, and Dataview enabled. |
 | Dashboard cramped or overlapping on mobile | Enable the `homepulse-mobile` snippet: Settings → Appearance → CSS snippets. |
 
 ### 🔧 System & Vault Maintenance
 
 > [!NOTE] 🔌 Dataview `dv.load` evaluation errors (`TypeError: dv.load is not a function`)
-> If a DataviewJS block that calls `await dv.load(...)` fails with `dv.load is not a function`, the local Dataview plugin bundle is stale even when the manifest reports a newer version (e.g. `0.5.68`). `dv.load` ships in Dataview `0.5.0+`; a pre-`0.5.0` `main.js` paired with a fresh manifest produces exactly this error.
+> `dv.load` is **not** part of the bundled Dataview inline JavaScript API (see the [official Dataview Code Reference](https://blacksmithgu.github.io/obsidian-dataview/api/code-reference/)), so disabling, re-enabling, or reinstalling the Dataview plugin will not repair `await dv.load(...)` calls.
 >
-> **Fix:** In Obsidian, go to **Settings → Community plugins**, disable **Dataview**, then enable it again (or uninstall and reinstall from the community browser). That refreshes `main.js` to the matched release. After the refresh, reload the app (`Ctrl + P` → **Reload app without saving**) so the dashboard re-evaluates its JS blocks.
+> **Diagnosis & Fix:** Dataview exposes two documented APIs for external files and scripts:
+> - **`await dv.io.load(path)`** — Reads the raw text of a vault file. Use this to load and evaluate a CommonJS script bundle that installs globals: `new Function("module", "exports", await dv.io.load("06-Resources/scripts/task-view.js"))({}, {});` so `globalThis.TaskView` is populated.
+> - **`await dv.view(path, input)`** — Loads and executes a custom Dataview view script at `path`.
 >
-> **Affected notes in this vault:** `01-Daily/_Tasks MOC.md` (two blocks) and `Home.md` (one block). All three call `await dv.load("06-Resources/scripts/task-view.js")`; none of them is broken — the script target is correct and committed under [`06-Resources/scripts/`](06-Resources/scripts/).
+> **Vault status:** `01-Daily/_Tasks MOC.md` (two blocks), `02-Projects/_Projects MOC.md` (one block), and `Home.md` (one block) load [`06-Resources/scripts/task-view.js`](06-Resources/scripts/task-view.js) via `await dv.io.load("06-Resources/scripts/task-view.js")`. If a custom DataviewJS block throws `dv.load is not a function`, replace `await dv.load(...)` with `await dv.io.load(...)` (for reading/evaluating text) or `await dv.view(...)` (for executing a view).
 
 #### 🔄 Operational Rhythm
 | Interval | Target Hub | Key Actions |
@@ -443,7 +450,7 @@ Placeholders such as `your_google_gemini_api_key_here` are allowed, so `.env.exa
   - `npm test` — Runs the Node test suite via the pinned `tsx` runner (imports `src/**/*.ts` directly, so no separate compile step).
   - `npm run audit-links` — Scans vault for broken wikilinks, fuzzy fix suggestions, and orphan notes. A link whose candidate path is excluded by `.gitignore` is reported as **local-only content** rather than broken, because a tracked MOC linking its own untracked content is this vault's architecture; add `--strict` to exit 1 on genuinely dangling links, which is the form CI runs. Local `--strict` is deliberately the stricter of the two: an untracked note and its links only exist on this machine, so a dangling link in one is a defect CI cannot see rather than one it forgives.
   - `npm run hygiene` — Read-only report of unclassified records, review metadata the overdue query needs and a note does not carry, and notes no hub reaches. Prints paths and field names only, never note content. Add `--include-ignored` to audit local notes instead of the tracked index, and `--strict` to exit 1 when findings exist. The three readers divide the work: `validate-templates` enforces the publication contract over declared types, `audit-links` owns the literal link graph, and this one reports what both leave silent.
-  - `npm run check-rot` — Runs the deterministic Anti-Rot Sensor (`vault-hygiene.js --check-rot --include-ignored`) checking `memory.md` capacity budget & routing header, overdue `review_cycle` notes, and `.agents/skills/` regression guardrails (`pinned`, `version`, `absorbed_by`, `## 🧪 Regression Cases`).
+  - `npm run check-rot -- --include-ignored` — Runs the deterministic Anti-Rot Sensor (`vault-hygiene.js --check-rot --include-ignored`) checking `memory.md` capacity budget & routing header, overdue `review_cycle` notes across both tracked and git-ignored private notes, and `.agents/skills/` regression guardrails (`pinned`, `version`, `absorbed_by`, `## 🧪 Regression Cases`). Running bare `npm run check-rot` omits `--include-ignored` and scans tracked files only.
   - `npm run backup` — Creates a deterministic `no_agent` local vault snapshot (`~/.loey_backups/snapshot-YYYY-MM-DD_HHMMSS`) with a SHA-256 `manifest.json` and 14-snapshot rotation (`--dry-run` supported).
   - `npm run distill -- <file>` — Distills atomic evergreen concepts into `08-Concepts/`.
   - `npm run log-github` — Syncs today's GitHub activity into a collapsible table callout (`> [!NOTE]-`) sorted AM $\rightarrow$ PM with non-breaking timestamps.
@@ -454,7 +461,7 @@ Placeholders such as `your_google_gemini_api_key_here` are allowed, so `.env.exa
   - `npm run validate-templates` — Validates all tracked notes against the canonical frontmatter schema and tag taxonomy.
   - `npm run audit-links` — Scans for broken wikilinks and reports orphan notes.
   - `npm run hygiene` — Surfaces unclassified records, missing review metadata, and notes no hub reaches.
-  - `npm run check-rot` — Audits core memory budget, overdue review cycles, and skill regression invariants.
+  - `npm run check-rot -- --include-ignored` — Audits core memory budget, overdue review cycles (including git-ignored local notes), and skill regression invariants.
 * **Updating plugins** — safe for store plugins (Dataview, Templater, QuickAdd, Kanban, Calendar, Activity History). Never for `homepulse` or `kanban-status-sync`, which are local builds with no store equivalent.
 * **Restyling the dashboard** — HomePulse's own `styles.css` is regenerated on rebuild, so put overrides in `.obsidian/snippets/` instead. That's what `homepulse-mobile.css` and `dashboard-cards.css` do.
 
@@ -486,7 +493,7 @@ See [CONTRIBUTING.md](06-Resources/Guides/CONTRIBUTING.md) for the full scope, p
 | **2-Way Habit Sync** | Toggle habits in the dashboard and they instantly update in today's daily note (and vice versa) |
 | **Multi-Domain AI Enrichment** | One shortcut (`Ctrl+Shift+A`) analyzes any note — generates summaries for daily notes, explanations for concepts, code breakdowns for dev notes, study quizzes & concept extraction for learning notes |
 | **Automatic Concept Distiller** | Extracts atomic evergreen mental models and principles from articles or dev notes into `08-Concepts/` with 90-day review cycles (`QuickAdd` / `npm run distill`) |
-| **Dream Loop & Anti-Rot Sensor** | Propose-first knowledge distillation (`heyloey dream`) backed by deterministic memory budget, overdue review, and skill regression checks (`npm run check-rot`) |
+| **Dream Loop & Anti-Rot Sensor** | Propose-first knowledge distillation (`heyloey dream`) backed by deterministic memory budget, overdue review, and skill regression checks (`npm run check-rot -- --include-ignored`) |
 | **Deterministic Vault Backup** | Zero-LLM local snapshot utility (`npm run backup`) with SHA-256 `manifest.json` verification and 14-snapshot rotation |
 | **Kanban Issue & Branch Generator** | Converts Kanban cards into real GitHub Issues, switches git branch, and moves cards to In Progress (`QuickAdd` / `npm run start-task`) |
 | **Vault Link & Graph Auditor** | Vault-wide scanner for broken wikilinks, fuzzy match fix suggestions, and orphan note discovery, with links into gitignored content reported separately from genuinely dangling ones (`npm run audit-links -- --strict`, as CI runs it) |
