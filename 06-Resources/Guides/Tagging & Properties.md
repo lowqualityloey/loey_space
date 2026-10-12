@@ -156,7 +156,8 @@ section and never counted as weekly or monthly history.
 >
 > A declared `kind` is authoritative: it wins over both `review_kind` and the name, so a
 > corrected note always follows its current key. Any other `review_kind` value is
-> unrecognised and leaves the record unclassified, exactly like a record with no signal.
+> unrecognised and leaves the record unclassified — even when its name looks like a
+> week or month — exactly like a record with no signal.
 >
 > Under the old rule a note matching neither name pattern could still enter weekly history
 > via a broad `type = review` fallback. That is exactly what #126 removed: an unrecognised

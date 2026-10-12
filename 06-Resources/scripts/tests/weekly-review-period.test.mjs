@@ -609,6 +609,26 @@ test("#132: a recognised record is not listed as unclassified", () => {
   assert.doesNotMatch(text, /Synthetic Legacy Audit/);
 });
 
+test("#132: an unknown legacy key leaves the record unclassified, not name-classified", () => {
+  // The legacy key is authoritative like `kind`: a value the mapping does not know
+  // must NOT fall through to the filename, or the MOC and the validator would
+  // disagree about the same record.
+  const pages = [
+    reviewRecord("2026-W41", { review_kind: "custom" }),
+    reviewRecord("2026-09", { review_kind: "custom" }),
+  ];
+
+  for (const sector of ["weekly", "monthly", "audit"]) {
+    const text = runSelector(sector, pages).text;
+    assert.doesNotMatch(text, /2026-W41/, `${sector} name-classified a record with an unknown legacy key:\n${text}`);
+    assert.doesNotMatch(text, /2026-09/, `${sector} name-classified a record with an unknown legacy key:\n${text}`);
+  }
+
+  const unclassified = runSelector("unclassified", pages).text;
+  assert.match(unclassified, /2026-W41/, "the record must still be surfaced");
+  assert.match(unclassified, /2026-09/);
+});
+
 test("#132: the MOC documents the legacy review_kind alias in the canonical guide", () => {
   const guide = fs.readFileSync(
     path.join(REPO_ROOT, "06-Resources", "Guides", "Tagging & Properties.md"),

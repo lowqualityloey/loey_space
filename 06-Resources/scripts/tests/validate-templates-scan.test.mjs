@@ -418,3 +418,16 @@ test("#132: a declared kind wins over the legacy review_kind key", () => {
 
   assertExit(result, 0, "a record declaring both keys must validate on the declared kind");
 });
+
+test("#132: an unknown legacy key does not fall back to the filename", () => {
+  // The MOC reads the legacy key as authoritative like `kind`; an unknown value must
+  // leave the record unclassified rather than name-classifying it, so this validator
+  // result and the MOC selector stay in agreement for the same record.
+  const result = runVault({ "07-Reviews/2026-W41.md": reviewBody({ review_kind: "custom" }) });
+
+  assertExit(result, 1, "an unknown review_kind must not classify a weekly-named record");
+  assert.ok(
+    result.stdout.includes("missing property: kind"),
+    `the diagnostic must name the missing field\n--- stdout ---\n${result.stdout}`
+  );
+});

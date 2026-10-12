@@ -47,7 +47,9 @@ function reviewKind(page) {
   if (declared) return REVIEW_KINDS.indexOf(declared) >= 0 ? declared : "";
   // Legacy key compatibility (#132): a pre-`kind` review may declare `review_kind`.
   const legacyKey = page && page.review_kind != null ? String(page.review_kind).toLowerCase().trim() : "";
-  if (legacyKey && LEGACY_REVIEW_KINDS[legacyKey]) return LEGACY_REVIEW_KINDS[legacyKey];
+  // An unrecognised legacy key leaves the record unclassified rather than falling
+  // through to the name; `validate-templates` applies the same rule (#132).
+  if (legacyKey) return LEGACY_REVIEW_KINDS[legacyKey] || "";
   // Legacy compatibility (see `06-Resources/Guides/Tagging & Properties.md`): a
   // review written before `kind` existed is classified by its NAME only.
   const name = page && page.file ? String(page.file.name) : "";
@@ -101,7 +103,9 @@ function reviewKind(page) {
   if (declared) return REVIEW_KINDS.indexOf(declared) >= 0 ? declared : "";
   // Legacy key compatibility (#132): a pre-`kind` review may declare `review_kind`.
   const legacyKey = page && page.review_kind != null ? String(page.review_kind).toLowerCase().trim() : "";
-  if (legacyKey && LEGACY_REVIEW_KINDS[legacyKey]) return LEGACY_REVIEW_KINDS[legacyKey];
+  // An unrecognised legacy key leaves the record unclassified rather than falling
+  // through to the name; `validate-templates` applies the same rule (#132).
+  if (legacyKey) return LEGACY_REVIEW_KINDS[legacyKey] || "";
   // Legacy compatibility (see `06-Resources/Guides/Tagging & Properties.md`): a
   // review written before `kind` existed is classified by its NAME only.
   const name = page && page.file ? String(page.file.name) : "";
@@ -159,7 +163,9 @@ function reviewKind(page) {
   if (declared) return REVIEW_KINDS.indexOf(declared) >= 0 ? declared : "";
   // Legacy key compatibility (#132): a pre-`kind` review may declare `review_kind`.
   const legacyKey = page && page.review_kind != null ? String(page.review_kind).toLowerCase().trim() : "";
-  if (legacyKey && LEGACY_REVIEW_KINDS[legacyKey]) return LEGACY_REVIEW_KINDS[legacyKey];
+  // An unrecognised legacy key leaves the record unclassified rather than falling
+  // through to the name; `validate-templates` applies the same rule (#132).
+  if (legacyKey) return LEGACY_REVIEW_KINDS[legacyKey] || "";
   // Legacy compatibility (see `06-Resources/Guides/Tagging & Properties.md`): a
   // review written before `kind` existed is classified by its NAME only.
   const name = page && page.file ? String(page.file.name) : "";
@@ -217,7 +223,9 @@ function reviewKind(page) {
   if (declared) return REVIEW_KINDS.indexOf(declared) >= 0 ? declared : "";
   // Legacy key compatibility (#132): a pre-`kind` review may declare `review_kind`.
   const legacyKey = page && page.review_kind != null ? String(page.review_kind).toLowerCase().trim() : "";
-  if (legacyKey && LEGACY_REVIEW_KINDS[legacyKey]) return LEGACY_REVIEW_KINDS[legacyKey];
+  // An unrecognised legacy key leaves the record unclassified rather than falling
+  // through to the name; `validate-templates` applies the same rule (#132).
+  if (legacyKey) return LEGACY_REVIEW_KINDS[legacyKey] || "";
   // Legacy compatibility (see `06-Resources/Guides/Tagging & Properties.md`): a
   // review written before `kind` existed is classified by its NAME only.
   const name = page && page.file ? String(page.file.name) : "";
