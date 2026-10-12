@@ -36,8 +36,11 @@ screens, not in a terminal.
 
 ## First run
 
-1. **Clone and open.** Clone the repository, then in Obsidian choose **Open folder as vault** and
-   select the clone.
+1. **Clone, open, and trust.** Clone the repository, then in Obsidian choose **Open folder as
+   vault** and select the clone. Obsidian does not trust a vault it has not seen before: it asks
+   **"Do you trust the author of this vault?"**. Choose **Trust author and enable plugins** —
+   **Restricted Mode** keeps every community plugin off, so none of the workflows below run. The
+   decision is remembered per machine; step 3 shows where to change it.
 2. **Create your records.**
    ```bash
    npm run init:vault -- --dry-run   # show the plan
@@ -48,8 +51,15 @@ screens, not in a terminal.
    `handoff.template.md` and `profile.template.md` from `06-Resources/scaffold/` to `memory.md`,
    `handoff.md` and `00-Private/SOUL.md` at the vault root.
 3. **Enable community plugins.** In **Settings → Community plugins**, turn community plugins on,
-   confirm **Auto-update plugins is OFF** (two plugins here are local builds), and enable HomePulse,
-   QuickAdd, Templater, Dataview, Kanban, Kanban Status Sync, Calendar and Activity History.
+   confirm **Auto-update plugins is OFF** (two plugins here are local builds), and make sure the nine
+   plugins the workflows need are enabled: **QuickAdd**, **Templater**, **Dataview**, **Calendar**,
+   **Kanban**, **Kanban Status Sync**, **HomePulse**, **Activity History** and **Custom Attachment
+   Location**. The clone enables more than that; [Setup & Configuration](Setup%20&%20Configuration.md)
+   separates the required nine from the optional rest — extra features outside the core workflow that
+   you can leave on or turn off. The first time the vault opens, **HomePulse also runs a short 4-step
+   setup wizard** (homepage name, project folder, areas folder, widgets) before the dashboard exists.
+   Complete all four steps: the wizard has **Back**, **Next** and **Finish**, no Skip, and closing it
+   early leaves HomePulse uninitialized, so it reopens.
 4. **Configure Templater.** Set **Template folder location** to `99-Templates` and turn
    **Trigger Templater on new file creation** on.
 5. **Register the QuickAdd actions.** The exact names, script paths and choice IDs are in
@@ -59,6 +69,17 @@ screens, not in a terminal.
    key in `.env`. Everything except those features works without it.
 7. **Open today's note.** `Ctrl/Cmd + P` → **Daily notes: Open today's daily note**. The dashboard is
    **HomePulse: Open Dashboard View**.
+
+### `.obsidian/app.json` will look modified
+
+As soon as Obsidian saves a setting for the first time, it rewrites `.obsidian/app.json`. Obsidian
+writes JSON without a trailing newline while the repository tracks the file with one, so Git shows a
+whitespace-only change — the same five values, `}` where the tracked file has `}\n`. That is normal:
+
+- Do **not** git-ignore the file or strip its defaults; `attachmentFolderPath`, `newFileFolderPath`,
+  `alwaysUpdateLinks`, `promptDelete` and `tabSize` are the settings the setup contract verifies.
+- Only that newline changed? Restore the tracked form with `git checkout -- .obsidian/app.json`.
+- A real setting changed? Keep it and commit it on its own, not mixed in with the newline noise.
 
 ## What step 2 created
 
@@ -104,6 +125,24 @@ assistant can be pointed at `AGENTS.md` directly.
 
 If an assistant reports that `memory.md` or `handoff.md` is missing, that is the expected state before
 step 2 — run the command above rather than letting it improvise.
+
+## Checks automation cannot make
+
+The automated checks stop at the edge of the app. They can open files, assert command IDs and
+exercise plugin APIs, but they cannot press a key, click a Settings toggle, or read a rendered widget
+in a headless environment. Treat these as **unverified by automation** and confirm them by hand once,
+in a disposable clone:
+
+- [ ] **Keyboard** — `Ctrl/Cmd + P` opens the command palette; `Ctrl/Cmd + Shift + A` runs *AI Enrich
+      Note*; the quick-capture shortcut appends a line to `00-Inbox/quick-capture-dump.md`.
+- [ ] **Settings** — enabling community plugins sticks after a restart; **Templater → Trigger on new
+      file creation** is on; the QuickAdd choices exist under the exact names and IDs in
+      [Setup & Configuration](Setup%20&%20Configuration.md).
+- [ ] **Rendered widgets** — the HomePulse dashboard opens with habits and Today's Focus; Dataview
+      queries in the MOCs return rows; dragging a project Kanban card updates its `[/]` marker in
+      today's note.
+- [ ] **First-open flow** — a fresh clone shows the trust prompt, then the HomePulse 4-step wizard,
+      and creating today's note leaves no `<% %>` markers behind.
 
 ## Verifying a clone
 

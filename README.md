@@ -25,14 +25,14 @@ Setup path:
    ```bash
    git clone https://github.com/lowqualityloey/loey_space.git
    ```
-   In Obsidian, select **Open folder as vault** and choose the cloned directory.
+   In Obsidian, select **Open folder as vault** and choose the cloned directory. Obsidian asks you to trust the vault on first open: choose **Trust author and enable plugins**, because **Restricted Mode** leaves every community plugin off.
 2. **Create your records**: Three files the assistant instructions refer to (`memory.md`, `handoff.md`, and the optional `00-Private/SOUL.md`) are private and absent from a clone. Create them with `npm run init:vault`, which only ever adds files that are missing:
    ```bash
    npm run init:vault -- --dry-run   # show the plan
    npm run init:vault                # create what is missing
    ```
    See [Onboarding](06-Resources/Guides/Onboarding.md) for what it creates and what to do without Node installed.
-3. **Enable community plugins**: In **Settings → Community plugins**, turn on community plugins, verify **Auto-update plugins: OFF**, and enable HomePulse, QuickAdd, Templater, Dataview, Kanban, Kanban Status Sync, Calendar, and Activity History.
+3. **Enable community plugins**: In **Settings → Community plugins**, turn on community plugins, verify **Auto-update plugins: OFF**, and make sure the nine required plugins are enabled — HomePulse, QuickAdd, Templater, Dataview, Kanban, Kanban Status Sync, Calendar, Activity History, and Custom Attachment Location. The clone enables more plugins than that; [Setup & Configuration](06-Resources/Guides/Setup%20&%20Configuration.md) separates the required set from the optional rest — extra features outside the core workflow that you can leave on or turn off. The first time the vault opens, HomePulse also runs a short 4-step setup wizard before its dashboard exists; complete all four steps, since it has no Skip button and it reopens if closed early.
 4. **Configure Templater**: In **Settings → Templater**, set **Template folder location** to `99-Templates`, turn **Trigger Templater on new file creation** to **On**, and leave **User script folder** empty.
 5. **Register QuickAdd actions**: In **Settings → QuickAdd → Manage Macros**, create a macro for each script, then add each as a choice under **Add Choice → Macro** using these exact names:
    - **Quick Capture** → `06-Resources/scripts/quick-capture-action.js`
