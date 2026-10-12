@@ -309,7 +309,7 @@ To trigger specific workflows, start prompts with `"heyloey"` or `"hey loey"`:
 - `heyloey plan <name>`: Scaffold a new project and Kanban board.
 - `heyloey distill`: Extract concepts into `08-Concepts/`.
 
-For the complete prompt catalog, milestone-only logging policy, and the distinction between chat prompts and the `~/.local/bin/heyloey` CLI tool, see the dedicated [Hey Loey Guide](Hey%20Loey%20Guide.md).
+For the complete prompt catalog, milestone-only logging policy, and the distinction between chat prompts and the repository-local `npm run heyloey -- <command>` CLI, see the dedicated [Hey Loey Guide](Hey%20Loey%20Guide.md).
 
 ---
 

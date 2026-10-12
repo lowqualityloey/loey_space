@@ -47,13 +47,49 @@ Daily work entries are written under `## 📝 Daily Log` in `01-Daily/YYYY-MM/YY
 
 ## Conversational Prompts vs. CLI Tool
 
-There are two distinct ways to interact with the assistant:
+The word "heyloey" names two different things, and they do not share an implementation. Tell them apart by where you type them:
 
-- **Conversational Assistant (in chat)**: Operates inside your AI coding assistant. The agent reads `AGENTS.md` and coordinates interactive routines like morning kick-offs, project planning, and retrospectives.
-- **Deterministic CLI (`heyloey`)**: A standalone shell command installed at `~/.local/bin/heyloey`. It is used by external terminal scripts or background workers to read vault context quickly without loading multiple Markdown files:
-  - `heyloey brief` — Outputs a condensed summary of today's focus, active projects, and system status (~400 tokens).
-  - `heyloey context "<query>"` — Routes to matching project hubs or runbooks.
-  - `heyloey done "<1-line summary>"` — Records a completed milestone to today's daily log and `handoff.md`.
-  - `heyloey learn "<Title>" "<Pattern>"` — Indexes a reusable technical pattern in `03-Dev/`.
+- **Conversational Assistant (in chat)**: Start a message to your AI coding assistant with `"heyloey"` or `"hey loey"`. The agent reads [`AGENTS.md`](../../AGENTS.md) and runs the interactive routines in the table above — morning kick-offs, evening reviews, project planning, retrospectives. It is a conversation.
+- **Deterministic CLI (`heyloey`)**: A Node command that ships inside the repository. It runs fixed subcommands, writes in fixed formats, and needs no AI session. Use it from terminal scripts, background workers, or a git hook.
 
-Use conversational prompts when you want an interactive discussion or planning session. Use the CLI tool in automated scripts or terminal sessions where fast, deterministic execution is needed.
+### Running the CLI without a global install
+
+The supported first path is the repository's own npm script. It needs only Node and runs the committed bundle (`06-Resources/scripts/heyloey.js`) directly:
+
+```bash
+npm run heyloey -- brief
+npm run heyloey -- context "kanban sync"
+npm run heyloey -- done "Ship the parser fix"
+npm run heyloey -- learn "Debounce" "const debounce = (fn, ms) => setTimeout(fn, ms);"
+```
+
+Installing it globally is optional. `package.json` declares a `bin` entry, so `npm link` exposes the same bundle as `heyloey` on your `PATH`. Nothing else is required, and no binary is checked in.
+
+### Vault targeting
+
+The CLI never guesses where your vault is, and it hardcodes no username or machine path. It acts on the working directory, or on `--root <dir>`:
+
+```bash
+npm run heyloey -- --root ~/vaults/my-vault brief
+```
+
+Run it from the vault root and the path is implicit. Output names the target relative to your working directory so it stays safe to paste; add `--show-paths` for the absolute path.
+
+### Commands
+
+| CLI command | Reads / writes | What it does |
+| :--- | :--- | :--- |
+| `npm run heyloey -- brief` | Read-only | Condensed pulse: records present, today's focus and vitals, open tasks, habit count, inbox count, active projects. |
+| `npm run heyloey -- context "<query>"` | Read-only | Routes the query to matching projects, snippets, notes and runbooks, printing paths only. |
+| `npm run heyloey -- done "<summary>"` | Writes | Adds a milestone under `## 📝 Daily Log` in today's daily note and under `### Latest Updates` in `handoff.md`. Refuses if either record, or the heading it owns, is missing — it never scaffolds a note. |
+| `npm run heyloey -- learn "<Title>" "<Pattern>"` | Writes | Indexes a reusable pattern in `03-Dev/` and links it to the existing Dev hub (`[[_Dev MOC]]`); no link is written when the hub is absent. A colliding title merges into a marked, reviewable region; hand-written content is never overwritten, and the hub link is never duplicated. |
+
+Every writing command supports `--dry-run`, which prints the target paths and the exact lines it would write and writes nothing:
+
+```bash
+npm run heyloey -- done "Ship the parser fix" --dry-run
+```
+
+`done` follows the milestone-only logging policy above: record shipped outcomes and decisions, not routine questions or health checks.
+
+Use conversational prompts when you want an interactive discussion or planning session. Use the CLI in automated scripts or terminal sessions where fast, deterministic execution is needed.
