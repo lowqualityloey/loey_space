@@ -54,6 +54,11 @@ function validFrontmatter(type, overrides = {}) {
   };
   if (type !== "daily") fields.status = "active";
   if (type === "project") fields.priority = "p1";
+  // #132: a `type: review` note must also be CLASSIFIABLE (kind, a legacy ISO name, or
+  // the legacy `review_kind` key). The fixture declares the canonical `kind` so the
+  // "every registered type passes" case stays a complete note rather than an accidental
+  // unclassified one.
+  if (type === "review") fields.kind = "weekly";
 
   const lines = [];
   for (const [key, value] of Object.entries(fields)) {
@@ -332,5 +337,97 @@ test("the coverage line counts an exempted note as declaring a type, not as unin
     result.stdout,
     /Inspected 1 note\(s\); 2 of 2 tracked markdown file\(s\) declare a `type`, 1 exempted\./,
     `the coverage line must not hide the exempted note\n--- stdout ---\n${result.stdout}`
+  );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// #132: a `type: review` record that declares no recognised classification used to
+// pass every check and then vanish from all three Reviews MOC histories. The validator
+// is the explicit check that reports it instead; these cases pin both the failure and
+// the two compatibility paths that must keep passing (a legacy ISO name and the legacy
+// `review_kind` key). Fixture names are synthetic.
+
+const REVIEW_FRONTMATTER = [
+  "created: 2026-01-01",
+  "updated: 2026-01-01",
+  "type: review",
+  "status: completed",
+  "area: reviews",
+].join("\n");
+
+function reviewBody(extra = {}) {
+  const lines = [REVIEW_FRONTMATTER];
+  for (const [key, value] of Object.entries(extra)) lines.push(`${key}: ${value}`);
+  lines.push("tags:");
+  lines.push("  - type/review");
+  lines.push("  - area/reviews");
+  lines.push("  - status/completed");
+  return note(lines.join("\n"));
+}
+
+test("#132: an unclassified type: review record fails, naming the missing field and allowed values", () => {
+  const result = runVault({ "07-Reviews/Untitled Legacy.md": reviewBody() });
+
+  assertExit(result, 1, "a review with no recognised kind must not pass silently");
+  assert.ok(
+    result.stdout.includes("missing property: kind"),
+    `the diagnostic must name the missing field\n--- stdout ---\n${result.stdout}`
+  );
+  assert.ok(
+    /weekly, monthly, audit/.test(result.stdout),
+    `the diagnostic must name the allowed values\n--- stdout ---\n${result.stdout}`
+  );
+});
+
+test("#132: an unrecognised kind value fails rather than passing as classified", () => {
+  const result = runVault({ "07-Reviews/Wrong Kind.md": reviewBody({ kind: "review" }) });
+
+  assertExit(result, 1, "a kind outside the allowed set must not count as classified");
+  assert.ok(
+    result.stdout.includes("unrecognised value for property: kind"),
+    `the diagnostic must name the property\n--- stdout ---\n${result.stdout}`
+  );
+  assert.ok(
+    !/value: review\b/.test(result.stdout),
+    `the diagnostic must not echo the offending value (#51)\n--- stdout ---\n${result.stdout}`
+  );
+});
+
+test("#132: a legacy ISO-week name still passes without a kind", () => {
+  const result = runVault({ "07-Reviews/2026-W41.md": reviewBody() });
+
+  assertExit(result, 0, "a pre-kind weekly review named for its ISO week must stay valid");
+  assert.ok(
+    result.stdout.includes("07-Reviews/2026-W41.md"),
+    `the legacy-named note must actually have been inspected\n--- stdout ---\n${result.stdout}`
+  );
+});
+
+test("#132: the legacy review_kind key classifies a record without a kind", () => {
+  const result = runVault({
+    "07-Reviews/Synthetic Legacy Audit.md": reviewBody({ review_kind: "vault-audit" }),
+  });
+
+  assertExit(result, 0, "a recognised legacy review_kind must count as classified");
+});
+
+test("#132: a declared kind wins over the legacy review_kind key", () => {
+  const result = runVault({
+    "07-Reviews/Synthetic Corrected.md": reviewBody({ kind: "audit", review_kind: "vault-audit" }),
+  });
+
+  assertExit(result, 0, "a record declaring both keys must validate on the declared kind");
+});
+
+test("#132: an unknown legacy key does not fall back to the filename", () => {
+  // The MOC reads the legacy key as authoritative like `kind`; an unknown value must
+  // leave the record unclassified rather than name-classifying it, so this validator
+  // result and the MOC selector stay in agreement for the same record.
+  const result = runVault({ "07-Reviews/2026-W41.md": reviewBody({ review_kind: "custom" }) });
+
+  assertExit(result, 1, "an unknown review_kind must not classify a weekly-named record");
+  assert.ok(
+    result.stdout.includes("missing property: kind"),
+    `the diagnostic must name the missing field\n--- stdout ---\n${result.stdout}`
   );
 });

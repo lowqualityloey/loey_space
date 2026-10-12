@@ -400,10 +400,11 @@ export function reviewNote(name, frontmatter = {}) {
 }
 
 /**
- * A review record as the `_Reviews MOC` history selectors see it (#126). `kind` is
- * what the selectors classify on; omit it to exercise the legacy name-only path.
+ * A review record as the `_Reviews MOC` history selectors see it (#126/#132). `kind` is
+ * what the selectors classify on; omit it to exercise the legacy paths. `review_kind` is
+ * the pre-`kind` key some early audits carry (#132) — the selectors must read it too.
  */
-export function reviewRecord(name, { kind, updated = null, ctime = "2026-01-01", mtime = "2026-01-01" } = {}) {
+export function reviewRecord(name, { kind, review_kind, updated = null, ctime = "2026-01-01", mtime = "2026-01-01" } = {}) {
   return {
     file: {
       name,
@@ -414,6 +415,7 @@ export function reviewRecord(name, { kind, updated = null, ctime = "2026-01-01",
       day: null,
     },
     kind,
+    review_kind,
     updated,
   };
 }

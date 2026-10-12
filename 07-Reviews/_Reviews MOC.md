@@ -37,9 +37,19 @@ tags:
 ```dataviewjs
 // #126 review classification — keep this block identical in every review selector
 // below; `tests/weekly-review-period.test.mjs` fails if the copies drift apart.
+const REVIEW_KINDS = ["weekly", "monthly", "audit"];
+// #132 legacy key compatibility: a few early audits carry `review_kind` instead of
+// `kind`. See `06-Resources/Guides/Tagging & Properties.md`.
+const LEGACY_REVIEW_KINDS = { "vault-audit": "audit" };
+
 function reviewKind(page) {
   const declared = page && page.kind != null ? String(page.kind).toLowerCase().trim() : "";
-  if (declared) return declared;
+  if (declared) return REVIEW_KINDS.indexOf(declared) >= 0 ? declared : "";
+  // Legacy key compatibility (#132): a pre-`kind` review may declare `review_kind`.
+  const legacyKey = page && page.review_kind != null ? String(page.review_kind).toLowerCase().trim() : "";
+  // An unrecognised legacy key leaves the record unclassified rather than falling
+  // through to the name; `validate-templates` applies the same rule (#132).
+  if (legacyKey) return LEGACY_REVIEW_KINDS[legacyKey] || "";
   // Legacy compatibility (see `06-Resources/Guides/Tagging & Properties.md`): a
   // review written before `kind` existed is classified by its NAME only.
   const name = page && page.file ? String(page.file.name) : "";
@@ -52,6 +62,11 @@ function isReviewRecord(page) {
   if (!page || !page.file) return false;
   return !/^(?:_Reviews MOC|Habit Analytics Dashboard|Tasks Kanban)$/.test(page.file.name);
 }
+
+// #132: a review that no rule can classify is surfaced, never silently dropped.
+function unclassifiedReviewRecords() {
+  return dv.pages('"07-Reviews"').where((p) => isReviewRecord(p) && reviewKind(p) === "");
+}
 // end #126 review classification
 
 const rows = dv.pages('"07-Reviews"')
@@ -60,7 +75,12 @@ const rows = dv.pages('"07-Reviews"')
   .map((p) => [p.file.link, p.updated != null ? p.updated : p.file.mtime, p.file.ctime]);
 
 if (rows.length === 0) {
-  dv.paragraph("No weekly reviews found.");
+  const pending = unclassifiedReviewRecords();
+  if (pending.length === 0) {
+    dv.paragraph("No weekly reviews found.");
+  } else {
+    dv.paragraph(pending.length + " review record(s) declare no recognised kind, so this list cannot be called complete; see the \"Unclassified Review Records\" section below.");
+  }
 } else {
   dv.table(["Weekly Review", "Last Modified", "Created Date"], rows);
 }
@@ -73,9 +93,19 @@ if (rows.length === 0) {
 ```dataviewjs
 // #126 review classification — keep this block identical in every review selector
 // below; `tests/weekly-review-period.test.mjs` fails if the copies drift apart.
+const REVIEW_KINDS = ["weekly", "monthly", "audit"];
+// #132 legacy key compatibility: a few early audits carry `review_kind` instead of
+// `kind`. See `06-Resources/Guides/Tagging & Properties.md`.
+const LEGACY_REVIEW_KINDS = { "vault-audit": "audit" };
+
 function reviewKind(page) {
   const declared = page && page.kind != null ? String(page.kind).toLowerCase().trim() : "";
-  if (declared) return declared;
+  if (declared) return REVIEW_KINDS.indexOf(declared) >= 0 ? declared : "";
+  // Legacy key compatibility (#132): a pre-`kind` review may declare `review_kind`.
+  const legacyKey = page && page.review_kind != null ? String(page.review_kind).toLowerCase().trim() : "";
+  // An unrecognised legacy key leaves the record unclassified rather than falling
+  // through to the name; `validate-templates` applies the same rule (#132).
+  if (legacyKey) return LEGACY_REVIEW_KINDS[legacyKey] || "";
   // Legacy compatibility (see `06-Resources/Guides/Tagging & Properties.md`): a
   // review written before `kind` existed is classified by its NAME only.
   const name = page && page.file ? String(page.file.name) : "";
@@ -88,6 +118,11 @@ function isReviewRecord(page) {
   if (!page || !page.file) return false;
   return !/^(?:_Reviews MOC|Habit Analytics Dashboard|Tasks Kanban)$/.test(page.file.name);
 }
+
+// #132: a review that no rule can classify is surfaced, never silently dropped.
+function unclassifiedReviewRecords() {
+  return dv.pages('"07-Reviews"').where((p) => isReviewRecord(p) && reviewKind(p) === "");
+}
 // end #126 review classification
 
 const rows = dv.pages('"07-Reviews"')
@@ -96,7 +131,12 @@ const rows = dv.pages('"07-Reviews"')
   .map((p) => [p.file.link, p.updated != null ? p.updated : p.file.mtime, p.file.ctime]);
 
 if (rows.length === 0) {
-  dv.paragraph("No monthly reviews found.");
+  const pending = unclassifiedReviewRecords();
+  if (pending.length === 0) {
+    dv.paragraph("No monthly reviews found.");
+  } else {
+    dv.paragraph(pending.length + " review record(s) declare no recognised kind, so this list cannot be called complete; see the \"Unclassified Review Records\" section below.");
+  }
 } else {
   dv.table(["Monthly Review", "Last Modified", "Created Date"], rows);
 }
@@ -113,9 +153,19 @@ if (rows.length === 0) {
 ```dataviewjs
 // #126 review classification — keep this block identical in every review selector
 // below; `tests/weekly-review-period.test.mjs` fails if the copies drift apart.
+const REVIEW_KINDS = ["weekly", "monthly", "audit"];
+// #132 legacy key compatibility: a few early audits carry `review_kind` instead of
+// `kind`. See `06-Resources/Guides/Tagging & Properties.md`.
+const LEGACY_REVIEW_KINDS = { "vault-audit": "audit" };
+
 function reviewKind(page) {
   const declared = page && page.kind != null ? String(page.kind).toLowerCase().trim() : "";
-  if (declared) return declared;
+  if (declared) return REVIEW_KINDS.indexOf(declared) >= 0 ? declared : "";
+  // Legacy key compatibility (#132): a pre-`kind` review may declare `review_kind`.
+  const legacyKey = page && page.review_kind != null ? String(page.review_kind).toLowerCase().trim() : "";
+  // An unrecognised legacy key leaves the record unclassified rather than falling
+  // through to the name; `validate-templates` applies the same rule (#132).
+  if (legacyKey) return LEGACY_REVIEW_KINDS[legacyKey] || "";
   // Legacy compatibility (see `06-Resources/Guides/Tagging & Properties.md`): a
   // review written before `kind` existed is classified by its NAME only.
   const name = page && page.file ? String(page.file.name) : "";
@@ -128,6 +178,11 @@ function isReviewRecord(page) {
   if (!page || !page.file) return false;
   return !/^(?:_Reviews MOC|Habit Analytics Dashboard|Tasks Kanban)$/.test(page.file.name);
 }
+
+// #132: a review that no rule can classify is surfaced, never silently dropped.
+function unclassifiedReviewRecords() {
+  return dv.pages('"07-Reviews"').where((p) => isReviewRecord(p) && reviewKind(p) === "");
+}
 // end #126 review classification
 
 const rows = dv.pages('"07-Reviews"')
@@ -136,9 +191,69 @@ const rows = dv.pages('"07-Reviews"')
   .map((p) => [p.file.link, p.updated != null ? p.updated : p.file.mtime]);
 
 if (rows.length === 0) {
-  dv.paragraph("No system or architecture audits found.");
+  const pending = unclassifiedReviewRecords();
+  if (pending.length === 0) {
+    dv.paragraph("No system or architecture audits found.");
+  } else {
+    dv.paragraph(pending.length + " review record(s) declare no recognised kind, so this list cannot be called complete; see the \"Unclassified Review Records\" section below.");
+  }
 } else {
   dv.table(["System / Architecture Review", "Last Modified"], rows);
+}
+```
+
+---
+
+## 🗃️ Unclassified Review Records
+
+> A review record that declares no recognised `kind` (and carries no documented legacy
+> name or key) belongs to none of the histories above. Rather than let it disappear, it is
+> listed here so the gap is visible until `kind` is added.
+
+```dataviewjs
+// #126 review classification — keep this block identical in every review selector
+// below; `tests/weekly-review-period.test.mjs` fails if the copies drift apart.
+const REVIEW_KINDS = ["weekly", "monthly", "audit"];
+// #132 legacy key compatibility: a few early audits carry `review_kind` instead of
+// `kind`. See `06-Resources/Guides/Tagging & Properties.md`.
+const LEGACY_REVIEW_KINDS = { "vault-audit": "audit" };
+
+function reviewKind(page) {
+  const declared = page && page.kind != null ? String(page.kind).toLowerCase().trim() : "";
+  if (declared) return REVIEW_KINDS.indexOf(declared) >= 0 ? declared : "";
+  // Legacy key compatibility (#132): a pre-`kind` review may declare `review_kind`.
+  const legacyKey = page && page.review_kind != null ? String(page.review_kind).toLowerCase().trim() : "";
+  // An unrecognised legacy key leaves the record unclassified rather than falling
+  // through to the name; `validate-templates` applies the same rule (#132).
+  if (legacyKey) return LEGACY_REVIEW_KINDS[legacyKey] || "";
+  // Legacy compatibility (see `06-Resources/Guides/Tagging & Properties.md`): a
+  // review written before `kind` existed is classified by its NAME only.
+  const name = page && page.file ? String(page.file.name) : "";
+  if (/^\d{4}-W\d{1,2}$/.test(name)) return "weekly";
+  if (/^\d{4}-\d{2}$/.test(name)) return "monthly";
+  return "";
+}
+
+function isReviewRecord(page) {
+  if (!page || !page.file) return false;
+  return !/^(?:_Reviews MOC|Habit Analytics Dashboard|Tasks Kanban)$/.test(page.file.name);
+}
+
+// #132: a review that no rule can classify is surfaced, never silently dropped.
+function unclassifiedReviewRecords() {
+  return dv.pages('"07-Reviews"').where((p) => isReviewRecord(p) && reviewKind(p) === "");
+}
+// end #126 review classification
+
+const rows = unclassifiedReviewRecords()
+  .sort((p) => p.file.name, "desc")
+  .map((p) => [p.file.link, p.updated != null ? p.updated : p.file.mtime]);
+
+if (rows.length === 0) {
+  dv.paragraph("Every review record declares a recognised classification.");
+} else {
+  dv.paragraph(rows.length + " review record(s) declare no recognised kind and appear in no history above. Add `kind` (weekly, monthly, or audit) when the note is next touched.");
+  dv.table(["Unclassified Review", "Last Modified"], rows);
 }
 ```
 

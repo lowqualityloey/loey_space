@@ -145,18 +145,27 @@ section and never counted as weekly or monthly history.
 
 > [!IMPORTANT] Legacy compatibility: fall back to the name, never guess a period
 > Reviews written before `kind` existed carry none. The MOC classifies such a note by its
-> **name only**:
+> **name**, then by its **legacy key**:
 >
-> | Legacy name | Classified as |
-> |-------------|---------------|
-> | matches `^\d{4}-W\d{1,2}$` | `weekly` |
-> | matches `^\d{4}-\d{2}$` | `monthly` |
-> | anything else | **neither** — it stays out of both histories |
+> | Legacy signal | Classified as |
+> |---------------|---------------|
+> | name matches `^\d{4}-W\d{1,2}$` | `weekly` |
+> | name matches `^\d{4}-\d{2}$` | `monthly` |
+> | `review_kind: vault-audit` | `audit` |
+> | anything else | **none** — it stays out of every history and is listed under “Unclassified Review Records” |
 >
-> Under the old rule a note matching neither pattern could still enter weekly history via a
-> broad `type = review` fallback. That is exactly what #126 removed: an unrecognised review
-> is left out rather than mis-filed. Add `kind` to such a note when it is next touched; do
-> **not** rewrite its body, and do not invent `period_start`/`period_end` for it.
+> A declared `kind` is authoritative: it wins over both `review_kind` and the name, so a
+> corrected note always follows its current key. Any other `review_kind` value is
+> unrecognised and leaves the record unclassified — even when its name looks like a
+> week or month — exactly like a record with no signal.
+>
+> Under the old rule a note matching neither name pattern could still enter weekly history
+> via a broad `type = review` fallback. That is exactly what #126 removed: an unrecognised
+> review is left out rather than mis-filed. #132 adds two things: the `review_kind` alias
+> above, and an explicit check — `npm run validate-templates` reports an unclassified
+> `type: review` record, naming `kind` and its allowed values, instead of passing it
+> silently. Add `kind` to such a note when it is next touched; do **not** rewrite its body,
+> and do not invent `period_start`/`period_end` for it.
 
 ### Mood Representation
 
