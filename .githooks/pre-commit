@@ -9,6 +9,11 @@
 # Activate once per clone:
 #     git config core.hooksPath .githooks
 #
+# This hook is the blocking half of the pair: a non-zero exit stops the commit. The other half,
+# `post-commit`, is fail-open and logs only a commit that opts in with the `HeyLoey-Milestone:`
+# trailer. Its behaviour is deliberately not mirrored here — nothing in this file may become
+# optional, because a secret that reaches a push cannot be un-published.
+#
 # Checks, in order:
 #   0. Publication boundary — declared owner-only records, staged (blocking) and
 #                            already-indexed (advisory). See #116 / .githooks/lib/private-records.txt

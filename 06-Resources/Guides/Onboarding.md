@@ -110,11 +110,117 @@ That enables two hooks with different jobs:
   path (`.env`, `.secrets/`, `00-Private/`), or a declared owner-only record. It fails closed: if its
   scan library is missing it refuses the commit rather than reporting a partial pass.
   `git commit --no-verify` overrides it deliberately.
-- **`post-commit` — non-blocking.** It logs the commit message when the `heyloey` CLI is installed
-  and does nothing when it is not. Only this hook is fail-open.
+- **`post-commit` — non-blocking, and opt-in per commit.** It records a milestone in today's daily
+  note and in `handoff.md`, but only for a commit that says so. Every other commit logs nothing.
+  Only this hook is fail-open.
 
 The pre-commit checks also run in CI, so skipping this step does not leave the repository
 unprotected — it only moves the feedback later.
+
+### Opting a commit in
+
+A commit is logged when its message carries this trailer, on its own line:
+
+```bash
+git commit -m "$(cat <<'EOF'
+feat(hooks): make the logger portable
+
+HeyLoey-Milestone: Make the post-commit logger portable and opt-in
+EOF
+)"
+```
+
+The trailer's text — not the subject line — becomes the entry, so write it as the sentence you would
+want to read in the log tomorrow. `git log` is a record of work in progress; the daily log is a
+record of outcomes, and the trailer is where you say which is which. An empty trailer is not an
+opt-in, and nothing is inferred from the subject.
+
+### What the hook does and does not do
+
+- **It uses this repository's own tool.** It runs the bundled `heyloey` at
+  `06-Resources/scripts/heyloey.js` through `node`, and names the vault explicitly. No global install
+  and no machine-specific path are involved.
+- **It never changes the commit.** The commit object already exists by the time this hook runs, so
+  every failure is reported and swallowed: no Node, no daily note for today, no `handoff.md`, a
+  logger that errors, hangs or refuses to stop. Your commit always stands — the one path that exits
+  non-zero is an interrupted hook (128+signal), and git ignores a post-commit exit status.
+- **It is silent when it has nothing to do.** A missing tool is the normal state in a fresh clone,
+  not something worth a warning on every commit.
+- **It logs a given summary once per day — once that summary has been logged successfully.** After a
+  run that exits 0 the hook records a hash of the day and the summary in the clone's Git directory,
+  and a later invocation that finds that hash skips it. That is what makes amending, rebasing,
+  cherry-picking and re-running the hook safe. It is *not* a promise that a failed run cannot be
+  completed twice — see “When a run fails partway” below.
+- **It is always bounded, and it never waits on another invocation.** `done` runs to completion so
+  the entry is in the note when the commit returns, capped by `heyloey.timeout` (10s) with a hard
+  ladder: TERM at the bound, two seconds to exit, then KILL — and the logger is always reaped, so
+  nothing is left running behind a finished commit. `timeout(1)` is deliberately not used (a plain
+  `timeout` does not escalate, and only the GNU-only `-k` form does); the single requirement is
+  `sleep(1)`, and where that is missing the hook skips logging rather than run unbounded. Two
+  invocations at once are serialised by a lock beside the summary log, and the one that loses skips
+  with a notice instead of waiting — waiting is what turns a slow lock into a stalled commit. A lock
+  whose holder is provably gone is reclaimed; a **live** holder is never stolen, at any age, and when
+  safety cannot be established the hook skips with a notice rather than guessing.
+- **A killed hook is not the end of its writer.** `SIGKILL` cannot be trapped, so it leaves no
+  cleanup behind — which means the hook can be provably dead while its logger is still alive and
+  writing. The lock therefore records the writer too (`none` before any fork, `pending` immediately
+  before it, the pid immediately after), and a lock is reclaimed only when the hook **and** its writer
+  are both provably gone. An orphaned writer is reported by pid along with how to recover; the interval
+  between forking and recording the pid is refused rather than assumed safe.
+- **It stops its writer before it lets go of anything.** `SIGINT` and `SIGTERM` are trapped: the
+  logger is terminated and reaped first, then coordination state is released, and only then does the
+  hook exit with 128+signal. Without that order an interrupted run could free the lock for a second
+  writer while its own logger was still writing.
+- **It calls the logger without logging.** `npm run init:vault` is what creates `handoff.md`; if you
+  skipped step 2, the hook has nothing to write to and says so once per opted-in commit.
+
+### When a run fails partway
+
+`done` writes today's daily note and then `handoff.md`. If the logger is killed by the bound, or fails
+between those two writes, the hook reports it, records nothing in its own log, and leaves the summary
+retryable — and **one of the two records may already have been written**. That is the real behaviour;
+there is no atomic two-file write to promise. To recover:
+
+1. Look at both records to see which one got the entry: `## 📝 Daily Log` in today's note, and
+   `### Latest Updates` in `handoff.md`.
+2. Re-run without making a new commit — `git commit --amend --no-edit` re-triggers the hook — or log the
+   missing entry directly: `npm run heyloey -- done "<summary>"`.
+3. If the retry lands in a **later minute** it writes a second, differently-timestamped daily line;
+   delete one of the two by hand. A retry inside the same minute is suppressed, because the logger
+   itself refuses a byte-identical line.
+
+Nothing here is repaired automatically: deleting a line from your daily note is your decision, not a
+hook's.
+
+### The trailer is the only rule
+
+Nothing infers eligibility. A commit is logged because it said so in its message, not because a tool
+judged the sentence likely to be a milestone. A model-based classifier was prototyped here and
+removed: measured on ordinary log summaries it ranked routine chores above real milestones as often
+as below, and the same sentence scored differently from run to run. A rule that can withhold a real
+milestone at random is worse than no rule, so eligibility is the trailer and nothing else — and the
+hook needs no tool beyond `git`, `node` and the bundle in this repository.
+
+### Configuration, and turning it off
+
+| Setting | Default | Effect |
+| :--- | :--- | :--- |
+| `heyloey.log` | `true` | `false` disables the hook entirely |
+| `heyloey.timeout` | `10` | Hard bound on the logger, in seconds: TERM at the bound, then KILL two seconds later if it will not stop |
+| `HEYLOEY_LOG=off` | — | Environment variable for a one-off commit: `HEYLOEY_LOG=off git commit …` |
+
+### GitHub activity is a separate, opt-in step
+
+The hook logs what you tell it. Pulling your GitHub commits and pull requests into the daily note is a
+different command you run when you want it — and it needs an authenticated GitHub CLI:
+
+```bash
+gh auth login
+npm run log-github
+```
+
+Without that authentication the command reports no activity rather than any error worth acting on, so
+run `gh auth login` first if the daily note comes back empty.
 
 ## Working with an assistant
 
@@ -152,8 +258,18 @@ For maintainers checking that onboarding still works end to end:
 npm ci
 npm run init:vault
 npm run init:vault          # second run must be a no-op
-npm test                    # includes the clean-clone suite
+npm test                    # includes the clean-clone and hook suites
 ```
 
 The clean-clone suite builds its fixture from the working tree, so run it before committing; the
 published artifact is verified by cloning the repository and repeating the two `init:vault` runs.
+The hook suite drives real commits in disposable repositories, so it never touches the vault you are
+standing in.
+
+One thing no test can do for you: a Git hook has to be executable, and Git records that bit when the
+file is added. If you edit the hook on Windows or WSL and `core.fileMode` is `false`, `chmod +x`
+changes nothing Git can see — record the bit explicitly:
+
+```bash
+git update-index --chmod=+x .githooks/post-commit
+```
