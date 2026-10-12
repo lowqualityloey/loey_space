@@ -1,330 +1,138 @@
 ---
 created: 2026-08-09
-updated: 2026-08-09
+updated: 2026-10-12
 type: guide
 status: active
 area: system
 tags:
   - type/guide
   - area/system
+  - status/active
   - topic/ai
   - topic/reviews
 ---
 
-# 📊 Weekly AI Summary Guide
+# Weekly AI Summary Guide
 
-> Step-by-step guide to configure and use the automated weekly AI summary system
+This guide explains how the weekly review system works, how to configure the QuickAdd action, and what data is transmitted when generating an AI summary.
 
-## 🎯 Overview
+## Overview
 
-The **Weekly AI Summary** system analyzes your daily notes from the past 7 days and generates comprehensive insights, patterns, and recommendations using Google Gemini AI.
+The weekly summary system scans your daily notes from the previous seven days, calculates habit and task statistics, and optionally requests a thematic review from Google Gemini.
 
----
+The output is saved to `07-Reviews/YYYY-[W]WW.md` (for example, `2026-W32.md`). The file contains both local Dataview statistics and an AI-generated summary section.
 
-## 🔧 Configuration Steps
+## Configuration Steps
 
-### Step 1: Verify API Key
-1. Ensure your `.env` file contains a valid `GEMINI_API_KEY`
-2. The script automatically reads this key for AI processing
+### 1. API Key Setup
 
-### Step 2: Add QuickAdd Macro
-1. Open **Obsidian Settings** (`Ctrl + ,`)
-2. Go to **Community Plugins** → **QuickAdd**
-3. Click **Manage Macros**
-4. Click **Add Macro** and name it: `📊 Generate Weekly AI Summary`
+1. Copy `.env.example` to `.env` if you have not already:
+   ```bash
+   cp .env.example .env
+   ```
+2. Add your Google Gemini API key to `.env`:
+   ```env
+   GEMINI_API_KEY=your_actual_key_here
+   ```
+   You can generate a key in [Google AI Studio](https://aistudio.google.com/app/apikey). The `.env` file is git-ignored and never committed.
 
-### Step 3: Configure Macro Command
-Add this single command:
+### 2. Configure the QuickAdd Action
 
-**Command: Weekly AI Summary Script**
-- **Type**: User Script
-- **Script Path**: `06-Resources/scripts/weekly-ai-summary.js`
+To run the script from Obsidian:
 
-### Step 4: Set Quick Access
-1. Go back to QuickAdd main settings
-2. Add a new **Choice** named `📊 Weekly AI Summary`
-3. Set **Type** to `Macro`
-4. Select the `📊 Generate Weekly AI Summary` macro
-5. Enable **Show in ribbon** for easy access
+1. Open **Settings → Community plugins → QuickAdd**.
+2. Click **Manage Macros**, then click **Add Macro** and name it `Weekly Review`.
+3. Click **Configure**, click **User Scripts**, and select `06-Resources/scripts/weekly-ai-summary.js`.
+4. Return to the main QuickAdd settings screen.
+5. Under **Add Choice**, name the choice `Weekly Review`, set the type to **Macro**, and select the `Weekly Review` macro you just created.
+6. To match the registered choice ID documented in [Setup & Configuration](Setup%20&%20Configuration.md), set the choice ID to `e4f0a1b2-ffff-4000-8000-000000000103`.
 
-### Step 5: Set Weekly Reminder (Optional)
-1. Go to **Obsidian Settings** → **Hotkeys**
-2. Search for `QuickAdd: Run 📊 Weekly AI Summary`
-3. Set a memorable shortcut (suggested: `Ctrl+Shift+W` for Weekly)
+### 3. Optional Shortcut
 
----
+You can assign a hotkey to run the action:
 
-## 🚀 Using the Weekly Summary
+1. Open **Settings → Hotkeys**.
+2. Search for `QuickAdd: Weekly Review`.
+3. Assign a shortcut, such as `Ctrl + Shift + W` (or `Cmd + Shift + W`).
 
-### Method 1: Ribbon Button (Recommended)
-1. Click the **📊 Weekly AI Summary** button in the ribbon
-2. Wait for processing (typically 10-30 seconds)
-3. Review the generated weekly summary in `07-Reviews/`
+## Running the Weekly Review
 
-### Method 2: Command Palette
-1. Press `Ctrl+P`
-2. Type `QuickAdd: Run 📊 Weekly AI Summary`
-3. Execute and review results
+You can trigger the review in two ways:
 
-### Method 3: Keyboard Shortcut
-1. Press your configured hotkey (e.g., `Ctrl+Shift+W`)
-2. Wait for processing to complete
+- **Command Palette**: Press `Ctrl + P` (or `Cmd + P`), type `QuickAdd: Weekly Review`, and press Enter.
+- **Configured Hotkey**: Press your assigned shortcut.
 
----
+When triggered, the script:
+1. Derives the seven-day review window ending today.
+2. Selects all dated daily notes matching that window in `01-Daily/`.
+3. Extracts task, habit, and reflection data from each note.
+4. Calculates aggregate completion rates, distinct recorded mood values, and numerical averages for energy and sleep.
+5. Sends the summary data to Google Gemini to generate thematic insights.
+6. Writes or appends the results to `07-Reviews/YYYY-W[WW].md`.
 
-## 🔍 What Gets Analyzed
+## Data Sent to Google Gemini and Privacy
 
-The system extracts and analyzes:
+The weekly AI review is not a local model. When you run `Weekly Review`, extracted information from your daily notes is sent over HTTPS to Google's Gemini API endpoints (`generativelanguage.googleapis.com`).
 
-### 📅 Daily Metrics
-- **Mood**: Overall emotional state each day
-- **Energy**: Energy levels (1-5 scale)
-- **Sleep**: Hours of sleep recorded
-- **Tasks**: Completion rates and patterns
-- **Habits**: Consistency and completion rates
+### Extracted Content Included in the API Request
 
-### 📊 Patterns Detected
-- **Productivity trends**: When you're most effective
-- **Mood cycles**: Emotional patterns throughout the week
-- **Sleep impact**: How sleep affects productivity
-- **Habit consistency**: Which habits stick and which don't
-- **Task completion**: What types of tasks get done vs. postponed
+The prompt payload sent to Google includes:
 
-### 💡 Insights Generated
-- **Key accomplishments**: What went well
-- **Challenges faced**: What was difficult
-- **Patterns identified**: Recurring themes
-- **Recommendations**: Actionable advice for next week
-- **Inspirational quotes**: Relevant motivation
+- **Review Window Details**: Start date, end date, time zone, and observation coverage.
+- **Computed Statistics**: Total completed and unfinished tasks, habit completion ratios, distinct recorded mood values (`moods`), plus numerical averages for energy and sleep.
+- **Extracted Note Text**:
+  - Daily mood (text), energy (number), and sleep hours (number).
+  - Titles of completed and unfinished tasks.
+  - Names of completed habits.
+  - Full bullet points recorded under `### Wins`.
+  - Full bullet points recorded under `### Blockers`.
+  - Full bullet points recorded under `### Reflection`.
+  - Full bullet points recorded under `### 💡 Ideas & Fleeting Notes`.
+  - Daily focus intention bullets from `### 🎯 Today's Focus`.
 
----
+### Privacy Boundaries
 
-## 📁 Output Structure
+- **No Automatic Redaction**: The script does not filter or scrub personal names, employer names, project titles, or sensitive information from your task titles or reflection bullets. Whatever is written in those sections is sent to the API.
+- **Sensitive Notes**: If you have private reflections or notes that should not be transmitted to third-party servers, do not run the AI review or remove that text prior to running.
+- **Entirely Optional**: The AI review is completely optional. If you do not configure an API key, you can create your weekly note from `99-Templates/Weekly Review.md` and review your week using local Dataview queries in `07-Reviews/`.
 
-The system creates/updates files in `07-Reviews/`:
+## Offline and Failure Behavior
 
-### File Naming
-- `YYYY-W[week_number].md` (e.g., `2026-W32.md`)
+The weekly review script requires a valid `GEMINI_API_KEY` and active internet access:
 
-### Content Sections
-1. **🧭 Weekly Decision Record** *(manual, every review)*: what the week's evidence covers, what advanced, what paused or got deprioritised, selected commitments for next week, and what is awaiting. The stats below power this section; they do not replace it.
-2. **📊 Habit & Wellness Stats (Auto-Generated)** *(DataviewJS, every review)*: energy, sleep and mood averages/distributions plus each block's `coverageLine` — anchored to the review's own period, not to the day the note is opened.
-3. **🎉 Completed Tasks This Week** *(DataviewJS, every review)*: tasks marked done in-period, with undated completions flagged by their file's touch.
-4. **🚀 Active Projects Progress** *(Dataview, every review)*: active-project snapshots.
-5. **⚠️ Stale Projects (Due for Review)** *(DataviewJS, every review)*: projects overdue on their `review_cycle` relative to the day the review is read.
-6. **📖 Learning Notes Added This Week** *(DataviewJS, every review)*: in-period learning notes.
-7. **💡 Weekly Reflection** *(manual, every review)*: what went well, what was challenging or needs adjustment, and next week's top focus.
-8. **🤖 AI Weekly Summary** *(QuickAdd macro, run once when you begin)*: AI-generated insights, challenges, patterns, trends, habit analysis, insights and recommendations, written under its own `## 🤖 AI Weekly Summary`.
-9. **📝 Manual Review Notes** *(legacy manual block, kept since earlier templates wrote it)*: the older `What Went Well / What Could Be Improved / Key Learnings / Goals for Next Week` block — the **newer** `Weekly Decision Record` and `Weekly Reflection` above are the canonical manual sections going forward.
-10. **🔗 Related Content**: links to active projects and recently updated concepts.
+- If `GEMINI_API_KEY` is missing in `.env`, the script shows an Obsidian notice (`⚠️ GEMINI_API_KEY missing in .env!`) and exits immediately.
+- If the Gemini API returns an error (such as HTTP 429 quota limits or network errors), the script shows a failure notice and exits.
+- **No Offline Fallback**: The weekly review script does not generate an offline summary. If the API request fails, no file is created or modified. (In contrast, the daily note enricher in `ai-enrich-action.js` provides a flat offline fallback for daily notes when Gemini is unavailable).
 
-> The canonical manual hand-off is **Weekly Decision Record → Weekly Reflection**: record what the evidence shows and what you commit to, then reflect on that week as a whole. The AI summary feeds both but does not substitute for either.
+## Review Note Structure: Two Creation Paths
 
----
+Depending on whether `07-Reviews/YYYY-W[WW].md` already exists when you run `Weekly Review`, the note takes one of two shapes:
 
-## 📈 What the weekly decision record is for
+### Path 1: Script Creates a New Review File
 
-A weekly review that only renders statistics tells you **what happened**, not **what you will do about it**. This template closes the loop by giving every review one explicit decision section above the auto-generated stats and one reflection section below them:
+If `07-Reviews/YYYY-W[WW].md` does not exist yet, `weekly-ai-summary.js` creates the file directly with these sections:
 
-- **What advanced** is drawn from the completed tasks, projects-moving and learning-notes statistics — it is a reading of the week's evidence, not new invention.
-- **What paused or got deprioritised** is explicit so an item that did not move is not silently re-promised.
-- **Selected commitments for next week** are snapshots linked to the authoritative card or hub — the section does not copy the whole backlog, so it stays light.
-- **Awaiting** keeps incoming work visible so it does not get re-promised by accident the following week.
+1. **Frontmatter and Coverage Header**: Declares `type: review`, `kind: weekly`, `status: active`, `period_start`, and `period_end`, followed by coverage disclosures for logged days, vitals, and observed habit reviews.
+2. **`## 🤖 AI Weekly Summary`**: The generated executive summary, key accomplishments, challenges faced, productivity patterns, mood and energy trends, habit analysis, top insights, recommendations, and weekly quote.
+3. **`## 📈 Weekly Metrics`**: Local Dataview and DataviewJS blocks for `### Daily Notes Analyzed`, `### Task Completion Rate`, and `### Habit Consistency`.
+4. **`## 📝 Manual Review Notes`**: Prompts for `What went well this week`, `What was challenging or needs adjustment`, `Key learnings`, and `Goals for next week`.
+5. **`## 🔗 Related Content`**: Dataview tables for `### Projects Worked On` and `### Concepts Explored`.
 
-Each next-week review re-reads the previous review's selected commitments and the previous awaiting line, and reasons in writing about what changed — that follow-through check is the test the template exists to make possible.
+### Path 2: Template Created First, Then AI Summary Appended
 
-> Evidence basis: the current repository's open-issue list was re-read for this guide — at 2026-10-07 the vault carries **5 open issue(s)** across the active work surface, and **297 tracked file(s)** remain in the published index.
+If you first create `07-Reviews/YYYY-W[WW].md` from the Templater blueprint (`99-Templates/Weekly Review.md`), that template provides the full manual and Dataview review layout:
 
----
+1. **`## 🧭 Weekly Decision Record`**: Manual section for recording what the week's evidence covers, what advanced, what paused, selected commitments for next week, and awaiting items.
+2. **`## 📊 Habit & Wellness Stats (Auto-Generated)`**: DataviewJS blocks for energy, sleep, and textual mood distributions anchored to the review period.
+3. **`## 🎉 Completed Tasks This Week`**: In-period completed tasks.
+4. **`## 🚀 Active Projects Progress` and `## ⚠️ Stale Projects (Due for Review)`**: Active project snapshots and projects overdue on their `review_cycle`.
+5. **`## 📖 Learning Notes Added This Week`**: Learning notes created during the review period.
+6. **`## 💡 Weekly Reflection`**: Manual reflection prompts.
 
-## ⚡ Processing Time
-- **Data extraction**: 2-5 seconds
-- **AI processing**: 5-15 seconds
-- **File creation**: 1-2 seconds
-- **Total**: Typically 10-30 seconds
+When you subsequently run `Weekly Review` (`weekly-ai-summary.js`), the script detects the existing file and appends `## 🤖 AI Weekly Summary` to the end without overwriting your manual sections.
 
-### Data Requirements
-- **Minimum**: At least 1 daily note from the past 7 days
-- **Optimal**: 5-7 daily notes with completed tasks/habits
-- **Best results**: Daily notes with mood, energy, sleep, and task data
+## Related Guides
 
-### API Usage
-- **Tokens per week**: ~500-1000 tokens
-- **Cost estimate**: ~$0.0005-$0.001 per weekly summary
-- **Monthly cost**: ~$0.02-$0.04 at weekly usage
-
----
-
-## 🎨 Customization Options
-
-### Modify Analysis Focus
-Edit `weekly-ai-summary.js` to change what gets analyzed:
-
-```javascript
-// Add custom metrics
-const customPrompt = `Analyze these additional metrics: focusTime, breaksTaken, deepWorkSessions`;
-```
-
-### Adjust Output Format
-Modify the `formatWeeklySummary` function to change how insights are displayed:
-
-```javascript
-function formatWeeklySummary(data) {
-  // Custom formatting logic
-  return `# Custom Weekly Report\n\n${data.executiveSummary}`;
-}
-```
-
-### Change Review Frequency
-Create variations for different timeframes:
-1. **Bi-weekly**: Modify to analyze 14 days
-2. **Monthly**: Modify to analyze 30 days
-3. **Quarterly**: Modify to analyze 90 days
-
----
-
-## 🧪 Testing Your Setup
-
-### Test 1: Basic Functionality
-1. Ensure you have at least 1 daily note from the past week
-2. Run the weekly summary
-3. Verify a file is created in `07-Reviews/`
-
-### Test 2: Data Accuracy
-1. Check that metrics match your actual daily notes
-2. Verify task completion rates are correct
-3. Confirm habit tracking is accurate
-
-### Test 3: AI Insights Quality
-1. Review if insights are relevant and actionable
-2. Check if patterns identified match your experience
-3. Verify recommendations are practical
-
-### Test 4: Performance
-1. Time the complete process
-2. Ensure it completes within 30 seconds
-3. Verify no errors in console
-
----
-
-## 🔄 Integration with Workflow
-
-### Weekly Review Routine
-1. **Friday afternoon/evening**: Run weekly AI summary
-2. **Saturday morning**: Review AI insights
-3. **Add manual notes**: Personal reflections and adjustments
-4. **Set next week goals**: Based on recommendations
-
-### Connection to Daily System
-- **Auto-updates**: Weekly summaries reference daily notes
-- **Progressive insights**: Patterns emerge across weeks
-- **Continuous improvement**: Weekly recommendations inform daily planning
-
-### Integration with Other Systems
-- **Project tracking**: Links to active projects
-- **Concept development**: References new concepts learned
-- **Habit formation**: Tracks habit consistency over time
-
----
-
-## 📈 Benefits & Impact
-
-### Time Savings
-- **Manual review time**: 30-60 minutes reduced to 5-10 minutes
-- **Insight generation**: Instant pattern detection vs. manual analysis
-- **Recommendation creation**: AI suggestions vs. brainstorming
-
-### Quality Improvements
-- **Objective analysis**: Data-driven insights vs. subjective memory
-- **Pattern recognition**: Identifies trends you might miss
-- **Actionable recommendations**: Specific, tailored advice
-
-### Consistency Benefits
-- **Regular reviews**: Automated prompts for weekly reflection
-- **Historical tracking**: Consistent format across weeks
-- **Progress measurement**: Comparable metrics week-to-week
-
----
-
-## 🛠️ Troubleshooting
-
-### Issue: No daily notes found
-**Solution**: Ensure you have daily notes in `01-Daily/` from the past 7 days
-
-### Issue: API key missing
-**Solution**: Verify `.env` contains `GEMINI_API_KEY=your_key_here`
-
-### Issue: Slow processing
-**Solution**: Reduce number of days analyzed or simplify prompt
-
-### Issue: Inaccurate insights
-**Solution**: Ensure daily notes have complete data (mood, energy, tasks, habits)
-
-### Issue: File not created
-**Solution**: Check console for errors and verify write permissions
-
----
-
-## 🔒 Privacy & Data Security
-
-### Local Processing
-- **All data stays local**: Daily notes never leave your computer
-- **Only metadata to API**: Summary data sent to Gemini, not full notes
-- **API terms compliance**: Uses Google Gemini within terms of service
-
-### Data Minimization
-- **Aggregated data only**: Sends summaries, not raw daily notes
-- **No personal identifiers**: Names, locations, sensitive info excluded
-- **Opt-out possible**: Can use without AI (manual summary only)
-
-### Security Best Practices
-- **API key protection**: Stored in `.env` (git-ignored)
-- **Regular audits**: Review what data gets sent to API
-- **Transparency**: Full source code available for inspection
-
----
-
-## 📊 Success Metrics Tracking
-
-Track these to measure system effectiveness:
-
-1. **Weekly Review Completion Rate**: % of weeks with completed reviews
-2. **Insight Action Rate**: % of AI recommendations implemented
-3. **Time Saved**: Minutes reduced from manual review process
-4. **Productivity Impact**: Correlation with weekly task completion rates
-5. **User Satisfaction**: Self-assessment of review quality
-
----
-
-## 🔗 Related Resources
-- [[_Reviews MOC|📋 Reviews MOC]]
-- `06-Resources/scripts/weekly-ai-summary.js` (Weekly AI Summary Automation Script)
-- `06-Resources/scripts/ai-enrich-action.js` (Multi-Domain AI Daily Enricher)
-
----
-
-## 🎯 Best Practices
-
-### For Best Results
-1. **Consistent daily logging**: Complete mood, energy, sleep, tasks daily
-2. **Friday execution**: Run weekly summary at end of work week
-3. **Saturday review**: Reflect on insights with fresh mind
-4. **Monday implementation**: Apply recommendations starting new week
-5. **Quarterly audit**: Review and adjust system every 3 months
-
-### Continuous Improvement
-1. **Monthly**: Review AI insight quality and adjust prompts
-2. **Quarterly**: Update metrics based on what matters most
-3. **Bi-annually**: Consider new AI models or analysis techniques
-4. **Annually**: Complete system review and major updates
-
-### Integration Tips
-1. **Link to projects**: Connect weekly insights to project progress
-2. **Share with team**: If collaborative, share relevant insights
-3. **Track long-term**: Use yearly reviews to see annual patterns
-4. **Adjust workflow**: Let weekly insights inform daily habits
-
----
-
-> [!TIP] Pro Tip
-> Set a **weekly calendar reminder** for your weekly review. Consistency is key to getting the most value from this system!
+- [Setup & Configuration](Setup%20&%20Configuration.md) — In-app setup instructions and QuickAdd action IDs.
+- [Second Brain Guide](Second%20Brain%20Guide.md) — Everyday workflow and note organization.
+- [Maintenance & Troubleshooting](Maintenance%20&%20Troubleshooting.md) — Resolving API quota errors and script issues.

@@ -7,11 +7,12 @@ status: active
 tags:
   - type/guide
   - area/resources
+  - status/active
   - topic/obsidian
   - topic/quickadd
 ---
 
-# 🧰 Setup & Configuration Contract
+# Setup & Configuration Contract
 
 What a fresh clone gets **from the repository**, what it must be given **in the app**, and how to prove the difference was closed. Written for [#118](https://github.com/lowqualityloey/loey_space/issues/118).
 
@@ -72,8 +73,8 @@ Create each as a **Macro** choice (**Settings → QuickAdd → Manage Macros →
 | 1 | **Create Daily Note** | Template | `99-Templates/Daily` — or the core command instead | Prefer the core **Daily notes: Open today's daily note**; it already applies the tracked monthly path | — |
 | 2 | **Quick Capture** | Macro → User Script | `06-Resources/scripts/quick-capture-action.js` | Appends a timestamped line; no prompt required | `e4f0a1b2-ffff-4000-8000-000000000101` |
 | 3 | **Triage Sweep** | Macro → User Script | `06-Resources/scripts/triage-sweep.js` | Requires **today's** daily note to exist; sweeps then logs, never silently deletes | `e4f0a1b2-ffff-4000-8000-000000000102` |
-| 4 | **Weekly Review** | Macro → User Script | `06-Resources/scripts/weekly-ai-summary.js` | Needs `GEMINI_API_KEY` in `.env` for AI text; falls back offline otherwise | `e4f0a1b2-ffff-4000-8000-000000000103` |
-| 5 | **AI Enrich Note** | Macro → User Script | `06-Resources/scripts/ai-enrich-action.js` | Explicitly invoked only — it never runs on its own | `e4f0a1b2-ffff-4000-8000-000000000100` |
+| 4 | **Weekly Review** | Macro → User Script | `06-Resources/scripts/weekly-ai-summary.js` | Requires `GEMINI_API_KEY` in `.env` and internet access; halts with notice if key is missing or request fails (weekly summary has no offline fallback) | `e4f0a1b2-ffff-4000-8000-000000000103` |
+| 5 | **AI Enrich Note** | Macro → User Script | `06-Resources/scripts/ai-enrich-action.js` | Explicitly invoked only; provides flat offline summary for daily notes if offline | `e4f0a1b2-ffff-4000-8000-000000000100` |
 
 > [!IMPORTANT]
 > Choice #5's ID is **load-bearing**: `.obsidian/hotkeys.json` is tracked and already binds `Mod+Shift+A` to `quickadd:choice:e4f0a1b2-ffff-4000-8000-000000000100`. QuickAdd matches a hotkey by choice ID, not by name, so recreating that choice under a different ID leaves the documented `Ctrl/Cmd + Shift + A` shortcut dangling — which is exactly the state a fresh clone is in today. Keep the ID above, or update the hotkey to match the ID you actually created.
@@ -109,9 +110,11 @@ Steps 2–5 need the app; they are marked **unavailable** in any headless run ra
 
 Choose any IDs you like, but if you bind a hotkey, bind it to the ID QuickAdd generated — and if you *change* the AI action's ID, update `.obsidian/hotkeys.json` in the same commit so the tracked shortcut keeps resolving.
 
-## 🔗 Related
+## Related
 
-- [[Plugin Ownership]] — `homepulse` / `kanban-status-sync` provenance and the update procedure
-- [[Vault Security Policy]] — why runtime state and `.env` stay private
-- [[Tagging & Properties]] — the frontmatter contract these templates write
-- [[Second Brain Guide]] — the workflows these five actions drive
+- [Documentation Index](Documentation%20Index.md) — reader-goal navigation across all guides
+- [Maintenance & Troubleshooting](Maintenance%20&%20Troubleshooting.md) — common error symptoms, fixes, and CLI command reference
+- [Plugin Ownership](Plugin%20Ownership.md) — `homepulse` / `kanban-status-sync` provenance and the update procedure
+- [Vault Security Policy](Vault%20Security%20Policy.md) — why runtime state and `.env` stay private
+- [Tagging & Properties](Tagging%20&%20Properties.md) — the frontmatter contract these templates write
+- [Second Brain Guide](Second%20Brain%20Guide.md) — the workflows these five actions drive

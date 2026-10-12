@@ -11,7 +11,7 @@ tags:
   - status/active
 ---
 
-# 🛡️ Vault Security Policy
+# Vault Security Policy
 
 Canonical security specification for secret handling, private data storage, and Git leak prevention across this Obsidian vault.
 
@@ -27,11 +27,11 @@ This policy defines the security standards for storing credentials, API keys, pr
 
 | Storage Location | Target Data Type | Git Status | Description |
 | :--- | :--- | :--- | :--- |
-| **`.secrets/` & `00-Private/`** | Private human-readable sensitive notes (passwords, bank info, private logs) | 🚫 **Ignored** | Vault-local directory at root. Completely excluded from Git commits. |
-| **`.env`** | Machine-readable credentials (API keys, tokens, DB connections) | 🚫 **Ignored** | Environment file loaded by integration scripts like [[06-Resources/scripts/ai-enrich-action.js\|ai-enrich-action.js]]. |
-| **Personal Vault Content (`01-Daily/*`, `04-Learning/*`, `05-Personal/*`, etc.)** | Daily notes, study tracks, personal projects, journals, learning cohorts | 🚫 **Ignored** | Excluded structurally by `.gitignore`. Notes stay strictly local on your machine. |
-| **System Blueprints, MOCs & Scripts** | MOC dashboards (`_*.md`), templates (`99-Templates/`), scripts, and guides | ✅ **Tracked** | Safe for the public Git repo. Defines the vault system without personal data. |
-| **Plugin runtime config** (`.obsidian/plugins/*/data.json`, `*/cache.json`) | Local plugin state; may hold secrets | 🚫 **Ignored** | Excluded by explicit `.gitignore` rule (Wave 0, #29). Distributable code (`main.js`, `manifest.json`, `styles.css`) stays tracked. |
+| **`.secrets/` & `00-Private/`** | Private human-readable sensitive notes (passwords, bank info, private logs) | **Ignored** | Vault-local directory at root. Completely excluded from Git commits. |
+| **`.env`** | Machine-readable credentials (API keys, tokens, DB connections) | **Ignored** | Environment file loaded by integration scripts like [`ai-enrich-action.js`](../scripts/ai-enrich-action.js). |
+| **Personal Vault Content (`01-Daily/*`, `04-Learning/*`, `05-Personal/*`, etc.)** | Daily notes, study tracks, personal projects, journals, learning cohorts | **Ignored** | Excluded structurally by `.gitignore`. Notes stay strictly local on your machine. |
+| **System Blueprints, MOCs & Scripts** | MOC dashboards (`_*.md`), templates (`99-Templates/`), scripts, and guides | **Tracked** | Safe for the public Git repo. Defines the vault system without personal data. |
+| **Plugin runtime config** (`.obsidian/plugins/*/data.json`, `*/cache.json`) | Local plugin state; may hold secrets | **Ignored** | Excluded by explicit `.gitignore` rule (Wave 0, #29). Distributable code (`main.js`, `manifest.json`, `styles.css`) stays tracked. |
 
 ---
 
@@ -119,7 +119,7 @@ loey_space/
 
 ---
 
-## 🔗 Related References
+## Related References
 
-* [[Second Brain Guide]]
-* [[Tagging & Properties]]
+* [Second Brain Guide](Second%20Brain%20Guide.md)
+* [Tagging & Properties](Tagging%20&%20Properties.md)

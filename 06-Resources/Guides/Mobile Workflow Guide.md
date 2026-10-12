@@ -1,101 +1,64 @@
 ---
 created: 2026-08-09
-updated: 2026-08-09
+updated: 2026-10-12
 type: guide
 status: active
 area: system
 tags:
   - type/guide
   - area/system
+  - status/active
   - topic/mobile
 ---
 
-# 📱 Mobile Workflow Guide
+# Mobile Workflow Guide
 
-> Quick capture on the go — process on desktop
-
----
-
-## 🎯 Mobile Capture Philosophy
-
-**Mobile = Capture fast, don't organize.**
-**Desktop = Triage, organize, enrich.**
-
-The mobile workflow is designed for speed. Every capture lands in the inbox with a `📱` marker and `source/mobile` tag so you can batch-process them on desktop.
+This guide covers setting up fast mobile capture in Obsidian Mobile and batch-processing those items later on desktop.
 
 ---
 
-## 📲 Setup (One-Time)
+## Mobile Capture Approach
+
+On mobile, capture thoughts quickly into `00-Inbox/` without stopping to organize or format them. Each mobile capture carries a `📱` marker and a `source/mobile` tag so you can review and file them on desktop using `Triage Sweep`.
+
+---
+
+## One-Time Setup
 
 ### 1. Install Obsidian Mobile
-- Download from [App Store](https://apps.apple.com/app/obsidian/id1557175442) or [Google Play](https://play.google.com/store/apps/details?id=md.obsidian)
-- Open the same vault (sync via OneDrive, iCloud, or Obsidian Sync)
+- Install Obsidian from the App Store or Google Play and open the synced vault directory.
 
 ### 2. Enable Required Plugins
-Go to **Settings → Community Plugins** and ensure these are enabled:
-- **QuickAdd** — Powers all mobile capture commands
-- **Templater** — Template variable expansion
+In **Settings → Community plugins**, ensure **QuickAdd** and **Templater** are enabled.
 
 ### 3. Add Mobile Toolbar Shortcuts
-Go to **Settings → Mobile → Manage toolbar**. Add these QuickAdd commands:
-1. `📱 Mobile Capture` — General quick capture
-2. `📱 Mobile Task` — Capture as a to-do
-3. `📱 Mobile Add to Daily` — Add task to today's daily note
+In **Settings → Mobile → Manage toolbar**, add the QuickAdd capture commands you use most often:
+1. `Mobile Capture` — Appends a timestamped line to `00-Inbox/quick-capture-dump.md`.
+2. `Mobile Task` — Appends a task checkbox to `00-Inbox/quick-capture-dump.md`.
+3. `Mobile Idea` — Creates a note in `00-Inbox/` from `99-Templates/Mobile Idea.md`.
+4. `Mobile Add to Daily` — Appends a task directly under `### ✅ Tasks` in today's daily note.
 
 ---
 
-## 🚀 Mobile Capture Commands
+## Capture Commands
 
-### 📱 Mobile Capture (General)
-**Use for**: Random thoughts, links, snippets, anything
-**What it does**: Appends to `00-Inbox/quick-capture-dump.md` with timestamp
-**Format**: `- 📱 your text (2026-08-09 14:30)`
-**Opens file**: No (stays where you are)
-
-### 📱 Mobile Task
-**Use for**: Tasks you think of on the go
-**What it does**: Appends as a checkbox to inbox
-**Format**: `- [ ] 📱 your task (2026-08-09 14:30)`
-**Opens file**: No
-
-### 📱 Mobile Idea
-**Use for**: Ideas worth expanding later
-**What it does**: Creates a new note in `00-Inbox/` from Mobile Idea template
-**Format**: Structured note with title, idea section, related links
-**Opens file**: No (capture and move on)
-
-### 📱 Mobile Add to Daily
-**Use for**: Tasks for today specifically
-**What it does**: Adds a task to today's daily note under `### ✅ Tasks`
-**Format**: `- [ ] your task`
-**Opens file**: No (instant capture)
+| Command | Template or Target | Format Written |
+| :--- | :--- | :--- |
+| **Mobile Capture** | `00-Inbox/quick-capture-dump.md` | `- 📱 <text> (YYYY-MM-DD HH:mm)` |
+| **Mobile Task** | `00-Inbox/quick-capture-dump.md` | `- [ ] 📱 <task> (YYYY-MM-DD HH:mm)` |
+| **Mobile Idea** | `99-Templates/Mobile Idea.md` → `00-Inbox/` | Structured note with `source/mobile` tag |
+| **Mobile Add to Daily** | `01-Daily/YYYY-MM/YYYY-MM-DD.md` | `- [ ] <task>` under `### ✅ Tasks` |
 
 ---
 
-## 📋 Mobile Capture Workflow
+## Processing Captures on Desktop
 
-### On Mobile (capture)
-```
-See/think something → Open Obsidian → Tap 📱 command → Type → Done
-```
-Total time: **< 10 seconds**
+1. Open `00-Inbox/quick-capture-dump.md`.
+2. Review captured lines and append a destination token (`#do`, `#dev`, `#concept`, `#learn`, `#ref`, `#personal`, `#project`, `#bin`) to each line you are ready to file.
+3. Run `Ctrl + P` → **QuickAdd: Triage Sweep** to route all tagged lines in one pass.
 
-### On Desktop (process)
-1. Open `00-Inbox/quick-capture-dump.md`
-2. Review items marked with `📱`
-3. Triage each: move to project, create full note, or delete
-4. Tag each line with a destination token (`#do`, `#dev`, `#concept`, `#learn`, `#ref`, `#personal`, `#project`, `#bin`) and run **Triage Sweep** — it files them all in one pass.
+To list standalone mobile notes in `00-Inbox/` via Dataview:
 
----
-
-## 🏷️ How Mobile Captures Are Tagged
-
-All mobile captures include:
-- **`source/mobile`** tag — Filter these in Dataview queries
-- **`📱` prefix** — Visual indicator in the inbox
-- **Timestamp** — Know exactly when you captured it
-
-### Find All Mobile Captures
 ```dataview
 LIST
 FROM "00-Inbox"
@@ -105,18 +68,14 @@ SORT file.ctime DESC
 
 ---
 
-## ⚡ Tips for Fast Mobile Capture
+## Mobile Dashboard Styling
 
-1. **Keep it short** — One sentence is fine, expand on desktop
-2. **Don't organize** — That's desktop work, just dump it
-3. **Use Mobile Task** for anything actionable — easier to find later
-4. **Use Mobile Add to Daily** for today-specific items — they go straight to your task list
-5. **Batch process on desktop** — Review inbox once per day
+If the HomePulse dashboard looks cramped on a phone screen, go to **Settings → Appearance → CSS snippets** and enable `homepulse-mobile`.
 
 ---
 
-## 🔗 Related
+## Related Guides
 
-- [[00-Inbox/_Inbox MOC|📥 Inbox MOC]]
-- [[00-Inbox/_Triage MOC|🧹 Triage & Maintenance MOC]]
-- [[Second Brain Guide|🧠 Second Brain Guide]]
+- [Second Brain Guide](Second%20Brain%20Guide.md) — Inbox token triage and daily note workflows
+- [Setup & Configuration](Setup%20&%20Configuration.md) — Core QuickAdd and Templater configuration
+- [00-Inbox/_Inbox MOC](../../00-Inbox/_Inbox%20MOC.md) — Unprocessed inbox dashboard

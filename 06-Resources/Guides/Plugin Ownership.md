@@ -7,11 +7,12 @@ status: active
 tags:
   - type/resource
   - area/resources
+  - status/active
   - topic/obsidian
   - topic/plugins
 ---
 
-# 🔌 Plugin Ownership & Provenance
+# Plugin Ownership & Provenance
 
 Which bundled plugin code this vault owns, which comes from upstream, and how to re-apply local changes after a plugin update. Written for [#36](https://github.com/lowqualityloey/loey_space/issues/36); enforced by a drift guard in the test suite.
 
@@ -24,11 +25,11 @@ Which bundled plugin code this vault owns, which comes from upstream, and how to
 
 | Plugin | Source of truth | Local build possible | Ownership |
 | :--- | :--- | :--- | :--- |
-| `homepulse` | ⚠️ **No authoritative source available** (see §2) | ❌ No | Prelude only — see §3 |
+| `homepulse` | **No authoritative source available** (see §2) | No | Prelude only — see §3 |
 
 **Recorded version (2026-10-08, [#117](https://github.com/lowqualityloey/loey_space/issues/117)):** the vendored bundle in the index is **`1.0.2` plus the owned prelude** — the last known-good integration. A store update to **`1.0.6` was rejected, not merged**: it removed the prelude *and* every call site, so the widget's habit/focus bridge was dead code in it. The rejected files are kept out of Git at `.tmp.homepulse-1.0.6/` for reference. Re-run `npm run patch-homepulse` before trusting any future update (it refuses when the seam is gone).
-| `kanban-status-sync` | This repository | ✅ Yes, plain JS, no build step | Fully local |
-| All other `.obsidian/plugins/*` | Upstream plugin stores | ❌ No | None — vendor as-is |
+| `kanban-status-sync` | This repository | Yes, plain JS, no build step | Fully local |
+| All other `.obsidian/plugins/*` | Upstream plugin stores | No | None — vendor as-is |
 
 `homepulse` is derived from [jukkau/HomePulse](https://github.com/jukkau/HomePulse); its manifest declares `author: Yuki`. Treat the upstream project — not this vault — as the maintainer of record for the plugin itself.
 
@@ -65,7 +66,7 @@ Everything before the first minified line of `.obsidian/plugins/homepulse/main.j
 
 The minified core after the prelude is upstream-generated and must not be hand-edited.
 
-**Canonical source:** `.obsidian/plugins/homepulse/prelude.js` holds both owned blocks (habit sync at the top, the `Today's Focus` bridge below) as readable source. It is injected into `main.js` by [`06-Resources/scripts/apply-homepulse-prelude.mjs`](06-Resources/scripts/apply-homepulse-prelude.mjs) (`npm run patch-homepulse`), so a lost prelude is re-applied from one reviewed file instead of recovered by hand out of Git history.
+**Canonical source:** `.obsidian/plugins/homepulse/prelude.js` holds both owned blocks (habit sync at the top, the `Today's Focus` bridge below) as readable source. It is injected into `main.js` by [`06-Resources/scripts/apply-homepulse-prelude.mjs`](../scripts/apply-homepulse-prelude.mjs) (`npm run patch-homepulse`), so a lost prelude is re-applied from one reviewed file instead of recovered by hand out of Git history.
 
 ---
 
@@ -86,8 +87,8 @@ The 1.0.6 store update deleted the prelude and all three call sites (`syncHabits
 
 ---
 
-## 🔗 Related
+## Related
 
-* [[06-Resources/Guides/CONTRIBUTING]]
-* [[06-Resources/Guides/Vault Security Policy]]
-* [[06-Resources/scripts/tests/homepulse-prelude.test.mjs]]
+* [CONTRIBUTING](CONTRIBUTING.md)
+* [Vault Security Policy](Vault%20Security%20Policy.md)
+* [`06-Resources/scripts/tests/homepulse-prelude.test.mjs`](../scripts/tests/homepulse-prelude.test.mjs)

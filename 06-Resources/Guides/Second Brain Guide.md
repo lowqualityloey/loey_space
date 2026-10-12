@@ -12,113 +12,115 @@ tags:
   - topic/guide
 ---
 
-# 🧠 Second Brain Workflow Guide
+# Second Brain Guide
 
-> Comprehensive operational guide for your Obsidian vault — covering folder architecture, QuickAdd creation flows, Multi-Domain AI Enrichment, task management dashboards, concept hubs, maintenance rhythms, and vault security policies.
+> Operational guide for your Obsidian vault — covering folder architecture, QuickAdd creation flows, AI enrichment, task management dashboards, concept hubs, maintenance rhythms, and vault security policies.
 
 ---
 
-## 🔄 1. The Core Loop & Knowledge Routing
+## 1. The Core Loop and Knowledge Routing
 
 ### The Core Loop: Capture → Enrich → Connect → Review
 
 ```mermaid
 flowchart LR
-    A["⚡ Capture<br/>(QuickAdd / Sidebar)"] --> B["🤖 Enrich<br/>(✨ AI Action Script)"]
-    B --> C["🔗 Connect<br/>([[Concept Hubs]])"]
-    C --> D["📊 Review<br/>(_Tasks MOC / Home.md)"]
+    A["Capture<br/>(QuickAdd / Sidebar)"] --> B["Enrich<br/>(AI Action Script)"]
+    B --> C["Connect<br/>(Concept Hubs)"]
+    C --> D["Review<br/>(_Tasks MOC / Home.md)"]
 ```
 
-1. **Capture**: Log daily notes, dev snippets, learning items, or inbox entries with 1-click QuickAdd buttons.
-2. **Enrich**: Trigger `Ctrl + Shift + A` or click `✨` to run the **Multi-Domain AI Enricher** ([`ai-enrich-action.js`](../scripts/ai-enrich-action.js)) for automatic summaries, reflections, code breakdowns, or domain lore.
+1. **Capture**: Log daily notes, dev snippets, learning items, or inbox entries with QuickAdd actions.
+2. **Enrich**: Trigger `Ctrl + Shift + A` to run the **Multi-Domain AI Enricher** ([`ai-enrich-action.js`](../scripts/ai-enrich-action.js)) for summaries, reflections, code breakdowns, or domain notes.
 3. **Connect**: Link concept words (`[[Fetch API]]`, `[[AI integration]]`) to populate evergreen concept notes with live Dataview backreferences.
-4. **Review**: Check active tasks (`[/]`, `[ ]`) and completion histories on [[01-Daily/_Tasks MOC|_Tasks MOC.md]] and [[Home|Home.md]].
+4. **Review**: Check active tasks (`[/]`, `[ ]`) and completion histories on [`_Tasks MOC.md`](../../01-Daily/_Tasks%20MOC.md) and [`Home.md`](../../Home.md).
 
 ---
 
-### 🗺️ Knowledge Routing & Triage Flow
+### Knowledge Routing & Triage Flow
 
 ```mermaid
 flowchart TD
-    subgraph Capture["📥 1. Rapid Capture"]
+    subgraph Capture["1. Rapid Capture"]
         Dump["quick-capture-dump.md<br/>(Mobile / Hotkey / QuickAdd)"]
     end
 
-    subgraph Triage["🧹 2. Triage Decision"]
+    subgraph Triage["2. Triage Decision"]
         Dump -->|Triage Sweep| Tokens{Token Tag?}
     end
 
-    subgraph Routing["🗂️ 3. Vault Routing"]
-        Tokens -->|#do| Daily["📅 01-Daily<br/>(Today's Tasks)"]
-        Tokens -->|#dev| Dev["💻 03-Dev<br/>(Code & Snippets)"]
-        Tokens -->|#concept| Concept["💡 08-Concepts<br/>(Evergreen 90d)"]
-        Tokens -->|#learn| Learn["📖 04-Learning<br/>(Courses 30d)"]
-        Tokens -->|#ref| Res["📚 06-Resources<br/>(Tools & Docs)"]
-        Tokens -->|#project| Proj["🚀 02-Projects<br/>(Kanban & Specs)"]
-        Tokens -->|#personal| Pers["👤 05-Personal<br/>(Life Admin)"]
-        Tokens -->|#bin| Trash["🗑️ Dropped / Logged"]
+    subgraph Routing["3. Vault Routing"]
+        Tokens -->|#do| Daily["01-Daily<br/>(Today's Tasks)"]
+        Tokens -->|#dev| Dev["03-Dev<br/>(Code & Snippets)"]
+        Tokens -->|#concept| Concept["08-Concepts<br/>(Evergreen 90d)"]
+        Tokens -->|#learn| Learn["04-Learning<br/>(Courses 30d)"]
+        Tokens -->|#ref| Res["06-Resources<br/>(Tools & Docs)"]
+        Tokens -->|#project| Proj["02-Projects<br/>(Kanban & Specs)"]
+        Tokens -->|#personal| Pers["05-Personal<br/>(Life Admin)"]
+        Tokens -->|#bin| Trash["Dropped / Logged"]
     end
 
-    subgraph Enrichment["🤖 4. AI Enrichment"]
-        Daily & Dev & Concept & Learn -->|Ctrl + Shift + A| AI["✨ Multi-Domain AI Enricher"]
+    subgraph Enrichment["4. AI Enrichment"]
+        Daily & Dev & Concept & Learn -->|Ctrl + Shift + A| AI["Multi-Domain AI Enricher"]
     end
 ```
 
 ---
 
-## 🗂️ 2. Vault Folder Architecture
+## 2. Vault Folder Architecture
 
 | Folder                   | Purpose                                  | What Goes Here                                                                                                                                                                                                                           |
 | :----------------------- | :--------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **🏠 `Home.md`**         | Vault dashboard and entry point (file)   | HomePulse dashboard, navigation to every MOC, active in-progress items, priority to-dos, active projects, inbox status                                                                                                                   |
-| **📥 `00-Inbox/`**       | Capture everything before sorting        | Fleeting thoughts, quick captures, mobile captures, links to process later. Triage by tagging each line with a destination token, then running **Triage Sweep**. Holds `_Inbox MOC.md` + `_Triage MOC.md`. **Rule: empty this weekly**   |
-| **📅 `01-Daily/`**       | Time-stamped chronological notes & tasks | `YYYY-MM/YYYY-MM-DD.md` with `mood` / `energy` / `sleep_hours`, habit checkboxes, tasks, AI summary. Plus `_Daily MOC.md`, `_Tasks MOC.md`, and visual `Tasks Kanban.md`. ✨ *AI-enrichable*                                              |
-| **🚀 `02-Projects/`**    | Outcomes with deadlines or endpoints     | One subfolder per project (project note + Kanban board), `_Projects MOC.md`. Active projects only — finished cards move to the board's own `## Archive` column, and retrospectives go to `07-Reviews/`                                   |
-| **💻 `03-Dev/`**         | Technical work & code knowledge          | Dev logs, debugging notes, architecture decisions, snippets, `_Dev MOC.md`. ✨ *AI-enrichable*                                                                                                                                            |
-| **📖 `04-Learning/`**    | Knowledge acquisition in progress        | Courses, books, tutorials, study notes, `_Learning MOC.md`. Move finished learning into `08-Concepts/` (ideas) or `06-Resources/` (reference). ✨ *AI-enrichable*                                                                         |
-| **👤 `05-Personal/`**    | Private life administration              | Health and fitness logs, finances, goals, personal journaling, `_Personal MOC.md`. Truly sensitive material belongs in `.secrets/`, not here                                                                                             |
-| **📚 `06-Resources/`**   | Reference material & automation          | Cheatsheets, manuals, how-tos, policies, `APIs/`, `clipper-templates/` (Obsidian Web Clipper JSON presets), and `scripts/` (`ai-enrich-action.js`, `weekly-ai-summary.js`). Things you *refer to* or *run* — not things you're *working on* |
-| **📊 `07-Reviews/`**     | Periodic reflection & retrospectives     | Weekly (`YYYY-[W]WW.md`) and monthly (`YYYY-MM.md`) reviews, `Habit Analytics Dashboard.md`, post-mortems, AI-generated summaries, `_Reviews MOC.md`                                                                                     |
-| **💡 `08-Concepts/`**    | Permanent atomic knowledge               | Atomic ideas, principles, mental models (`YYYY-MM-DD_HHmm {{VALUE}}`), `_Concepts MOC.md`. Each note self-contained and linked. Carries `last_reviewed` + `review_cycle: 90d`. ✨ *AI-enrichable*. *The core of your Zettelkasten*        |
-| **📎 `99-Attachments/`** | Media and binary assets                  | Images, screenshots, PDFs, audio, exports — filed into monthly `YYYY-MM/` subfolders, plus `_Attachments MOC.md`. Keeps assets out of your note flow                                                                                     |
-| **📋 `99-Templates/`**   | Reusable note blueprints                 | `Daily.md`, `Concept.md`, `Dev.md`, `Project.md`, `Learning.md`, `Personal.md`, `Resource.md`, `API.md`, mobile capture templates. *Blueprints only — never edit these as notes*                                                         |
-| **⚙️ `.obsidian/`**      | Vault configuration and custom code      | HomePulse plugin (`plugins/homepulse/`), CSS snippets, themes, hotkeys, plugin settings                                                                                                                                                  |
-| **🪝 `.kiro/`**          | Kiro IDE automation                      | Hooks for `.env` validation, Git safety, and inbox triage suggestions                                                                                                                                                                    |
-| **🔒 `.secrets/`**       | **Git-ignored** private notes            | Bank details, private logs, credential context. Never committed                                                                                                                                                                          |
-| **🔑 `.env`**            | **Git-ignored** machine credentials      | `GEMINI_API_KEY`, `OPENAI_API_KEY`. Read by the AI enricher — share `.env.example` instead                                                                                                                                               |
-| **📄 `README.md`**       | Vault documentation                      | Setup guide, conventions, plugin list — for future you or a fresh clone                                                                                                                                                                  |
-| **⚖️ `LICENSE`**         | Usage terms for the public repo          | MIT license — leave as-is                                                                                                                                                                                                                |
+| **`Home.md`**            | Vault dashboard and entry point (file)   | HomePulse dashboard, navigation to every MOC, active in-progress items, priority to-dos, active projects, inbox status                                                                                                                   |
+| **`00-Inbox/`**          | Capture everything before sorting        | Fleeting thoughts, quick captures, mobile captures, links to process later. Triage by tagging each line with a destination token, then running **Triage Sweep**. Holds `_Inbox MOC.md` + `_Triage MOC.md`. **Rule: empty this weekly**   |
+| **`01-Daily/`**          | Time-stamped chronological notes & tasks | `YYYY-MM/YYYY-MM-DD.md` with `mood` / `energy` / `sleep_hours`, habit checkboxes, tasks, AI summary. Plus `_Daily MOC.md`, `_Tasks MOC.md`, and visual `Tasks Kanban.md`. *AI-enrichable*                                                |
+| **`02-Projects/`**       | Outcomes with deadlines or endpoints     | One subfolder per project (project note + Kanban board), `_Projects MOC.md`. Active projects only — finished cards move to the board's own `## Archive` column, and retrospectives go to `07-Reviews/`                                   |
+| **`03-Dev/`**            | Technical work & code knowledge          | Dev logs, debugging notes, architecture decisions, snippets, `_Dev MOC.md`. *AI-enrichable*                                                                                                                                              |
+| **`04-Learning/`**       | Knowledge acquisition in progress        | Courses, books, tutorials, study notes, `_Learning MOC.md`. Move finished learning into `08-Concepts/` (ideas) or `06-Resources/` (reference). *AI-enrichable*                                                                           |
+| **`05-Personal/`**       | Private life administration              | Health and fitness logs, finances, goals, personal journaling, `_Personal MOC.md`. Truly sensitive material belongs in `.secrets/`, not here                                                                                             |
+| **`06-Resources/`**      | Reference material & automation          | Cheatsheets, manuals, how-tos, policies, `APIs/`, `clipper-templates/` (Obsidian Web Clipper JSON presets), and `scripts/` (`ai-enrich-action.js`, `weekly-ai-summary.js`). Things you *refer to* or *run* — not things you're *working on* |
+| **`07-Reviews/`**        | Periodic reflection & retrospectives     | Weekly (`YYYY-[W]WW.md`) and monthly (`YYYY-MM.md`) reviews, `Habit Analytics Dashboard.md`, post-mortems, AI-generated summaries, `_Reviews MOC.md`                                                                                     |
+| **`08-Concepts/`**       | Permanent atomic knowledge               | Atomic ideas, principles, mental models (`YYYY-MM-DD_HHmm {{VALUE}}`), `_Concepts MOC.md`. Each note self-contained and linked. Carries `last_reviewed` + `review_cycle: 90d`. *AI-enrichable*. *The core of your Zettelkasten*          |
+| **`99-Attachments/`**    | Media and binary assets                  | Images, screenshots, PDFs, audio, exports — filed into monthly `YYYY-MM/` subfolders, plus `_Attachments MOC.md`. Keeps assets out of your note flow                                                                                     |
+| **`99-Templates/`**      | Reusable note blueprints                 | `Daily.md`, `Concept.md`, `Dev.md`, `Project.md`, `Learning.md`, `Personal.md`, `Resource.md`, `API.md`, mobile capture templates. *Blueprints only — never edit these as notes*                                                         |
+| **`.obsidian/`**         | Vault configuration and custom code      | HomePulse plugin (`plugins/homepulse/`), CSS snippets, themes, hotkeys, plugin settings                                                                                                                                                  |
+| **`.kiro/`**             | Kiro IDE automation                      | Hooks for `.env` validation, Git safety, and inbox triage suggestions                                                                                                                                                                    |
+| **`.secrets/`**          | **Git-ignored** private notes            | Bank details, private logs, credential context. Never committed                                                                                                                                                                          |
+| **`.env`**               | **Git-ignored** machine credentials      | `GEMINI_API_KEY`, `OPENAI_API_KEY`. Read by the AI enricher — share `.env.example` instead                                                                                                                                               |
+| **`README.md`**          | Vault documentation                      | Setup guide, conventions, plugin list — for future you or a fresh clone                                                                                                                                                                  |
+| **`LICENSE`**            | Usage terms for the public repo          | MIT license — leave as-is                                                                                                                                                                                                                |
 
-> [!NOTE] 🗺️ Two conventions that hold this together
+> [!NOTE] Two conventions that hold this together
 > - **MOC naming**: Every folder has a `_*.md` MOC dashboard (13 in total). The leading underscore keeps MOCs out of Dataview results and AI link suggestions — don't rename them.
 > - **AI enrichment scope**: `Ctrl + Shift + A` works in `01-Daily`, `03-Dev`, `04-Learning`, and `08-Concepts`. Anywhere else it declines.
 
 ---
 
-## ⚡ 3. QuickAdd Shortcuts & Triage System
+## 3. QuickAdd Shortcuts and Triage System
 
 ### QuickAdd Action Catalog
 
-|     Sidebar / Hotkey     | Choice Name                            |     Type     | Folder Target              | Naming / Function                                                                     |
-| :----------------------: | :------------------------------------- | :----------: | :------------------------- | :------------------------------------------------------------------------------------ |
-| **`✨` / `Ctrl+Shift+A`** | **AI Enrich Note**                     | Script Macro | Active Note                | Multi-domain AI summary, reflection, code explanation, or concept lore                |
-|   **`💡` / QuickAdd**    | **Distill Evergreen Concepts**         | Script Macro | Active Note                | Extracts atomic mental models into `08-Concepts/` with backlinks                      |
-|   **`🚀` / QuickAdd**    | **Start Work on Kanban Task**          | Script Macro | Active Kanban              | Creates GitHub issue in repo, switches git branch, moves card to In Progress          |
-|   **`🐙` / QuickAdd**    | **Sync GitHub Activity to Daily Log**  | Script Macro | Active / Today Daily Note  | Fetches commits, PRs, and issues with 12h `hh:mm A` timestamps into `## 📝 Daily Log` |
-| **`🐙` / `Cmdr Ribbon`** | **Sync GitHub Project Kanban**         | Script Macro | Active Kanban              | Multi-project 2-way sync with GitHub Projects v2 (`github_project_number`)            |
-|            📥            | **Quick Capture to Inbox**             |   Capture    | `00-Inbox/`                | `quick-capture-dump.md` (Timestamped `### 📅 YYYY-MM-DD HH:mm`)                       |
-|            🧹            | **Triage Sweep**                       | Script Macro | `00-Inbox/` → destinations | `triage-sweep.js` (files every tagged capture line in one pass)                       |
-|           🗃️            | **Archive & Clear Quick Capture Dump** | Script Macro | `00-Inbox/`                | `clear-capture-dump.js` (Archives dump to `00-Inbox/Archives/`)                       |
-|            📅            | **Append to Today's Daily Note**       |   Capture    | `01-Daily/`                | `YYYY-MM/YYYY-MM-DD.md`                                                               |
-|            ⏰             | **Create Timestamped Daily Note**      |   Template   | `01-Daily/`                | `YYYY-MM-DD_HHmm {{VALUE}}`                                                           |
-|            🚀            | **Create Project Note**                |   Template   | `02-Projects/{{VALUE}}/`   | `02-Projects/{{VALUE}}/{{VALUE}}.md`                                                  |
-|            💻            | **Create Dev Note**                    |   Template   | `03-Dev/`                  | `YYYY-MM-DD_HHmm {{VALUE}}`                                                           |
-|            💡            | **Create Concept Note**                |   Template   | `08-Concepts/`             | `YYYY-MM-DD_HHmm {{VALUE}}`                                                           |
-|            🔌            | **New API Note**                       |   Template   | `06-Resources/APIs/`       | `YYYY-MM-DD_HHmm {{VALUE}}`                                                           |
+The core QuickAdd choices required for everyday use are documented in [Setup & Configuration](Setup%20&%20Configuration.md). This catalog lists the full set of macro and template choices supported by the vault scripts:
+
+| Choice Name                            |     Type     | Folder Target              | Naming / Function                                                                     |
+| :------------------------------------- | :----------: | :------------------------- | :------------------------------------------------------------------------------------ |
+| **AI Enrich Note** (`Ctrl+Shift+A`)    | Script Macro | Active Note                | Multi-domain AI summary, reflection, code explanation, or concept lore                |
+| **Quick Capture**                      | Script Macro | `00-Inbox/`                | Appends timestamped line to `quick-capture-dump.md` (`quick-capture-action.js`)       |
+| **Triage Sweep**                       | Script Macro | `00-Inbox/` → destinations | `triage-sweep.js` (files every tagged capture line in one pass)                       |
+| **Weekly Review**                      | Script Macro | `07-Reviews/`              | `weekly-ai-summary.js` (generates weekly summary and habit statistics)                |
+| **Distill Evergreen Concepts**         | Script Macro | Active Note                | Extracts atomic mental models into `08-Concepts/` with backlinks                      |
+| **Start Work on Kanban Task**          | Script Macro | Active Kanban              | Creates GitHub issue in repo, switches git branch, moves card to In Progress          |
+| **Sync GitHub Activity to Daily Log**  | Script Macro | Active / Today Daily Note  | Fetches commits, PRs, and issues with 12h `hh:mm A` timestamps into `## 📝 Daily Log` |
+| **Sync GitHub Project Kanban**         | Script Macro | Active Kanban              | Multi-project 2-way sync with GitHub Projects v2 (`github_project_number`)            |
+| **Archive & Clear Quick Capture Dump** | Script Macro | `00-Inbox/`                | `clear-capture-dump.js` (Archives dump to `00-Inbox/Archives/`)                       |
+| **Create Daily Note**                  |   Template   | `01-Daily/`                | `99-Templates/Daily`                                                                  |
+| **Create Project Note**                |   Template   | `02-Projects/{{VALUE}}/`   | `02-Projects/{{VALUE}}/{{VALUE}}.md`                                                  |
+| **Create Dev Note**                    |   Template   | `03-Dev/`                  | `YYYY-MM-DD_HHmm {{VALUE}}`                                                           |
+| **Create Concept Note**                |   Template   | `08-Concepts/`             | `YYYY-MM-DD_HHmm {{VALUE}}`                                                           |
+| **New API Note**                       |   Template   | `06-Resources/APIs/`       | `YYYY-MM-DD_HHmm {{VALUE}}`                                                           |
 
 ---
 
-### 🧹 Triage: Tag the Line, Then Sweep
+### Triage: Tag the Line, Then Sweep
 
 Triage is a **decision**, not a document. Every capture resolves to one of eight verdicts by appending a token in `quick-capture-dump.md`:
 
@@ -133,7 +135,7 @@ Triage is a **decision**, not a document. Every capture resolves to one of eight
 | `#project` | `02-Projects/<Name>/` | `type: project` + a Kanban board |
 | `#bin` | dropped | — (logged, not filed) |
 
-Then run **Triage Sweep** (`🧹`). It processes everything in a single pass:
+Then run **Triage Sweep**. It processes everything in a single pass:
 
 ```text
 - i have to do laundry #do          ->  01-Daily/2026-08-29.md  (as a task)
@@ -142,7 +144,7 @@ Then run **Triage Sweep** (`🧹`). It processes everything in a single pass:
 - lemme test #bin                   ->  dropped
 ```
 
-> [!NOTE]- ⚙️ Triage Sweep Engine Mechanics (Click to expand)
+> [!NOTE]- Triage Sweep Engine Mechanics (Click to expand)
 > - **Untagged lines are never touched.** Tag only what you've decided on; the rest waits.
 > - **Nothing is silently deleted.** Swept lines move to a `## ✅ Triaged` log at the bottom of the dump, struck through, with the destination link and the token used. Set `ARCHIVE_SWEPT_LINES = false` at the top of `triage-sweep.js` to hard-delete instead.
 > - **Titles are derived, not demanded.** A bare link becomes a readable title (`boot.dev lessons`); a line with words keeps its own wording. Capture timestamps and tokens are stripped out.
@@ -152,7 +154,7 @@ Then run **Triage Sweep** (`🧹`). It processes everything in a single pass:
 
 ---
 
-### 🌐 Web Clipper Integration (`06-Resources/clipper-templates/`)
+### Web Clipper Integration (`06-Resources/clipper-templates/`)
 
 For browser capture, import the pre-built JSON templates into the **Obsidian Web Clipper** browser extension:
 - **`inbox-quick-clip.json` / `inbox-quick-clip-ai.json`**: Capture web pages into `00-Inbox/` with optional AI bullets, ready for `#ref`/`#dev`/`#concept` tokens.
@@ -162,37 +164,37 @@ For browser capture, import the pre-built JSON templates into the **Obsidian Web
 
 ---
 
-## 🤖 4. Multi-Domain AI Enricher Engine (`ai-enrich-action.js`)
+## 4. Multi-Domain AI Enricher Engine (`ai-enrich-action.js`)
 
-Pressing **`Ctrl + Shift + A`** or clicking **`✨`** automatically detects the active note category and injects contextual insights:
+Pressing **`Ctrl + Shift + A`** detects the active note category and generates contextual sections:
 
 | Domain | Notes Target | What AI Generates |
 | :--- | :--- | :--- |
-| **📅 Daily Notes** | `01-Daily/...` | Casual vibe summary, friction/pattern reflection, tactical next step, connected notes, and daily spark quote. Unfinished tasks carry into `Tomorrow Setup`. |
-| **💡 Concept Notes** | `08-Concepts/...` | Technical definitions, real-world utility, runnable code snippets, or media/lore summaries (**no fake code blocks**). |
-| **💻 Dev Notes** | `03-Dev/...` | Detects language, context, code explanations, and related architectural links. |
-| **📖 Learning Notes** | `04-Learning/...` | Extracts evergreen concepts, reusable patterns, and active recall self-quiz flashcards. |
+| **Daily Notes** | `01-Daily/...` | Casual summary, friction/pattern reflection, tactical next step, connected notes, and daily spark quote. Unfinished tasks carry into `Tomorrow Setup`. |
+| **Concept Notes** | `08-Concepts/...` | Technical definitions, real-world utility, runnable code snippets, or media/lore summaries (**no fake code blocks**). |
+| **Dev Notes** | `03-Dev/...` | Detects language, context, code explanations, and related architectural links. |
+| **Learning Notes** | `04-Learning/...` | Extracts evergreen concepts, reusable patterns, and active recall self-quiz flashcards. |
 
-> [!INFO]- 🔍 Daily AI Enricher Contract & Chief of Staff Persona (Click to expand)
-> **Reads**: `mood` / `energy` / `sleep_hours`, 🎯 Today's Focus, ✅ Tasks (completed, open, and `[>]` forwarded counted separately), 🔁 Habits (as *n* of 6), 📝 Daily Log personal entries, 🐙 GitHub Activity Log callout table, 💡 Ideas & Fleeting Notes, and human-written Wins / Blockers / Reflection.
+> [!INFO]- Daily AI Enricher Contract & Chief of Staff Persona (Click to expand)
+> **Reads**: `mood` / `energy` / `sleep_hours`, `### 🎯 Today's Focus`, `### ✅ Tasks` (completed, open, and `[>]` forwarded counted separately), `## 🔁 Habits` (as *n* of 6), `## 📝 Daily Log` personal entries, GitHub Activity Log callout table, `### 💡 Ideas & Fleeting Notes`, and human-written Wins / Blockers / Reflection.
 >
-> **Writes** into 🤖 AI Daily Summary:
-> - **📖 Daily Debrief** — 2-paragraph narrative in casual Kiwi English capturing the morning context/friction, afternoon developer output across projects, and evening wind-down.
-> - **🧠 Chief of Staff Takeaway** — High-signal strategic lesson explaining why the workflow succeeded (e.g. how planning before coding prevented decision fatigue and token waste).
-> - **🎯 Tomorrow's Move** — Priority-first anchor recommending the top `#priority/p0` or `#priority/p1` task to tackle first thing in the morning, factoring in sleep debt.
-> - **💡 Daily Spark** — Real, verified inspirational quote from a famous real-world philosopher, author, or engineer (e.g. Marcus Aurelius, James Clear, Linus Torvalds, Seneca).
-> - **🔗 Connected Notes** — Yesterday's daily note always first, followed by valid wikilinks to notes actually named in the day's tasks or log.
+> **Writes** into `## 🤖 AI Daily Summary`:
+> - **`### 📖 Daily Debrief`** — 2-paragraph narrative in casual Kiwi English capturing the morning context/friction, afternoon developer output across projects, and evening wind-down.
+> - **`### 🧠 Chief of Staff Takeaway`** — High-signal strategic lesson explaining why the workflow succeeded (e.g. how planning before coding prevented decision fatigue and token waste).
+> - **`### 🎯 Tomorrow's Move`** — Priority-first anchor recommending the top `#priority/p0` or `#priority/p1` task to tackle first thing in the morning, factoring in sleep debt.
+> - **`> [!QUOTE] 💡 Daily Spark`** — Real, verified inspirational quote from a famous real-world philosopher, author, or engineer (e.g. Marcus Aurelius, James Clear, Linus Torvalds, Seneca).
+> - **`##### 🔗 Connected Notes`** — Yesterday's daily note always first, followed by valid wikilinks to notes actually named in the day's tasks or log.
 >
 > **Voice contract**: Authentic Kiwi English dev mate persona — conversational, sharp, pragmatic, never clinical or corporate. Link guard prevents hallucinated note titles. Automatic non-breaking `&nbsp;` spacing and chronological AM $\rightarrow$ PM sorting in GitHub activity tables.
 
 ---
 
-## 📋 5. Task Management & Kanban Status Sync
+## 5. Task Management and Kanban Status Sync
 
 ### Task States & Architecture
 
 - **Daily Notes as Source of Truth**: Tasks live directly inside `01-Daily` and `02-Projects`.
-- **Interactive Visual Boards**: [[01-Daily/Tasks Kanban|Tasks Kanban.md]] provides an interactive drag-and-drop board for daily active focus, while [[01-Daily/_Tasks MOC|_Tasks MOC.md]] aggregates tasks across the entire vault with completion metrics.
+- **Interactive Visual Boards**: [`Tasks Kanban.md`](../../01-Daily/Tasks%20Kanban.md) provides an interactive drag-and-drop board for daily active focus, while [`_Tasks MOC.md`](../../01-Daily/_Tasks%20MOC.md) aggregates tasks across the entire vault with completion metrics.
 - **Task Markers**:
   - `- [ ] task` $\rightarrow$ **Active To-Do**
   - `- [/] task` $\rightarrow$ **In Progress** (Immediate focus anchor)
@@ -202,24 +204,24 @@ Pressing **`Ctrl + Shift + A`** or clicking **`✨`** automatically detects the 
 
 ---
 
-### 🔁 Task Lifecycle & Kanban Synchronization
+### Task Lifecycle & Kanban Synchronization
 
 ```mermaid
 flowchart LR
-    subgraph Sources["📝 Sources of Truth"]
-        D["📅 Daily Note<br/>(Tasks typed today)"]
-        K["🚀 Project Kanban<br/>(Cards in lanes)"]
+    subgraph Sources["Sources of Truth"]
+        D["Daily Note<br/>(Tasks typed today)"]
+        K["Project Kanban<br/>(Cards in lanes)"]
     end
 
-    subgraph Engine["⚙️ Kanban Status Sync"]
+    subgraph Engine["Kanban Status Sync"]
         K -->|Drag to In Progress| IP["- [/] In Progress"]
-        K -->|Drag to Done / Tick| DN["- [x] Completed ✅"]
+        K -->|Drag to Done / Tick| DN["- [x] Completed"]
     end
 
-    subgraph Views["📊 Live Aggregations"]
-        D & IP --> MOC["📋 _Tasks MOC & Home.md"]
-        IP --> Mirror["🎯 Daily Note Mirror Block"]
-        DN --> Analytics["📈 Habit & Task Analytics"]
+    subgraph Views["Live Aggregations"]
+        D & IP --> MOC["_Tasks MOC & Home.md"]
+        IP --> Mirror["Daily Note Mirror Block"]
+        DN --> Analytics["Habit & Task Analytics"]
     end
 
     D -->|Next Day Creation| Fwd["- [>] Forwarded (No Duplicate Count)"]
@@ -240,16 +242,16 @@ Card markers are automatically maintained by the **Kanban Status Sync** plugin (
 
 ---
 
-### 🎯 Project Tasks Mirror in Daily Notes
+### Project Tasks Mirror in Daily Notes
 
-`99-Templates/Daily.md` carries a live `dataviewjs` block under `## ✅ Tasks` that queries project boards directly:
+`99-Templates/Daily.md` carries a live `dataviewjs` block under `### ✅ Tasks` that queries project boards directly:
 - Shows project cards currently **in progress** (`[/]`).
 - Shows project cards **completed on today's date**.
 - Rendered with `project-tasks.css` so in-progress cards look like checkable tasks in the daily view without duplicating data on disk.
 
 ---
 
-### 🐙 2-Way GitHub Projects v2 Sync Setup
+### 2-Way GitHub Projects v2 Sync Setup
 
 To connect an Obsidian project board to GitHub Projects:
 
@@ -266,81 +268,60 @@ To connect an Obsidian project board to GitHub Projects:
    github_owner: your-username
    ---
    ```
-3. **Sync**: Press `Ctrl + P` $\rightarrow$ `QuickAdd: Sync GitHub Project Kanban` (or click the GitHub ribbon icon). Remote changes pull into Obsidian, and local cards push to GitHub.
+3. **Sync**: Press `Ctrl + P` $\rightarrow$ `QuickAdd: Sync GitHub Project Kanban` (or run `npm run sync-kanban`). Remote changes pull into Obsidian, and local cards push to GitHub.
 
 ---
 
-## 🛠️ 6. Vault Maintenance & Review Cadence
+## 6. Vault Maintenance and Review Cadence
 
 A healthy second brain requires periodic hygiene so notes remain actionable and clutter-free:
 
 | Cadence | Focus Area | Key Actions |
 | :--- | :--- | :--- |
-| **☀️ Daily** *(5 min)* | `Home.md` & `01-Daily/` | - **Morning (2m)**: Check HomePulse, open today's note, log sleep/mood, review carried tasks.<br/>- **Evening (3m)**: Check off habits, log dev/work wins, press `Ctrl+Shift+A` (`✨`) for AI enrichment. |
-| **🗓️ Weekly** *(15 min)* | `_Triage MOC` & `07-Reviews/` | - Open [[00-Inbox/_Triage MOC|_Triage MOC.md]] and process neglected items ($>7$ days).<br/>- Run `🧹 Triage Sweep` to clear `quick-capture-dump.md`.<br/>- Generate Weekly Review note (`YYYY-[W]WW.md`) with weekly AI rollup. |
-| **🌙 Monthly** *(30 min)* | `07-Reviews/` & `02-Projects/` | - Review [[07-Reviews/Habit Analytics Dashboard|Habit Analytics Dashboard.md]] for habit consistency.<br/>- Check `_Triage MOC` for stale `in-progress` notes ($>30$ days untouched).<br/>- Move completed project cards to board `## Archive` and write project retrospectives. |
-| **💡 Quarterly** *(45 min)* | `08-Concepts/` (`_Triage MOC`) | - Open `_Triage MOC` $\rightarrow$ **Overdue Reviews** table (`review_cycle: 90d`).<br/>- Revisit evergreen mental models, update with new insights, and refresh `last_reviewed: YYYY-MM-DD`. |
+| **Daily** | `Home.md` and `01-Daily/` | Review carried tasks in today's note, log evening habits, and run `AI Enrich Note` (`Ctrl + Shift + A`) if desired. |
+| **Weekly** | `_Triage MOC` and `07-Reviews/` | Process neglected items in `_Triage MOC.md`, tag dump lines and run `Triage Sweep`, and generate a weekly review note (`YYYY-[W]WW.md`). |
+| **Monthly** | `07-Reviews/` and `02-Projects/` | Review `Habit Analytics Dashboard.md` for consistency trends, archive finished project cards, and write project retrospectives. |
+| **Quarterly** | `08-Concepts/` | Check `_Triage MOC.md` for evergreen concepts past their 90-day review cycle (`review_cycle: 90d`) and update `last_reviewed`. |
+
+For common error messages, plugin recovery, and a full list of read-only versus mutating commands, see [Maintenance & Troubleshooting](Maintenance%20&%20Troubleshooting.md).
 
 ---
 
-## 🔒 7. Vault Security Policy
+## 7. Vault Security Policy
 
-Refer to [[Vault Security Policy]] for complete operational guidelines:
+Security rules are documented in [Vault Security Policy](Vault%20Security%20Policy.md):
 
-1. **`.env`**: Stores real API keys used by scripts (`GEMINI_API_KEY`, `OPENAI_API_KEY`). **Git-ignored, never committed**.
-2. **`.secrets/`**: Private human-readable credentials, financial, and personal logs. **Git-ignored, never committed**.
-3. **Tracked Vault Notes**: Documentation ONLY. **Zero plaintext secrets or API tokens allowed**.
-
----
-
-## 🤖 8. AI Assistant Workflow ("Hey Loey") & Maintenance Rhythms
-
-For conversational management of the vault, the assistant acts as a digital Chief of Staff guided by [[AGENTS|AGENTS.md]].
-
-### 🎙️ The `"Hey Loey"` Command Catalog
-
-Start any prompt in your AI agent interface with `"heyloey"` or `"hey loey"` to trigger fast workflows:
-
-| Trigger Command                                                                 | Workflow Executed                                                                                                                |
-| :------------------------------------------------------------------------------ | :------------------------------------------------------------------------------------------------------------------------------- |
-| **`heyloey status`** / **`hey loey status`** (or `heyloey` / `hey loey`)        | **Vault Pulse Check**: Summarizes inbox dump status, daily note/habit completeness, and active project tasks.                    |
-| **`heyloey morning`** / **`hey loey morning`**                                  | **Morning Kick-off**: Preps today's note with a real inspirational quote (`Daily Spark`), surfaces in-flight project tasks for awareness, prompts for personal focus intentions & vitals, and auto-ticks `prioritised`. |
-| **`heyloey log`** / **`heyloey sync`** (or `hey loey log` / `sync`)              | **Fast Session Log**: Non-destructively records session progress, wins, blockers, and git commits into today's note.            |
-| **`heyloey handoff`** / **`heyloey save`** (or `hey loey handoff` / `save`)      | **Session Handoff**: Updates `handoff.md` with in-flight objectives, completed milestones, and immediate next moves.             |
-| **`heyloey evening`** / **`hey loey evening`**                                  | **Evening Wind-down**: Auto-syncs GitHub events, reconciles morning focus, prompts for reflections & habits, and generates the AI Daily Summary. |
-| **`heyloey activity`** / **`github`** (or `hey loey activity`)                  | **GitHub Activity Sync**: Fetches today's GitHub commits, PRs, and issues and merges them into today's daily log (`npm run log-github`). |
-| **`heyloey sweep`** / **`hey loey sweep`**                                      | **Inbox Triage**: Analyzes `quick-capture-dump.md`, appends routing tokens, and runs triage sweep.                               |
-| **`heyloey distill`** / **`heyloey dream`** (or `hey loey distill` / `dream`)    | **Knowledge Distillation & Dream Loop**: Extracts atomic concepts into `08-Concepts/` or patterns into `03-Dev/`, audits memory capacity (`--check-rot`), and proposes consolidations. |
-| **`heyloey weekly`** / **`hey loey weekly`**                                    | **Weekly Retrospective**: Aggregates 7-day habit trends and project progress into `07-Reviews/YYYY-[W]WW.md`.                    |
-| **`heyloey plan`** / **`project`** (or `hey loey plan`)                          | **Project Planning**: Scaffolds project folder, master note, and visual Kanban with Backlog Shield.                              |
-| **`heyloey health`** / **`audit`** (or `hey loey health`)                        | **Hygiene & Anti-Rot Audit**: Runs template validation, checks for broken links, runs `npm run check-rot` (memory budget, overdue reviews, skill guardrails), and verifies Git secret exclusion. |
-| **`heyloey remind`** / **`hey loey remind`**                                    | **Proactive Reminders & Scheduling**: Set one-shot timers or recurring reminders for routines, reviews, or task follow-ups.      |
-
-### 🛠️ Specialized Vault Skills (`.agents/skills/`)
-1. **`vault-concept-distiller`** (`pinned: true`): Synthesizes articles/snippets into atomic `08-Concepts/` notes with 90-day review cycles.
-2. **`kanban-project-planner`** (`pinned: true`): Decomposes project goals into priority-tagged cards (`#priority/p0-p3`) and syncs with GitHub Projects v2.
-3. **`vault-hygiene-auditor`** (`pinned: true`): Validates frontmatter tags, scans for dead links, audits Git secret exclusion, and runs `--check-rot`.
-4. **`habit-trend-analyzer`** (`pinned: true`): Correlates multi-day mood/energy/sleep metrics and generates weekly retrospective rollups.
-5. **`dev-snippet-indexer`** (`pinned: true`): Formats reusable technical patterns into `03-Dev/` with language syntax tags and MOC links.
-
-### ⚙️ Supported Agents & Recommended Models
-
-The assistant interface is tool-agnostic:
-- **Agentic Coding Assistants** *(Antigravity, Kiro, Cursor, Windsurf, Claude Code)*: Automatically load [`AGENTS.md`](../../AGENTS.md) and all 5 skills with **zero setup**.
-- **In-Obsidian Native AI**: Uses `GEMINI_API_KEY` from [`.env`](../../.env) via [`06-Resources/scripts/`](../scripts).
-- **Recommended Models**:
-  - `gemini-2.5-flash` / `gemini-2.5-flash-lite`, `gpt-4o-mini`, or `claude-3-5-haiku` for fast daily triage & checks.
-  - `gemini-2.5-pro` or `claude-3-7-sonnet` for deep concept synthesis and project planning.
+1. **`.env`**: Stores real machine credentials used by scripts (`GEMINI_API_KEY`). Git-ignored and never committed.
+2. **`.secrets/`**: Private human-readable credentials, personal records, and financial notes. Git-ignored and never committed.
+3. **Tracked Vault Notes**: Safe for public version control. Never put plaintext secrets or API tokens in tracked notes.
 
 ---
 
-## 📚 Related Resources & Navigation
+## 8. Conversational Assistant ("Hey Loey")
 
-- 🏠 **[[Home|Central Command Hub (Home.md)]]**
-- 🤖 **[[AGENTS|Loey Space AI Assistant Spec (AGENTS.md)]]**
-- 🧹 **[[00-Inbox/_Triage MOC|Triage & Maintenance MOC]]**
-- 🏷️ **[[Tagging & Properties|Tagging & Properties System]]**
-- 📱 **[[Mobile Workflow Guide|Mobile Workflow Guide]]**
-- 📊 **[[07-Reviews/Habit Analytics Dashboard|Habit Analytics Dashboard]]**
-- 🔒 **[[Vault Security Policy|Vault Security Policy]]**
+For conversational management inside AI coding assistants (such as Google Antigravity, Claude Code, Cursor, or Windsurf), the assistant acts as a digital Chief of Staff guided by [`AGENTS.md`](../../AGENTS.md).
+
+To trigger specific workflows, start prompts with `"heyloey"` or `"hey loey"`:
+- `heyloey status`: Quick pulse check of inbox, habits, and tasks.
+- `heyloey morning`: Morning briefing, intentions, and vitals.
+- `heyloey evening`: Evening review, habit check, and daily debrief.
+- `heyloey sweep`: Triage inbox captures.
+- `heyloey plan <name>`: Scaffold a new project and Kanban board.
+- `heyloey distill`: Extract concepts into `08-Concepts/`.
+
+For the complete prompt catalog, milestone-only logging policy, and the distinction between chat prompts and the `~/.local/bin/heyloey` CLI tool, see the dedicated [Hey Loey Guide](Hey%20Loey%20Guide.md).
+
+---
+
+## 9. Related Guides & Navigation
+
+- [Documentation Index](Documentation%20Index.md) — Full directory of vault guides organized by reader goal
+- [Setup & Configuration](Setup%20&%20Configuration.md) — Initial vault setup and QuickAdd configuration
+- [Hey Loey Guide](Hey%20Loey%20Guide.md) — Conversational assistant prompt catalog and logging rules
+- [Maintenance & Troubleshooting](Maintenance%20&%20Troubleshooting.md) — Problem diagnosis and command reference
+- [Vault Security Policy](Vault%20Security%20Policy.md) — Sensitive note storage and secret protection
+- [Tagging & Properties](Tagging%20&%20Properties.md) — Frontmatter schema and tag taxonomy
+- [Mobile Workflow Guide](Mobile%20Workflow%20Guide.md) — Fast capture on mobile devices
+- [Weekly AI Summary Guide](Weekly%20AI%20Summary%20Guide.md) — Weekly reviews and Gemini data details
+
 

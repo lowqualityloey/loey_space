@@ -1,12 +1,13 @@
 ---
 created: 2026-09-01
-updated: 2026-10-07
+updated: 2026-10-12
 type: guide
 status: active
 area: system
 tags:
   - type/guide
   - area/system
+  - status/active
   - topic/contributing
 ---
 
@@ -16,31 +17,31 @@ This repository is two things in one: a **reusable Obsidian system** (plugins, s
 
 ---
 
-## ✅ Open to contributions
+## Open to contributions
 
 | Area | What's useful |
 | :--- | :--- |
-| [`.obsidian/plugins/kanban-status-sync/`](.obsidian/plugins/kanban-status-sync/) | Bug fixes, lane-mapping options, tests. Self-contained, ~500 lines, no build step — the best entry point. |
-| [`06-Resources/scripts/src/`](06-Resources/scripts/src/) | AI enricher, triage sweep, weekly summary, GitHub Kanban sync (TypeScript source). Compiled via `npm run build`. |
-| [`.obsidian/snippets/`](.obsidian/snippets/) | Theme and responsiveness fixes, particularly mobile. |
-| [`.githooks/`](.githooks/) | Additional credential patterns, fewer false positives. |
-| [`99-Templates/`](99-Templates/) | Template improvements that don't assume my personal habits. |
+| [`.obsidian/plugins/kanban-status-sync/`](../../.obsidian/plugins/kanban-status-sync/) | Bug fixes, lane-mapping options, tests. Self-contained, ~500 lines, no build step — the best entry point. |
+| [`06-Resources/scripts/src/`](../scripts/src/) | AI enricher, triage sweep, weekly summary, GitHub Kanban sync (TypeScript source). Compiled via `npm run build`. |
+| [`.obsidian/snippets/`](../../.obsidian/snippets/) | Theme and responsiveness fixes, particularly mobile. |
+| [`.githooks/`](../../.githooks/) | Additional credential patterns, fewer false positives. |
+| [`99-Templates/`](../../99-Templates/) | Template improvements that don't assume my personal habits. |
 | Documentation | `README.md` and the guides in `06-Resources/`. Corrections especially welcome. |
 
-## 🚫 Not open to contributions
+## Not open to contributions
 
 * `01-Daily/`, `05-Personal/`, `07-Reviews/`, `00-Inbox/` — personal journal, habits and captures. Mostly git-ignored; what remains is dashboards.
 * `03-Dev/`, `04-Learning/`, `08-Concepts/` — my own notes. Fine to read, not to edit.
 * `.obsidian/plugins/homepulse/` — ships as a **built, minified `main.js` with no authoritative source available**, so the minified core cannot meaningfully be patched here. The readable prelude at the top of the bundle *is* locally owned and already carries vault patches (habit and focus sync) covered by tests. Read [`Plugin Ownership.md`](Plugin%20Ownership.md) first: it records the provenance, the owned symbols, and how to re-apply local changes after a plugin update. For the minified core, please open an issue instead of a PR.
-* `.env`, `.secrets/` — never in the repo. See [Security](#-security).
+* `.env`, `.secrets/` — never in the repo. See [Security](#security).
 
 **Issues are welcome for anything**, including the closed areas — a bug report about the dashboard is useful even when the fix has to happen elsewhere.
 
 ---
 
-## 🛠️ Script Development & Verification
+## Script Development & Verification
 
-Vault user scripts are authored in TypeScript under [`06-Resources/scripts/src/`](06-Resources/scripts/src/) and bundled to CommonJS in [`06-Resources/scripts/`](06-Resources/scripts/) for Obsidian QuickAdd compatibility:
+Vault user scripts are authored in TypeScript under [`06-Resources/scripts/src/`](../scripts/src/) and bundled to CommonJS in [`06-Resources/scripts/`](../scripts/) for Obsidian QuickAdd compatibility:
 
 ### Clean install first
 
@@ -57,38 +58,49 @@ npm ci                  # exact versions from package-lock.json, this platform's
 
 Working from WSL against a vault on a Windows drive? Run `npm ci` from the WSL shell before your first build of the session, and again from PowerShell before the first Windows build. One shared directory means one of the two platforms is always broken.
 
-Then:
+### Read-Only Verification Checks
+
+Run these checks to verify changes without modifying vault notes or GitHub state:
 
 ```bash
 # 1. Typecheck TypeScript source
 npm run typecheck
 
-# 2. Build single-file CommonJS bundles via esbuild
-npm run build
-
-# 3. Run automated unit test suite
+# 2. Run automated unit test suite
 npm test
 
-# 4. Audit vault wikilinks & graph connectivity
+# 3. Audit vault wikilinks & graph connectivity
 npm run audit-links
 
-# 5. Distill atomic evergreen concepts from articles/notes
-npm run distill -- "path/to/note.md"
-
-# 6. Start work on Kanban card & create GitHub issue + branch
-npm run start-task -- <project-name> "<task-title>"
-
-# 7. Sync today's GitHub commits/PRs into Daily Log (12h AM/PM)
-npm run log-github
-
-# 8. Sync GitHub Projects v2 Kanban boards (multi-project)
-npm run sync-kanban
-
-# 9. Validate vault templates against schema
+# 4. Validate vault templates and tracked notes against schema
 npm run validate-templates
+
+# 5. Inspect unclassified records and review metadata coverage
+npm run hygiene
 ```
 
-## 🧪 How to test without a vault
+### Build and Mutating Workflow Commands
+
+These commands compile bundles, create or modify notes on disk, or change GitHub state:
+
+```bash
+# 1. Build single-file CommonJS bundles via esbuild
+npm run build
+
+# 2. Distill atomic evergreen concepts from articles/notes (creates files in 08-Concepts/)
+npm run distill -- "path/to/note.md"
+
+# 3. Start work on Kanban card & create GitHub issue + branch
+npm run start-task -- <project-name> "<task-title>"
+
+# 4. Sync today's GitHub commits/PRs into Daily Log (modifies today's daily note)
+npm run log-github
+
+# 5. Sync GitHub Projects v2 Kanban boards (modifies board files and remote project)
+npm run sync-kanban
+```
+
+## How to test without a vault
 
 Every script here talks to Obsidian through a small slice of its API, so you can exercise it under plain Node by mocking `app.vault`. No Obsidian install, and no risk to anyone's notes:
 
@@ -127,7 +139,7 @@ Please include the check you ran in the PR description. Node's built-in `assert`
 
 ---
 
-## 📝 Pull requests
+## Pull requests
 
 1. **One concern per PR.** A lane-mapping fix and a CSS tweak are two PRs.
 2. **Match the surrounding style** — TypeScript in `06-Resources/scripts/src/` (always run `npm run typecheck` and `npm run build`); plain CommonJS/CSS with no external runtime dependencies for standalone plugins and snippets.
@@ -157,11 +169,11 @@ than they bite a PR against `main`:
 * **No run happens at all while the pull request has a merge conflict.** An absent check is not
   a passing one, and a stack is likelier to be in that state than a PR against `main`.
 
-## 🐛 Bug reports
+## Bug reports
 
 Include your Obsidian version, desktop or mobile, the relevant console output (`Ctrl + Shift + I`), and what you expected. For AI features, note whether the notice mentioned a **quota limit** — a 429 means Gemini refused the request, which is not a bug in this code.
 
-## 🔒 Security
+## Security
 
 Never open a public issue for a credential. If you find a key committed here, email the address on my GitHub profile.
 
@@ -169,11 +181,11 @@ Rules that apply to every contribution:
 
 * Secrets live in `.env` only, which is git-ignored. Commit `.env.example` instead.
 * `.secrets/` and `00-Private/` are never tracked.
-* The [pre-commit hook](.githooks/pre-commit) blocks key-shaped strings and forbidden paths. It is a local guard, not a net — see the [Vault Security Policy](Vault%20Security%20Policy.md).
+* The [pre-commit hook](../../.githooks/pre-commit) blocks key-shaped strings and forbidden paths. It is a local guard, not a net — see the [Vault Security Policy](Vault%20Security%20Policy.md).
 * A key that reached a public commit must be **rotated**. Rewriting history does not un-leak it.
 
 ---
 
-## 📄 Licence
+## Licence
 
-Contributions are accepted under the [MIT Licence](LICENSE), same as the rest of the project.
+Contributions are accepted under the [MIT Licence](../../LICENSE), same as the rest of the project.

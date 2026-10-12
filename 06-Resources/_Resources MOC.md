@@ -20,6 +20,8 @@ tags:
 ## 🛡️ Vault Guides, Systems & Policies
 *Internal operating manuals, system workflows, and security standards (from `06-Resources/Guides/`).*
 
+> 🧭 **Navigation**: For guides organized by reader goal, see the [[Documentation Index]].
+
 ```dataview
 TABLE 
   type AS "Type",

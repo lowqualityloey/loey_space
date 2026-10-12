@@ -6,16 +6,17 @@ area: system
 tags:
   - type/guide
   - area/system
+  - status/active
   - topic/taxonomy
   - topic/metadata
 status: active
 ---
 
-# 🏷️ Tagging & Properties System
+# Tagging & Properties System
 
 > **Consistent metadata structure for effective note organization and discovery**
 
-## 📌 Authority of This Document
+## Authority of This Document
 
 This guide is the **single source of truth** for the vault's metadata schema. Types,
 areas, statuses, required fields, and review metadata are defined here once, and
@@ -41,7 +42,7 @@ hoping nobody runs the validator.
 
 ---
 
-## 🎯 Standard Properties (YAML Frontmatter)
+## Standard Properties (YAML Frontmatter)
 
 ### Baseline Required Properties (All Notes)
 
@@ -200,7 +201,7 @@ This mirrors the validator's namespace check exactly. A tag namespace beyond the
 
 ---
 
-## 🏷️ Tag Taxonomy
+## Tag Taxonomy
 
 ### 1. Type Taxonomy (`type/*`)
 Primary classification of note purpose and structure.
@@ -343,12 +344,12 @@ required on `project`.
 
 | Tag / Code | Level | Description | Color Standard |
 | :--- | :--- | :--- | :--- |
-| `priority/p0` / `priority/critical` | Critical | Blockers, urgent P0 issues | 🔴 Red (`#ef4444`) |
-| `priority/p1` / `priority/high` | High | High urgency, key deliverables | 🟡 Yellow (`#f59e0b`) |
-| `priority/p2` / `priority/medium` | Medium | Normal priority work items | 🔵 Blue (`#3b82f6`) |
-| `priority/p3` / `priority/low` | Low | Background, nice-to-have items | 🟢 Emerald Green (`#10b981`) |
+| `priority/p0` / `priority/critical` | Critical | Blockers, urgent P0 issues | Red (`#ef4444`) |
+| `priority/p1` / `priority/high` | High | High urgency, key deliverables | Yellow (`#f59e0b`) |
+| `priority/p2` / `priority/medium` | Medium | Normal priority work items | Blue (`#3b82f6`) |
+| `priority/p3` / `priority/low` | Low | Background, nice-to-have items | Emerald Green (`#10b981`) |
 
-> [!TIP] 🎨 Keeping the board colours aligned
+> [!TIP] Keeping the board colours aligned
 > If your task board renders these levels with colour, define the single-select option
 > colours once in your own board's field settings and reuse these four values there.
 > The hex values above are the reference: red, yellow, blue, green. Point the board at
@@ -356,7 +357,7 @@ required on `project`.
 
 ---
 
-## 📋 Template Property Specifications
+## Template Property Specifications
 
 Each example below is internally consistent with
 [Required Fields by Type](#required-fields-by-type). Dates and handles are
@@ -622,7 +623,7 @@ a contract violation, since the contract binds notes that declare metadata.
 
 ---
 
-## 🔍 Query Examples
+## Query Examples
 
 > [!WARNING] `review_cycle` is not a duration literal
 > `review_cycle: 90d` is the **string** `"90d"`. Dataview's `dur()` accepts a
@@ -705,7 +706,7 @@ unreviewed note has no interval to be overdue against.
 
 ---
 
-## 🔄 Maintenance Guidelines
+## Maintenance Guidelines
 
 1. **When Creating Notes**: Use a template, so required fields cannot be forgotten
 2. **When Tagging**: Add 1-2 topic tags maximum, focus on relevance
@@ -719,7 +720,7 @@ unreviewed note has no interval to be overdue against.
 
 ---
 
-## 🚀 Implementation Checklist
+## Implementation Checklist
 
 - [x] Create this documentation
 - [x] Update all templates with consistent properties
@@ -739,8 +740,8 @@ unreviewed note has no interval to be overdue against.
 
 ---
 
-## 📚 Related Resources
+## Related Resources
 
-- [[Home|Home (Central Command Hub)]]
-- [[Vault Security Policy]]
-- [[Second Brain Guide]]
+- [`Home.md`](../../Home.md) — Central Command Hub
+- [Vault Security Policy](Vault%20Security%20Policy.md)
+- [Second Brain Guide](Second%20Brain%20Guide.md)
