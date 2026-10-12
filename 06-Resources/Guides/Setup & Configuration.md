@@ -39,7 +39,17 @@ These are tracked, so they work in a fresh clone before any in-app step:
 
 `06-Resources/scripts/tests/setup-contract.test.mjs` asserts every row above, so this table cannot rot silently.
 
-### 1.1 Capture & attachment placement policy (one authority each)
+### 1.1 Obsidian rewrites `app.json` on first save
+
+On first open, Obsidian rewrites `.obsidian/app.json` whenever it saves a setting. Obsidian writes JSON without a trailing newline, while the repository tracks the file with one, so Git reports a whitespace-only change: the same five values, but `}` where the tracked file has `}\n`.
+
+Nothing is broken, and the file must stay tracked:
+
+- Do **not** git-ignore it and do **not** remove its defaults. `attachmentFolderPath`, `newFileFolderPath`, `alwaysUpdateLinks`, `promptDelete` and `tabSize` are required settings the setup contract above verifies.
+- If Git reports only that newline, restore the tracked form with `git checkout -- .obsidian/app.json`.
+- If a real setting changed, keep it and commit it deliberately, separate from the whitespace noise.
+
+### 1.2 Capture & attachment placement policy (one authority each)
 
 **Capture.** Generic note creation (the core *New note* command, `Ctrl/Cmd + N`) lands in `00-Inbox`. Raw, unprocessed material stays there and out of `08-Concepts`, and because `00-Inbox/*` is git-ignored it also stays private until it is deliberately promoted. Nothing generic is ever created straight into `08-Concepts`.
 
@@ -57,7 +67,7 @@ A concept is created **deliberately**, through the concept workflow: either the 
 
 Obsidian's core setting (`.obsidian/app.json`, tracked) keeps `attachmentFolderPath` at the same root — `99-Attachments` — so an attachment never lands outside the media root even when the plugin is disabled. The core setting is a **root, never a second pattern**: the plugin's pattern must always start with the core value, which is what ties the two into one policy.
 
-**Drawing / Markdown exceptions.** Excalidraw drawings are Markdown notes (`.excalidraw.md`), and every Markdown file is a note, not binary media. They are excluded from attachment collection (the plugin's path exclusions) so they stay beside their peers instead of being pulled into `99-Attachments`. Their hygiene is note hygiene — frontmatter, wikilinks, and the normal review cycle — not the unused-attachment sweep that applies to binary media.
+**Drawing / Markdown exceptions.** With the optional Excalidraw plugin enabled, Excalidraw drawings are Markdown notes (`.excalidraw.md`), and every Markdown file is a note, not binary media. They are excluded from attachment collection (the plugin's path exclusions) so they stay beside their peers instead of being pulled into `99-Attachments`. Their hygiene is note hygiene — frontmatter, wikilinks, and the normal review cycle — not the unused-attachment sweep that applies to binary media.
 
 **Optional migration.** If you move existing files to match this policy, back the vault up first, use link-preserving moves (Obsidian's own file move, or `git mv` on a clean tree), and re-resolve every link afterwards. Applying these documented defaults never moves existing attachments on its own.
 
@@ -65,9 +75,37 @@ Obsidian's core setting (`.obsidian/app.json`, tracked) keeps `attachmentFolderP
 
 ## 2. What must be configured once, in the app (~5 minutes)
 
-Enable the required plugins first (**Settings → Community plugins**): **QuickAdd**, **Templater**, **Dataview**, **Calendar**, **Kanban**, **Kanban Status Sync**, **HomePulse**. Of these, `homepulse` and `kanban-status-sync` are local builds — never install or auto-update them from the store (`Plugin Ownership.md`).
+### 2.1 Trust the vault first (Restricted Mode)
 
-### 2.1 QuickAdd — the five required actions
+A fresh clone has never been opened before, so Obsidian does not trust it. On first open it asks **"Do you trust the author of this vault?"** and offers **Trust author and enable plugins** or **Browse vault in Restricted Mode**. Restricted Mode does not load or run *any* community plugin — the vault opens, but HomePulse, QuickAdd, Templater, Dataview and the rest stay off, so every workflow this file describes silently does nothing.
+
+Choose **Trust author and enable plugins**. The decision is stored per-machine by the app, not in the repository, so it is asked once per clone. If Restricted Mode was chosen by mistake, turn it off in **Settings → Community plugins → Restricted mode**. [Onboarding](Onboarding.md) places this step at first open.
+
+### 2.2 Plugins: required versus optional
+
+`.obsidian/community-plugins.json` is tracked and enables **31** plugins in a fresh clone, while the guides name only the handful the documented workflows depend on. Both are true, and the gap is the point — reconcile them against this table rather than against whichever list you read first.
+
+| | Plugins | Why |
+| :--- | :--- | :--- |
+| **Required (9)** | QuickAdd (`quickadd`), Templater (`templater-obsidian`), Dataview (`dataview`), Calendar (`calendar`), Kanban (`obsidian-kanban`), Kanban Status Sync (`kanban-status-sync`), HomePulse (`homepulse`), Activity History (`obsidian-activity-history`), Custom Attachment Location (`obsidian-custom-attachment-location`) | Each one carries a documented workflow: capture/triage and the AI actions (QuickAdd), template rendering (Templater), MOC queries (Dataview), the daily-note calendar (Calendar), project boards (Kanban + Kanban Status Sync), the dashboard (HomePulse), activity history (Activity History), and single-authority attachment placement (§1.2). |
+| **Optional (22)** | Iconize (`obsidian-icon-folder`), Omnisearch (`omnisearch`), Commander (`cmdr`), Tag Wrangler (`tag-wrangler`), Linter (`obsidian-linter`), Ninja Cursor (`ninja-cursor`), File Explorer++ (`file-explorer-plus`), File Color (`obsidian-file-color`), Code Styler (`code-styler`), Colored Tags (`colored-tags`), Folder notes (`folder-notes`), Advanced Tables (`table-editor-obsidian`), Style Settings (`obsidian-style-settings`), Colored Tags Wrangler (`colored-tags-wrangler`), Tasks (`obsidian-tasks-plugin`), Excalidraw (`obsidian-excalidraw-plugin`), Pseudo Mica (`pseudo-mica`), MLIR Syntax Highlight (`mlir-syntax-highlight`), Code Space (`code-space`), Mehrmaid (`mehrmaid`), Terminal (`terminal`), Minimal Theme Settings (`obsidian-minimal-settings`) | Optional features outside the core workflow. Several add real functionality — Excalidraw (drawings), Tasks (task queries), Terminal (shell), Omnisearch (full-text search) — that you can enable or disable without affecting the required set. They ship enabled so a clone looks the way the vault is meant to look. |
+
+**Do not auto-update the two local builds** — `homepulse` and `kanban-status-sync` — from the store. **Auto-update plugins: OFF** is the supported setting (`Plugin Ownership.md`).
+
+**On removing plugins.** Turning a plugin off is safe and reversible. Deleting one from `community-plugins.json` is a configuration change with dependencies, so it is deliberately **not** part of this documentation fix: Custom Attachment Location is the optional-looking entry that is actually required (it owns attachment placement, §1.2), and a future removal must first check every workflow that names the plugin. No removals are proposed here.
+
+### 2.3 HomePulse's setup wizard (first run only)
+
+Runtime plugin state (`.obsidian/plugins/*/data.json`) is git-ignored, so HomePulse starts uninitialized and opens its own **4-step setup wizard** the first time the workspace is ready — before the dashboard exists. This is expected, not an error. The wizard's only buttons are **Back**, **Next** and **Finish** — there is no Skip — so **complete all four steps**:
+
+1. **Welcome!** — the homepage name (`My Homepage` by default).
+2. **Project folder** — a vault-relative folder whose `Project_*` notes count as active. Leave this field blank if you have none.
+3. **Areas folder** — a vault-relative folder whose notes carry `value/*` tags, used to link Areas to the Tech Tree. Leave this field blank if you do not use it; leaving it blank does **not** turn the Tech Tree off — the **Tech Tree** widget toggle in step 4 does.
+4. **Choose widgets** — toggle **Tasks**, **Projects**, **Habits** and **Tech Tree**.
+
+Closing the wizard before **Finish** leaves initialization incomplete (`data.json` is not marked initialized), so it reopens on the next launch. Every value can be changed later in **Settings → HomePulse**, and finishing shows **"Homepage setup complete!"**. The wizard appears once per vault because it writes `data.json`, which is never published.
+
+### 2.4 QuickAdd — the five required actions
 
 Create each as a **Macro** choice (**Settings → QuickAdd → Manage Macros → new macro → Add User Script**), then add it under **Add Choice → Macro**. Use these exact names, because the docs, `AGENTS.md` and the hotkeys reference them.
 
@@ -82,7 +120,7 @@ Create each as a **Macro** choice (**Settings → QuickAdd → Manage Macros →
 > [!IMPORTANT]
 > Choice #5's ID is **load-bearing**: `.obsidian/hotkeys.json` is tracked and already binds `Mod+Shift+A` to `quickadd:choice:e4f0a1b2-ffff-4000-8000-000000000100`. QuickAdd matches a hotkey by choice ID, not by name, so recreating that choice under a different ID leaves the documented `Ctrl/Cmd + Shift + A` shortcut dangling — which is exactly the state a fresh clone is in today. Keep the ID above, or update the hotkey to match the ID you actually created.
 
-### 2.2 Templater
+### 2.5 Templater
 
 **Settings → Templater**:
 
@@ -94,7 +132,7 @@ Create each as a **Macro** choice (**Settings → QuickAdd → Manage Macros →
 | User script folder | Empty | This vault's logic lives in `06-Resources/scripts/`, not in a Templater script folder |
 | Enable system commands | **Off** | No template in this vault needs shell access; leaving it off keeps a vault file from ever executing a command |
 
-**Required vs optional:** §1 is required (already provided). §2.1 rows 2–5 and the first four Templater rows are required for the advertised workflow. Row 1 is optional — the core daily-note command covers it. Everything else in the plugins (layouts, colours, folder-note mappings) is preference.
+**Required vs optional:** §1 is required (already provided). §2.4 rows 2–5 and the first four Templater rows are required for the advertised workflow. Row 1 is optional — the core daily-note command covers it. §2.2 lists the plugins; everything not in its *Required* row is optional, whether it adds functionality (Excalidraw, Tasks, Terminal, Omnisearch) or only layouts, colours and folder-note mappings.
 
 ## 3. Verification
 
@@ -105,9 +143,9 @@ Repeatable checks, all runnable any time:
 3. **Daily path** — `Ctrl/Cmd + P` → *Daily notes: Open today's daily note* creates `01-Daily/YYYY-MM/YYYY-MM-DD.md` with the template's frontmatter rendered (no unrendered `<% %>` markers left).
 4. **Hotkey** — `Ctrl/Cmd + Shift + A` runs the AI action on the active note (needs `GEMINI_API_KEY`; without one it reports a quota/key notice rather than failing silently).
 5. **Capture → triage loop** — append a line to `00-Inbox/quick-capture-dump.md`, tag it `#do`, run *Triage Sweep* on a day whose daily note exists, and confirm the line lands in the note and the dump entry is logged as swept.
-6. **Placement policy (disposable vault)** — create a generic scratch note and confirm it opens in `00-Inbox`; create a concept from the Concept template and confirm it lands in `08-Concepts/`; paste an image and draw an Excalidraw sketch, then confirm the image lands under `99-Attachments/YYYY-MM/` while the drawing stays a note. Existing attachments must be untouched by merely applying the defaults.
+6. **Placement policy (disposable vault)** — create a generic scratch note and confirm it opens in `00-Inbox`; create a concept from the Concept template and confirm it lands in `08-Concepts/`; paste an image and — with the optional Excalidraw plugin enabled — draw an Excalidraw sketch, then confirm the image lands under `99-Attachments/YYYY-MM/` while the drawing stays a note. Existing attachments must be untouched by merely applying the defaults.
 
-Steps 2–5 need the app; they are marked **unavailable** in any headless run rather than assumed passed.
+Steps 2–5 need the app. In a headless run they are **unverified, not passed**: automation can assert the tracked values and command IDs behind them, but it cannot press a key, click a Settings toggle, or read a rendered widget. The manual checklist in [Onboarding](Onboarding.md) covers the keyboard, Settings and widget checks a person should make once.
 
 ## 4. If you add your own choices
 
