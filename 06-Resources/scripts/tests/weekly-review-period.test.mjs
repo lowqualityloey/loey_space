@@ -441,6 +441,7 @@ const MOC_SECTORS = {
   weekly: "📅 Past Weekly Reviews",
   monthly: "🏆 Past Monthly Reviews",
   audit: "🗂️ System & Architecture Audits",
+  unclassified: "🗃️ Unclassified Review Records",
 };
 const MOC_BLOCKS = shippedBlocks(REVIEWS_MOC);
 const MOC_MARKER = "#126 review classification";
@@ -548,4 +549,70 @@ test("#126: the creation templates declare their kind", () => {
   const monthly = fs.readFileSync(path.join(REPO_ROOT, "99-Templates", "Monthly Review.md"), "utf8");
   assert.match(weekly, /^kind: weekly$/m, "the Weekly Review template must declare kind: weekly");
   assert.match(monthly, /^kind: monthly$/m, "the Monthly Review template must declare kind: monthly");
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// #132: records that declare no *recognised* classification.
+//
+// #126 classified on `kind` and fell back to the name only. A pre-existing audit
+// written before `kind` existed carried a near-identical key instead —
+// `review_kind: vault-audit` — and `reviewKind()` never read it, so the record
+// resolved to "" and landed in none of the three selectors while the audit list
+// rendered its empty-state line. These cases exercise a record with a legacy key and
+// a record with no recognised classification at all; both are synthetic.
+
+test("#132: a record carrying the legacy review_kind key is classified, not dropped", () => {
+  // Before the fix `review_kind` was invisible: the record resolved to "", the audit
+  // selector was empty, and the empty-state line rendered in its place.
+  const pages = [reviewRecord("Synthetic Legacy Audit", { review_kind: "vault-audit" })];
+
+  const audit = runSelector("audit", pages).text;
+  assert.match(audit, /Synthetic Legacy Audit/, "a deprecated review_kind must still be classified");
+  assert.doesNotMatch(audit, /No system or architecture audits found/, "the empty-state line must not stand in for a real audit");
+  assert.doesNotMatch(runSelector("weekly", pages).text, /Synthetic Legacy Audit/);
+  assert.doesNotMatch(runSelector("monthly", pages).text, /Synthetic Legacy Audit/);
+});
+
+test("#132: a declared kind wins over the legacy review_kind key", () => {
+  // Compatibility rule: the current key is authoritative. A record that carries both
+  // must follow `kind`, or a corrected note could never escape its deprecated value.
+  const pages = [reviewRecord("2026-W41", { kind: "monthly", review_kind: "vault-audit" })];
+
+  assert.match(runSelector("monthly", pages).text, /2026-W41/, "the declared kind must win");
+  assert.doesNotMatch(runSelector("audit", pages).text, /2026-W41/, "the legacy key must not override an explicit kind");
+  assert.doesNotMatch(runSelector("weekly", pages).text, /2026-W41/);
+});
+
+test("#132: an unclassified record suppresses every history's empty-state line", () => {
+  // The empty-state line means "none exist". While a review record exists that no rule
+  // can classify, that claim is unproven, so it must not render. The record is shown in
+  // the unclassified section instead.
+  const pages = [reviewRecord("Untitled Legacy", {})];
+
+  for (const sector of ["weekly", "monthly", "audit"]) {
+    const text = runSelector(sector, pages).text;
+    assert.doesNotMatch(text, /No .*found/, `${sector} claimed an absence it cannot prove:\n${text}`);
+  }
+  assert.match(runSelector("unclassified", pages).text, /Untitled Legacy/, "the unclassified record must be surfaced");
+});
+
+test("#132: a recognised record is not listed as unclassified", () => {
+  const pages = [
+    reviewRecord("2026-W41", { kind: "weekly" }),
+    reviewRecord("2026-09", {}),
+    reviewRecord("Synthetic Legacy Audit", { review_kind: "vault-audit" }),
+  ];
+
+  const text = runSelector("unclassified", pages).text;
+  assert.doesNotMatch(text, /2026-W41/);
+  assert.doesNotMatch(text, /2026-09/);
+  assert.doesNotMatch(text, /Synthetic Legacy Audit/);
+});
+
+test("#132: the MOC documents the legacy review_kind alias in the canonical guide", () => {
+  const guide = fs.readFileSync(
+    path.join(REPO_ROOT, "06-Resources", "Guides", "Tagging & Properties.md"),
+    "utf8"
+  );
+  assert.match(guide, /review_kind/, "the legacy key must be documented beside the legacy-name table");
 });

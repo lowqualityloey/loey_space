@@ -335,6 +335,24 @@ function parseFrontmatter(content) {
   return { props, tags };
 }
 var requiredTagNamespaces = ["type", "area", "status"];
+var REVIEW_KINDS = ["weekly", "monthly", "audit"];
+var LEGACY_REVIEW_KINDS = { "vault-audit": "audit" };
+var LEGACY_REVIEW_NAME = /^\d{4}-W\d{1,2}$/;
+var LEGACY_REVIEW_MONTH_NAME = /^\d{4}-\d{2}$/;
+function classifyReview(relativePath, props) {
+  const declared = (props.kind ?? "").trim().toLowerCase();
+  if (declared)
+    return REVIEW_KINDS.includes(declared) ? declared : "";
+  const legacyKey = (props.review_kind ?? "").trim().toLowerCase();
+  if (legacyKey)
+    return LEGACY_REVIEW_KINDS[legacyKey] ?? "";
+  const name = path.basename(relativePath, ".md");
+  if (LEGACY_REVIEW_NAME.test(name))
+    return "weekly";
+  if (LEGACY_REVIEW_MONTH_NAME.test(name))
+    return "monthly";
+  return "";
+}
 function validateNote(relativePath, content, frontmatter) {
   const { props, tags } = frontmatter;
   const isTemplate = relativePath.startsWith(templatesPrefix);
@@ -354,6 +372,15 @@ function validateNote(relativePath, content, frontmatter) {
       console.log(`\u274C ${relativePath}: blank property: ${prop}`);
       isValid = false;
     }
+  }
+  if (type === "review" && !classifyReview(relativePath, props)) {
+    const allowed = REVIEW_KINDS.join(", ");
+    if ((props.kind ?? "").trim() !== "") {
+      console.log(`\u274C ${relativePath}: unrecognised value for property: kind (allowed: ${allowed}; or a legacy ISO name / review_kind)`);
+    } else {
+      console.log(`\u274C ${relativePath}: unclassified review \u2014 missing property: kind (allowed: ${allowed}; or a legacy ISO name / review_kind)`);
+    }
+    isValid = false;
   }
   const tagNamespaces = /* @__PURE__ */ new Set();
   for (const tag of tags) {

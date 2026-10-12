@@ -386,6 +386,33 @@ function parseFrontmatter(content: string): ParsedFrontmatter | null {
 // Expected tag structure
 const requiredTagNamespaces = ['type', 'area', 'status'];
 
+// Issue #132: the three classifications the Reviews MOC sorts a `type: review` record into.
+// A review that carries none of them — by `kind`, by a documented legacy name, or by the
+// legacy `review_kind` key — resolves to "" in every selector and is then invisible while
+// this validator passes it. The MOC accepts the legacy key (`vault-audit` -> `audit`); this
+// check is the explicit report for anything still unclassified.
+const REVIEW_KINDS = ['weekly', 'monthly', 'audit'];
+// Only the value observed in the vault is mapped. An unknown `review_kind` is deliberately
+// NOT guessable: an unrecognised value must leave the record unclassified so the check
+// above can report it, rather than inventing a classification.
+const LEGACY_REVIEW_KINDS: Record<string, string> = { 'vault-audit': 'audit' };
+const LEGACY_REVIEW_NAME = /^\d{4}-W\d{1,2}$/;
+const LEGACY_REVIEW_MONTH_NAME = /^\d{4}-\d{2}$/;
+
+// Returns the classification a review record resolves to, or '' when none applies. Mirrors
+// the `reviewKind()` rule the Reviews MOC runs, so this validator and the rendered history
+// selectors cannot disagree about which records exist.
+function classifyReview(relativePath: string, props: Record<string, string>): string {
+  const declared = (props.kind ?? '').trim().toLowerCase();
+  if (declared) return REVIEW_KINDS.includes(declared) ? declared : '';
+  const legacyKey = (props.review_kind ?? '').trim().toLowerCase();
+  if (legacyKey) return LEGACY_REVIEW_KINDS[legacyKey] ?? '';
+  const name = path.basename(relativePath, '.md');
+  if (LEGACY_REVIEW_NAME.test(name)) return 'weekly';
+  if (LEGACY_REVIEW_MONTH_NAME.test(name)) return 'monthly';
+  return '';
+}
+
 // Issue #93: the contract checks below (unknown type, missing/blank required field) apply to
 // EVERY scanned note. The Templater placeholder check is NOT a contract check — a blueprint
 // is expected to carry `<% tp.date.now("YYYY-MM-DD") %>` and an ordinary note never will —
@@ -418,6 +445,19 @@ function validateNote(relativePath: string, content: string, frontmatter: Parsed
       console.log(`❌ ${relativePath}: blank property: ${prop}`);
       isValid = false;
     }
+  }
+
+  // Issue #132: a `type: review` record that no rule can classify is accepted by every
+  // check above and then dropped from all three Reviews MOC histories. Report it here
+  // instead, naming the field and its allowed values, and fail the run.
+  if (type === 'review' && !classifyReview(relativePath, props)) {
+    const allowed = REVIEW_KINDS.join(', ');
+    if ((props.kind ?? '').trim() !== '') {
+      console.log(`❌ ${relativePath}: unrecognised value for property: kind (allowed: ${allowed}; or a legacy ISO name / review_kind)`);
+    } else {
+      console.log(`❌ ${relativePath}: unclassified review — missing property: kind (allowed: ${allowed}; or a legacy ISO name / review_kind)`);
+    }
+    isValid = false;
   }
 
   // Check tag structure. Advisory only: a note whose fields are complete but whose tags
