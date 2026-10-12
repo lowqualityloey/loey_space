@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Git post-commit hook for automated loey_space daily logging
+# Triggered on every commit; non-blocking and fail-safe.
+
+export PATH="${HOME}/.local/bin:${HOME}/.cargo/bin:${PATH}"
+
+HEYLOEY_BIN=""
+if [ -x "${HOME}/.local/bin/heyloey" ]; then
+  HEYLOEY_BIN="${HOME}/.local/bin/heyloey"
+elif command -v heyloey >/dev/null 2>&1; then
+  HEYLOEY_BIN="heyloey"
+fi
+
+if [ -n "$HEYLOEY_BIN" ]; then
+  COMMIT_MSG=$(git log -1 --pretty=%s 2>/dev/null)
+  if [ -n "$COMMIT_MSG" ]; then
+    "$HEYLOEY_BIN" log "$COMMIT_MSG" >/dev/null 2>&1 &
+  fi
+fi
