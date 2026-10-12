@@ -141,6 +141,7 @@ pnpm-debug.log*
 !06-Resources/Guides/Hey Loey Guide.md
 !06-Resources/Guides/Maintenance & Troubleshooting.md
 !06-Resources/Guides/Onboarding.md
+!06-Resources/Guides/Git Hooks Guide.md
 # Already-published guides. These entered the index before the folder rule above existed,
 # and an ignore rule never untracks a file, so they are public either way — but silence
 # about it is what let the owner-only records below the same rule publish unnoticed. Every
