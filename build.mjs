@@ -13,6 +13,7 @@ const entryPoints = [
   '06-Resources/scripts/src/backup-vault.ts',
   '06-Resources/scripts/src/clear-capture-dump.ts',
   '06-Resources/scripts/src/distill-concept-action.ts',
+  '06-Resources/scripts/src/heyloey.ts',
   '06-Resources/scripts/src/quick-capture-action.ts',
   '06-Resources/scripts/src/scheduled-enrich.ts',
   '06-Resources/scripts/src/start-task-action.ts',

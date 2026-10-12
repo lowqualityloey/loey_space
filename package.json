@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "TypeScript scripts and automation for loey_space Obsidian vault",
   "private": true,
+  "bin": {
+    "heyloey": "06-Resources/scripts/heyloey.js"
+  },
   "scripts": {
     "build": "node build.mjs",
     "watch": "node build.mjs --watch",
@@ -16,6 +19,7 @@
     "sync-kanban": "node 06-Resources/scripts/sync-github-kanban.js",
     "validate-templates": "node 06-Resources/scripts/validate-templates.js",
     "hygiene": "node 06-Resources/scripts/vault-hygiene.js",
+    "heyloey": "node 06-Resources/scripts/heyloey.js",
     "check-rot": "node 06-Resources/scripts/vault-hygiene.js --check-rot",
     "init:vault": "node 06-Resources/scripts/vault-init.js",
     "backup": "node 06-Resources/scripts/backup-vault.js",

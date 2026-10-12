@@ -1,0 +1,1037 @@
+#!/usr/bin/env node
+/*
+ * heyloey — the repository-local command-line companion to the "hey loey" chat prefix.
+ *
+ * The vault's conversational prompts (`heyloey morning`, `heyloey sweep`, …) are instructions
+ * to an AI assistant inside the chat. This file is something different on purpose: a
+ * deterministic CLI an external script or a git hook can call without loading the whole vault.
+ * The two share a name and nothing else, and the guide that ships beside this file says so.
+ *
+ * Design constraints, each chosen because the obvious alternative was unsafe:
+ *
+ *   1. NO MACHINE-SPECIFIC PATHS. The target is `--root <dir>` or the working directory, never
+ *      this script's own location and never an upward search. There is no username, home
+ *      directory or absolute path baked in, so the same bundle runs on every machine.
+ *   2. READ-ONLY STAYS READ-ONLY. `brief` and `context` only ever read. They open no file for
+ *      writing and create no directory, so running them can never mutate a vault.
+ *   3. WRITES REFUSE RATHER THAN IMPROVISE. `done` refuses when today's daily note or the
+ *      handoff is missing, and when either note lacks the heading it owns. It never scaffolds a
+ *      replacement note: nothing in the vault expects an invented structure, and a wrong one is
+ *      worse than a clear refusal.
+ *   4. EVERY WRITE IS DRY-RUNNABLE. `--dry-run` prints the exact target paths and the lines that
+ *      would be written, and writes nothing at all.
+ *   5. COLLISIONS NEVER OVERWRITE. `learn` merges into a marked, reviewable region and preserves
+ *      hand-written content, matching the concept-distillation collision rule (#39).
+ *
+ * Usage:
+ *   npm run heyloey -- [--root <dir>] <command> [arguments] [--dry-run] [--show-paths]
+ */
+import * as fs from 'fs';
+import * as path from 'path';
+
+import {
+  DEFAULT_DAILY_NOTES_CONFIG,
+  DAILY_NOTES_CONFIG_PATH,
+  resolveDailyNoteFile,
+  type DailyNotesConfig,
+} from './lib/daily-note';
+import { parseDumpLines, sanitizeTitle } from './lib/triage';
+import { formatDate, readFrontmatterValue, toSingleLine } from './lib/markdown';
+import { extractWikilinks, parseAliases } from './lib/links';
+import { isDone, isLifecycleActive, type TaskLike } from './lib/task-view';
+
+/** A directory is a vault only if it carries the files every other path assumes. */
+const REQUIRED_MARKERS = ['AGENTS.md', '99-Templates'];
+
+/** The two records a session is told to read; both are git-ignored and created by init:vault. */
+const MEMORY_RECORD = 'memory.md';
+const HANDOFF_RECORD = 'handoff.md';
+
+/** The daily-note section `done` appends to. */
+const DAILY_LOG_HEADING = '## 📝 Daily Log';
+/** The handoff section `done` appends to, newest first. */
+const HANDOFF_HEADING = '### Latest Updates';
+
+/** Folders `context` routes across. Daily notes, the inbox and private records are excluded. */
+const ROUTE_PREFIXES = ['02-Projects', '03-Dev', '04-Learning', '06-Resources', '08-Concepts'];
+
+const SNIPPET_DIR = '03-Dev';
+/** The Dev hub every learned snippet is connected to, when it exists. */
+const DEV_HUB = '03-Dev/_Dev MOC.md';
+const DEV_HUB_LINK = '[[_Dev MOC]]';
+const LEARN_START = '<!-- heyloey:learn:start -->';
+const LEARN_END = '<!-- heyloey:learn:end -->';
+/**
+ * The connectivity section of a generated snippet.
+ *
+ * The hub link lives here, at the END of the note, and never inside the marked learn region.
+ * Bookkeeping a later pass may rewrite must not share a line with content a later pass has to
+ * preserve: the region is compared byte-for-byte to decide whether a repeat is a no-op, so a link
+ * managed inside it would make every repeat differ from itself.
+ */
+const HUB_HEADING = '## 🔗 Related Resources & Notes';
+/** Any heading a hub link may sit under, so a curated note is connected where it already reads. */
+const HUB_HEADING_PATTERN = /^#{2,6}\s+.*\bRelated\b/;
+
+const COMMANDS = ['brief', 'context', 'done', 'learn'] as const;
+type Command = (typeof COMMANDS)[number];
+
+/** True when the command writes to the vault. Used by the help text and by validation. */
+const WRITING_COMMANDS: ReadonlySet<Command> = new Set<Command>(['done', 'learn']);
+
+interface Options {
+  root: string;
+  dryRun: boolean;
+  showPaths: boolean;
+}
+
+type Parsed =
+  | { kind: 'help' }
+  | { kind: 'error'; message: string }
+  | { kind: 'command'; command: Command; args: string[]; options: Options };
+
+function usage(): string {
+  return [
+    'heyloey — repository-local vault commands (the CLI, not the chat prefix)',
+    '',
+    'Usage:',
+    '  npm run heyloey -- [--root <dir>] <command> [arguments] [--dry-run] [--show-paths]',
+    '',
+    'Commands:',
+    '  brief                       Read-only. A condensed pulse: records present, today\'s focus,',
+    '                              open tasks, habits, inbox count and active projects.',
+    '  context "<query>"           Read-only. Routes the query to matching projects, snippets,',
+    '                              notes and runbooks, printing paths only.',
+    '  done "<summary>"            Records a completed milestone under `## 📝 Daily Log` in',
+    '                              today\'s daily note and under `### Latest Updates` in',
+    '                              handoff.md. Refuses if either record is absent. Milestones',
+    '                              only — see the Hey Loey Guide.',
+    '  learn "<Title>" "<Pattern>" Indexes a reusable technical pattern in `03-Dev/` and',
+    '                              links it to the existing Dev hub. A colliding title merges',
+    '                              into a marked region instead of overwriting hand-written',
+    '                              content.',
+    '',
+    'Options:',
+    '  --root <dir>   Vault to act on. Defaults to the working directory. Never guessed from',
+    '                 this script\'s location, so the same command works from anywhere.',
+    '  --dry-run      For writing commands: print the target paths and the exact lines that',
+    '                 would be written, and write nothing.',
+    '  --show-paths   Print the absolute target path (diagnostics). Output is relative by',
+    '                 default, because it is routinely pasted into an issue.',
+    '  -h, --help     This text.',
+    '',
+    'This is the deterministic CLI. The `"heyloey"` / `"hey loey"` chat prefix is a separate',
+    'conversational interface handled by the assistant inside the chat; it is not this command.',
+    'Installing the CLI globally is optional — `npm run heyloey` needs only Node.',
+  ].join('\n');
+}
+
+function parseArgs(argv: string[]): Parsed {
+  let root = process.cwd();
+  let dryRun = false;
+  let showPaths = false;
+  const positional: string[] = [];
+
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === '-h' || arg === '--help') return { kind: 'help' };
+    if (arg === '--dry-run') {
+      dryRun = true;
+      continue;
+    }
+    if (arg === '--show-paths') {
+      showPaths = true;
+      continue;
+    }
+    if (arg === '--root') {
+      const value = argv[i + 1];
+      if (!value) return { kind: 'error', message: '--root requires a directory' };
+      root = value;
+      i += 1;
+      continue;
+    }
+    if (arg.startsWith('--root=')) {
+      root = arg.slice('--root='.length);
+      if (!root) return { kind: 'error', message: '--root requires a directory' };
+      continue;
+    }
+    if (arg.startsWith('-') && arg !== '-') {
+      return { kind: 'error', message: `unknown option: ${arg}` };
+    }
+    positional.push(arg);
+  }
+
+  if (positional.length === 0) return { kind: 'help' };
+
+  const command = positional[0];
+  if (!(COMMANDS as readonly string[]).includes(command)) {
+    return { kind: 'error', message: `unknown command: ${command}` };
+  }
+
+  return {
+    kind: 'command',
+    command: command as Command,
+    args: positional.slice(1),
+    options: { root: path.resolve(root), dryRun, showPaths },
+  };
+}
+
+/**
+ * How a target is named in output. The absolute path is opt-in (`--show-paths`): the default
+ * report is safe to paste into an issue because it never publishes the user's filesystem layout.
+ */
+function describeTarget(root: string, showPaths: boolean): string {
+  if (showPaths) return root;
+  const relative = path.relative(process.cwd(), root);
+  if (relative === '') return '.';
+  return path.isAbsolute(relative) ? path.basename(root) : relative;
+}
+
+type Refusal =
+  | { reason: 'not a directory' }
+  | { reason: 'refusing to act on the filesystem root' }
+  | { reason: 'refusing to act on a Git directory' }
+  | { reason: 'not a vault'; missing: string[] };
+
+/** The same reachable, non-guessed safety check `vault-init` uses. No upward search. */
+function validateTarget(root: string): Refusal | null {
+  if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
+    return { reason: 'not a directory' };
+  }
+  if (root === path.parse(root).root) {
+    return { reason: 'refusing to act on the filesystem root' };
+  }
+  if (path.basename(root) === '.git') {
+    return { reason: 'refusing to act on a Git directory' };
+  }
+  const missing = REQUIRED_MARKERS.filter((marker) => !fs.existsSync(path.join(root, marker)));
+  if (missing.length > 0) {
+    return { reason: 'not a vault', missing };
+  }
+  return null;
+}
+
+function refusalLine(failure: Refusal, root: string, showPaths: boolean): string {
+  const detail =
+    failure.reason === 'not a vault'
+      ? `not a vault: missing ${failure.missing.join(', ')}`
+      : failure.reason;
+  return `heyloey: ${detail}: ${describeTarget(root, showPaths)}`;
+}
+
+function readText(root: string, rel: string): string | null {
+  const absolute = path.join(root, rel);
+  if (!fs.existsSync(absolute)) return null;
+  return fs.readFileSync(absolute, 'utf8');
+}
+
+/** True when `candidate` is `root` itself or lives beneath it, with no `..` escape. */
+function isInsideVault(root: string, candidate: string): boolean {
+  const relative = path.relative(root, candidate);
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
+/**
+ * Resolve a vault-relative write target, or null when it would leave the vault.
+ *
+ * Two escapes are checked, because the daily-note config (`folder`/`format`) is vault data and a
+ * directory can be a symlink out of the tree:
+ *
+ *   1. Lexical traversal (`../../etc`) is caught by resolving against the root and rejecting a
+ *      `..` that escapes it — including an absolute `folder` from `.obsidian/daily-notes.json`.
+ *   2. Symlink escape is caught by comparing the REAL path of the deepest path component that
+ *      exists (the target itself when present, otherwise its nearest existing ancestor) against
+ *      the real vault root. A note that is a symlink to somewhere else resolves outside and is
+ *      refused before any write.
+ *
+ * The caller must validate EVERY target before writing any of them, so a refusal cannot leave
+ * one file changed and another untouched.
+ */
+function resolveInsideVault(root: string, rel: string): string | null {
+  const realRoot = fs.realpathSync(root);
+  const absolute = path.resolve(root, rel);
+  if (!isInsideVault(path.resolve(root), absolute)) return null;
+
+  let probe = absolute;
+  while (!fs.existsSync(probe)) {
+    const parent = path.dirname(probe);
+    if (parent === probe) break;
+    probe = parent;
+  }
+  const realProbe = fs.realpathSync(probe);
+  return isInsideVault(realRoot, realProbe) ? absolute : null;
+}
+
+/** Local YYYY-MM-DD. Never UTC, which shifts the date near midnight. */
+function todayStr(): string {
+  return formatDate(new Date());
+}
+
+/** Local 24-hour HH:MM, zero-padded. */
+function timeStr(date: Date = new Date()): string {
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mm = String(date.getMinutes()).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
+
+function loadDailyNotesConfig(root: string): DailyNotesConfig {
+  const raw = readText(root, DAILY_NOTES_CONFIG_PATH);
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw) as Partial<DailyNotesConfig>;
+      return {
+        folder:
+          typeof parsed.folder === 'string' && parsed.folder
+            ? parsed.folder
+            : DEFAULT_DAILY_NOTES_CONFIG.folder,
+        format:
+          typeof parsed.format === 'string' && parsed.format
+            ? parsed.format
+            : DEFAULT_DAILY_NOTES_CONFIG.format,
+      };
+    } catch {
+      // A malformed config must not stop the command; the defaults match this vault.
+    }
+  }
+  return DEFAULT_DAILY_NOTES_CONFIG;
+}
+
+/** The body of a `##`/`###` section, from its heading to the next heading or horizontal rule. */
+function sectionSlice(lines: string[], heading: string): { start: number; end: number } | null {
+  const start = lines.findIndex((line) => line.trim() === heading);
+  if (start === -1) return null;
+  let end = lines.length;
+  for (let i = start + 1; i < lines.length; i += 1) {
+    const trimmed = lines[i].trim();
+    if (/^#{2,6}\s/.test(trimmed) || trimmed === '---') {
+      end = i;
+      break;
+    }
+  }
+  return { start, end };
+}
+
+interface InsertResult {
+  content: string;
+  ok: boolean;
+  /** True when the exact line was already present, so the write is a no-op. */
+  duplicate?: boolean;
+}
+
+/**
+ * Append one bullet under `## 📝 Daily Log`.
+ *
+ * The section is closed by the next `##` heading or `---`, so the sections below it are never
+ * touched. An untouched template leaves an empty `- ` placeholder; that placeholder is reused
+ * rather than preceded, so the first real entry does not sit above a stray bullet.
+ */
+function insertDailyLogLine(content: string, line: string): InsertResult {
+  const lines = content.split('\n');
+  const section = sectionSlice(lines, DAILY_LOG_HEADING);
+  if (!section) return { content, ok: false };
+
+  const body = lines.slice(section.start + 1, section.end);
+  if (body.some((entry) => entry.trim() === line.trim())) {
+    return { content, ok: true, duplicate: true };
+  }
+
+  let lastBullet = -1;
+  let emptyBullet = -1;
+  for (let i = section.start + 1; i < section.end; i += 1) {
+    if (/^\s*-\s+\S/.test(lines[i])) lastBullet = i;
+    else if (/^\s*-\s*$/.test(lines[i])) emptyBullet = i;
+  }
+
+  if (emptyBullet !== -1) {
+    lines[emptyBullet] = line;
+  } else {
+    const insertAt = lastBullet !== -1 ? lastBullet + 1 : section.start + 1;
+    lines.splice(insertAt, 0, line);
+  }
+  return { content: lines.join('\n'), ok: true };
+}
+
+/** Insert one bullet directly under `### Latest Updates`, newest first. */
+function insertLatestUpdate(content: string, line: string): InsertResult {
+  const lines = content.split('\n');
+  const section = sectionSlice(lines, HANDOFF_HEADING);
+  if (!section) return { content, ok: false };
+
+  const body = lines.slice(section.start + 1, section.end);
+  if (body.some((entry) => entry.trim() === line.trim())) {
+    return { content, ok: true, duplicate: true };
+  }
+
+  let insertAt = section.start + 1;
+  while (insertAt < section.end && lines[insertAt].trim() === '') insertAt += 1;
+  lines.splice(insertAt, 0, line);
+  return { content: lines.join('\n'), ok: true };
+}
+
+/** Count `- [x]` / total checkboxes in a section, for the brief's summary. */
+function countCheckboxes(lines: string[], heading: string): { done: number; total: number } {
+  const section = sectionSlice(lines, heading);
+  if (!section) return { done: 0, total: 0 };
+  let done = 0;
+  let total = 0;
+  for (let i = section.start + 1; i < section.end; i += 1) {
+    const match = lines[i].match(/^\s*-\s*\[(.)\]/);
+    if (!match) continue;
+    total += 1;
+    // Reuse the shared task-status rule rather than re-implementing "checked".
+    const task: TaskLike = { text: lines[i], status: match[1], path: '' };
+    if (isDone(task)) done += 1;
+  }
+  return { done, total };
+}
+
+/** Count plain (non-checkbox) bullets in a section, used for Today's Focus intentions. */
+function countBullets(lines: string[], heading: string): number {
+  const section = sectionSlice(lines, heading);
+  if (!section) return 0;
+  let count = 0;
+  for (let i = section.start + 1; i < section.end; i += 1) {
+    if (/^\s*-\s+\S/.test(lines[i]) && !/^\s*-\s*\[/.test(lines[i])) count += 1;
+  }
+  return count;
+}
+
+/** Projects whose master note declares an active lifecycle, read through the shared rule. */
+function activeProjects(root: string): string[] {
+  const dir = path.join(root, '02-Projects');
+  if (!fs.existsSync(dir)) return [];
+  const active: string[] = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const hub = readText(root, path.join('02-Projects', entry.name, `${entry.name}.md`));
+    if (!hub) continue;
+    if (isLifecycleActive(readFrontmatterValue(hub, 'status'))) active.push(entry.name);
+  }
+  return active.sort();
+}
+
+// ---------------------------------------------------------------------------------------------
+// Commands
+// ---------------------------------------------------------------------------------------------
+
+function runBrief(root: string, options: Options): number {
+  const label = describeTarget(root, options.showPaths);
+  const lines: string[] = [];
+  lines.push(`🌅 Hey Loey brief · Vault root: ${label}`);
+
+  const memory = fs.existsSync(path.join(root, MEMORY_RECORD));
+  const handoff = fs.existsSync(path.join(root, HANDOFF_RECORD));
+  lines.push(
+    `Records: ${MEMORY_RECORD} ${memory ? 'present' : 'missing'}, ` +
+      `${HANDOFF_RECORD} ${handoff ? 'present' : 'missing'}`
+  );
+
+  const config = loadDailyNotesConfig(root);
+  const dailyRel = resolveDailyNoteFile(todayStr(), config);
+  // A traversal in the daily-notes config is reported rather than followed: reading outside the
+  // vault is the same escape as writing outside it, just quieter.
+  const dailyInside = resolveInsideVault(root, dailyRel) !== null;
+  const daily = dailyInside ? readText(root, dailyRel) : null;
+  lines.push(
+    `Today (${todayStr()}): ${dailyRel} ` +
+      `${dailyInside ? (daily ? 'present' : 'missing') : 'outside the vault — ignored'}`
+  );
+
+  if (daily) {
+    const dailyLines = daily.split('\n');
+    const focus = countBullets(dailyLines, "### 🎯 Today's Focus");
+    const tasks = countCheckboxes(dailyLines, '### ✅ Tasks');
+    const habits = countCheckboxes(dailyLines, '### 🔁 Habits');
+    const mood = readFrontmatterValue(daily, 'mood') || '—';
+    const energy = readFrontmatterValue(daily, 'energy') || '—';
+    const sleep = readFrontmatterValue(daily, 'sleep_hours') || '—';
+    lines.push(`  Focus: ${focus} intention${focus === 1 ? '' : 's'}`);
+    lines.push(`  Tasks: ${tasks.total - tasks.done} open / ${tasks.done} done`);
+    lines.push(`  Habits: ${habits.done}/${habits.total}`);
+    lines.push(`  Vitals: mood=${mood}, energy=${energy}, sleep_hours=${sleep}`);
+  }
+
+  // Inbox: counted through the triage parser so "unprocessed" means the same thing here as it
+  // does during a sweep. Only the count is printed — never a capture's words.
+  const dump = readText(root, '00-Inbox/quick-capture-dump.md');
+  const inbox = dump ? parseDumpLines(dump.split('\n')).length : 0;
+  lines.push(`Inbox: ${inbox} unprocessed capture${inbox === 1 ? '' : 's'}`);
+
+  const projects = activeProjects(root);
+  lines.push(
+    `Active projects: ${projects.length}${projects.length ? ` (${projects.join(', ')})` : ''}`
+  );
+
+  console.log(lines.join('\n'));
+  return 0;
+}
+
+interface RouteCandidate {
+  rel: string;
+  aliases: Set<string>;
+  headings: Set<string>;
+}
+
+/** Index the non-private, non-daily knowledge folders for query routing. */
+function indexRouteCandidates(root: string): RouteCandidate[] {
+  const candidates: RouteCandidate[] = [];
+
+  const walk = (dir: string): void => {
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (entry.name.startsWith('.')) continue;
+      const absolute = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(absolute);
+        continue;
+      }
+      if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+      const rel = path.relative(root, absolute).split(path.sep).join('/');
+      const content = fs.readFileSync(absolute, 'utf8');
+      const aliases = new Set(parseAliases(content).map((alias) => alias.toLowerCase()));
+      const headings = new Set(
+        content
+          .split('\n')
+          .map((line) => line.match(/^#{1,6}\s+(.*)$/))
+          .filter((match): match is RegExpMatchArray => match !== null)
+          .map((match) => match[1].trim().toLowerCase())
+      );
+      // Touch the link reader so this routing stays on the shared parser rather than a second
+      // regex; the targets are not needed for scoring but keeping one parser prevents drift.
+      extractWikilinks(content);
+      candidates.push({ rel, aliases, headings });
+    }
+  };
+
+  for (const prefix of ROUTE_PREFIXES) {
+    const dir = path.join(root, prefix);
+    if (fs.existsSync(dir)) walk(dir);
+  }
+  return candidates;
+}
+
+function runContext(root: string, args: string[], options: Options): number {
+  const query = args.join(' ').trim();
+  if (!query) {
+    console.error('heyloey: context requires a query, e.g. `context "kanban sync"`');
+    return 2;
+  }
+
+  const tokens = query
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .filter((token) => token.length >= 2);
+
+  if (tokens.length === 0) {
+    console.log('No usable query tokens (each must be at least two characters).');
+    return 0;
+  }
+
+  const scored: Array<{ rel: string; score: number; because: string[] }> = [];
+  for (const candidate of indexRouteCandidates(root)) {
+    const base = path.basename(candidate.rel, '.md').toLowerCase();
+    let score = 0;
+    const because: string[] = [];
+    for (const token of tokens) {
+      if (base === token) {
+        score += 8;
+        if (!because.includes('name')) because.push('name');
+      } else if (base.includes(token)) {
+        score += 5;
+        if (!because.includes('name')) because.push('name');
+      }
+      if ([...candidate.aliases].some((alias) => alias.includes(token))) {
+        score += 6;
+        if (!because.includes('alias')) because.push('alias');
+      }
+      if ([...candidate.headings].some((heading) => heading.includes(token))) {
+        score += 3;
+        if (!because.includes('heading')) because.push('heading');
+      }
+    }
+    if (score > 0) scored.push({ rel: candidate.rel, score, because });
+  }
+
+  scored.sort((a, b) => b.score - a.score || a.rel.localeCompare(b.rel));
+
+  console.log(`🔎 context "${query}" · Vault root: ${describeTarget(root, options.showPaths)}`);
+  if (scored.length === 0) {
+    console.log('No matching notes.');
+    return 0;
+  }
+  for (const hit of scored.slice(0, 5)) {
+    console.log(`  ${hit.rel}  — matches ${hit.because.join(', ')}`);
+  }
+  return 0;
+}
+
+function runDone(root: string, args: string[], options: Options): number {
+  const summary = toSingleLine(args.join(' '));
+  if (!summary) {
+    console.error('heyloey: done requires a one-line summary, e.g. `done "Ship the parser fix"`');
+    return 2;
+  }
+
+  const config = loadDailyNotesConfig(root);
+  const dailyRel = resolveDailyNoteFile(todayStr(), config);
+
+  // Validate BOTH write targets before reading or writing anything. A traversal in the daily-notes
+  // config, or a symlink pointing out of the tree, must refuse the whole command — never write the
+  // daily note and then discover the handoff target escapes, which would leave the two disagreeing.
+  const dailyTarget = resolveInsideVault(root, dailyRel);
+  const handoffTarget = resolveInsideVault(root, HANDOFF_RECORD);
+  if (!dailyTarget || !handoffTarget) {
+    const escaping = !dailyTarget ? dailyRel : HANDOFF_RECORD;
+    console.error(`heyloey: refusing to write outside the vault: ${escaping}`);
+    console.error('   Nothing was written.');
+    return 1;
+  }
+
+  const daily = readText(root, dailyRel);
+  const handoff = readText(root, HANDOFF_RECORD);
+
+  // Refusals come before any write, and they name what is missing and how to create it. The
+  // command never scaffolds a note: an invented structure is not what the vault expects.
+  const problems: string[] = [];
+  if (!daily) problems.push(`today's daily note is absent (${dailyRel})`);
+  if (!handoff) problems.push(`${HANDOFF_RECORD} is absent`);
+  if (problems.length > 0) {
+    console.error(`heyloey: ${problems.join('; ')}.`);
+    console.error(
+      `   Create the missing record with \`npm run init:vault\` (for ${HANDOFF_RECORD}) and ` +
+        `open today's daily note from 99-Templates/Daily.md. Nothing was written.`
+    );
+    return 1;
+  }
+
+  const stamp = timeStr();
+  const dailyLine = `- **${stamp}**: ${summary}`;
+  const handoffLine = `- [x] **[${todayStr()} ${stamp}]** ${summary}`;
+
+  const dailyResult = insertDailyLogLine(daily as string, dailyLine);
+  if (!dailyResult.ok) {
+    console.error(
+      `heyloey: ${dailyRel} has no \`${DAILY_LOG_HEADING}\` section, so there is nowhere ` +
+        `established to write. Nothing was written.`
+    );
+    return 1;
+  }
+
+  const handoffResult = insertLatestUpdate(handoff as string, handoffLine);
+  if (!handoffResult.ok) {
+    console.error(
+      `heyloey: ${HANDOFF_RECORD} has no \`${HANDOFF_HEADING}\` section, so there is nowhere ` +
+        `established to write. Nothing was written.`
+    );
+    return 1;
+  }
+
+  if (options.dryRun) {
+    console.log(`🔎 Dry run — nothing was written. Vault: ${describeTarget(root, options.showPaths)}`);
+    console.log(`   ${dailyRel}`);
+    console.log(`     + ${dailyLine}`);
+    console.log(`   ${HANDOFF_RECORD}`);
+    console.log(`     + ${handoffLine}`);
+    return 0;
+  }
+
+  fs.writeFileSync(dailyTarget, dailyResult.content);
+  fs.writeFileSync(handoffTarget, handoffResult.content);
+
+  console.log(`✍️  Logged milestone to ${dailyRel} and ${HANDOFF_RECORD}.`);
+  console.log(`   ${dailyLine}`);
+  return 0;
+}
+
+function escapeRegExp(literal: string): string {
+  return literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function splitFrontmatter(content: string): { fm: string; body: string } {
+  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!match) return { fm: '', body: content };
+  return { fm: match[1], body: content.slice(match[0].length) };
+}
+
+/** Detects a likely fence language for the snippet, defaulting to plain text. */
+function detectLanguage(pattern: string): string {
+  // TypeScript-only constructs first: a `=>` or a `const` alone is JavaScript, so the broad
+  // syntax cues must not be allowed to claim a snippet that is actually plain JS.
+  if (/(^|\n)\s*(interface|type)\s+\w+|:\s*(string|number|boolean)\b|<[A-Za-z]\w*>(\s*\(|\s*:)|as\s+const/.test(pattern)) {
+    return 'typescript';
+  }
+  if (/(^|\n)\s*(function|const|let|var)\s+\w+|=>|console\.log\(/.test(pattern)) return 'javascript';
+  if (/(^|\n)\s*def\s+\w+\(|print\(|elif\s|self\./.test(pattern)) return 'python';
+  if (/(^|\n)\s*(SELECT|INSERT|UPDATE|CREATE TABLE)\b/i.test(pattern)) return 'sql';
+  if (/(^|\n)\s*#!.*\b(bash|sh)\b|(^|\n)\s*(echo|export|set -e)\b/.test(pattern)) return 'bash';
+  return 'text';
+}
+
+/**
+ * The generated note MINUS its connectivity section: frontmatter, title and the working sections.
+ *
+ * Split out from `buildSnippetNote` because the merge path needs this text on its own — it is what
+ * goes inside the marked learn region — while the hub link is bookkeeping applied to the note as a
+ * whole by `ensureHubLink`.
+ */
+function buildSnippetCore(title: string, pattern: string, created: string): string {
+  const language = detectLanguage(pattern);
+  // A pattern that already contains a triple backtick must not close its own fence early.
+  const fence = pattern.includes('```') ? '````' : '```';
+
+  return [
+    '---',
+    `created: ${created}`,
+    `updated: ${created}`,
+    'type: snippet',
+    'area: dev',
+    'status: active',
+    `language: ${language}`,
+    'tags:',
+    '  - type/snippet',
+    '  - area/dev',
+    '  - status/active',
+    '---',
+    '',
+    `# 💻 ${title}`,
+    '',
+    `> **Reusable ${language} pattern indexed by \`heyloey learn\`.**`,
+    '',
+    '---',
+    '',
+    '## ⚡ The Code / Implementation',
+    `${fence}${language}`,
+    pattern,
+    fence,
+    '',
+    '## 🔍 How It Works & Key Highlights',
+    '- ',
+    '',
+    '## ⚙️ Usage Example',
+    '- ',
+    '',
+    '## ⚠️ Gotchas & Performance Considerations',
+    '- ',
+    '',
+  ].join('\n');
+}
+
+/**
+ * The trailing connectivity section of a generated snippet.
+ *
+ * The vault's connectivity rule: a new note in `03-Dev/` must link to its hub. The link is only
+ * emitted when the hub exists — a wikilink to a note that is not there is exactly the phantom link
+ * the vault forbids.
+ */
+function connectivitySection(hubLink: string): string {
+  return ['---', '', HUB_HEADING, hubLink ? `- ${hubLink}` : '- ', ''].join('\n');
+}
+
+function buildSnippetNote(title: string, pattern: string, created: string, hubLink: string): string {
+  return `${buildSnippetCore(title, pattern, created)}\n${connectivitySection(hubLink)}`;
+}
+
+/** Body of a generated note with its frontmatter and duplicate H1 removed. */
+function generatedBody(markdown: string): string {
+  return splitFrontmatter(markdown)
+    .body.replace(/^\s*#\s+.*\n+/, '')
+    .trim();
+}
+
+/**
+ * Merge a regenerated snippet into an existing note without replacing hand-written content.
+ *
+ * Mirrors the concept-collision rule (#39): the human body and original `created` date survive,
+ * new material lands in a marked, reviewable region, and re-running the identical pattern is a
+ * no-op rather than an accumulating block.
+ *
+ * `core` is the generated snippet WITHOUT its connectivity section (`buildSnippetCore`). The hub
+ * link is note-level bookkeeping, so it must not ride inside the region: a link inside it would
+ * make an identical repeat differ from the note it produced, and the next pass would have to edit
+ * content it is required to preserve.
+ *
+ * Two details are deliberate:
+ *
+ *   - The region is written with a REPLACER FUNCTION, never a replacement string. The snippet
+ *     body is user input and can contain `$&`, `$$`, `$'` or `` $` ``, all of which a string
+ *     replacement would interpret as its own patterns and corrupt the text (or reinsert the
+ *     matched region). A function replacement is inserted literally.
+ *   - A note created by a previous `learn` carries the whole body but no marked region. Rewriting
+ *     it would duplicate everything, so an exact body match is treated as already present.
+ */
+function mergeLearnNote(
+  existing: string,
+  core: string
+): { content: string; action: 'merged' | 'unchanged' } {
+  const incoming = generatedBody(core);
+  const { fm, body } = splitFrontmatter(existing);
+  const curated = body.trimEnd();
+
+  const region = new RegExp(
+    `\\n*${escapeRegExp(LEARN_START)}[\\s\\S]*?${escapeRegExp(LEARN_END)}\\n*`
+  );
+  const existingRegion = curated.match(region);
+
+  if (existingRegion) {
+    if (existingRegion[0].includes(incoming)) return { content: existing, action: 'unchanged' };
+  } else if (curated.includes(incoming)) {
+    // No marked region, but the body already carries this pattern (a note this command created).
+    return { content: existing, action: 'unchanged' };
+  }
+
+  const block =
+    `${LEARN_START}\n\n` +
+    '> [!NOTE] Auto-appended by `heyloey learn`. Review, then keep or delete.\n\n' +
+    `${incoming}\n\n${LEARN_END}`;
+
+  const merged = existingRegion
+    ? curated.replace(region, () => `\n\n${block}\n`)
+    : `${curated}\n\n---\n\n${block}\n`;
+
+  const content = fm ? `---\n${fm}\n---\n\n${merged.trimStart()}` : merged;
+  return { content, action: 'merged' };
+}
+
+/**
+ * Mark every line that belongs to a fenced code block, delimiters included.
+ *
+ * Snippet patterns live inside fences, and a snippet may legitimately be a line of markdown: a
+ * `- [[_Dev MOC]]` inside a code sample is content, not connectivity. Any note-level edit that
+ * searches for a line must tell fenced content from note structure, or it deletes the user's code.
+ */
+function fencedLines(lines: string[]): boolean[] {
+  const fenced: boolean[] = [];
+  let open: string | null = null;
+  for (const line of lines) {
+    const fence = line.match(/^\s*(`{3,}|~{3,})(.*)$/);
+    if (open === null) {
+      // A backtick fence's info string may not itself contain a backtick (CommonMark), so "```js"
+      // opens a fence while "```js`" is ordinary content.
+      const usable = fence !== null && !(fence[1][0] === '`' && fence[2].includes('`'));
+      if (usable) open = fence[1];
+      fenced.push(usable);
+      continue;
+    }
+    fenced.push(true);
+    // A closing fence is the same character, at least as long, and carries no info string.
+    if (fence && fence[1][0] === open[0] && fence[1].length >= open.length && fence[2].trim() === '') {
+      open = null;
+    }
+  }
+  return fenced;
+}
+
+/**
+ * Keep exactly one real link to the Dev hub — outside every code fence.
+ *
+ * The hub link is bookkeeping, so it is managed on the note as a whole and never inside the
+ * generated region, where a rewrite would have to pull a link out of content it must preserve.
+ * The three branches are deliberate:
+ *
+ *   - Exactly one real link: the note is returned untouched, byte for byte. That is what makes a
+ *     repeat run a true no-op rather than a rewrite that happens to look the same.
+ *   - More than one: the later copies go, the first one stays where it is. Nothing moves, so no
+ *     pass has to be run twice to settle.
+ *   - None: a link is added under the note's existing "Related" heading when it has one, and
+ *     otherwise in a connectivity section appended at the end. Only occurrences outside a fence
+ *     count, so a fenced literal never satisfies the link and never gets deleted for it.
+ */
+function ensureHubLink(content: string, canonical: string): string {
+  const lines = content.split('\n');
+  const fenced = fencedLines(lines);
+  const isHubLine = (index: number): boolean => !fenced[index] && lines[index].trim() === canonical;
+
+  const found = lines.filter((_, index) => isHubLine(index)).length;
+  if (found === 1) return content;
+  if (found > 1) {
+    let kept = false;
+    return lines
+      .filter((_, index) => {
+        if (!isHubLine(index)) return true;
+        if (kept) return false;
+        kept = true;
+        return true;
+      })
+      .join('\n');
+  }
+
+  const heading = lines.findIndex(
+    (line, index) => !fenced[index] && HUB_HEADING_PATTERN.test(line)
+  );
+  if (heading < 0) {
+    return `${content.replace(/\s+$/, '')}\n\n---\n\n${HUB_HEADING}\n${canonical}\n`;
+  }
+  let at = heading + 1;
+  while (at < lines.length && lines[at].trim() === '') at++;
+  return [...lines.slice(0, at), canonical, ...lines.slice(at)].join('\n');
+}
+
+/** Find an existing note whose name matches case-insensitively, for case-folding filesystems. */
+function findExistingSnippet(root: string, safeTitle: string): string | null {
+  const dir = path.join(root, SNIPPET_DIR);
+  if (!fs.existsSync(dir)) return null;
+  const wanted = `${safeTitle}.md`.toLowerCase();
+  for (const entry of fs.readdirSync(dir)) {
+    if (entry.toLowerCase() === wanted) return path.join(SNIPPET_DIR, entry);
+  }
+  return null;
+}
+
+function runLearn(root: string, args: string[], options: Options): number {
+  const title = toSingleLine(args[0] ?? '');
+  const pattern = args.slice(1).join('\n').replace(/\s+$/, '');
+  if (!title || !pattern) {
+    console.error(
+      'heyloey: learn requires a title and a pattern, e.g. `learn "Debounce" "const d = ..."`'
+    );
+    return 2;
+  }
+
+  const safeTitle = sanitizeTitle(title);
+  if (!safeTitle) {
+    console.error(`heyloey: "${title}" has no usable filename characters.`);
+    return 2;
+  }
+
+  const created = todayStr();
+  // Connectivity: link the snippet to the existing Dev hub. The link is real only because the hub
+  // exists — when it does not, no link is written, so the vault is never handed a phantom wikilink.
+  const hubLink = fs.existsSync(path.join(root, DEV_HUB)) ? DEV_HUB_LINK : '';
+  const connection = hubLink
+    ? `${hubLink} (existing Dev hub)`
+    : 'no hub link — no existing Dev hub to connect to';
+  // The region payload and the whole note are built from one core, so the two can never drift:
+  // the note adds the hub link at the end, the region never carries it.
+  const core = buildSnippetCore(safeTitle, pattern, created);
+  const generated = `${core}\n${connectivitySection(hubLink)}`;
+
+  const existingRel = findExistingSnippet(root, safeTitle);
+  const targetRel = existingRel ?? path.join(SNIPPET_DIR, `${safeTitle}.md`);
+
+  // Validate the write target before touching anything: a symlinked `03-Dev/` (or a symlinked
+  // existing note) must refuse rather than write outside the vault.
+  const targetAbs = resolveInsideVault(root, targetRel);
+  if (!targetAbs) {
+    console.error(`heyloey: refusing to write outside the vault: ${targetRel.replace(/\\/g, '/')}`);
+    console.error('   Nothing was written.');
+    return 1;
+  }
+
+  let content = generated;
+  let action: 'created' | 'merged' | 'unchanged' = 'created';
+  let original: string | null = null;
+  if (existingRel) {
+    original = fs.readFileSync(path.join(root, existingRel), 'utf8');
+    const merged = mergeLearnNote(original, core);
+    content = merged.content;
+    action = merged.action;
+  }
+  // Connectivity is note-level bookkeeping, never part of the region: the link is added only when
+  // the note has no real (unfenced) one, and a note that already has one is returned byte for byte.
+  if (hubLink) content = ensureHubLink(content, `- ${hubLink}`);
+
+  // The bytes decide, not the merge report. Whatever bookkeeping ran above, an identical result
+  // means nothing is written and nothing is claimed as written; a different result caused by
+  // bookkeeping alone is still a real change and must be reported as one.
+  if (original !== null) {
+    if (content === original) {
+      content = original;
+      action = 'unchanged';
+    } else if (action === 'unchanged') {
+      action = 'merged';
+    }
+  }
+
+  if (options.dryRun) {
+    console.log(`🔎 Dry run — nothing was written. Vault: ${describeTarget(root, options.showPaths)}`);
+    console.log(`   ${targetRel.replace(/\\/g, '/')} (${action === 'created' ? 'would create' : `would ${action}`})`);
+    console.log(`   connects: ${connection}`);
+    console.log('');
+    console.log(content);
+    return 0;
+  }
+
+  if (action === 'unchanged') {
+    console.log(`↩︎  ${targetRel.replace(/\\/g, '/')} already carries this pattern; nothing changed.`);
+    console.log(`   connects: ${connection}`);
+    return 0;
+  }
+
+  fs.mkdirSync(path.dirname(targetAbs), { recursive: true });
+  fs.writeFileSync(targetAbs, content);
+  console.log(
+    `${action === 'created' ? '✍️  Created' : '🔀 Merged'} ${targetRel.replace(/\\/g, '/')}` +
+      `${action === 'merged' ? ' (hand-written content preserved; new material is marked for review)' : ''}.`
+  );
+  console.log(`   connects: ${connection}`);
+  return 0;
+}
+
+function main(): void {
+  const parsed = parseArgs(process.argv.slice(2));
+
+  if (parsed.kind === 'help') {
+    console.log(usage());
+    return;
+  }
+  if (parsed.kind === 'error') {
+    console.error(`heyloey: ${parsed.message}`);
+    console.error(usage());
+    process.exitCode = 2;
+    return;
+  }
+
+  const { command, args, options } = parsed;
+  const failure = validateTarget(options.root);
+  if (failure) {
+    console.error(refusalLine(failure, options.root, options.showPaths));
+    console.error('   Nothing was written. Point --root at a vault, or run this from one.');
+    process.exitCode = 1;
+    return;
+  }
+
+  if (!WRITING_COMMANDS.has(command) && options.dryRun) {
+    // A read-only command has nothing to dry-run. Say so rather than implying it wrote.
+    console.log('(read-only command: --dry-run has no effect)');
+  }
+
+  let code = 0;
+  switch (command) {
+    case 'brief':
+      code = runBrief(options.root, options);
+      break;
+    case 'context':
+      code = runContext(options.root, args, options);
+      break;
+    case 'done':
+      code = runDone(options.root, args, options);
+      break;
+    case 'learn':
+      code = runLearn(options.root, args, options);
+      break;
+  }
+  process.exitCode = code;
+}
+
+if (require.main === module) {
+  main();
+}
+
+export {
+  buildSnippetNote,
+  mergeLearnNote,
+  insertDailyLogLine,
+  insertLatestUpdate,
+  parseArgs,
+  validateTarget,
+  resolveInsideVault,
+  detectLanguage,
+  LEARN_START,
+  LEARN_END,
+  DEV_HUB_LINK,
+};
