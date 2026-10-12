@@ -17,6 +17,7 @@
     "validate-templates": "node 06-Resources/scripts/validate-templates.js",
     "hygiene": "node 06-Resources/scripts/vault-hygiene.js",
     "check-rot": "node 06-Resources/scripts/vault-hygiene.js --check-rot",
+    "init:vault": "node 06-Resources/scripts/vault-init.js",
     "backup": "node 06-Resources/scripts/backup-vault.js",
     "patch-homepulse": "node 06-Resources/scripts/apply-homepulse-prelude.mjs"
   },

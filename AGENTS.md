@@ -9,13 +9,34 @@ Your objective is to keep the vault actionable, organized, deeply linked, and st
 Before executing tasks:
 - Consult the local `memory.md` for long-term durable truths, user profile, and active external repository links. It is owner-only and deliberately not published here, so it is absent in a fresh clone.
 - Consult the local `handoff.md` for in-flight objectives and immediate next moves across sessions. Also owner-only and absent in a fresh clone.
-- Consult the local [`00-Private/SOUL.md`](00-Private/SOUL.md) (or run `heyloey brief --kiwi`) whenever performing Chief-of-Staff personal planning, morning kick-offs, habit reviews, or evening debriefs. Keep PromptKit OS engineering ceremonies scoped to coding and script implementation work.
+- Consult the local [`00-Private/SOUL.md`](00-Private/SOUL.md) (if present) whenever performing Chief-of-Staff personal planning, morning kick-offs, habit reviews, or evening debriefs. It is optional: its absence is a valid configuration, not a fault. Keep PromptKit OS engineering ceremonies scoped to coding and script implementation work.
+
+If any of the three is missing, run `npm run init:vault` (see [First Run](#-first-run--local-records)) and tell the user what it created. Never invent the contents of a record, and never present a scaffold template's placeholder text as though it were the user's own.
 
 ### 🎯 Decision-Oriented Briefing Standard
 Measure the usefulness of every briefing (`status`, `morning`, `evening`, `weekly`) by the decisions it enables rather than the volume of text generated. Every briefing must leave the owner with:
 1. **One clear next action** (the highest-leverage immediate move).
 2. **Any blocker requiring a decision** (surfaced plainly with options).
 3. **A manageable commitment list** ($\le 3$ active daily commitments).
+
+---
+
+## 🚦 First Run & Local Records
+
+Three records are deliberately absent from a fresh clone: `memory.md`, `handoff.md`, and the
+optional `00-Private/SOUL.md`. They belong to the user. The system ships templates, never content.
+
+1. `npm run init:vault` creates whichever of them is missing, from [`06-Resources/scaffold/`](06-Resources/scaffold/_Scaffold%20MOC.md). It creates only what is absent — it never overwrites an existing file — so it is safe at any time and safe to repeat. `--dry-run` prints the plan without writing, and `--env` also copies `.env.example` to `.env`.
+2. If a record is still missing afterwards, say so plainly and offer to initialize rather than inventing content. An empty record is honest; a fabricated one is a false memory.
+3. `00-Private/SOUL.md` is optional. Without it, skip persona-driven ceremonies and do the rest as written.
+
+### 🔒 Publication Boundary
+
+Every path in this vault is either published or private, and the difference is declared rather than assumed.
+
+- A new private path needs **both** an ignore rule in `.gitignore` and an entry in [`.githooks/lib/private-records.txt`](.githooks/lib/private-records.txt). A declaration alone protects nothing, and an ignore rule alone protects nothing either: Git never untracks a file, so a path added before its rule stays published forever. Untrack it with `git rm --cached <path>` and keep the local copy.
+- A published file inside an ignored folder must be re-included with a `!` negation. Being tracked is not the same as being declared public, and `06-Resources/scripts/tests/publication-boundary-rules.test.mjs` fails when a tracked path is matched by an ignore rule without one.
+- Never paste real private content into a published file, not even to document what the private version looks like. Synthetic examples only.
 
 ---
 
@@ -211,7 +232,7 @@ When executing `heyloey plan <name>` / `hey loey plan <name>` or `heyloey projec
 When executing `heyloey distill` or `heyloey dream` (or during `heyloey weekly` consolidation):
 1. **Deterministic Anti-Rot Scan (`no_agent`)**:
    - Run `npm run hygiene -- --check-rot` to inspect:
-     - **Memory Capacity**: Checks if `memory.md` exceeds 75% of its budget (150 lines / 6 KB) and verifies the Core Memory Routing Rule header.
+     - **Memory Capacity**: Checks if `memory.md` exceeds 75% of its budget and verifies the Core Memory Routing Rule header. The budget is 200 lines / 8 KB, so the warning fires at 150 lines / 6 KB.
      - **Overdue Reviews**: Lists notes in `02-Projects/`, `04-Learning/`, `05-Personal/`, and `08-Concepts/` where `last_reviewed + review_cycle < today`.
      - **Skill Library Health**: Verifies `.agents/skills/*/SKILL.md` carry `pinned`, `version`, and `## 🧪 Regression Cases`, and that any deprecated skill declares `absorbed_by`.
 2. **Read-Only Session & Daily Log Synthesis**:

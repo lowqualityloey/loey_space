@@ -17,6 +17,8 @@ This index groups the vault guides by what you want to accomplish. All links use
 
 ## Setup and Installation
 
+- [Onboarding](Onboarding.md): From a fresh clone to a working vault: what is public and what is private, creating your own `memory.md` and `handoff.md`, plugin setup, and activating the git hooks.
+
 - [Setup & Configuration](Setup%20&%20Configuration.md): Complete setup checklist, pre-configured repository settings, required in-app Templater and QuickAdd setup, and bundled plugin rules.
 - [Mobile Workflow Guide](Mobile%20Workflow%20Guide.md): Fast capture on phone and batch processing on desktop.
 

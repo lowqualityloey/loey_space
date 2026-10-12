@@ -22,6 +22,7 @@ const entryPoints = [
   '06-Resources/scripts/src/triage-sweep.ts',
   '06-Resources/scripts/src/validate-templates.ts',
   '06-Resources/scripts/src/vault-hygiene.ts',
+  '06-Resources/scripts/src/vault-init.ts',
   '06-Resources/scripts/src/weekly-ai-summary.ts',
 ];
 

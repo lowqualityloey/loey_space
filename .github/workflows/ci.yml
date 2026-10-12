@@ -79,3 +79,21 @@ jobs:
       # Declarations live in .githooks/lib/private-records.txt; rejection prints paths only.
       - name: 🚧 Enforce Publication Boundary
         run: bash .githooks/lib/publication-guard.sh --mode index
+
+      # The onboarding path, run the way a new user runs it, on the one tree that is genuinely
+      # clean: this checkout carries no private records, so it stands in for a fresh clone. It
+      # runs LAST, deliberately. Creating `memory.md` makes the memory budget present and changes
+      # what `--strict` hygiene reports, so running it earlier would move those steps' output.
+      #
+      # The second run is the assertion that matters; a create-only command whose second run is
+      # not a no-op would silently corrupt the records of anyone who ran it twice.
+      - name: 🚦 Verify First-Run Initialization On A Clean Tree
+        run: |
+          npm run init:vault > /tmp/init-first.log
+          grep -q "4 created, 0 already present" /tmp/init-first.log
+          npm run init:vault > /tmp/init-second.log
+          grep -q "0 created, 4 already present" /tmp/init-second.log
+          test -f memory.md
+          test -f handoff.md
+          test -f 00-Private/SOUL.md
+          test -f 00-Inbox/quick-capture-dump.md
