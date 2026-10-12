@@ -1,6 +1,6 @@
 ---
 created: 2026-08-09
-updated: 2026-09-01
+updated: 2026-10-12
 type: moc
 status: active
 area: tasks
@@ -26,6 +26,7 @@ Central dashboard for active tasks, in-progress items, and completed task histor
 > - **Lane-Driven Status**: Card markers are set automatically from the lane — `To Do` → `[ ]`, `In Progress` / `Review / Test` → `[/]`, `Done` → `[x]` + `✅ date`.
 > - **Habit Exclusion**: Routine checkboxes under `## 🔁 Habits` are strictly excluded.
 > - **Source Links**: Each task is reformatted with a direct link to its source note (e.g., `task name [[note_name]]`).
+> - **Daily-Note Window**: These views are **not** today-only. They resolve to the **latest daily note dated on or before today**, matched on its `YYYY-MM-DD` filename prefix. When today's note has not been created yet, the most recent earlier note is used instead; notes dated in the future are ignored. If no daily note exists at all, daily-note tasks are excluded from these views.
 
 ---
 
