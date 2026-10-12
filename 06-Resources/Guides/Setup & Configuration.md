@@ -19,6 +19,9 @@ What a fresh clone gets **from the repository**, what it must be given **in the 
 > [!IMPORTANT]
 > Runtime plugin state (`.obsidian/plugins/*/data.json`) is **git-ignored on purpose**. That is the privacy boundary, not an oversight — but it also means a clone cannot ship the named actions by itself. This file is the missing half: the exact definitions, so setup is a checklist rather than an archaeology exercise.
 
+> [!TIP]
+> Starting from nothing? [Onboarding](Onboarding.md) walks the first run in order, including the private records this contract assumes already exist. Come back here for the QuickAdd definitions and the choice IDs.
+
 ---
 
 ## 1. What the repository already provides (verified in CI)

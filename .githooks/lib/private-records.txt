@@ -29,3 +29,20 @@ docs
 # The installer's issue template describes internal workflow, not the product's
 # contribution flow.
 .github/ISSUE_TEMPLATE/task.md
+
+# Owner-only engineering records. `.gitignore` has always excluded
+# `06-Resources/Guides/**/*`, but the rule arrived after the files did and an ignore rule
+# never untracks, so all three published anyway and this guard reported clean because
+# nobody had named them. They are out of the index (local copies stay on disk) and declared
+# here so re-adding one is rejected rather than republished. A directory entry covers
+# everything beneath it, per the guard's matching rule.
+06-Resources/Guides/Owners
+
+# Local MCP server configuration. Untracked, but matched by no ignore rule at all until
+# this change, so a single `git add -A` would have published a machine-local absolute path.
+# The coverage test's rule C asserts every entry here is genuinely ignored.
+.mcp.json
+
+# Private human-readable notes. Ignored and never tracked; declared so the guard fails
+# closed if a path under it is ever staged.
+00-Private

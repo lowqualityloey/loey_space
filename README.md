@@ -26,20 +26,26 @@ Setup path:
    git clone https://github.com/lowqualityloey/loey_space.git
    ```
    In Obsidian, select **Open folder as vault** and choose the cloned directory.
-2. **Enable community plugins**: In **Settings → Community plugins**, turn on community plugins, verify **Auto-update plugins: OFF**, and enable HomePulse, QuickAdd, Templater, Dataview, Kanban, Kanban Status Sync, Calendar, and Activity History.
-3. **Configure Templater**: In **Settings → Templater**, set **Template folder location** to `99-Templates`, turn **Trigger Templater on new file creation** to **On**, and leave **User script folder** empty.
-4. **Register QuickAdd actions**: In **Settings → QuickAdd → Manage Macros**, create a macro for each script, then add each as a choice under **Add Choice → Macro** using these exact names:
+2. **Create your records**: Three files the assistant instructions refer to (`memory.md`, `handoff.md`, and the optional `00-Private/SOUL.md`) are private and absent from a clone. Create them with `npm run init:vault`, which only ever adds files that are missing:
+   ```bash
+   npm run init:vault -- --dry-run   # show the plan
+   npm run init:vault                # create what is missing
+   ```
+   See [Onboarding](06-Resources/Guides/Onboarding.md) for what it creates and what to do without Node installed.
+3. **Enable community plugins**: In **Settings → Community plugins**, turn on community plugins, verify **Auto-update plugins: OFF**, and enable HomePulse, QuickAdd, Templater, Dataview, Kanban, Kanban Status Sync, Calendar, and Activity History.
+4. **Configure Templater**: In **Settings → Templater**, set **Template folder location** to `99-Templates`, turn **Trigger Templater on new file creation** to **On**, and leave **User script folder** empty.
+5. **Register QuickAdd actions**: In **Settings → QuickAdd → Manage Macros**, create a macro for each script, then add each as a choice under **Add Choice → Macro** using these exact names:
    - **Quick Capture** → `06-Resources/scripts/quick-capture-action.js`
    - **Triage Sweep** → `06-Resources/scripts/triage-sweep.js`
    - **Weekly Review** → `06-Resources/scripts/weekly-ai-summary.js`
    - **AI Enrich Note** → `06-Resources/scripts/ai-enrich-action.js` (bound to `Ctrl/Cmd + Shift + A`)
    - *(Optional)* **Create Daily Note** → Template choice pointing to `99-Templates/Daily`.
    See [Setup & Configuration](06-Resources/Guides/Setup%20&%20Configuration.md) for the exact choice IDs required by the tracked hotkeys.
-5. **Add an API key (optional)**: For AI features, copy the example file and add your key from [Google AI Studio](https://aistudio.google.com/app/apikey):
+6. **Add an API key (optional)**: For AI features, copy the example file and add your key from [Google AI Studio](https://aistudio.google.com/app/apikey):
    ```bash
    cp .env.example .env
    ```
-6. **Open today's note**: Press `Ctrl + P` and run **Daily notes: Open today's daily note** to create `01-Daily/YYYY-MM/YYYY-MM-DD.md`. Open the dashboard with **HomePulse: Open Dashboard View**.
+7. **Open today's note**: Press `Ctrl + P` and run **Daily notes: Open today's daily note** to create `01-Daily/YYYY-MM/YYYY-MM-DD.md`. Open the dashboard with **HomePulse: Open Dashboard View**.
 
 See [Setup & Configuration](06-Resources/Guides/Setup%20&%20Configuration.md) for full configuration details.
 
@@ -56,6 +62,7 @@ Here is how a typical day flows through the vault:
 Guides are organized by reader goal in `06-Resources/Guides/`:
 
 - **Getting Started and Setup**:
+  - [Onboarding](06-Resources/Guides/Onboarding.md): From a fresh clone to a working vault: the three rules, creating your private records, and the first daily note.
   - [Setup & Configuration](06-Resources/Guides/Setup%20&%20Configuration.md): Authoritative setup checklist, attachment rules, and QuickAdd registration.
   - [Mobile Workflow Guide](06-Resources/Guides/Mobile%20Workflow%20Guide.md): Mobile toolbar capture and desktop triage.
 - **Everyday Workflows**:

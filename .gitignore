@@ -24,6 +24,11 @@
 .codegraph/
 .opencode/node_modules/
 .clinerules/
+# MCP server configuration. It names machine-local absolute paths (and for some servers
+# an executable or token), so it is per-machine by nature. It was untracked but matched by
+# NO ignore rule, which means a single `git add -A` would have published it; the coverage
+# test's rule C now also asserts that every declared private path really is ignored.
+/.mcp.json
 
 # 🧭 Local-only engineering layer — never published (owner decision 2026-10-04, reinstated 2026-10-08)
 #
@@ -135,6 +140,23 @@ pnpm-debug.log*
 !06-Resources/Guides/Documentation Index.md
 !06-Resources/Guides/Hey Loey Guide.md
 !06-Resources/Guides/Maintenance & Troubleshooting.md
+!06-Resources/Guides/Onboarding.md
+# Already-published guides. These entered the index before the folder rule above existed,
+# and an ignore rule never untracks a file, so they are public either way — but silence
+# about it is what let the owner-only records below the same rule publish unnoticed. Every
+# negation here is a deliberate public declaration, and the publication-boundary coverage
+# test (rule A) fails when a tracked path is matched by an ignore rule without one.
+!06-Resources/Guides/CONTRIBUTING.md
+!06-Resources/Guides/Mobile Workflow Guide.md
+!06-Resources/Guides/Plugin Ownership.md
+!06-Resources/Guides/QuickAdd Inbox Optimization Guide.md
+!06-Resources/Guides/Second Brain Guide.md
+!06-Resources/Guides/Tagging & Properties.md
+!06-Resources/Guides/TypeScript Migration Feasibility Assessment.md
+!06-Resources/Guides/Vault Security Policy.md
+!06-Resources/Guides/Weekly AI Summary Guide.md
+# Owner-only engineering records. NOT negated on purpose: they are private, declared in
+# `.githooks/lib/private-records.txt`, and must never be tracked again.
 
 07-Reviews/*
 07-Reviews/**/*
@@ -151,5 +173,10 @@ pnpm-debug.log*
 99-Attachments/**/*
 !99-Attachments/_*.md
 !99-Attachments/**/_*.md
+# The monthly folder must be re-included BEFORE the file rules below it. Git cannot
+# re-include a file whose parent directory is still excluded, which is why the two
+# showcase negations that used to sit here had no effect at all and the four images were
+# "tracked but ignored". Verified with `git check-ignore -v --no-index` on each file.
+!99-Attachments/2026-08/
 !99-Attachments/2026-08/obsidian-*.png
 !99-Attachments/2026-08/file-20260803003355764.png
