@@ -1,6 +1,6 @@
 ---
 created: 2026-10-08
-updated: 2026-10-08
+updated: 2026-10-13
 type: guide
 area: resources
 status: active
@@ -154,6 +154,7 @@ Choose any IDs you like, but if you bind a hotkey, bind it to the ID QuickAdd ge
 ## Related
 
 - [Documentation Index](Documentation%20Index.md) — reader-goal navigation across all guides
+- [Git Hooks Guide](Git%20Hooks%20Guide.md) — which repository hooks to activate, and what they do
 - [Maintenance & Troubleshooting](Maintenance%20&%20Troubleshooting.md) — common error symptoms, fixes, and CLI command reference
 - [Plugin Ownership](Plugin%20Ownership.md) — `homepulse` / `kanban-status-sync` provenance and the update procedure
 - [Vault Security Policy](Vault%20Security%20Policy.md) — why runtime state and `.env` stay private

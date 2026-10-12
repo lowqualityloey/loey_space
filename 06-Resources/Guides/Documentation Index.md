@@ -1,6 +1,6 @@
 ---
 created: 2026-10-12
-updated: 2026-10-12
+updated: 2026-10-13
 type: guide
 status: active
 area: resources
@@ -17,7 +17,7 @@ This index groups the vault guides by what you want to accomplish. All links use
 
 ## Setup and Installation
 
-- [Onboarding](Onboarding.md): From a fresh clone to a working vault: what is public and what is private, creating your own `memory.md` and `handoff.md`, plugin setup, and activating the git hooks.
+- [Onboarding](Onboarding.md): From a fresh clone to a working vault: what is public and what is private, creating your own `memory.md` and `handoff.md`, the required plugin, Templater and QuickAdd setup, and the first daily note.
 
 - [Setup & Configuration](Setup%20&%20Configuration.md): Complete setup checklist, pre-configured repository settings, required in-app Templater and QuickAdd setup, and bundled plugin rules.
 - [Mobile Workflow Guide](Mobile%20Workflow%20Guide.md): Fast capture on phone and batch processing on desktop.
@@ -35,7 +35,8 @@ This index groups the vault guides by what you want to accomplish. All links use
 
 ## Maintenance and System Health
 
-- [Maintenance & Troubleshooting](Maintenance%20&%20Troubleshooting.md): Solutions for common errors, plugin update recovery, and a clear list of read-only verification checks versus mutating commands.
+- [Maintenance & Troubleshooting](Maintenance%20&%20Troubleshooting.md): Common errors as symptom, action and expected result, plus the read-only versus mutating command reference and the maintenance schedule.
+- [Git Hooks Guide](Git%20Hooks%20Guide.md): Activating the repository's Git hooks, the commit trailer that opts a commit into milestone logging, timeout settings, coordination between concurrent runs, duplicate handling, and partial-write recovery.
 - [Vault Security Policy](Vault%20Security%20Policy.md): Storage rules for sensitive information, `.gitignore` boundaries, and the pre-commit secret scanner.
 - [Tagging & Properties](Tagging%20&%20Properties.md): The frontmatter schema, required properties by note type, and tag naming conventions.
 - [Plugin Ownership](Plugin%20Ownership.md): Provenance of custom-built plugins (`homepulse` and `kanban-status-sync`) and instructions for reapplying patches after updates.

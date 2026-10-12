@@ -156,7 +156,7 @@ Please include the check you ran in the PR description. Node's built-in `assert`
    `HeyLoey-Milestone: <summary>`. It never changes a commit's outcome, it never runs for a commit
    without the trailer, and it fails open when Node or the vault's records are absent, so
    contributing here does not log your work into anyone's notes by accident. See
-   [Onboarding](Onboarding.md#optional-activate-the-git-hooks) for the mechanism and its bounds.
+   [Git Hooks Guide](Git%20Hooks%20Guide.md) for the mechanism and its bounds.
 
 5. **Don't reformat** files you aren't otherwise changing.
 

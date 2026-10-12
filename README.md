@@ -2,88 +2,65 @@
 
 ## What loey_space is
 
-loey_space is a personal knowledge management system built inside Obsidian that combines daily notes, project boards, and habit tracking. It is organized around plain Markdown files so all tasks, logs, and reference materials remain readable on your local machine without proprietary databases.
+loey_space is a personal knowledge system built inside [Obsidian](https://obsidian.md). Daily notes, project boards, habit tracking and an inbox are plain Markdown files, so everything stays readable on your own machine without a proprietary database.
 
-## What it includes
+Four things sit on top of plain Markdown:
 
-1. **Dashboard and habit synchronization**: HomePulse, a local dashboard plugin, displays active tasks, recent notes, and six daily habits that sync directly with today's daily note.
-2. **Structured task management**: Tasks live in daily notes and project Kanban boards. Dragging a card between lanes updates its checkbox state automatically, and unfinished tasks roll forward to the next morning without double-counting.
-3. **Rapid capture and triage**: A plain-text dump file (`00-Inbox/quick-capture-dump.md`) lets you record thoughts on mobile or desktop, tag them with destination tokens like `#do` or `#concept`, and file them in one pass with a triage script.
-4. **Optional AI assistance**: When configured with a Google Gemini API key, optional scripts can draft end-of-day summaries, distill reusable code concepts, or generate weekly retrospectives. All core note-taking, search, and task tracking functions work completely offline without an API key.
+- **A dashboard and habits.** HomePulse shows active tasks, recent notes and six daily habits, and syncs them with today's daily note.
+- **Projects that stay honest.** Cards live on project Kanban boards; dragging a card between lanes updates its checkbox marker, that marker mirrors into the daily note, and unfinished tasks roll forward to the next morning without being counted twice.
+- **Fast capture, one triage pass.** Thoughts land in `00-Inbox/quick-capture-dump.md`, you tag them for a destination (`#do`, `#dev`, `#concept`), and one command files the batch.
+- **Optional AI.** With a Gemini API key, scripts can draft end-of-day summaries, distil reusable snippets, or generate a weekly review. Every other feature works offline without a key.
+
+## Public and private
+
+The boundary is deliberate:
+
+| Ships with the repository | Stays on your machine only |
+| :--- | :--- |
+| Scripts, templates, bundled plugins, documentation and the `.githooks/` guards | `01-Daily/`, `02-Projects/`, `05-Personal/` and the other numbered content folders |
+| Empty starting templates for the assistant records | `memory.md`, `handoff.md`, `00-Private/` |
+| `.env.example`, which lists variable names | `.env`, which holds your real keys |
+
+Your notes are git-ignored, so a clone is a working system rather than somebody's journal. Real API keys belong in `.env` and never in a Markdown file, not even a private one. [Vault Security Policy](06-Resources/Guides/Vault%20Security%20Policy.md) covers the storage rules and the pre-commit scanner that enforces part of them.
 
 ## Getting started
 
-Before setup, keep three rules in mind:
+```bash
+git clone https://github.com/lowqualityloey/loey_space.git
+cd loey_space
+```
 
-- **Bundled custom plugins**: `homepulse` and `kanban-status-sync` are local builds in `.obsidian/plugins/`. Keep **Auto-update plugins: OFF** so community store updates do not overwrite custom code.
-- **Runtime plugin configuration**: Plugin data files (`.obsidian/plugins/*/data.json`) are git-ignored by design, so you complete a short in-app setup for Templater and QuickAdd once after cloning.
-- **Credential isolation**: Real API keys live only in the git-ignored `.env` file, never in tracked Markdown files.
+Then, in order:
 
-Setup path:
+1. **Open and trust.** In Obsidian choose **Open folder as vault** and select the clone. Choose **Trust author and enable plugins**, because Restricted Mode leaves every community plugin off.
+2. **Create your records.** `npm run init:vault` writes `memory.md`, `handoff.md`, `00-Private/SOUL.md` and `00-Inbox/quick-capture-dump.md` if they are missing, and never overwrites a file that exists. Without Node, copy the three templates from `06-Resources/scaffold/` and write the dump by hand — [Onboarding](06-Resources/Guides/Onboarding.md) has the details.
+3. **Enable the plugins, then finish the HomePulse wizard.** Confirm **Auto-update plugins: OFF** first, then complete the four-step HomePulse setup that runs the first time the vault opens.
+4. **Configure Templater and QuickAdd.** Use the exact action names and choice IDs in [Setup & Configuration](06-Resources/Guides/Setup%20&%20Configuration.md): the tracked hotkeys are bound to choice IDs, so recreating an action under a new ID leaves its documented shortcut dead.
+5. **Add an API key if you want the AI features.** `cp .env.example .env`, then paste a key from [Google AI Studio](https://aistudio.google.com/app/apikey).
+6. **Open today's note.** `Ctrl/Cmd + P` → **Daily notes: Open today's daily note** creates `01-Daily/YYYY-MM/YYYY-MM-DD.md` from the template.
 
-1. **Clone and open**: Clone the repository and open the folder in Obsidian:
-   ```bash
-   git clone https://github.com/lowqualityloey/loey_space.git
-   ```
-   In Obsidian, select **Open folder as vault** and choose the cloned directory. Obsidian asks you to trust the vault on first open: choose **Trust author and enable plugins**, because **Restricted Mode** leaves every community plugin off.
-2. **Create your records**: Three files the assistant instructions refer to (`memory.md`, `handoff.md`, and the optional `00-Private/SOUL.md`) are private and absent from a clone. Create them with `npm run init:vault`, which only ever adds files that are missing:
-   ```bash
-   npm run init:vault -- --dry-run   # show the plan
-   npm run init:vault                # create what is missing
-   ```
-   See [Onboarding](06-Resources/Guides/Onboarding.md) for what it creates and what to do without Node installed.
-3. **Enable community plugins**: In **Settings → Community plugins**, turn on community plugins, verify **Auto-update plugins: OFF**, and make sure the nine required plugins are enabled — HomePulse, QuickAdd, Templater, Dataview, Kanban, Kanban Status Sync, Calendar, Activity History, and Custom Attachment Location. The clone enables more plugins than that; [Setup & Configuration](06-Resources/Guides/Setup%20&%20Configuration.md) separates the required set from the optional rest — extra features outside the core workflow that you can leave on or turn off. The first time the vault opens, HomePulse also runs a short 4-step setup wizard before its dashboard exists; complete all four steps, since it has no Skip button and it reopens if closed early.
-4. **Configure Templater**: In **Settings → Templater**, set **Template folder location** to `99-Templates`, turn **Trigger Templater on new file creation** to **On**, and leave **User script folder** empty.
-5. **Register QuickAdd actions**: In **Settings → QuickAdd → Manage Macros**, create a macro for each script, then add each as a choice under **Add Choice → Macro** using these exact names:
-   - **Quick Capture** → `06-Resources/scripts/quick-capture-action.js`
-   - **Triage Sweep** → `06-Resources/scripts/triage-sweep.js`
-   - **Weekly Review** → `06-Resources/scripts/weekly-ai-summary.js`
-   - **AI Enrich Note** → `06-Resources/scripts/ai-enrich-action.js` (bound to `Ctrl/Cmd + Shift + A`)
-   - *(Optional)* **Create Daily Note** → Template choice pointing to `99-Templates/Daily`.
-   See [Setup & Configuration](06-Resources/Guides/Setup%20&%20Configuration.md) for the exact choice IDs required by the tracked hotkeys.
-6. **Add an API key (optional)**: For AI features, copy the example file and add your key from [Google AI Studio](https://aistudio.google.com/app/apikey):
-   ```bash
-   cp .env.example .env
-   ```
-7. **Open today's note**: Press `Ctrl + P` and run **Daily notes: Open today's daily note** to create `01-Daily/YYYY-MM/YYYY-MM-DD.md`. Open the dashboard with **HomePulse: Open Dashboard View**.
+[Onboarding](06-Resources/Guides/Onboarding.md) is the same path with the detail behind each step: what every record is for, what the wizard asks, and the checks that no automation can make for you.
 
-See [Setup & Configuration](06-Resources/Guides/Setup%20&%20Configuration.md) for full configuration details.
+### Optional: the Git hooks
 
-## Daily workflow
+Hooks are inactive until you point Git at them. `pre-commit` blocks a commit that stages a secret-shaped string or a declared private record; `post-commit` records a milestone in today's daily note and `handoff.md`, but only for a commit that opts in with a `HeyLoey-Milestone:` trailer.
 
-Here is how a typical day flows through the vault:
+```bash
+git config --local core.hooksPath .githooks
+```
 
-- **Morning**: Open today's note with `Ctrl + P` → **Daily notes: Open today's daily note**. Carried-forward tasks appear under `### ✅ Tasks`. Write high-level intentions under `### 🎯 Today's Focus` as plain bullets, and record vitals (`mood`, `energy`, `sleep_hours`) in the frontmatter.
-- **During the day**: Press your Quick Capture shortcut to append thoughts to `00-Inbox/quick-capture-dump.md`. On project boards in `02-Projects/`, drag a card to `In Progress`; Kanban Status Sync updates its marker to `[/]`, which mirrors into your daily note and task hub.
-- **Evening**: Append destination tokens (such as `#do`, `#dev`, or `#concept`) to dump items and run `Ctrl + P` → **QuickAdd: Triage Sweep** to file them. Check off habits in the HomePulse dashboard to sync with your daily note. Log work under `## 📝 Daily Log`, and optionally press `Ctrl + Shift + A` to run AI enrichment.
+The [Git Hooks Guide](06-Resources/Guides/Git%20Hooks%20Guide.md) covers activation, permissions, the timeout, coordination and recovery.
 
-## Documentation
+## Documentation by goal
 
-Guides are organized by reader goal in `06-Resources/Guides/`:
-
-- **Getting Started and Setup**:
-  - [Onboarding](06-Resources/Guides/Onboarding.md): From a fresh clone to a working vault: the three rules, creating your private records, and the first daily note.
-  - [Setup & Configuration](06-Resources/Guides/Setup%20&%20Configuration.md): Authoritative setup checklist, attachment rules, and QuickAdd registration.
-  - [Mobile Workflow Guide](06-Resources/Guides/Mobile%20Workflow%20Guide.md): Mobile toolbar capture and desktop triage.
-- **Everyday Workflows**:
-  - [Second Brain Guide](06-Resources/Guides/Second%20Brain%20Guide.md): Folder layout, task lifecycle, and note connections.
-  - [QuickAdd Inbox Optimization Guide](06-Resources/Guides/QuickAdd%20Inbox%20Optimization%20Guide.md): Rapid capture and optional classification templates.
-- **Assistant and Automation**:
-  - [Hey Loey Guide](06-Resources/Guides/Hey%20Loey%20Guide.md): Conversational prompts (`"hey loey"`), milestone logging, and CLI tool usage.
-- **Reviews and Maintenance**:
-  - [Weekly AI Summary Guide](06-Resources/Guides/Weekly%20AI%20Summary%20Guide.md): Weekly reviews, metrics, and Gemini data transmission details.
-  - [Maintenance & Troubleshooting](06-Resources/Guides/Maintenance%20&%20Troubleshooting.md): Common error diagnosis and read-only versus mutating commands.
-- **Security, Standards, and Contributing**:
-  - [Vault Security Policy](06-Resources/Guides/Vault%20Security%20Policy.md): Storage boundaries, `.gitignore` rules, and secret protection.
-  - [Tagging & Properties](06-Resources/Guides/Tagging%20&%20Properties.md): Frontmatter schemas and tag taxonomy.
-  - [Plugin Ownership](06-Resources/Guides/Plugin%20Ownership.md): Bundled plugin provenance and patch restoration.
-  - [CONTRIBUTING](06-Resources/Guides/CONTRIBUTING.md): Contribution scope, test mocking, and pull request guidelines.
-  - [Documentation Index](06-Resources/Guides/Documentation%20Index.md): Complete directory of vault documentation.
-
-Engineering records, specifications, and verification evidence live in `docs/`.
+- **Setting up:** [Onboarding](06-Resources/Guides/Onboarding.md) · [Setup & Configuration](06-Resources/Guides/Setup%20&%20Configuration.md) · [Mobile Workflow Guide](06-Resources/Guides/Mobile%20Workflow%20Guide.md)
+- **Day to day:** [Second Brain Guide](06-Resources/Guides/Second%20Brain%20Guide.md) · [QuickAdd Inbox Optimization Guide](06-Resources/Guides/QuickAdd%20Inbox%20Optimization%20Guide.md)
+- **Assistant and automation:** [Hey Loey Guide](06-Resources/Guides/Hey%20Loey%20Guide.md) · [Git Hooks Guide](06-Resources/Guides/Git%20Hooks%20Guide.md) · [Weekly AI Summary Guide](06-Resources/Guides/Weekly%20AI%20Summary%20Guide.md)
+- **Housekeeping:** [Maintenance & Troubleshooting](06-Resources/Guides/Maintenance%20&%20Troubleshooting.md) · [Tagging & Properties](06-Resources/Guides/Tagging%20&%20Properties.md) · [Plugin Ownership](06-Resources/Guides/Plugin%20Ownership.md)
+- **Security and contributing:** [Vault Security Policy](06-Resources/Guides/Vault%20Security%20Policy.md) · [CONTRIBUTING](06-Resources/Guides/CONTRIBUTING.md) · [Documentation Index](06-Resources/Guides/Documentation%20Index.md)
 
 ## Contributing and license
 
-The vault system architecture (custom plugins, scripts, CSS snippets, templates, and documentation) is open to contributions. Personal content in numbered folders is private and closed to pull requests. See [CONTRIBUTING.md](06-Resources/Guides/CONTRIBUTING.md) for testing guidelines and pull request instructions.
+The system layer — plugins, scripts, templates and documentation — is open to contributions. Personal content in the numbered folders is out of scope for a pull request. [CONTRIBUTING.md](06-Resources/Guides/CONTRIBUTING.md) lists the checks to run first.
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+Licensed under the MIT License; see [LICENSE](LICENSE).

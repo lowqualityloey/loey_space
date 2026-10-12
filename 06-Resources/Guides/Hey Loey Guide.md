@@ -102,6 +102,6 @@ keeping with the milestone-only policy — the hook is never a copy of `git log`
 commit's outcome, it is always bounded, and a summary that has already been logged successfully is not
 repeated on the same day.
 Eligibility is the trailer alone — nothing infers it, and no tool judges the sentence for you.
-[Onboarding](Onboarding.md) documents activation, the trailer and how to turn the hook off.
+[Git Hooks Guide](Git%20Hooks%20Guide.md) documents activation, the trailer, the settings and how to turn the hook off.
 
 Use conversational prompts when you want an interactive discussion or planning session. Use the CLI in automated scripts or terminal sessions where fast, deterministic execution is needed.
