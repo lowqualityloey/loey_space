@@ -16,6 +16,62 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 var task_view_exports = {};
 module.exports = __toCommonJS(task_view_exports);
 
+// 06-Resources/scripts/src/lib/weekly-extract.ts
+function taskPriorityRank(task) {
+  const isInProgress = /^\s*-\s*\[\/\]/.test(task);
+  const pMatch = task.match(/#priority\/p([0-3])\b/i);
+  const pLevel = pMatch ? Number(pMatch[1]) : 4;
+  return (isInProgress ? 0 : 10) + pLevel;
+}
+function resolveDeferredHome(task) {
+  const kanbanLink = task.match(/\[\[(?:02-Projects\/[^\]|]+\/)?([^\]|/]+?)\s+Kanban(?:\|[^\]]+)?\]\]/i);
+  if (kanbanLink) {
+    const project = kanbanLink[1].trim();
+    return {
+      destinationKind: "project",
+      destination: `02-Projects/${project}/${project} Kanban.md`
+    };
+  }
+  const projectTag = task.match(/#project\/([a-z0-9_-]+)/i);
+  if (projectTag) {
+    const project = projectTag[1];
+    return {
+      destinationKind: "project",
+      destination: `02-Projects/${project}/${project} Kanban.md`
+    };
+  }
+  if (/#(?:area\/)?personal\b/i.test(task)) {
+    return {
+      destinationKind: "personal",
+      destination: "05-Personal/"
+    };
+  }
+  return {
+    destinationKind: "standalone",
+    destination: "01-Daily/Tasks Kanban.md"
+  };
+}
+function triageDailyCommitments(tasks, limit = 3) {
+  const indexed = tasks.map((task, index) => ({
+    task,
+    index,
+    rank: taskPriorityRank(task)
+  }));
+  indexed.sort((a, b) => a.rank !== b.rank ? a.rank - b.rank : a.index - b.index);
+  const selectedSet = new Set(indexed.slice(0, Math.max(0, limit)).map((item) => item.index));
+  const selected = [];
+  const deferred = [];
+  tasks.forEach((task, idx) => {
+    if (selectedSet.has(idx)) {
+      selected.push(task);
+    } else {
+      const home = resolveDeferredHome(task);
+      deferred.push({ task, ...home });
+    }
+  });
+  return { selected, deferred };
+}
+
 // 06-Resources/scripts/src/lib/task-view.ts
 var PROMOTION_TAG = "#promote";
 var CORE_SHIELD_KEYWORDS = ["habit", "backlog", "archive"];
@@ -168,7 +224,8 @@ function installOnGlobal(scope = globalThis) {
     displayText,
     taskSource,
     collectVisibleTasks,
-    normalizeTask
+    normalizeTask,
+    triageDailyCommitments
   };
 }
 

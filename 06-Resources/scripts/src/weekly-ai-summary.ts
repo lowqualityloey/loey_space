@@ -3,7 +3,16 @@ import type { QuickAddParams } from './types';
 import { parseGeminiError, formatGeminiFailure, type GeminiFailure } from './lib/gemini';
 import { stripTaskMetadata } from './lib/markdown';
 import { buildWeeklyWindow, describeCoverage, selectWeeklyNotes } from './lib/weekly-window';
-import { extractDailyData, summarizeWeek, describeWeekCoverage } from './lib/weekly-extract';
+import {
+  extractDailyData,
+  summarizeWeek,
+  describeWeekCoverage,
+  describeHabitCoverage,
+  formatHabitTrendsMarkdown,
+  analyzeHabitTrends,
+  isObservedDailyEntry,
+  triageDailyCommitments,
+} from './lib/weekly-extract';
 
 interface WeeklySummaryJson {
   weeklyTitle?: string;
@@ -75,7 +84,7 @@ async function weeklyAISummary(params?: QuickAddParams): Promise<void> {
   // 3b. Summarise what the week actually contains (#58). Averages exclude
   // unknown readings and are returned with the coverage they rest on, so a
   // mean over two logged days cannot be read as a mean over seven.
-  const weekSummary = summarizeWeek(weekData);
+  const weekSummary = summarizeWeek(weekData, reviewWindow.days);
 
   // 4. Prepare prompt for AI
   const systemPrompt = `You are an insightful personal coach and productivity analyst. Analyze weekly data and provide comprehensive insights with actionable recommendations.`;
@@ -88,8 +97,9 @@ to: ${reviewWindow.endDate}
 calendar days: ${reviewWindow.days}
 timezone: ${reviewWindow.timeZone}
 coverage: ${coverage}
+habit_review_coverage: ${describeHabitCoverage(weekSummary.habitTrends)}
 
-WEEK SUMMARY (computed from the notes below; absent values are excluded from every average, and each coverage line states what its average rests on — do not present an average as covering more days than its coverage says):
+WEEK SUMMARY (computed from the notes below; absent values are excluded from every average, and each coverage line states what its average rests on — do not present an average as covering more days than its coverage says, and do not treat morning-only or untouched scaffold notes as missed habits):
 ${JSON.stringify(weekSummary, null, 2)}
 
 These notes were selected BY this window. Do not describe the week as more complete than the coverage says, and treat a day with no note as unknown rather than as a zero.
@@ -226,6 +236,7 @@ tags:
 
 ${coverage}
 ${describeWeekCoverage(weekSummary)}
+${describeHabitCoverage(weekSummary.habitTrends)}
 
 ---
 
@@ -241,13 +252,13 @@ ${formatWeeklySummary(data)}
 \`\`\`dataview
 TABLE mood AS "Mood", energy AS "Energy", sleep_hours AS "Sleep (hrs)"
 FROM "01-Daily"
-WHERE file.day >= date(${year}-${month}-${day}) - dur(7 days) AND file.day <= date(${year}-${month}-${day})
+WHERE file.day >= date(${reviewWindow.startDate}) AND file.day <= date(${reviewWindow.endDate})
 SORT file.day DESC
 \`\`\`
 
 ### Task Completion Rate
 \`\`\`dataviewjs
-const pages = dv.pages('"01-Daily"').where(p => p.file.day >= dv.date("${year}-${month}-${day}") - dv.duration("7d") && p.file.day <= dv.date("${year}-${month}-${day}"));
+const pages = dv.pages('"01-Daily"').where(p => p.file.day >= dv.date("${reviewWindow.startDate}") && p.file.day <= dv.date("${reviewWindow.endDate}"));
 let totalTasks = 0;
 let completedTasks = 0;
 
@@ -270,27 +281,47 @@ dv.paragraph(\`**Task Completion Rate**: \${completionRate}% (\${completedTasks}
 \`\`\`
 
 ### Habit Consistency
+${formatHabitTrendsMarkdown(weekSummary.habitTrends)}
+
 \`\`\`dataviewjs
-const pages = dv.pages('"01-Daily"').where(p => p.file.day >= dv.date("${year}-${month}-${day}") - dv.duration("7d") && p.file.day <= dv.date("${year}-${month}-${day}"));
-let totalHabits = 0;
+const pages = dv.pages('"01-Daily"').where(p => p.file.day >= dv.date("${reviewWindow.startDate}") && p.file.day <= dv.date("${reviewWindow.endDate}"));
+const placeholders = new Set(["...", "\\u2026", "none", "n/a", "unknown"]);
+const eveningHabits = new Set(["water", "move", "read", "tidy", "disconnect"]);
+const coreHabits = new Set(["water", "prioritised", "move", "read", "tidy", "disconnect"]);
+let observedDays = 0;
 let completedHabits = 0;
 
 pages.forEach(p => {
-  if (p.file.tasks) {
-    p.file.tasks.forEach(t => {
-      if (t.text && t.text.trim() !== "") {
-        const sec = (t.header && t.header.subpath) ? t.header.subpath.toLowerCase() : "";
-        if (sec.includes("habit")) {
-          totalHabits++;
-          if (t.completed || t.status === "x") completedHabits++;
-        }
-      }
-    });
+  const tasks = (p.file && p.file.tasks) ? p.file.tasks : [];
+  const lists = (p.file && p.file.lists) ? p.file.lists : [];
+  const habitTasks = tasks.filter(t => {
+    const sec = (t.header && t.header.subpath) ? t.header.subpath.toLowerCase() : "";
+    return t.text && t.text.trim() !== "" && sec.includes("habit");
+  });
+  const checkedCore = new Set();
+  habitTasks.forEach(t => {
+    if (t.completed || t.status === "x" || t.status === "X") {
+      const name = t.text.trim().toLowerCase().split(/\\s+/)[0];
+      if (coreHabits.has(name)) checkedCore.add(name);
+    }
+  });
+  const hasNonMorningHabit = Array.from(checkedCore).some(h => eveningHabits.has(h));
+  const hasEveningReflection = lists.some(item => {
+    if (item.task) return false;
+    const sec = (item.header && item.header.subpath) ? item.header.subpath.toLowerCase() : "";
+    if (!/\\b(wins?|blockers?|reflection)\\b/.test(sec)) return false;
+    const txt = (item.text || "").trim().toLowerCase();
+    return txt !== "" && !placeholders.has(txt);
+  });
+  if (hasNonMorningHabit || hasEveningReflection) {
+    observedDays++;
+    completedHabits += checkedCore.size;
   }
 });
 
-const habitRate = totalHabits > 0 ? Math.round((completedHabits / totalHabits) * 100) : 0;
-dv.paragraph(\`**Habit Completion Rate**: \${habitRate}% (\${completedHabits}/\${totalHabits} habits)\`);
+const opportunities = observedDays * 6;
+const habitRate = opportunities > 0 ? Math.round((completedHabits / opportunities) * 100) : 0;
+dv.paragraph(\`**Live Habit Completion Rate**: \${opportunities > 0 ? habitRate + "%" : "n/a"} (\${completedHabits}/\${opportunities} habit opportunities across \${observedDays} observed day(s))\`);
 \`\`\`
 
 ---
@@ -327,7 +358,7 @@ SORT priority DESC
 \`\`\`dataview
 TABLE summary AS "Summary", updated AS "Updated"
 FROM "08-Concepts"
-WHERE updated >= date(${year}-${month}-${day}) - dur(7 days)
+WHERE updated >= date(${reviewWindow.startDate}) AND updated <= date(${reviewWindow.endDate})
 SORT updated DESC
 \`\`\`
 
@@ -471,4 +502,7 @@ function getWeekRange(date: Date): string {
 export = Object.assign(weeklyAISummary, {
   getIsoWeekParts,
   getWeekRange,
+  analyzeHabitTrends,
+  isObservedDailyEntry,
+  triageDailyCommitments,
 });

@@ -72,10 +72,13 @@ When *not* to use this, trade-offs, or common misunderstandings.
 - [[Origin Daily Note or Article]]
 ```
 
-### Step 4: File & Update MOC
-1. Write the note to `08-Concepts/<Concept Title>.md` (or `YYYY-MM-DD_HHmm <Title>.md` if timestamped).
-2. Check `08-Concepts/_Concepts MOC.md` and link the newly created concept note.
-3. Update source notes with bidirectional wikilinks (`[[Concept Title]]`).
+### Step 4: Proportionate Approval, File & Update MOC
+1. **Proportionate Approval Gate**:
+   - **Autonomous / Batch Consolidation (`heyloey distill`, `heyloey dream`, `heyloey weekly`)**: Follow the **Propose-First** rule from `AGENTS.md`—present candidate concepts (title, 1-sentence distillation, target `area`, and origin link) and wait for user approval before writing to `08-Concepts/`.
+   - **Explicit Direct Request**: When the user explicitly asks to create or distill a specific concept note (e.g., *"distill X into a concept note"*), the request itself authorizes the write—proceed directly to filing without an extra confirmation prompt.
+2. Write the note to `08-Concepts/<Concept Title>.md` (or `YYYY-MM-DD_HHmm <Title>.md` if timestamped).
+3. Check `08-Concepts/_Concepts MOC.md` and link the newly created concept note.
+4. Update source notes with bidirectional wikilinks (`[[Concept Title]]`).
 
 ---
 
@@ -86,4 +89,5 @@ When *not* to use this, trade-offs, or common misunderstandings.
 | **RC-1: Atomic Split** | Daily log contains 2 distinct architectural patterns. | Creates 2 separate `08-Concepts/` notes (`review_cycle: 90d`), never an omnibus note. |
 | **RC-2: MOC & Backlinks** | `heyloey distill` extracts a concept from `01-Daily/2026-10/2026-10-11.md`. | Links new concept in `08-Concepts/_Concepts MOC.md` and adds backreference to origin note. |
 | **RC-3: Link Safety** | Concept mentions external tool with no vault note. | Uses plain text or `#topic/*` tag, never an uncreated `[[Wikilink]]`. |
+| **RC-4: Proportionate Approval** | Autonomous `heyloey distill` sweep vs. explicit user request to create a specific concept note. | Autonomous sweep proposes candidates first before writing; explicit user request writes directly without redundant confirmation. |
 

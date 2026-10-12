@@ -324,13 +324,21 @@ function aggregate(values, label) {
     coverage: `${known.length}/${total} note(s) declared ${label}`
   };
 }
-function summarizeWeek(entries) {
+function summarizeWeek(entries, windowDays = 7, options) {
   const tasks = {
     completed: entries.reduce((sum, entry) => sum + entry.completedTasks.length, 0),
     unfinished: entries.reduce((sum, entry) => sum + entry.unfinishedTasks.length, 0)
   };
-  const taskTotal = tasks.completed + tasks.unfinished;
   const rated = entries.map((entry) => entry.taskCompletionRate).filter((rate) => rate !== null);
+  const habitTrends = analyzeHabitTrends(entries, windowDays, options);
+  const openTaskLines = Array.from(
+    new Set(
+      entries.flatMap(
+        (entry) => entry.unfinishedTasks.map((t) => t.startsWith("- [") ? t : `- [ ] ${t}`)
+      )
+    )
+  );
+  const commitmentTriage = triageDailyCommitments(openTaskLines, 3);
   return {
     notes: entries.length,
     energy: aggregate(entries.map((entry) => entry.energy), "energy"),
@@ -342,8 +350,17 @@ function summarizeWeek(entries) {
       completionRate: rated.length === 0 ? null : Math.round(rated.reduce((sum, rate) => sum + rate, 0) / rated.length * 100) / 100
     },
     habits: {
-      completed: entries.reduce((sum, entry) => sum + entry.completedHabits.length, 0)
+      completed: entries.reduce((sum, entry) => sum + entry.completedHabits.length, 0),
+      observedDays: habitTrends.observedDays,
+      unobservedNotes: habitTrends.unobservedNotes,
+      missingDays: habitTrends.missingDays,
+      coverage: habitTrends.coverage,
+      completedChecks: habitTrends.overall.completedChecks,
+      observedOpportunities: habitTrends.overall.observedOpportunities,
+      completionRate: habitTrends.overall.rate
     },
+    habitTrends,
+    commitmentTriage,
     entries: {
       wins: entries.reduce((sum, entry) => sum + entry.wins.length, 0),
       blockers: entries.reduce((sum, entry) => sum + entry.blockers.length, 0),
@@ -353,6 +370,197 @@ function summarizeWeek(entries) {
 }
 function describeWeekCoverage(summary) {
   return `**Vitals coverage**: energy ${summary.energy.coverage}; sleep ${summary.sleepHours.coverage}` + (summary.moods.length ? `; mood recorded: ${summary.moods.join(", ")}` : "; no mood recorded");
+}
+function describeHabitCoverage(report) {
+  const pct = report.overall.rate === null ? "n/a" : `${Math.round(report.overall.rate * 100)}%`;
+  const parts = [
+    `**Habit review coverage**: ${report.coverage} day(s) with completed habit review`,
+    report.overall.observedOpportunities > 0 ? `${report.overall.completedChecks}/${report.overall.observedOpportunities} habit checks (${pct})` : "0 observed habit opportunities (unreviewed habits stay unknown)"
+  ];
+  if (report.unobservedNotes > 0) {
+    parts.push(`${report.unobservedNotes} morning-only/unobserved note(s) excluded from denominator`);
+  }
+  if (report.missingDays > 0) {
+    parts.push(`${report.missingDays} unlogged day(s)`);
+  }
+  if (report.tentative) {
+    parts.push("tentative (sparse coverage < 4 observed days)");
+  }
+  return parts.join("; ");
+}
+function formatHabitTrendsMarkdown(report) {
+  const lines = [describeHabitCoverage(report)];
+  if (report.observedDays > 0) {
+    const perHabitSummary = CORE_HABITS.map((habit) => {
+      const h = report.perHabit[habit];
+      const pct = h.rate === null ? "n/a" : `${Math.round(h.rate * 100)}%`;
+      return `\`${habit}\` ${h.completedDays}/${h.observedDays} (${pct})`;
+    }).join(" \xB7 ");
+    lines.push(`**Per-habit completion (over ${report.observedDays} observed day(s))**: ${perHabitSummary}`);
+  }
+  if (report.burnoutRisk.flagged) {
+    lines.push(
+      `> [!WARNING] Burnout / Sleep-Debt Signal
+> Detected ${report.burnoutRisk.maxConsecutiveCalendarDays} consecutive calendar days of low energy/sleep or depleted mood (${report.burnoutRisk.streakDates.join(", ")}).`
+    );
+  }
+  return lines.join("\n\n");
+}
+var CORE_HABITS = ["water", "prioritised", "move", "read", "tidy", "disconnect"];
+var EVENING_REVIEW_HABITS = /* @__PURE__ */ new Set(["water", "move", "read", "tidy", "disconnect"]);
+var DEPLETED_MOODS = /* @__PURE__ */ new Set(["tired", "stressed", "exhausted", "restless"]);
+function isObservedDailyEntry(entry, options) {
+  const hasEveningReflection = entry.wins.length > 0 || entry.blockers.length > 0 || entry.reflection.length > 0;
+  const hasNonMorningHabit = entry.completedHabits.some(
+    (h) => EVENING_REVIEW_HABITS.has(h.trim().toLowerCase())
+  );
+  if (options?.pendingTodayDate && entry.date === options.pendingTodayDate) {
+    const allSixChecked = CORE_HABITS.every(
+      (habit) => entry.completedHabits.some((h) => h.trim().toLowerCase() === habit)
+    );
+    return hasEveningReflection || allSixChecked;
+  }
+  return hasNonMorningHabit || hasEveningReflection;
+}
+function hasVitalsEvidence(entry) {
+  return entry.mood !== null || entry.energy !== null || entry.sleepHours !== null;
+}
+function diffCalendarDays(dateA, dateB) {
+  const matchA = dateA.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const matchB = dateB.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!matchA || !matchB)
+    return null;
+  const utcA = Date.UTC(Number(matchA[1]), Number(matchA[2]) - 1, Number(matchA[3]));
+  const utcB = Date.UTC(Number(matchB[1]), Number(matchB[2]) - 1, Number(matchB[3]));
+  return Math.round((utcB - utcA) / 864e5);
+}
+function isBurnoutDay(entry) {
+  if (entry.energy !== null && entry.energy <= 2)
+    return true;
+  if (entry.sleepHours !== null && entry.sleepHours < 6)
+    return true;
+  if (entry.mood !== null && DEPLETED_MOODS.has(entry.mood.trim().toLowerCase()))
+    return true;
+  return false;
+}
+function analyzeHabitTrends(entries, windowDays = 7, options) {
+  const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
+  const observedEntries = sorted.filter((entry) => isObservedDailyEntry(entry, options));
+  const observedDays = observedEntries.length;
+  const unobservedNotes = sorted.length - observedDays;
+  const missingDays = Math.max(0, windowDays - sorted.length);
+  const perHabit = {};
+  let completedChecks = 0;
+  for (const habit of CORE_HABITS) {
+    const completedDays = observedEntries.filter(
+      (entry) => entry.completedHabits.some((h) => h.trim().toLowerCase() === habit)
+    ).length;
+    completedChecks += completedDays;
+    perHabit[habit] = {
+      completedDays,
+      observedDays,
+      rate: observedDays === 0 ? null : Math.round(completedDays / observedDays * 100) / 100
+    };
+  }
+  const observedOpportunities = CORE_HABITS.length * observedDays;
+  const overallRate = observedOpportunities === 0 ? null : Math.round(completedChecks / observedOpportunities * 100) / 100;
+  const vitalsEntries = sorted.filter(
+    (entry) => hasVitalsEvidence(entry) || isObservedDailyEntry(entry, options)
+  );
+  let currentStreak = [];
+  let bestStreak = [];
+  for (const entry of vitalsEntries) {
+    if (!isBurnoutDay(entry)) {
+      currentStreak = [];
+      continue;
+    }
+    if (currentStreak.length === 0) {
+      currentStreak = [entry.date];
+    } else {
+      const prevDate = currentStreak[currentStreak.length - 1];
+      if (diffCalendarDays(prevDate, entry.date) === 1) {
+        currentStreak.push(entry.date);
+      } else {
+        currentStreak = [entry.date];
+      }
+    }
+    if (currentStreak.length > bestStreak.length) {
+      bestStreak = [...currentStreak];
+    }
+  }
+  return {
+    windowDays,
+    observedDays,
+    unobservedNotes,
+    missingDays,
+    coverage: `${observedDays}/${windowDays}`,
+    perHabit,
+    overall: {
+      completedChecks,
+      observedOpportunities,
+      rate: overallRate
+    },
+    burnoutRisk: {
+      flagged: bestStreak.length >= 3,
+      maxConsecutiveCalendarDays: bestStreak.length,
+      streakDates: bestStreak
+    },
+    tentative: observedDays < 4
+  };
+}
+function taskPriorityRank(task) {
+  const isInProgress = /^\s*-\s*\[\/\]/.test(task);
+  const pMatch = task.match(/#priority\/p([0-3])\b/i);
+  const pLevel = pMatch ? Number(pMatch[1]) : 4;
+  return (isInProgress ? 0 : 10) + pLevel;
+}
+function resolveDeferredHome(task) {
+  const kanbanLink = task.match(/\[\[(?:02-Projects\/[^\]|]+\/)?([^\]|/]+?)\s+Kanban(?:\|[^\]]+)?\]\]/i);
+  if (kanbanLink) {
+    const project = kanbanLink[1].trim();
+    return {
+      destinationKind: "project",
+      destination: `02-Projects/${project}/${project} Kanban.md`
+    };
+  }
+  const projectTag = task.match(/#project\/([a-z0-9_-]+)/i);
+  if (projectTag) {
+    const project = projectTag[1];
+    return {
+      destinationKind: "project",
+      destination: `02-Projects/${project}/${project} Kanban.md`
+    };
+  }
+  if (/#(?:area\/)?personal\b/i.test(task)) {
+    return {
+      destinationKind: "personal",
+      destination: "05-Personal/"
+    };
+  }
+  return {
+    destinationKind: "standalone",
+    destination: "01-Daily/Tasks Kanban.md"
+  };
+}
+function triageDailyCommitments(tasks, limit = 3) {
+  const indexed = tasks.map((task, index) => ({
+    task,
+    index,
+    rank: taskPriorityRank(task)
+  }));
+  indexed.sort((a, b) => a.rank !== b.rank ? a.rank - b.rank : a.index - b.index);
+  const selectedSet = new Set(indexed.slice(0, Math.max(0, limit)).map((item) => item.index));
+  const selected = [];
+  const deferred = [];
+  tasks.forEach((task, idx) => {
+    if (selectedSet.has(idx)) {
+      selected.push(task);
+    } else {
+      const home = resolveDeferredHome(task);
+      deferred.push({ task, ...home });
+    }
+  });
+  return { selected, deferred };
 }
 
 // 06-Resources/scripts/src/weekly-ai-summary.ts
@@ -392,7 +600,7 @@ async function weeklyAISummary(params) {
     })
   );
   const weekData = weekDataResults.filter((data) => data !== null);
-  const weekSummary = summarizeWeek(weekData);
+  const weekSummary = summarizeWeek(weekData, reviewWindow.days);
   const systemPrompt = `You are an insightful personal coach and productivity analyst. Analyze weekly data and provide comprehensive insights with actionable recommendations.`;
   const userPrompt = `Analyze this weekly data and provide a comprehensive weekly review. Provide JSON only.
 
@@ -402,8 +610,9 @@ to: ${reviewWindow.endDate}
 calendar days: ${reviewWindow.days}
 timezone: ${reviewWindow.timeZone}
 coverage: ${coverage}
+habit_review_coverage: ${describeHabitCoverage(weekSummary.habitTrends)}
 
-WEEK SUMMARY (computed from the notes below; absent values are excluded from every average, and each coverage line states what its average rests on \u2014 do not present an average as covering more days than its coverage says):
+WEEK SUMMARY (computed from the notes below; absent values are excluded from every average, and each coverage line states what its average rests on \u2014 do not present an average as covering more days than its coverage says, and do not treat morning-only or untouched scaffold notes as missed habits):
 ${JSON.stringify(weekSummary, null, 2)}
 
 These notes were selected BY this window. Do not describe the week as more complete than the coverage says, and treat a day with no note as unknown rather than as a zero.
@@ -522,6 +731,7 @@ tags:
 
 ${coverage}
 ${describeWeekCoverage(weekSummary)}
+${describeHabitCoverage(weekSummary.habitTrends)}
 
 ---
 
@@ -537,13 +747,13 @@ ${formatWeeklySummary(data)}
 \`\`\`dataview
 TABLE mood AS "Mood", energy AS "Energy", sleep_hours AS "Sleep (hrs)"
 FROM "01-Daily"
-WHERE file.day >= date(${year}-${month}-${day}) - dur(7 days) AND file.day <= date(${year}-${month}-${day})
+WHERE file.day >= date(${reviewWindow.startDate}) AND file.day <= date(${reviewWindow.endDate})
 SORT file.day DESC
 \`\`\`
 
 ### Task Completion Rate
 \`\`\`dataviewjs
-const pages = dv.pages('"01-Daily"').where(p => p.file.day >= dv.date("${year}-${month}-${day}") - dv.duration("7d") && p.file.day <= dv.date("${year}-${month}-${day}"));
+const pages = dv.pages('"01-Daily"').where(p => p.file.day >= dv.date("${reviewWindow.startDate}") && p.file.day <= dv.date("${reviewWindow.endDate}"));
 let totalTasks = 0;
 let completedTasks = 0;
 
@@ -566,27 +776,47 @@ dv.paragraph(\`**Task Completion Rate**: \${completionRate}% (\${completedTasks}
 \`\`\`
 
 ### Habit Consistency
+${formatHabitTrendsMarkdown(weekSummary.habitTrends)}
+
 \`\`\`dataviewjs
-const pages = dv.pages('"01-Daily"').where(p => p.file.day >= dv.date("${year}-${month}-${day}") - dv.duration("7d") && p.file.day <= dv.date("${year}-${month}-${day}"));
-let totalHabits = 0;
+const pages = dv.pages('"01-Daily"').where(p => p.file.day >= dv.date("${reviewWindow.startDate}") && p.file.day <= dv.date("${reviewWindow.endDate}"));
+const placeholders = new Set(["...", "\\u2026", "none", "n/a", "unknown"]);
+const eveningHabits = new Set(["water", "move", "read", "tidy", "disconnect"]);
+const coreHabits = new Set(["water", "prioritised", "move", "read", "tidy", "disconnect"]);
+let observedDays = 0;
 let completedHabits = 0;
 
 pages.forEach(p => {
-  if (p.file.tasks) {
-    p.file.tasks.forEach(t => {
-      if (t.text && t.text.trim() !== "") {
-        const sec = (t.header && t.header.subpath) ? t.header.subpath.toLowerCase() : "";
-        if (sec.includes("habit")) {
-          totalHabits++;
-          if (t.completed || t.status === "x") completedHabits++;
-        }
-      }
-    });
+  const tasks = (p.file && p.file.tasks) ? p.file.tasks : [];
+  const lists = (p.file && p.file.lists) ? p.file.lists : [];
+  const habitTasks = tasks.filter(t => {
+    const sec = (t.header && t.header.subpath) ? t.header.subpath.toLowerCase() : "";
+    return t.text && t.text.trim() !== "" && sec.includes("habit");
+  });
+  const checkedCore = new Set();
+  habitTasks.forEach(t => {
+    if (t.completed || t.status === "x" || t.status === "X") {
+      const name = t.text.trim().toLowerCase().split(/\\s+/)[0];
+      if (coreHabits.has(name)) checkedCore.add(name);
+    }
+  });
+  const hasNonMorningHabit = Array.from(checkedCore).some(h => eveningHabits.has(h));
+  const hasEveningReflection = lists.some(item => {
+    if (item.task) return false;
+    const sec = (item.header && item.header.subpath) ? item.header.subpath.toLowerCase() : "";
+    if (!/\\b(wins?|blockers?|reflection)\\b/.test(sec)) return false;
+    const txt = (item.text || "").trim().toLowerCase();
+    return txt !== "" && !placeholders.has(txt);
+  });
+  if (hasNonMorningHabit || hasEveningReflection) {
+    observedDays++;
+    completedHabits += checkedCore.size;
   }
 });
 
-const habitRate = totalHabits > 0 ? Math.round((completedHabits / totalHabits) * 100) : 0;
-dv.paragraph(\`**Habit Completion Rate**: \${habitRate}% (\${completedHabits}/\${totalHabits} habits)\`);
+const opportunities = observedDays * 6;
+const habitRate = opportunities > 0 ? Math.round((completedHabits / opportunities) * 100) : 0;
+dv.paragraph(\`**Live Habit Completion Rate**: \${opportunities > 0 ? habitRate + "%" : "n/a"} (\${completedHabits}/\${opportunities} habit opportunities across \${observedDays} observed day(s))\`);
 \`\`\`
 
 ---
@@ -623,7 +853,7 @@ SORT priority DESC
 \`\`\`dataview
 TABLE summary AS "Summary", updated AS "Updated"
 FROM "08-Concepts"
-WHERE updated >= date(${year}-${month}-${day}) - dur(7 days)
+WHERE updated >= date(${reviewWindow.startDate}) AND updated <= date(${reviewWindow.endDate})
 SORT updated DESC
 \`\`\`
 
@@ -752,5 +982,8 @@ function getWeekRange(date) {
 }
 module.exports = Object.assign(weeklyAISummary, {
   getIsoWeekParts,
-  getWeekRange
+  getWeekRange,
+  analyzeHabitTrends,
+  isObservedDailyEntry,
+  triageDailyCommitments
 });

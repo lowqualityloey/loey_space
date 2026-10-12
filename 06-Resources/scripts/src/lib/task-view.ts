@@ -338,6 +338,10 @@ export function normalizeTask(
   };
 }
 
+import { triageDailyCommitments } from "./weekly-extract";
+
+export { triageDailyCommitments };
+
 /**
  * Publish the API for dataviewjs callers.
  *
@@ -368,6 +372,7 @@ export function installOnGlobal(scope: Record<string, unknown> = globalThis as u
     displayText,
     taskSource,
     collectVisibleTasks,
-    normalizeTask
+    normalizeTask,
+    triageDailyCommitments,
   };
 }

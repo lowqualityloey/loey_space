@@ -1,5 +1,5 @@
 ---
-updated: 2026-10-11
+updated: 2026-10-12
 ---
 # 🧠 `loey_space` — AI Agent & Second Brain Chief of Staff
 
@@ -9,6 +9,13 @@ Your objective is to keep the vault actionable, organized, deeply linked, and st
 Before executing tasks:
 - Consult the local `memory.md` for long-term durable truths, user profile, and active external repository links. It is owner-only and deliberately not published here, so it is absent in a fresh clone.
 - Consult the local `handoff.md` for in-flight objectives and immediate next moves across sessions. Also owner-only and absent in a fresh clone.
+- Consult the local [`00-Private/SOUL.md`](00-Private/SOUL.md) (or run `heyloey brief --kiwi`) whenever performing Chief-of-Staff personal planning, morning kick-offs, habit reviews, or evening debriefs. Keep PromptKit OS engineering ceremonies scoped to coding and script implementation work.
+
+### 🎯 Decision-Oriented Briefing Standard
+Measure the usefulness of every briefing (`status`, `morning`, `evening`, `weekly`) by the decisions it enables rather than the volume of text generated. Every briefing must leave the owner with:
+1. **One clear next action** (the highest-leverage immediate move).
+2. **Any blocker requiring a decision** (surfaced plainly with options).
+3. **A manageable commitment list** ($\le 3$ active daily commitments).
 
 ---
 
@@ -19,14 +26,14 @@ When the user starts a prompt with **`"heyloey"`** or **`"hey loey"`** (case-ins
 | Command                                                                 | Action & Workflow                                                                                                                                                                                                                                                                                                                                                   |
 | :---------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **`heyloey status`** / **`hey loey status`** (or just `heyloey` / `hey loey`) | **Instant Pulse Check**: Count open items in [`00-Inbox/quick-capture-dump.md`](00-Inbox/quick-capture-dump.md), check today's daily note completion (`mood`, `energy`, habits), check recent GitHub pushes/PRs, and list active `[/]` project tasks.                                                                   |
-| **`heyloey morning`** / **`hey loey morning`**                           | **Morning Kick-off Briefing**: Verify/create today's note (`01-Daily/YYYY-MM/YYYY-MM-DD.md`), populate `> [!QUOTE] 💡 Daily Spark` with a real quote from an iconic thinker/author/personality, recall yesterday's `🎯 Tomorrow's Move` (if present), surface in-flight project tasks for awareness, check inbox triage, and actively prompt the user for their 1–3 focus intentions (`Today's Focus` defaults empty, not a task list) and morning vitals. Once answered, write focus as plain bullets (`- `), log vitals, and auto-check `- [x] prioritised`. |
-| **`heyloey log`** / **`heyloey sync`** (or `hey loey log` / `sync`)     | **Fast Daily Log**: Record the current session's completed work, wins, blockers, and git commits directly into today's daily note (`01-Daily/YYYY-MM/YYYY-MM-DD.md`). |
+| **`heyloey morning`** / **`hey loey morning`**                           | **Morning Kick-off Briefing**: Verify/create today's note (`01-Daily/YYYY-MM/YYYY-MM-DD.md`), populate `> [!QUOTE] 💡 Daily Spark` with a real quote from an iconic thinker/author/personality, recall yesterday's `🎯 Tomorrow's Move` (if present), triage `### ✅ Tasks` so at most **3 active commitments** are selected for today (deferring excess tasks to their appropriate home with user confirmation), surface in-flight project tasks for awareness, check inbox triage, and actively prompt the user for their 1–3 focus intentions (`Today's Focus` defaults empty, not a task list) and morning vitals (`sleep_hours`, textual `mood`, `energy` 1–5). Once answered, write focus as plain bullets (`- `), log vitals, and auto-check `- [x] prioritised`. |
+| **`heyloey log`** / **`heyloey sync`** (or `hey loey log` / `sync`)     | **Fast Daily Log**: Record the current session's completed milestones, wins, blockers, and git commits directly into today's daily note (`01-Daily/YYYY-MM/YYYY-MM-DD.md`). |
 | **`heyloey handoff`** / **`heyloey save`** (or `hey loey handoff` / `save`) | **Session Handoff**: Update `handoff.md` with in-flight objectives, completed milestones, and immediate next moves for the next session. |
 | **`heyloey evening`** / **`hey loey evening`**                           | **Evening Wind-down Retrospective**: Auto-run `npm run log-github` to pull today's code events into `## 📝 Daily Log`, reconcile morning's `Today's Focus`, walk through habit checks & reflections, and synthesize the Kiwi Chief of Staff AI Daily Summary (`Debrief`, `Takeaway`, `Tomorrow's Move`) directly into the daily note. |
 | **`heyloey activity`** / **`github`** (or `hey loey activity`)          | **GitHub Activity Sync**: Fetch today's GitHub commits, PRs, and issues for `lowqualityloey` and non-destructively merge them into `## 📝 Daily Log` in today's daily note (`npm run log-github`).                                                                                                                                                                  |
 | **`heyloey sweep`** / **`hey loey sweep`**                               | **Inbox Triage**: Inspect [`quick-capture-dump.md`](00-Inbox/quick-capture-dump.md), auto-tag untagged lines (`#do`, `#dev`, `#concept`, `#learn`, `#ref`, `#personal`, `#project`, `#bin`), and run or simulate [`triage-sweep.js`](06-Resources/scripts/triage-sweep.js). |
-| **`heyloey distill`** / **`heyloey dream`** (or `hey loey distill` / `dream`) | **Knowledge Distillation & Dream Loop**: Read recent daily notes (`Blockers`, `Reflection`, `Ideas`), extract atomic mental models into [`08-Concepts/`](08-Concepts/_Concepts%20MOC.md) or patterns into [`03-Dev/`](03-Dev/_Dev%20MOC.md), audit `memory.md` capacity (`--check-rot`), and propose consolidations (Propose-First, zero unapproved deletion). |
-| **`heyloey weekly`** / **`hey loey weekly`**                             | **Weekly Review**: Review 7-day habit completion, project milestones & GitHub achievements, and generate the weekly retrospective note in [`07-Reviews/`](07-Reviews/_Reviews%20MOC.md).                                                                                                                                |
+| **`heyloey distill`** / **`heyloey dream`** (or `hey loey distill` / `dream`) | **Knowledge Distillation & Dream Loop**: Read recent daily notes (`Blockers`, `Reflection`, `Ideas`), extract atomic mental models into [`08-Concepts/`](08-Concepts/_Concepts%20MOC.md) or patterns into [`03-Dev/`](03-Dev/_Dev%20MOC.md), audit `memory.md` capacity (`--check-rot`), and propose consolidations (Propose-First for autonomous sweeps, zero unapproved deletion). |
+| **`heyloey weekly`** / **`hey loey weekly`**                             | **Weekly Review**: Review 7-day habit completion (with explicit observation coverage), project milestones & GitHub achievements, and generate the weekly retrospective note in [`07-Reviews/`](07-Reviews/_Reviews%20MOC.md).                                                                                                                                |
 | **`heyloey plan`** / **`project`** (or `hey loey plan`)                 | **Project Planning & Scaffolding**: Scaffold `02-Projects/<name>/` via `99-Templates/Project.md` with `status: planning`, create `<name> Kanban.md`, decompose features into `#priority/p0-p3` cards in `## Backlog` (leveraging the Backlog Shield), and register in `_Projects MOC.md`. |
 | **`heyloey health`** / **`audit`** (or `hey loey health`)               | **Vault Hygiene & Anti-Rot**: Validate templates against [`Tagging & Properties.md`](06-Resources/Guides/Tagging%20&%20Properties.md), check broken wikilinks, run `npm run hygiene -- --check-rot` (overdue reviews, memory budget, skill guardrails), and verify no secrets exist in tracked files. |
 | **`heyloey remind`** / **`hey loey remind`**                             | **Proactive Reminders & Scheduling**: Set one-shot timers or recurring cron reminders for daily routines, project checks, or retrospectives via the scheduler tool.                                                                                                                                                                                                 |
@@ -101,39 +108,46 @@ tags:
 ## 🌅 Morning Kick-off Protocol (`heyloey morning` / `hey loey morning`)
 
 When executing `heyloey morning` or `hey loey morning`:
-1. **Daily Note Preparation**: Ensure today's note exists (`01-Daily/YYYY-MM/YYYY-MM-DD.md`).
+1. **Daily Note Preparation & Persona**: Load [`00-Private/SOUL.md`](00-Private/SOUL.md) (if present) and ensure today's note exists (`01-Daily/YYYY-MM/YYYY-MM-DD.md`).
 2. **💡 Daily Spark**: Write an inspirational quote from a notable real-world thinker, author, engineer, or cultural icon into `> [!QUOTE] 💡 Daily Spark` with author attribution (e.g. `> *"Quote"* \n > — **Author**`). Do NOT rotate internal `08-Concepts/` notes.
-3. **🎯 Today's Focus Rules**:
+3. **🎯 Today's Focus & Three-Commitment Cap**:
    - `Today's Focus` must ALWAYS remain defaulted empty upon note creation.
    - NEVER populate `Today's Focus` with task checkboxes or Kanban cards. Focus is high-level daily intention, NOT a task list.
+   - **Three-Commitment Triage (`### ✅ Tasks`)**: [`99-Templates/Daily.md`](99-Templates/Daily.md) mechanically forwards all unfinished tasks from the previous daily note (verified by [`06-Resources/scripts/tests/daily-carry-forward.test.mjs`](06-Resources/scripts/tests/daily-carry-forward.test.mjs)) so no task is silently lost overnight. When `### ✅ Tasks` contains more than **3** open top-level tasks, propose the top $\le 3$ commitments for today and ask the user to confirm parking the remaining tasks in their appropriate homes so every task stays recoverable:
+     - Project-scoped tasks $\rightarrow$ their authoritative `02-Projects/<name>/<name> Kanban.md` (`## To Do` or `## Backlog`).
+     - Personal or standalone tasks $\rightarrow$ `05-Personal/`, [`01-Daily/Tasks Kanban.md`](01-Daily/Tasks%20Kanban.md), or [`00-Inbox/quick-capture-dump.md`](00-Inbox/quick-capture-dump.md) (never force non-project tasks onto a project board).
    - Surface in-flight project tasks only as read-only context inside the AI chat briefing (including subtask completion ratio and the immediate next step, e.g. `(0/5 subtasks) ↳ Next step: ...`).
 4. **Interactive Check-In**:
    - Surface yesterday's `🎯 Tomorrow's Move` (if present) to help prime the user's direction.
    - Prompt the user for:
-     1. Their 1–3 focus intentions for today.
-     2. Their morning vitals (`sleep_hours`, `mood`, `energy` 1–5).
+     1. Their 1–3 focus intentions for today (and confirmation of the $\le 3$ selected tasks if $>3$ were carried forward).
+     2. Their morning vitals: `sleep_hours` (number, e.g. `7.5`), **textual `mood`** (free-form text with a suggested vocabulary such as `focused`, `good`, `calm`, `tired` — never write a numeric `mood` on new notes; see [`Tagging & Properties.md`](06-Resources/Guides/Tagging%20&%20Properties.md#L160-L185)), and numeric `energy` (`1–5`).
 5. **Post-Response Logging**:
    - Write the user's focus intentions under `### 🎯 Today's Focus` as plain bullet points (`- Intention`), NEVER checkboxes (`- [ ]`).
    - Automatically mark `- [x] prioritised` in `## 🔁 Habits`.
-   - Update frontmatter properties (`mood`, `energy`, `sleep_hours`).
+   - Update frontmatter properties (`mood` as text, `energy` as `1–5`, `sleep_hours` as number).
    - Calibrate pacing feedback based on reported sleep/energy (acknowledge sleep debt if < 6h).
 
 ---
 
-## 📝 Fast Daily Log Protocol (`heyloey log` / `heyloey sync`)
+## 📝 Fast Daily Log Protocol & Milestone-Only Policy (`heyloey log` / `heyloey sync`)
 
-When executing `heyloey log` or `heyloey sync` (or autonomous session logging):
-1. **Daily Note & Template Invariant**:
+When executing `heyloey log`, `heyloey sync`, or autonomous `heyloey done` milestone logging:
+1. **Milestone-Only Logging Policy (Autonomous Anti-Noise)**:
+   - **Autonomous Logging (`heyloey done` / auto-sync)**: Do **NOT** automatically log read-only questions, brainstorming, explanations, or routine status/health checks. Log only meaningful outcomes: shipped features, resolved bugs, completed audits/reviews, or concrete blockers requiring a decision.
+   - **Explicit User Request (`heyloey log` / direct ask)**: When the user explicitly asks to log or save a discussion, brainstorming takeaway, or session note, that explicit request authorizes the log entry.
+   - **Consolidate iterative cycles**: When multiple review or verification passes occur on the same task in one session, consolidate them into a single clean milestone summary rather than appending repetitive per-pass entries.
+2. **Daily Note & Template Invariant**:
    - Verify that today's note exists (`01-Daily/YYYY-MM/YYYY-MM-DD.md`).
    - If the note does NOT exist, **ALWAYS scaffold it strictly from [`99-Templates/Daily.md`](99-Templates/Daily.md)** (with full YAML frontmatter including `mood`, `energy`, `sleep_hours`, title `# <Day>, <Month> <D>, <YYYY>`, `> [!QUOTE] 💡 Daily Spark`, `### 🎯 Today's Focus`, `### ✅ Tasks`, `#### 🎯 In Progress from Projects`, `### 🔁 Habits`, `## 📝 Daily Log`, `## 🌇 End of the Day...`, and `## 🤖 AI Daily Summary`).
    - **NEVER invent ad-hoc markdown structures or headings** (e.g., NEVER write `date:`, `# 📅 YYYY-MM-DD`, `## 🛠️ Work Log`, or rename `### 🎯 Today's Focus`).
-2. **Anchor Location**:
+3. **Anchor Location**:
    - Append all session work logs **strictly under `## 📝 Daily Log`**.
    - Format entries with bold timestamps: `- **HH:MM**: <concise polished summary>` or `- **[HH:MM]** <concise polished summary>`.
-3. **Preserve Surrounding Structure**:
+4. **Preserve Surrounding Structure**:
    - Never disturb or overwrite `### 🔁 Habits`, task checkboxes, project mirrors, or frontmatter properties.
    - If git activity is requested or present, non-destructively merge it (e.g. via `npm run log-github`) into the GitHub activity collapsible callout under `## 📝 Daily Log`.
-4. **Session Wins & Blockers**:
+5. **Session Wins & Blockers**:
    - If the user shares wins, blockers, or reflections during the log command, record them directly into `### Wins` or `### Blockers` under `## 🌇 End of the Day...`.
 
 ---
@@ -203,11 +217,12 @@ When executing `heyloey distill` or `heyloey dream` (or during `heyloey weekly` 
 2. **Read-Only Session & Daily Log Synthesis**:
    - Inspect the last 7 days of `01-Daily/YYYY-MM/*.md` (`### Blockers`, `### Reflection`, `### 💡 Ideas & Fleeting Notes`).
    - Identify repeated friction, solved debugging patterns, and recurring mental models.
-3. **Propose-First Consolidation (Zero Unapproved Deletion)**:
-   - Present a structured proposal before mutating evergreen or system files:
+3. **Proportionate Approval (Propose-First vs. Explicit Request)**:
+   - **Autonomous Consolidation (`heyloey distill` / `dream` / `weekly`)**: Present a structured proposal before mutating evergreen or system files:
      - **Candidate Concepts (`08-Concepts/`)**: Atomic mental models (`review_cycle: 90d`).
      - **Candidate Snippets (`03-Dev/`)**: Reusable code patterns (`type: snippet`).
      - **Memory Offload (`memory.md` $\rightarrow$ `06-Resources/`)**: Specific infra/system details to move out of core memory if usage is high.
+   - **Explicit User Request**: When the user directly asks to create or distill a specific concept or snippet note, that request already authorizes the write—create the note and update its MOC directly without an extra confirmation prompt.
    - **Never autonomously delete skills or notes.** Archive stale notes via `status: archived` only after explicit user sign-off.
 
 ---

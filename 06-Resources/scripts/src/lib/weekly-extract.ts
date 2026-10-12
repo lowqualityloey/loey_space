@@ -258,7 +258,18 @@ export interface WeekSummary {
   sleepHours: Aggregate<number>;
   moods: string[];
   tasks: { completed: number; unfinished: number; completionRate: number | null };
-  habits: { completed: number };
+  habits: {
+    completed: number;
+    observedDays: number;
+    unobservedNotes: number;
+    missingDays: number;
+    coverage: string;
+    completedChecks: number;
+    observedOpportunities: number;
+    completionRate: number | null;
+  };
+  habitTrends: HabitTrendReport;
+  commitmentTriage: MorningCommitmentTriage;
   entries: { wins: number; blockers: number; reflection: number };
 }
 
@@ -269,16 +280,29 @@ export interface WeekSummary {
  * together: a mean over two logged days and the same mean over seven are the
  * same number and different facts, and only the pair says which one it is.
  */
-export function summarizeWeek(entries: DailyEntry[]): WeekSummary {
+export function summarizeWeek(
+  entries: DailyEntry[],
+  windowDays = 7,
+  options?: { pendingTodayDate?: string }
+): WeekSummary {
   const tasks = {
     completed: entries.reduce((sum, entry) => sum + entry.completedTasks.length, 0),
     unfinished: entries.reduce((sum, entry) => sum + entry.unfinishedTasks.length, 0),
   };
-  const taskTotal = tasks.completed + tasks.unfinished;
 
   const rated = entries
     .map((entry) => entry.taskCompletionRate)
     .filter((rate): rate is number => rate !== null);
+
+  const habitTrends = analyzeHabitTrends(entries, windowDays, options);
+  const openTaskLines = Array.from(
+    new Set(
+      entries.flatMap((entry) =>
+        entry.unfinishedTasks.map((t) => (t.startsWith("- [") ? t : `- [ ] ${t}`))
+      )
+    )
+  );
+  const commitmentTriage = triageDailyCommitments(openTaskLines, 3);
 
   return {
     notes: entries.length,
@@ -295,7 +319,16 @@ export function summarizeWeek(entries: DailyEntry[]): WeekSummary {
     },
     habits: {
       completed: entries.reduce((sum, entry) => sum + entry.completedHabits.length, 0),
+      observedDays: habitTrends.observedDays,
+      unobservedNotes: habitTrends.unobservedNotes,
+      missingDays: habitTrends.missingDays,
+      coverage: habitTrends.coverage,
+      completedChecks: habitTrends.overall.completedChecks,
+      observedOpportunities: habitTrends.overall.observedOpportunities,
+      completionRate: habitTrends.overall.rate,
     },
+    habitTrends,
+    commitmentTriage,
     entries: {
       wins: entries.reduce((sum, entry) => sum + entry.wins.length, 0),
       blockers: entries.reduce((sum, entry) => sum + entry.blockers.length, 0),
@@ -310,4 +343,302 @@ export function describeWeekCoverage(summary: WeekSummary): string {
     `**Vitals coverage**: energy ${summary.energy.coverage}; sleep ${summary.sleepHours.coverage}` +
     (summary.moods.length ? `; mood recorded: ${summary.moods.join(", ")}` : "; no mood recorded")
   );
+}
+
+/** One line stating what the week's habit rates rest on, separating habit reviews from morning-only/unobserved notes. */
+export function describeHabitCoverage(report: HabitTrendReport): string {
+  const pct = report.overall.rate === null ? "n/a" : `${Math.round(report.overall.rate * 100)}%`;
+  const parts = [
+    `**Habit review coverage**: ${report.coverage} day(s) with completed habit review`,
+    report.overall.observedOpportunities > 0
+      ? `${report.overall.completedChecks}/${report.overall.observedOpportunities} habit checks (${pct})`
+      : "0 observed habit opportunities (unreviewed habits stay unknown)",
+  ];
+  if (report.unobservedNotes > 0) {
+    parts.push(`${report.unobservedNotes} morning-only/unobserved note(s) excluded from denominator`);
+  }
+  if (report.missingDays > 0) {
+    parts.push(`${report.missingDays} unlogged day(s)`);
+  }
+  if (report.tentative) {
+    parts.push("tentative (sparse coverage < 4 observed days)");
+  }
+  return parts.join("; ");
+}
+
+/** Render a static Markdown summary of evidence-proportional habit rates for the weekly review note. */
+export function formatHabitTrendsMarkdown(report: HabitTrendReport): string {
+  const lines: string[] = [describeHabitCoverage(report)];
+  if (report.observedDays > 0) {
+    const perHabitSummary = CORE_HABITS.map((habit) => {
+      const h = report.perHabit[habit];
+      const pct = h.rate === null ? "n/a" : `${Math.round(h.rate * 100)}%`;
+      return `\`${habit}\` ${h.completedDays}/${h.observedDays} (${pct})`;
+    }).join(" · ");
+    lines.push(`**Per-habit completion (over ${report.observedDays} observed day(s))**: ${perHabitSummary}`);
+  }
+  if (report.burnoutRisk.flagged) {
+    lines.push(
+      `> [!WARNING] Burnout / Sleep-Debt Signal\n> Detected ${report.burnoutRisk.maxConsecutiveCalendarDays} consecutive calendar days of low energy/sleep or depleted mood (${report.burnoutRisk.streakDates.join(", ")}).`
+    );
+  }
+  return lines.join("\n\n");
+}
+
+export const CORE_HABITS = ["water", "prioritised", "move", "read", "tidy", "disconnect"] as const;
+export type CoreHabit = (typeof CORE_HABITS)[number];
+
+/**
+ * The 5 habits reviewed during the evening wind-down (`heyloey evening`) or
+ * daytime tracking. `prioritised` is excluded here because `heyloey morning`
+ * checks `- [x] prioritised` automatically during morning kick-off before the
+ * day's habits have been lived or reviewed.
+ */
+const EVENING_REVIEW_HABITS = new Set(["water", "move", "read", "tidy", "disconnect"]);
+
+const DEPLETED_MOODS = new Set(["tired", "stressed", "exhausted", "restless"]);
+
+/**
+ * Determine whether a daily note entry has evidence of a completed **habit review**,
+ * separate from a morning check-in (`mood`, `energy`, `sleep_hours`, `Today's Focus`,
+ * and auto-checked `- [x] prioritised`).
+ *
+ * - An untouched scaffolded note has no habit review (`false`).
+ * - A morning-only note (vitals + intentions + only `prioritised` checked, with no
+ *   other habits checked and no evening `Wins`/`Blockers`/`Reflection`) has NOT
+ *   undergone a habit review (`false`), so the other 5 habits stay unknown rather
+ *   than counting as 5 missed habits (1/6 = 17%).
+ * - If `pendingTodayDate` matches `entry.date`, today's note is still in progress
+ *   unless evening reflections (`Wins`/`Blockers`/`Reflection`) or all 6 habits are
+ *   already recorded.
+ */
+export function isObservedDailyEntry(
+  entry: DailyEntry,
+  options?: { pendingTodayDate?: string }
+): boolean {
+  const hasEveningReflection =
+    entry.wins.length > 0 || entry.blockers.length > 0 || entry.reflection.length > 0;
+  const hasNonMorningHabit = entry.completedHabits.some((h) =>
+    EVENING_REVIEW_HABITS.has(h.trim().toLowerCase())
+  );
+
+  if (options?.pendingTodayDate && entry.date === options.pendingTodayDate) {
+    const allSixChecked = CORE_HABITS.every((habit) =>
+      entry.completedHabits.some((h) => h.trim().toLowerCase() === habit)
+    );
+    return hasEveningReflection || allSixChecked;
+  }
+
+  return hasNonMorningHabit || hasEveningReflection;
+}
+
+function hasVitalsEvidence(entry: DailyEntry): boolean {
+  return entry.mood !== null || entry.energy !== null || entry.sleepHours !== null;
+}
+
+function diffCalendarDays(dateA: string, dateB: string): number | null {
+  const matchA = dateA.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const matchB = dateB.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!matchA || !matchB) return null;
+  const utcA = Date.UTC(Number(matchA[1]), Number(matchA[2]) - 1, Number(matchA[3]));
+  const utcB = Date.UTC(Number(matchB[1]), Number(matchB[2]) - 1, Number(matchB[3]));
+  return Math.round((utcB - utcA) / 86400000);
+}
+
+function isBurnoutDay(entry: DailyEntry): boolean {
+  if (entry.energy !== null && entry.energy <= 2) return true;
+  if (entry.sleepHours !== null && entry.sleepHours < 6) return true;
+  if (entry.mood !== null && DEPLETED_MOODS.has(entry.mood.trim().toLowerCase())) return true;
+  return false;
+}
+
+export interface HabitRate {
+  completedDays: number;
+  observedDays: number;
+  rate: number | null;
+}
+
+export interface HabitTrendReport {
+  windowDays: number;
+  observedDays: number;
+  unobservedNotes: number;
+  missingDays: number;
+  coverage: string;
+  perHabit: Record<CoreHabit, HabitRate>;
+  overall: {
+    completedChecks: number;
+    observedOpportunities: number;
+    rate: number | null;
+  };
+  burnoutRisk: {
+    flagged: boolean;
+    maxConsecutiveCalendarDays: number;
+    streakDates: string[];
+  };
+  tentative: boolean;
+}
+
+/**
+ * Evidence-proportional habit & burnout analysis across a calendar window:
+ * - Distinguishes missing dates, untouched scaffolded notes, and morning-only notes from confirmed habit reviews.
+ * - Uses `completedDays / observedDays` per habit and `completedChecks / (6 * observedDays)` overall.
+ * - Evaluates burnout risk across all notes with vitals evidence requiring >= 3 consecutive *calendar* days.
+ */
+export function analyzeHabitTrends(
+  entries: DailyEntry[],
+  windowDays = 7,
+  options?: { pendingTodayDate?: string }
+): HabitTrendReport {
+  const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
+  const observedEntries = sorted.filter((entry) => isObservedDailyEntry(entry, options));
+  const observedDays = observedEntries.length;
+  const unobservedNotes = sorted.length - observedDays;
+  const missingDays = Math.max(0, windowDays - sorted.length);
+
+  const perHabit = {} as Record<CoreHabit, HabitRate>;
+  let completedChecks = 0;
+
+  for (const habit of CORE_HABITS) {
+    const completedDays = observedEntries.filter((entry) =>
+      entry.completedHabits.some((h) => h.trim().toLowerCase() === habit)
+    ).length;
+    completedChecks += completedDays;
+    perHabit[habit] = {
+      completedDays,
+      observedDays,
+      rate: observedDays === 0 ? null : Math.round((completedDays / observedDays) * 100) / 100,
+    };
+  }
+
+  const observedOpportunities = CORE_HABITS.length * observedDays;
+  const overallRate =
+    observedOpportunities === 0
+      ? null
+      : Math.round((completedChecks / observedOpportunities) * 100) / 100;
+
+  const vitalsEntries = sorted.filter(
+    (entry) => hasVitalsEvidence(entry) || isObservedDailyEntry(entry, options)
+  );
+  let currentStreak: string[] = [];
+  let bestStreak: string[] = [];
+
+  for (const entry of vitalsEntries) {
+    if (!isBurnoutDay(entry)) {
+      currentStreak = [];
+      continue;
+    }
+    if (currentStreak.length === 0) {
+      currentStreak = [entry.date];
+    } else {
+      const prevDate = currentStreak[currentStreak.length - 1];
+      if (diffCalendarDays(prevDate, entry.date) === 1) {
+        currentStreak.push(entry.date);
+      } else {
+        currentStreak = [entry.date];
+      }
+    }
+    if (currentStreak.length > bestStreak.length) {
+      bestStreak = [...currentStreak];
+    }
+  }
+
+  return {
+    windowDays,
+    observedDays,
+    unobservedNotes,
+    missingDays,
+    coverage: `${observedDays}/${windowDays}`,
+    perHabit,
+    overall: {
+      completedChecks,
+      observedOpportunities,
+      rate: overallRate,
+    },
+    burnoutRisk: {
+      flagged: bestStreak.length >= 3,
+      maxConsecutiveCalendarDays: bestStreak.length,
+      streakDates: bestStreak,
+    },
+    tentative: observedDays < 4,
+  };
+}
+
+export interface DeferredCommitment {
+  task: string;
+  destinationKind: "project" | "personal" | "standalone";
+  destination: string;
+}
+
+export interface MorningCommitmentTriage {
+  selected: string[];
+  deferred: DeferredCommitment[];
+}
+
+function taskPriorityRank(task: string): number {
+  const isInProgress = /^\s*-\s*\[\/\]/.test(task);
+  const pMatch = task.match(/#priority\/p([0-3])\b/i);
+  const pLevel = pMatch ? Number(pMatch[1]) : 4;
+  return (isInProgress ? 0 : 10) + pLevel;
+}
+
+function resolveDeferredHome(task: string): {
+  destinationKind: "project" | "personal" | "standalone";
+  destination: string;
+} {
+  const kanbanLink = task.match(/\[\[(?:02-Projects\/[^\]|]+\/)?([^\]|/]+?)\s+Kanban(?:\|[^\]]+)?\]\]/i);
+  if (kanbanLink) {
+    const project = kanbanLink[1].trim();
+    return {
+      destinationKind: "project",
+      destination: `02-Projects/${project}/${project} Kanban.md`,
+    };
+  }
+  const projectTag = task.match(/#project\/([a-z0-9_-]+)/i);
+  if (projectTag) {
+    const project = projectTag[1];
+    return {
+      destinationKind: "project",
+      destination: `02-Projects/${project}/${project} Kanban.md`,
+    };
+  }
+  if (/#(?:area\/)?personal\b/i.test(task)) {
+    return {
+      destinationKind: "personal",
+      destination: "05-Personal/",
+    };
+  }
+  return {
+    destinationKind: "standalone",
+    destination: "01-Daily/Tasks Kanban.md",
+  };
+}
+
+/**
+ * Cap active daily commitments at `limit` (default 3) while keeping every
+ * remaining carried-forward task recoverable in its appropriate home
+ * (project board vs. personal vs. standalone Tasks Kanban).
+ */
+export function triageDailyCommitments(tasks: string[], limit = 3): MorningCommitmentTriage {
+  const indexed = tasks.map((task, index) => ({
+    task,
+    index,
+    rank: taskPriorityRank(task),
+  }));
+
+  indexed.sort((a, b) => (a.rank !== b.rank ? a.rank - b.rank : a.index - b.index));
+
+  const selectedSet = new Set(indexed.slice(0, Math.max(0, limit)).map((item) => item.index));
+  const selected: string[] = [];
+  const deferred: DeferredCommitment[] = [];
+
+  tasks.forEach((task, idx) => {
+    if (selectedSet.has(idx)) {
+      selected.push(task);
+    } else {
+      const home = resolveDeferredHome(task);
+      deferred.push({ task, ...home });
+    }
+  });
+
+  return { selected, deferred };
 }
