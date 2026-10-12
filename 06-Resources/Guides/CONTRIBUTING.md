@@ -151,6 +151,13 @@ Please include the check you ran in the PR description. Node's built-in `assert`
    git config core.hooksPath .githooks
    ```
 
+   That also activates the non-blocking `post-commit` hook, which records a milestone in the daily
+   note and `handoff.md` — but only for a commit whose message carries the trailer
+   `HeyLoey-Milestone: <summary>`. It never changes a commit's outcome, it never runs for a commit
+   without the trailer, and it fails open when Node or the vault's records are absent, so
+   contributing here does not log your work into anyone's notes by accident. See
+   [Onboarding](Onboarding.md#optional-activate-the-git-hooks) for the mechanism and its bounds.
+
 5. **Don't reformat** files you aren't otherwise changing.
 
 ### Stacked pull requests

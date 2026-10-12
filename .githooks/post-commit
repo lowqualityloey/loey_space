@@ -1,19 +1,542 @@
 #!/usr/bin/env bash
-# Git post-commit hook for automated loey_space daily logging
-# Triggered on every commit; non-blocking and fail-safe.
+#
+# post-commit — records an opted-in milestone in today's daily note and in `handoff.md`.
+#
+# Why this hook exists: the outcome of a session is worth keeping, and the moment it is known is
+# usually the moment it is committed. Those two records are what a later session reads, so this is
+# where an entry belongs.
+#
+# Activate once per clone — git hooks are inactive until you do:
+#     git config --local core.hooksPath .githooks
+#
+# Opting in is deliberate. A commit is logged ONLY when its message carries this trailer:
+#
+#     HeyLoey-Milestone: <one-line summary>
+#
+# Nothing else is ever logged. A commit without the trailer is a silent no-op here, which is what
+# keeps the daily log a record of milestones rather than a copy of `git log` (AGENTS.md,
+# "Milestone-Only Logging Policy"). The trailer body is the logged summary; the commit subject is
+# deliberately NOT used, because a subject describes work in progress and the log records outcomes.
+# An empty trailer is not an opt-in.
+#
+# Eligibility is the trailer and nothing else. A model-based classifier was prototyped in this file
+# during Milestone 3 and removed at the owner's direction: measured against daily-log summaries it
+# ranked chores above milestones as often as below, and the same text scored differently per run
+# (docs/tests/2026-10-12-test-post-commit-hook.md keeps the table). A gate that can withhold a real
+# milestone at random is worse than no gate — so nothing here consults a model, and the only tools
+# this hook needs are `git`, `node` and the repository's own bundle.
+#
+# Fail-open, always. This hook never changes a commit's outcome:
+#   • no Node and no `heyloey` on PATH → silent skip
+#   • today's daily note or handoff absent → the logger refuses; reported, never fatal
+#   • the logger errors, hangs, or refuses to die → reported, never fatal
+#   • coordination or a bound cannot be arranged → the entry is skipped with a notice
+# `git commit` has already written the commit object by the time this runs, so a non-zero exit here
+# could only produce a confusing failure after the fact. Every step is guarded individually; the
+# hook exits 0 on every path except an explicit SIGINT/SIGTERM, where it exits 128+signal after
+# cleaning up (git ignores a post-commit exit status, so the commit still stands). The pre-commit
+# hook is the opposite — it blocks, and it stays that way.
+#
+# The tool it prefers is the repository-local bundle (`06-Resources/scripts/heyloey.js`), reached
+# through `node`. A global `heyloey` on PATH is the fallback, and when neither exists the hook does
+# nothing. The vault is named explicitly with `--root`, never guessed, so the entry lands in this
+# repository's records and not in whichever vault happens to be current.
+#
+# PATH IS NEVER MODIFIED. An earlier version prefixed `~/.local/bin` and `~/.cargo/bin` onto PATH,
+# which can shadow the caller's own tools for the duration of the hook. Tools are looked up with
+# `command -v` and used as the caller's environment defines them.
+#
+# BOUNDED EXECUTION, ONE PATH. The logger is started as a child of this shell and bounded here, with
+# a hard escalation ladder: at `heyloey.timeout` it is sent TERM, given TERM_GRACE_SECS, then
+# KILLed, and always `wait`ed for so it is reaped and cannot outlive the hook. The effective bound
+# is therefore timeout + grace (+ the one-second poll). `timeout(1)` is deliberately NOT used: a
+# TERM-only `timeout` hangs forever on a logger that ignores TERM, and `timeout -k` is GNU-only, so
+# relying on it would make the hard bound platform-dependent. The only tool needed is `sleep(1)`;
+# where that is missing there is no way to bound the run, so logging is skipped with a notice — a
+# hung logger must never be able to hold a commit open. The logger's output goes to a file inside
+# the Git directory rather than a pipe, so a process killed mid-write cannot keep the hook waiting.
+#
+# INTERRUPTION IS ORDERED. INT and TERM are trapped. The logger is terminated and reaped FIRST, and
+# only then is coordination state released, so an interrupted hook can never leave a live writer
+# behind holding a freed lock. After the cleanup the hook exits explicitly with 128+signal.
+#
+# SERIALIZATION. The duplicate check, the logging run and the ledger update are one critical section,
+# guarded by a `mkdir` lock beside the ledger (`git rev-parse --git-path heyloey-milestones.lock`).
+# `mkdir` is atomic on every filesystem this vault runs on, including Git Bash, and needs no
+# dependency. Scope is the working tree, which is the same scope as the records being protected: a
+# working tree is the vault `done` writes into, while two clones keep separate trees and separate
+# daily notes. Git's index lock is deliberately NOT relied on: it does not cover two hooks started
+# from one commit loop, and it says nothing about a second checkout of the same vault.
+#
+# A LIVE HOLDER IS NEVER STOLEN, AND NEVER BY AGE. A lock is reclaimed only for a holder that is
+# provably gone, established by its recorded pid: `kill -0` on that pid has to fail. An unreadable or
+# alive pid means safety cannot be established, so the entry is skipped with a notice rather than
+# guessed at — age is reported in that notice (against the longest a bounded run can hold the lock,
+# derived from `heyloey.timeout`, not a fixed 120s) to make manual recovery possible, but age alone
+# never removes a lock. That is what keeps `heyloey.timeout 300` safe from a 120s sweep.
+#
+# THE WRITER OUTLIVES THE HOOK, SO ITS DEATH IS NOT THE TEST. A hook killed with SIGKILL runs no
+# cleanup at all, which means its logger can still be alive and writing to the daily note while the
+# hook's own pid is provably dead. Reclaiming on the hook's death alone would hand the lock to a
+# second writer while the first was mid-write. The lock therefore records the writer as well, in three
+# states: `none`, written the moment the lock is taken and before any fork; `pending`, written
+# immediately before the fork; and the writer's pid, written immediately after it. A reclaim needs the
+# hook AND the writer to be provably gone. A `pending`, missing or unrecognised writer record means
+# recovery cannot be established, so the entry is skipped with a notice naming the lock and the
+# recovery: stop the surviving writer, look for a partial entry, then re-run. Both critical writes are
+# preconditions, never best-effort — a run that cannot record the writer does not start one, because a
+# lock that hides a live writer is the failure this whole mechanism exists to prevent.
+#
+# RECLAIMING IS CLAIMED, NOT ASSUMED. Removing the stale lock is serialized by an atomically created
+# sibling directory (`…/heyloey-milestones.lock.reclaim`). Only its holder may remove the lock, it
+# re-verifies the same dead holder under the claim, and it re-attempts acquisition itself. A second
+# reclaimer — or an invocation that finds a fresh lock — therefore cannot delete a lock someone else
+# just took; it skips with a notice instead.
+#
+# A skipped entry is recoverable, not lost silently: re-run the commit
+# (`git commit --amend --no-edit` re-triggers this hook) or log it directly with
+# `npm run heyloey -- done "<summary>"`.
+#
+# DUPLICATE AVOIDANCE, STATED EXACTLY. After a run that exits 0, the hook appends a hash of
+# (date, summary) to `.git/heyloey-milestones`, and a later invocation with a key already present
+# skips. So the guarantee is: **a summary that has already been logged successfully is not logged
+# again on the same day by this clone.** It is not a guarantee that a partly-written entry cannot be
+# completed twice: a run that is killed or fails after writing one of the two records exits non-zero,
+# records no key (so the entry stays retryable), and a retry that lands in a later minute writes a
+# second, differently-timestamped line. See the maintenance guide for the recovery procedure.
+#
+# Per-clone configuration (all optional):
+#   heyloey.log          (bool)  default true — false disables this hook
+#   heyloey.timeout      (secs)  default 10   — hard bound on the logger, before the grace below
+#   HEYLOEY_LOG=off      (env)                — one-off disable, e.g. `HEYLOEY_LOG=off git commit …`
 
-export PATH="${HOME}/.local/bin:${HOME}/.cargo/bin:${PATH}"
+set -u
 
-HEYLOEY_BIN=""
-if [ -x "${HOME}/.local/bin/heyloey" ]; then
-  HEYLOEY_BIN="${HOME}/.local/bin/heyloey"
+# After the bound, the logger gets this long to exit on TERM before it is KILLed. The hook's widest
+# possible hold on the lock is therefore `heyloey.timeout` + this, plus the one-second poll.
+TERM_GRACE_SECS=2
+
+# The repository root comes from git, never from this file's own location, so a clone can move
+# anywhere and a hook run from a subdirectory still behaves identically.
+repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+[ -n "${repo_root:-}" ] || exit 0
+
+note() { printf 'post-commit: %s\n' "$*" >&2; }
+
+# --- configuration ---------------------------------------------------------------
+config_bool() { # <key> <default> → true|false. A missing or malformed value falls back.
+  local value
+  value=$(git config --bool --get "$1" 2>/dev/null) || value=""
+  case "$value" in
+    true|false) printf '%s' "$value" ;;
+    *) printf '%s' "$2" ;;
+  esac
+}
+
+config_secs() { # <key> <default> → a positive integer
+  local value
+  value=$(git config --int --get "$1" 2>/dev/null) || value=""
+  case "$value" in
+    ''|*[!0-9]*|0) printf '%s' "$2" ;;
+    *) printf '%s' "$value" ;;
+  esac
+}
+
+case "${HEYLOEY_LOG:-}" in
+  off|0|false) exit 0 ;;
+esac
+
+[ "$(config_bool heyloey.log true)" = "true" ] || exit 0
+
+timeout_secs=$(config_secs heyloey.timeout 10)
+
+# The longest a legitimate invocation can hold the lock, used only to make a skip notice actionable.
+# It is derived from the configured bound, never hard-coded: a fixed 120s would be shorter than a
+# single `heyloey.timeout 300` run and would invite stealing a live holder's lock by age alone.
+max_hold_secs=$(( timeout_secs + TERM_GRACE_SECS + 30 ))
+[ "$max_hold_secs" -lt 120 ] && max_hold_secs=120
+
+# --- the opt-in -----------------------------------------------------------------
+message=$(git log -1 --pretty=%B 2>/dev/null) || exit 0
+[ -n "${message:-}" ] || exit 0
+
+summary=$(printf '%s\n' "$message" | awk '
+  /^HeyLoey-Milestone:/ {
+    value = substr($0, length("HeyLoey-Milestone:") + 1)
+    sub(/^[ \t]+/, "", value)
+    sub(/[ \t\r]+$/, "", value)
+    print value
+    exit
+  }') || exit 0
+
+# A leading hyphen or whitespace would be read as an option by the CLI's argument parser, so it is
+# stripped rather than passed through (there is no `--` end-of-options form to use here).
+summary=$(printf '%s' "${summary:-}" | sed -e 's/^[-[:space:]]*//') || exit 0
+[ -n "$summary" ] || exit 0
+
+# --- the logger: repository-local first, global second, skip third ---------------
+node_bin=$(command -v node 2>/dev/null) || node_bin=""
+bundle="$repo_root/06-Resources/scripts/heyloey.js"
+logger=""
+if [ -n "${node_bin:-}" ] && [ -f "$bundle" ]; then
+  logger="repo-local bundle"
 elif command -v heyloey >/dev/null 2>&1; then
-  HEYLOEY_BIN="heyloey"
+  logger="heyloey on PATH"
 fi
 
-if [ -n "$HEYLOEY_BIN" ]; then
-  COMMIT_MSG=$(git log -1 --pretty=%s 2>/dev/null)
-  if [ -n "$COMMIT_MSG" ]; then
-    "$HEYLOEY_BIN" log "$COMMIT_MSG" >/dev/null 2>&1 &
-  fi
+if [ -z "$logger" ]; then
+  # Missing tooling is an expected state in a fresh clone, not an error worth reporting on every
+  # commit. Say nothing and leave the commit alone.
+  exit 0
 fi
+
+# --- bounded execution is a precondition, not an optimisation --------------------
+# `sleep(1)` is the whole dependency: it is what the escalation ladder polls with. Without it there
+# is no bound, and the only honest option is to skip — an unbounded logger is exactly the failure
+# this hook must not have.
+if ! command -v sleep >/dev/null 2>&1; then
+  note "milestone not logged: sleep(1) is unavailable, so the logger cannot be bounded"
+  exit 0
+fi
+
+# Coordination is the other precondition. `mkdir` is how the lock (and a reclaim claim) is taken
+# atomically, and `rm`/`rmdir` are how they are released; without them two invocations could
+# interleave and one of them could be lost. The check is explicit so the notice says which
+# capability is missing rather than blaming a holder.
+if ! command -v mkdir >/dev/null 2>&1 || ! command -v rm >/dev/null 2>&1 || ! command -v rmdir >/dev/null 2>&1; then
+  note "milestone not logged: mkdir(1), rm(1) and rmdir(1) are needed to serialise invocations, and one is unavailable"
+  exit 0
+fi
+
+# --- paths under the Git directory: ledger, lock, capture ------------------------
+git_path() { # <name> → an absolute path inside this checkout's Git directory, or nothing
+  local value
+  value=$(git rev-parse --git-path "$1" 2>/dev/null) || return 0
+  case "$value" in
+    '') : ;;
+    /*) printf '%s' "$value" ;;
+    *) printf '%s/%s' "$repo_root" "$value" ;;
+  esac
+}
+
+ledger=$(git_path heyloey-milestones)
+lock_dir=$(git_path heyloey-milestones.lock)
+# The lock is removed with `rm -rf` and the claim with `rmdir`, so both are only ever acted on when
+# they are exactly the paths this hook constructed. Anything else — an empty result, a different
+# basename — disables coordination rather than risking an unrelated directory.
+case "$lock_dir" in
+  */heyloey-milestones.lock) : ;;
+  *) lock_dir="" ;;
+esac
+claim_dir=""
+if [ -n "$lock_dir" ]; then
+  claim_dir="$lock_dir.reclaim"
+  case "$claim_dir" in
+    */heyloey-milestones.lock.reclaim) : ;;
+    *) claim_dir="" ;;
+  esac
+fi
+
+key=$(printf '%s|%s' "$(date +%Y-%m-%d)" "$summary" | git hash-object --stdin 2>/dev/null) || key=""
+
+# --- the logger's process lifecycle ----------------------------------------------
+logger_pid=""
+capture=""
+
+terminate_logger() { # TERM → grace → KILL, then reap. Idempotent and safe with no logger.
+  [ -n "${logger_pid:-}" ] || return 0
+  local pid="$logger_pid" waited=0
+  logger_pid=""
+  kill -0 "$pid" 2>/dev/null || return 0
+  kill -TERM "$pid" 2>/dev/null || true
+  while kill -0 "$pid" 2>/dev/null; do
+    [ "$waited" -lt "$TERM_GRACE_SECS" ] || break
+    sleep 1 || true
+    waited=$((waited + 1))
+  done
+  kill -0 "$pid" 2>/dev/null && kill -KILL "$pid" 2>/dev/null || true
+  # Reaping is the point of this function: a KILLed child stays a zombie until it is waited for.
+  wait "$pid" 2>/dev/null || true
+  return 0
+}
+
+# --- coordination ----------------------------------------------------------------
+lock_held=""
+skip_reason=""
+
+read_lock_field() { # <name> → the field's contents, or nothing
+  cat "$lock_dir/$1" 2>/dev/null || true
+}
+
+record_writer() { # <none|pending|pid> → this lock's writer record; never written outside a lock
+  [ -n "$lock_dir" ] || return 1
+  printf '%s\n' "$1" >"$lock_dir/logger" 2>/dev/null
+}
+
+writer_field() { # → the raw writer record, so an unexpected value can be quoted back to the operator
+  read_lock_field logger
+}
+
+writer_pid() { # → the writer's pid, or nothing when the record is not one
+  local value
+  value=$(writer_field)
+  case "$value" in
+    ''|none|pending|*[!0-9]*) printf '' ;;
+    *) printf '%s' "$value" ;;
+  esac
+}
+
+writer_is_gone() { # 0 = no writer of this lock can still be running
+  # Only one of the three states is silent about a writer that might exist:
+  #   none      — recorded before any fork, so no writer was ever started
+  #   <pid>     — a writer was started, and it is gone when that pid is
+  #   anything else (pending, missing, unrecognised) — the writer cannot be accounted for. A killed
+  #   hook may have left one running, so this lock must not be reclaimed.
+  local raw
+  raw=$(writer_field)
+  case "$raw" in
+    none) return 0 ;;
+    ''|pending|*[!0-9]*) return 1 ;;
+  esac
+  ! kill -0 "$raw" 2>/dev/null
+}
+
+reclaim_is_safe() { # 0 = the hook and its writer are both provably gone
+  holder_is_dead || return 1
+  writer_is_gone || return 1
+  return 0
+}
+
+holder_pid() { # → the recorded holder pid, or nothing when it is not a plain number
+  local value
+  value=$(read_lock_field pid)
+  case "$value" in
+    ''|*[!0-9]*) printf '' ;;
+    *) printf '%s' "$value" ;;
+  esac
+}
+
+holder_is_dead() { # 0 = the recorded holder is provably gone
+  local value
+  value=$(holder_pid)
+  [ -n "$value" ] || return 1
+  ! kill -0 "$value" 2>/dev/null
+}
+
+holder_age_secs() { # → whole seconds since the lock was taken, or nothing
+  local at now
+  at=$(read_lock_field at)
+  case "$at" in
+    ''|*[!0-9]*) printf '' ;;
+    *)
+      now=$(date +%s)
+      case "$now" in
+        ''|*[!0-9]*) printf '' ;;
+        *) printf '%s' "$((now - at))" ;;
+      esac
+      ;;
+  esac
+}
+
+stale_lock_notice() { # why this lock is not being reclaimed; the age is reported only so a human can
+  # act, never to authorise a reclaim.
+  local pid age suffix raw wpid
+  pid=$(holder_pid)
+  if [ -z "$pid" ]; then
+    printf 'the coordination lock has no readable holder (%s), so it cannot be reclaimed safely' "$lock_dir"
+    return 0
+  fi
+  if kill -0 "$pid" 2>/dev/null; then
+    age=$(holder_age_secs)
+    suffix=""
+    if [ -n "$age" ] && [ "$age" -gt "$max_hold_secs" ]; then
+      suffix=" (held for ${age}s, longer than the ${max_hold_secs}s a bounded run can hold it — if pid ${pid} is not this hook, remove $lock_dir by hand)"
+    fi
+    printf 'another invocation is already logging to this vault%s' "$suffix"
+    return 0
+  fi
+  # The hook is gone, which is deliberately NOT enough to reclaim: its writer may still be alive and
+  # able to change the records.
+  wpid=$(writer_pid)
+  if [ -n "$wpid" ]; then
+    printf 'a milestone writer (pid %s) from a killed hook is still running — not logged; stop that process, check the daily note and handoff.md for a partial entry, then re-run the commit or run the CLI directly: npm run heyloey -- done' "$wpid"
+    return 0
+  fi
+  raw=$(writer_field)
+  printf "the coordination lock cannot be reclaimed safely: its writer is unaccounted for (%s records '%s', and a writer can exist between being started and being identified) — not logged; if no logging run is active, remove %s by hand" "$lock_dir/logger" "${raw:-empty}" "$lock_dir"
+}
+
+reclaim_stale_lock() { # 0 = the way may be clear now; 1 = give up, with skip_reason set
+  local seen
+  [ -n "$claim_dir" ] || {
+    skip_reason="a stale coordination lock cannot be reclaimed here ($lock_dir)"
+    return 1
+  }
+  seen=$(holder_pid)
+  [ -n "$seen" ] || {
+    skip_reason="the coordination lock has no readable holder ($lock_dir), so it cannot be reclaimed safely"
+    return 1
+  }
+  if ! mkdir "$claim_dir" 2>/dev/null; then
+    # Another invocation is already reclaiming, or a previous reclaimer died inside its claim.
+    # Stealing the claim could put two reclaimers on the lock, so this one stands down.
+    skip_reason="another invocation is reclaiming a stale coordination lock — not logged; re-run the commit or run the CLI directly: npm run heyloey -- done"
+    return 1
+  fi
+  # Under the claim, re-verify. Only the same provably-dead holder may be removed: if the lock has
+  # been released and re-taken in the meantime, its pid differs and it is left alone.
+  if [ "$(holder_pid)" != "$seen" ] || ! holder_is_dead; then
+    rmdir "$claim_dir" 2>/dev/null || true
+    return 0
+  fi
+  if ! rm -rf "$lock_dir" 2>/dev/null; then
+    rmdir "$claim_dir" 2>/dev/null || true
+    skip_reason="the stale coordination lock could not be removed ($lock_dir)"
+    return 1
+  fi
+  rmdir "$claim_dir" 2>/dev/null || true
+  note "reclaimed a stale coordination lock left by an interrupted run"
+  return 0
+}
+
+acquire_lock() { # 0 = the lock is held by this invocation; 1 = skip with skip_reason set
+  skip_reason=""
+  if [ -z "$lock_dir" ]; then
+    skip_reason="coordination is unavailable (no lock path)"
+    return 1
+  fi
+  local attempt
+  for attempt in 1 2 3; do
+    if mkdir "$lock_dir" 2>/dev/null; then
+      lock_held="yes"
+      printf '%s\n' "$$" >"$lock_dir/pid" 2>/dev/null || true
+      printf '%s\n' "$(date +%s)" >"$lock_dir/at" 2>/dev/null || true
+      # The writer record starts as `none`, and a reclaimer will not remove a lock without a record it
+      # can trust: a lock that cannot say whether a writer exists must never come into existence. If
+      # this write fails, the run gives the lock up instead of logging behind a blind spot.
+      if ! record_writer none; then
+        skip_reason="the coordination lock's writer record could not be written ($lock_dir)"
+        release_lock
+        return 1
+      fi
+      return 0
+    fi
+    # Reclaiming needs the hook AND its writer to be provably gone: a SIGKILLed hook leaves its
+    # logger alive, and that logger can still write.
+    if reclaim_is_safe; then
+      reclaim_stale_lock || return 1
+      continue
+    fi
+    skip_reason=$(stale_lock_notice)
+    return 1
+  done
+  if [ -z "$skip_reason" ]; then
+    skip_reason="another invocation is already logging to this vault"
+  fi
+  return 1
+}
+
+release_lock() {
+  [ -n "$lock_held" ] || return 0
+  lock_held=""
+  # Only ever release a lock this invocation owns: a takeover by another process must not be undone.
+  if [ "$(read_lock_field pid)" = "$$" ]; then
+    rm -rf "$lock_dir" 2>/dev/null || true
+  fi
+}
+
+cleanup() {
+  # The logger goes first: releasing coordination state while a writer is still alive is exactly how
+  # two writers end up in one vault.
+  terminate_logger
+  [ -n "${capture:-}" ] && rm -f "$capture" 2>/dev/null
+  release_lock
+  :
+}
+
+on_signal() { # <signal number>: stop the writer, reap it, drop coordination, then exit
+  local sig="$1"
+  terminate_logger
+  note "interrupted (signal $sig): the logger was stopped and the entry was not completed"
+  cleanup
+  exit $((128 + sig))
+}
+
+trap 'on_signal 2' INT
+trap 'on_signal 15' TERM
+trap cleanup EXIT
+
+if ! acquire_lock; then
+  note "$skip_reason"
+  exit 0
+fi
+
+# --- duplicate avoidance (inside the critical section) ---------------------------
+if [ -n "${ledger:-}" ] && [ -n "${key:-}" ] && [ -f "$ledger" ] && grep -qxF -- "$key" "$ledger" 2>/dev/null; then
+  note "milestone already logged today — skipped"
+  exit 0
+fi
+
+# --- run the logger under the bound ----------------------------------------------
+capture=$(git_path "heyloey-postcommit.$$.out")
+if [ -z "$capture" ]; then
+  note "milestone not logged: no writable location for the logger's output"
+  exit 0
+fi
+
+# --- record the writer's identity BEFORE the writer exists ------------------------
+# The interval between forking and recording the pid is exactly the interval in which a SIGKILL
+# would leave an unaccountable writer, so the intent is recorded first and the pid immediately after
+# the fork. If the intent cannot be written, no writer is started at all.
+if ! record_writer pending; then
+  note "milestone not logged: the writer's identity could not be recorded before starting it"
+  exit 0
+fi
+
+run_bounded() { # <seconds> <output file> <command…>
+  # The output redirection belongs to the logger, never to this function: `f() { … } ; f >file`
+  # would redirect the shell's own fd 2 for the duration of the call, which would send a trap
+  # handler's notice into a file that cleanup then deletes.
+  local secs="$1"
+  local out="$2"
+  shift 2
+  local waited=0
+  "$@" >"$out" 2>&1 &
+  logger_pid=$!
+  # From here a reclaimer can prove the writer is gone from this record alone.
+  record_writer "$logger_pid" || true
+  while kill -0 "$logger_pid" 2>/dev/null; do
+    if [ "$waited" -ge "$secs" ]; then
+      terminate_logger
+      return 124
+    fi
+    sleep 1 || true
+    waited=$((waited + 1))
+  done
+  wait "$logger_pid" 2>/dev/null
+  local status=$?
+  logger_pid=""
+  return "$status"
+}
+
+if [ "$logger" = "repo-local bundle" ]; then
+  run_bounded "$timeout_secs" "$capture" "$node_bin" "$bundle" --root "$repo_root" done "$summary"
+else
+  run_bounded "$timeout_secs" "$capture" heyloey --root "$repo_root" done "$summary"
+fi
+logger_status=$?
+
+if [ "$logger_status" -eq 0 ]; then
+  if [ -n "${ledger:-}" ] && [ -n "${key:-}" ]; then
+    printf '%s\n' "$key" >>"$ledger" 2>/dev/null || true
+  fi
+  note "logged milestone to today's daily note and handoff.md ($logger)"
+else
+  # The commonest cause is a vault that is not set up yet (no daily note for today, no handoff.md),
+  # and the next is the bound above cutting off a logger that would not exit. The logger's own
+  # message names the first, so pass it through — trimmed, to the terminal only, never into a record.
+  note "milestone not logged (logger exit $logger_status) — the commit is unaffected"
+  sed -e '/^[[:space:]]*$/d' -e 's/^/  /' "$capture" 2>/dev/null | head -n 3 >&2 || true
+fi
+
+exit 0

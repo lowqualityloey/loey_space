@@ -92,4 +92,16 @@ npm run heyloey -- done "Ship the parser fix" --dry-run
 
 `done` follows the milestone-only logging policy above: record shipped outcomes and decisions, not routine questions or health checks.
 
+### The commit hook logs the same way — when you ask it to
+
+The `post-commit` hook calls exactly this command, so the failure behaviour described above applies to
+it too: it refuses rather than inventing a note. Git hooks are inactive in a fresh clone until
+`git config --local core.hooksPath .githooks`, and even then a commit is logged **only** when its
+message carries the trailer `HeyLoey-Milestone: <summary>`. Every other commit is a silent no-op, in
+keeping with the milestone-only policy — the hook is never a copy of `git log`. It never changes the
+commit's outcome, it is always bounded, and a summary that has already been logged successfully is not
+repeated on the same day.
+Eligibility is the trailer alone — nothing infers it, and no tool judges the sentence for you.
+[Onboarding](Onboarding.md) documents activation, the trailer and how to turn the hook off.
+
 Use conversational prompts when you want an interactive discussion or planning session. Use the CLI in automated scripts or terminal sessions where fast, deterministic execution is needed.

@@ -113,7 +113,8 @@ tags:
 2. **Credentials Storage**:
    - Machine API keys belong in root [`.env`](.env).
    - Human-readable sensitive notes belong in [`.secrets/`](.secrets).
-3. **Pre-commit Protection**: Ensure commits comply with [`.githooks/pre-commit`](.githooks/pre-commit).
+3. **Pre-commit Protection**: Ensure commits comply with [`.githooks/pre-commit`](.githooks/pre-commit). It blocks: it refuses a staged secret or a declared owner-only record, and it fails closed when its scan library is missing.
+4. **Post-commit Logging Is Opt-In**: [`.githooks/post-commit`](.githooks/post-commit) is fail-open and never affects a commit's outcome. It is bounded (TERM at `heyloey.timeout`, KILL two seconds later, always reaped) and serialised by a lock: a lock held by a live process is never stolen at any age, an interrupted run stops its logger before releasing the lock, and a lock is reclaimed only when both the hook and its recorded writer are provably gone — a `SIGKILL`ed hook can leave its writer alive. It logs a milestone **only** for a commit whose message carries the trailer `HeyLoey-Milestone: <summary>`. A summary that has already been logged successfully is not logged again on the same day by that clone; a run that fails or is killed records nothing and stays retryable, and can leave one partial record for you to complete. Do not expect a commit to be logged because it happened, and do not add the trailer on the owner's behalf without being asked — the milestone-only policy above governs what is worth recording.
 
 ---
 
