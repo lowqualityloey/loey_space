@@ -266,3 +266,108 @@ test("wiring the guard did not weaken the existing secret scan", () => {
     `secret-scan.sh --tracked must stay green: ${result.stdout}${result.stderr}`
   );
 });
+
+// F06 — the scan must reach the hook tree itself.
+//
+// `.githooks/*` used to be exempt from `scan_skips_path`, so a credential pasted into a
+// hook helper passed the pre-commit hook and CI while the identical bytes were rejected
+// in an ordinary note. The exemption existed on the theory that the scanner's own pattern
+// definitions would match themselves; they cannot, because every literal is broken by a
+// regex metacharacter. Synthetic key only — never a real credential in a tracked file.
+//
+// The assembly below is deliberate: this file is itself tracked and scanned, so the
+// literal must not read as a key until runtime.
+const HOOK_FIXTURE_KEY = ["AIza", "SyD1xT9mQ4vK8pR2nL7wZ3cH6bY5eU0aQdG2f"].join("");
+
+test("a credential in the hook tree is rejected instead of skipped", () => {
+  const repo = makeRepo({ productFiles: [] });
+  try {
+    write(
+      path.join(repo, ".githooks", "review-fixture.sh"),
+      `#!/usr/bin/env bash\nexport TOKEN=${HOOK_FIXTURE_KEY}\n`
+    );
+
+    const direct = spawnSync("bash", [SECRET_SCAN, "--files", ".githooks/review-fixture.sh"], {
+      cwd: repo,
+      env: GIT_ENV,
+      encoding: "utf8",
+    });
+    assert.equal(
+      direct.status,
+      1,
+      `a credential under .githooks must be reported: ${direct.stdout}${direct.stderr}`
+    );
+    assert.match(direct.stdout, /review-fixture\.sh — looks like a credential/);
+    assert.ok(
+      !direct.stdout.includes(HOOK_FIXTURE_KEY),
+      "findings are masked; the candidate value must never be echoed"
+    );
+
+    git(repo, "add", "-A");
+    const tracked = spawnSync("bash", [SECRET_SCAN, "--tracked"], {
+      cwd: repo,
+      env: GIT_ENV,
+      encoding: "utf8",
+    });
+    assert.equal(
+      tracked.status,
+      1,
+      `CI's tracked-file mode must reach .githooks too: ${tracked.stdout}${tracked.stderr}`
+    );
+  } finally {
+    cleanup(repo);
+  }
+});
+
+test("the pre-commit hook blocks a credential staged inside the hook tree", () => {
+  const repo = makeRepo({ productFiles: [] });
+  try {
+    // The real hook tree, so this exercises the shipped skip list rather than a copy of
+    // the rule. Both layers are asserted because the exemption lived in the shared
+    // library that the local hook and CI each call for themselves.
+    fs.cpSync(path.join(REPO_ROOT, ".githooks"), path.join(repo, ".githooks"), {
+      recursive: true,
+    });
+    git(repo, "add", "-A");
+    const baseline = spawnSync("bash", [".githooks/pre-commit"], {
+      cwd: repo,
+      env: GIT_ENV,
+      encoding: "utf8",
+    });
+    assert.equal(
+      baseline.status,
+      0,
+      `the hook tree alone must commit cleanly: ${baseline.stdout}${baseline.stderr}`
+    );
+
+    write(
+      path.join(repo, ".githooks", "review-fixture.sh"),
+      `#!/usr/bin/env bash\nexport TOKEN=${HOOK_FIXTURE_KEY}\n`
+    );
+    git(repo, "add", "-A");
+    const blocked = spawnSync("bash", [".githooks/pre-commit"], {
+      cwd: repo,
+      env: GIT_ENV,
+      encoding: "utf8",
+    });
+    const report = blocked.stdout + blocked.stderr;
+    assert.equal(blocked.status, 1, `the local hook must refuse it: ${report}`);
+    assert.match(report, /\.githooks\/review-fixture\.sh — looks like a credential/);
+    assert.ok(!report.includes(HOOK_FIXTURE_KEY), "the hook's report must stay masked");
+  } finally {
+    cleanup(repo);
+  }
+});
+
+test("the scanner's own pattern definitions do not trip the scan", () => {
+  const result = spawnSync("bash", [SECRET_SCAN, "--files", ".githooks/lib/secret-scan.sh"], {
+    cwd: REPO_ROOT,
+    env: GIT_ENV,
+    encoding: "utf8",
+  });
+  assert.equal(
+    result.status,
+    0,
+    `the hook tree must scan clean, or a self-match gets "fixed" by re-exempting it: ${result.stdout}${result.stderr}`
+  );
+});

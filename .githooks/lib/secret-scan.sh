@@ -36,11 +36,19 @@ scrub_placeholders() {
     -e 's/(^|[^A-Za-z0-9_])([Ee][Xx][Aa][Mm][Pp][Ll][Ee]|[Ss][Aa][Mm][Pp][Ll][Ee]|[Pp][Ll][Aa][Cc][Ee][Hh][Oo][Ll][Dd][Ee][Rr]|[Dd][Uu][Mm][Mm][Yy]|[Rr][Ee][Dd][Aa][Cc][Tt][Ee][Dd])([^A-Za-z0-9_]|$)/\1 \3/g'
 }
 
-# Files whose contents legitimately contain key-shaped base64 or the pattern
-# text itself. Keep this list narrow.
+# Paths whose contents legitimately contain key-shaped base64. Keep this list
+# narrow, name the reason, and prefer fixing the artifact over exempting it.
+#
+# `.githooks/*` is deliberately NOT exempt. The hook tree used to be skipped on
+# the theory that the literal pattern definitions would match themselves; they
+# cannot, because every literal is broken by a regex metacharacter (`AIza[…]`,
+# `sk-[…]`, `-----BEGIN [A-Z ]*…`), so the shapes never line up. Exempting the
+# whole tree meant a credential pasted into a hook helper passed both the local
+# hook and CI — the exclusion protected nothing and hid exactly the case it was
+# supposed to catch.
 scan_skips_path() {
   case "$1" in
-    .githooks/*) return 0 ;;
+    # Editor themes are downloaded third-party bundles full of base64 assets.
     .obsidian/themes/*) return 0 ;;
   esac
   return 1
