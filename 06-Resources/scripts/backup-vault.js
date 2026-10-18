@@ -68,7 +68,11 @@ function formatTimestamp(d) {
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}_${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}`;
 }
 function copyDirRecursive(srcDir, destDir, relPrefix, recorded) {
-  fs.mkdirSync(destDir, { recursive: true });
+  fs.mkdirSync(destDir, { recursive: true, mode: 448 });
+  try {
+    fs.chmodSync(destDir, 448);
+  } catch (_) {
+  }
   const entries = fs.readdirSync(srcDir, { withFileTypes: true });
   for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
     const srcAbs = path.join(srcDir, entry.name);
@@ -78,6 +82,10 @@ function copyDirRecursive(srcDir, destDir, relPrefix, recorded) {
       copyDirRecursive(srcAbs, destAbs, rel, recorded);
     } else if (entry.isFile()) {
       fs.copyFileSync(srcAbs, destAbs);
+      try {
+        fs.chmodSync(destAbs, 384);
+      } catch (_) {
+      }
       recorded.push(rel);
     }
   }
@@ -94,8 +102,16 @@ function copyPluginRuntimeSettings(root, ownerStateDir, recorded) {
     if (fs.existsSync(dataSrc) && fs.statSync(dataSrc).isFile()) {
       const rel = `.obsidian/plugins/${entry.name}/data.json`;
       const dataDest = path.join(ownerStateDir, rel);
-      fs.mkdirSync(path.dirname(dataDest), { recursive: true });
+      fs.mkdirSync(path.dirname(dataDest), { recursive: true, mode: 448 });
+      try {
+        fs.chmodSync(path.dirname(dataDest), 448);
+      } catch (_) {
+      }
       fs.copyFileSync(dataSrc, dataDest);
+      try {
+        fs.chmodSync(dataDest, 384);
+      } catch (_) {
+      }
       recorded.push(`owner-state/${rel}`);
     }
   }
@@ -149,6 +165,37 @@ function isoWeekKey(dateStr) {
   const weekNo = Math.ceil(((d.getTime() - yearStart.getTime()) / 864e5 + 1) / 7);
   return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, "0")}`;
 }
+function parseSnapshotName(name) {
+  const match = name.match(/^snapshot-(\d{4}-\d{2}-\d{2})_(\d{6})(?:-(\d{1,3}))?(?:-(\d+))?$/);
+  if (!match)
+    return null;
+  return {
+    name,
+    stamp: `${match[1]}_${match[2]}`,
+    ms: match[3] === void 0 ? -1 : Number(match[3]),
+    counter: match[4] === void 0 ? 0 : Number(match[4])
+  };
+}
+function compareSnapshotKeys(a, b) {
+  if (a.stamp !== b.stamp)
+    return a.stamp < b.stamp ? -1 : 1;
+  if (a.ms !== b.ms)
+    return a.ms - b.ms;
+  if (a.counter !== b.counter)
+    return a.counter - b.counter;
+  return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
+}
+function isPublishedSnapshot(dir) {
+  try {
+    const manifestPath = path.join(dir, "manifest.json");
+    if (!fs.statSync(manifestPath).isFile())
+      return false;
+    const parsed = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+    return Array.isArray(parsed.entries);
+  } catch {
+    return false;
+  }
+}
 function pruneSnapshots(backupRoot, retention = {}) {
   const dailyMax = retention.daily ?? 7;
   const weeklyMax = retention.weekly ?? 4;
@@ -159,17 +206,23 @@ function pruneSnapshots(backupRoot, retention = {}) {
   } catch {
     return [];
   }
-  const snapshots = entries.filter((e) => e.isDirectory() && /^snapshot-\d{4}-\d{2}-\d{2}_\d{6}$/.test(e.name)).map((e) => e.name).sort().reverse();
+  const snapshots = entries.filter((e) => e.isDirectory()).map((e) => parseSnapshotName(e.name)).filter((key) => key !== null).filter((key) => isPublishedSnapshot(path.join(backupRoot, key.name))).sort(compareSnapshotKeys).reverse().map((key) => key.name);
   const keep = /* @__PURE__ */ new Set();
   const seenDays = /* @__PURE__ */ new Set();
   const seenWeeks = /* @__PURE__ */ new Set();
   const seenMonths = /* @__PURE__ */ new Set();
-  if (snapshots.length > 0)
-    keep.add(snapshots[0]);
+  const latestDate = snapshots.length > 0 ? snapshots[0].slice("snapshot-".length, "snapshot-YYYY-MM-DD".length) : null;
   for (const name of snapshots) {
     const datePart = name.slice("snapshot-".length, "snapshot-YYYY-MM-DD".length);
     const monthKey = datePart.slice(0, 7);
     const weekKey = isoWeekKey(datePart);
+    if (datePart === latestDate) {
+      keep.add(name);
+      seenDays.add(datePart);
+      seenWeeks.add(weekKey);
+      seenMonths.add(monthKey);
+      continue;
+    }
     if (seenDays.size < dailyMax && !seenDays.has(datePart)) {
       seenDays.add(datePart);
       keep.add(name);
@@ -207,98 +260,195 @@ function verifySnapshotIntegrity(snapshotDir) {
   }
   return true;
 }
+function candidateSnapshotName(baseTimestamp, now, attempt) {
+  if (attempt <= 1)
+    return `snapshot-${baseTimestamp}`;
+  const ms = String(now.getUTCMilliseconds()).padStart(3, "0");
+  if (attempt === 2)
+    return `snapshot-${baseTimestamp}-${ms}`;
+  return `snapshot-${baseTimestamp}-${ms}-${attempt - 2}`;
+}
+function reserveAndPublish(backupRoot, stagingDir, baseTimestamp, now) {
+  const limit = 200;
+  for (let attempt = 1; attempt <= limit; attempt += 1) {
+    const name = candidateSnapshotName(baseTimestamp, now, attempt);
+    const dir = path.join(backupRoot, name);
+    try {
+      fs.mkdirSync(dir, { mode: 448 });
+    } catch (error) {
+      if (error.code === "EEXIST")
+        continue;
+      throw error;
+    }
+    try {
+      fs.renameSync(stagingDir, dir);
+      return { name, dir };
+    } catch (error) {
+      try {
+        fs.rmdirSync(dir);
+      } catch (_) {
+      }
+      throw error;
+    }
+  }
+  throw new Error(`Backup publication failed: no free snapshot name at ${baseTimestamp} (${limit} attempts).`);
+}
 function backupVault(root, options = {}) {
   const now = options.now ?? /* @__PURE__ */ new Date();
   const backupRoot = options.backupRoot ?? path.join(os.homedir(), ".loey_backups");
   const gitBin = options.gitExecutable ?? "git";
-  const snapshotName = `snapshot-${formatTimestamp(now)}`;
-  const snapshotDir = path.join(backupRoot, snapshotName);
-  fs.mkdirSync(snapshotDir, { recursive: true });
-  const recordedRelPaths = [];
-  let hasGitBundle = false;
-  let gitBundleStatus = "no-head";
-  const bundleRel = "repo.bundle";
-  const bundleAbs = path.join(snapshotDir, bundleRel);
-  let hasGitHead = false;
+  fs.mkdirSync(backupRoot, { recursive: true, mode: 448 });
   try {
-    (0, import_child_process.execFileSync)("git", ["rev-parse", "--verify", "HEAD"], {
-      cwd: root,
-      stdio: ["ignore", "ignore", "ignore"]
-    });
-    hasGitHead = true;
-  } catch {
-    hasGitHead = false;
+    fs.chmodSync(backupRoot, 448);
+  } catch (_) {
   }
-  if (hasGitHead) {
+  const baseTimestamp = formatTimestamp(now);
+  let snapshotName = `snapshot-${baseTimestamp}`;
+  let snapshotDir = path.join(backupRoot, snapshotName);
+  if (fs.existsSync(snapshotDir)) {
+    const ms = String(now.getUTCMilliseconds()).padStart(3, "0");
+    snapshotName = `snapshot-${baseTimestamp}-${ms}`;
+    snapshotDir = path.join(backupRoot, snapshotName);
+    let counter = 1;
+    while (fs.existsSync(snapshotDir)) {
+      snapshotName = `snapshot-${baseTimestamp}-${ms}-${counter++}`;
+      snapshotDir = path.join(backupRoot, snapshotName);
+    }
+  }
+  const stagingDir = path.join(
+    backupRoot,
+    `.${snapshotName}.tmp-${process.pid}-${Math.random().toString(36).slice(2, 8)}`
+  );
+  fs.mkdirSync(stagingDir, { recursive: true, mode: 448 });
+  try {
+    fs.chmodSync(stagingDir, 448);
+  } catch (_) {
+  }
+  const recordedRelPaths = [];
+  try {
+    let hasGitBundle = false;
+    let gitBundleStatus = "no-head";
+    const bundleRel = "repo.bundle";
+    const bundleAbs = path.join(stagingDir, bundleRel);
+    let hasGitHead = false;
     try {
-      (0, import_child_process.execFileSync)(gitBin, ["bundle", "create", bundleAbs, "--all"], {
+      (0, import_child_process.execFileSync)("git", ["rev-parse", "--verify", "HEAD"], {
         cwd: root,
         stdio: ["ignore", "ignore", "ignore"]
       });
-      if (fs.existsSync(bundleAbs)) {
-        hasGitBundle = true;
-        gitBundleStatus = "included";
-        recordedRelPaths.push(bundleRel);
-      } else {
+      hasGitHead = true;
+    } catch {
+      hasGitHead = false;
+    }
+    if (hasGitHead) {
+      try {
+        (0, import_child_process.execFileSync)(gitBin, ["bundle", "create", bundleAbs, "--all"], {
+          cwd: root,
+          stdio: ["ignore", "ignore", "ignore"]
+        });
+        if (fs.existsSync(bundleAbs)) {
+          try {
+            fs.chmodSync(bundleAbs, 384);
+          } catch (_) {
+          }
+          hasGitBundle = true;
+          gitBundleStatus = "included";
+          recordedRelPaths.push(bundleRel);
+        } else {
+          gitBundleStatus = "failed";
+        }
+      } catch {
         gitBundleStatus = "failed";
       }
-    } catch {
-      gitBundleStatus = "failed";
     }
-  }
-  const ownerStateDir = path.join(snapshotDir, "owner-state");
-  fs.mkdirSync(ownerStateDir, { recursive: true });
-  for (const file of OWNER_FILES) {
-    const srcAbs = path.join(root, file);
-    if (fs.existsSync(srcAbs) && fs.statSync(srcAbs).isFile()) {
-      const destAbs = path.join(ownerStateDir, file);
-      fs.mkdirSync(path.dirname(destAbs), { recursive: true });
-      fs.copyFileSync(srcAbs, destAbs);
-      recordedRelPaths.push(`owner-state/${file}`);
+    const ownerStateDir = path.join(stagingDir, "owner-state");
+    fs.mkdirSync(ownerStateDir, { recursive: true, mode: 448 });
+    try {
+      fs.chmodSync(ownerStateDir, 448);
+    } catch (_) {
     }
-  }
-  for (const dir of OWNER_DIRS) {
-    const srcAbs = path.join(root, dir);
-    if (fs.existsSync(srcAbs) && fs.statSync(srcAbs).isDirectory()) {
-      copyDirRecursive(srcAbs, path.join(ownerStateDir, dir), `owner-state/${dir}`, recordedRelPaths);
+    for (const file of OWNER_FILES) {
+      const srcAbs = path.join(root, file);
+      if (fs.existsSync(srcAbs) && fs.statSync(srcAbs).isFile()) {
+        const destAbs = path.join(ownerStateDir, file);
+        fs.mkdirSync(path.dirname(destAbs), { recursive: true, mode: 448 });
+        try {
+          fs.chmodSync(path.dirname(destAbs), 448);
+        } catch (_) {
+        }
+        fs.copyFileSync(srcAbs, destAbs);
+        try {
+          fs.chmodSync(destAbs, 384);
+        } catch (_) {
+        }
+        recordedRelPaths.push(`owner-state/${file}`);
+      }
     }
-  }
-  copyPluginRuntimeSettings(root, ownerStateDir, recordedRelPaths);
-  const restoreRel = "RESTORE.md";
-  fs.writeFileSync(
-    path.join(snapshotDir, restoreRel),
-    buildRestoreInstructions(snapshotName, gitBundleStatus),
-    "utf8"
-  );
-  recordedRelPaths.push(restoreRel);
-  const entries = recordedRelPaths.sort().map((relPath) => {
-    const abs = path.join(snapshotDir, relPath);
-    const stat = fs.statSync(abs);
-    return {
-      relPath,
-      bytes: stat.size,
-      sha256: sha256File(abs)
+    for (const dir of OWNER_DIRS) {
+      const srcAbs = path.join(root, dir);
+      if (fs.existsSync(srcAbs) && fs.statSync(srcAbs).isDirectory()) {
+        copyDirRecursive(srcAbs, path.join(ownerStateDir, dir), `owner-state/${dir}`, recordedRelPaths);
+      }
+    }
+    copyPluginRuntimeSettings(root, ownerStateDir, recordedRelPaths);
+    const restoreRel = "RESTORE.md";
+    const restoreAbs = path.join(stagingDir, restoreRel);
+    fs.writeFileSync(
+      restoreAbs,
+      buildRestoreInstructions(snapshotName, gitBundleStatus),
+      { encoding: "utf8", mode: 384 }
+    );
+    try {
+      fs.chmodSync(restoreAbs, 384);
+    } catch (_) {
+    }
+    recordedRelPaths.push(restoreRel);
+    const entries = recordedRelPaths.sort().map((relPath) => {
+      const abs = path.join(stagingDir, relPath);
+      const stat = fs.statSync(abs);
+      return {
+        relPath,
+        bytes: stat.size,
+        sha256: sha256File(abs)
+      };
+    });
+    const manifest = {
+      createdAt: now.toISOString(),
+      vaultRoot: root,
+      hasGitBundle,
+      gitBundleStatus,
+      entries
     };
-  });
-  const manifest = {
-    createdAt: now.toISOString(),
-    vaultRoot: root,
-    hasGitBundle,
-    gitBundleStatus,
-    entries
-  };
-  fs.writeFileSync(path.join(snapshotDir, "manifest.json"), JSON.stringify(manifest, null, 2), "utf8");
-  const verified = verifySnapshotIntegrity(snapshotDir);
-  if (!verified) {
-    throw new Error(`Backup integrity verification failed for ${snapshotDir}`);
+    const manifestAbs = path.join(stagingDir, "manifest.json");
+    fs.writeFileSync(manifestAbs, JSON.stringify(manifest, null, 2), { encoding: "utf8", mode: 384 });
+    try {
+      fs.chmodSync(manifestAbs, 384);
+    } catch (_) {
+    }
+    const verified = verifySnapshotIntegrity(stagingDir);
+    if (!verified) {
+      throw new Error(`Backup integrity verification failed for staging snapshot`);
+    }
+    const published = reserveAndPublish(backupRoot, stagingDir, baseTimestamp, now);
+    snapshotName = published.name;
+    snapshotDir = published.dir;
+    try {
+      fs.chmodSync(snapshotDir, 448);
+    } catch (_) {
+    }
+    const pruned = gitBundleStatus === "failed" ? [] : pruneSnapshots(backupRoot, options.retention);
+    return {
+      snapshotDir,
+      manifest,
+      verified,
+      pruned
+    };
+  } catch (err) {
+    if (fs.existsSync(stagingDir)) {
+      fs.rmSync(stagingDir, { recursive: true, force: true });
+    }
+    throw err;
   }
-  const pruned = gitBundleStatus === "failed" ? [] : pruneSnapshots(backupRoot, options.retention);
-  return {
-    snapshotDir,
-    manifest,
-    verified,
-    pruned
-  };
 }
 function main() {
   const argv = process.argv.slice(2);
