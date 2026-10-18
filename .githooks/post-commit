@@ -519,7 +519,13 @@ run_bounded() { # <seconds> <output file> <command…>
   return "$status"
 }
 
-if [ "$logger" = "repo-local bundle" ]; then
+# A configured personal vault shares the central logger's kernel lock with the
+# GitHub reconciler. Public clones without this private configuration keep the
+# portable bundle path below.
+reconciler="$repo_root/06-Resources/scripts/reconcile-github-milestones.mjs"
+if [ -f "$repo_root/.github-milestone-reconciliation.ready.json" ] && [ -n "${node_bin:-}" ] && [ -f "$reconciler" ]; then
+  run_bounded "$timeout_secs" "$capture" "$node_bin" "$reconciler" --root "$repo_root" --record "$summary"
+elif [ "$logger" = "repo-local bundle" ]; then
   run_bounded "$timeout_secs" "$capture" "$node_bin" "$bundle" --root "$repo_root" done "$summary"
 else
   run_bounded "$timeout_secs" "$capture" heyloey --root "$repo_root" done "$summary"

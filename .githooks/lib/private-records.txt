@@ -19,6 +19,11 @@
 # README §Security and the `.gitignore` PERSONAL CONTENT block.
 memory.md
 handoff.md
+.github-milestone-repositories.json
+.github-milestone-reconciliation.json
+.github-milestone-reconciliation.json.*.tmp
+.github-milestone-reconciliation.ready.json
+.github-milestone-reconciliation.ready.json.*.tmp
 
 # PromptKit OS profile and generated engineering records (local-only layer; the engine
 # itself is a tracked submodule, these are not).

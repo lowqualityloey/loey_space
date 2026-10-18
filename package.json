@@ -15,6 +15,7 @@
     "audit-links": "node 06-Resources/scripts/audit-links.js",
     "distill": "node 06-Resources/scripts/distill-concept-action.js",
     "log-github": "node 06-Resources/scripts/sync-github-activity.js",
+    "reconcile-github": "node 06-Resources/scripts/reconcile-github-milestones.mjs",
     "start-task": "node 06-Resources/scripts/start-task-action.js",
     "sync-kanban": "node 06-Resources/scripts/sync-github-kanban.js",
     "validate-templates": "node 06-Resources/scripts/validate-templates.js",

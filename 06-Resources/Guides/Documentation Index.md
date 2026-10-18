@@ -1,6 +1,6 @@
 ---
 created: 2026-10-12
-updated: 2026-10-13
+updated: 2026-10-15
 type: guide
 status: active
 area: resources
@@ -37,6 +37,7 @@ This index groups the vault guides by what you want to accomplish. All links use
 
 - [Maintenance & Troubleshooting](Maintenance%20&%20Troubleshooting.md): Common errors as symptom, action and expected result, plus the read-only versus mutating command reference and the maintenance schedule.
 - [Git Hooks Guide](Git%20Hooks%20Guide.md): Activating the repository's Git hooks, the commit trailer that opts a commit into milestone logging, timeout settings, coordination between concurrent runs, duplicate handling, and partial-write recovery.
+- [GitHub Milestone Reconciliation](GitHub%20Milestone%20Reconciliation.md): Recovering merged PR milestones into both the daily log and handoff independently of the agent environment, with repository configuration, verified receipts and scheduling.
 - [Vault Security Policy](Vault%20Security%20Policy.md): Storage rules for sensitive information, `.gitignore` boundaries, and the pre-commit secret scanner.
 - [Tagging & Properties](Tagging%20&%20Properties.md): The frontmatter schema, required properties by note type, and tag naming conventions.
 - [Plugin Ownership](Plugin%20Ownership.md): Provenance of custom-built plugins (`homepulse` and `kanban-status-sync`) and instructions for reapplying patches after updates.

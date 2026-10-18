@@ -296,6 +296,18 @@ export function parseDailyNoteSections(content: string, gitRowsCount: number = 0
     if (/^---+$/.test(trimmed)) { currentSec = ""; continue; }
 
     if (!trimmed || /^[-*+]$/.test(trimmed) || /^[-*+]\s*\[[ xX]\]$/.test(trimmed)) continue;
+    if (currentSec.includes("Log") && !currentSec.includes("Blockers") && trimmed.startsWith("> |")) {
+      if (!trimmed.includes("| Time |") && !trimmed.includes(":---")) {
+        const parts = trimmed.replace(/^>\s*\|?/, "").replace(/\|?\s*$/, "").split(/(?<!\\)\|/).map(s => s.trim());
+        // 3-column Agent Milestone Log: Time | Scope | Milestone
+        if (parts.length === 3) {
+          const cleanTime = parts[0].replace(/&nbsp;/g, " ");
+          const item = `**${cleanTime}**: [${parts[1].replace(/`/g, "")}] ${parts[2].replace(/\\\|/g, "|")}`;
+          dailyLog.push(item);
+        }
+      }
+      continue;
+    }
     if (trimmed.startsWith(">") || trimmed.startsWith("|")) continue;
     if (trimmed.startsWith("Define your focus") || trimmed.startsWith("Things I need") ||
         trimmed.startsWith("Daily basics") || trimmed.startsWith("Something positive") ||

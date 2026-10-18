@@ -976,6 +976,17 @@ function parseDailyNoteSections(content, gitRowsCount = 0) {
     }
     if (!trimmed || /^[-*+]$/.test(trimmed) || /^[-*+]\s*\[[ xX]\]$/.test(trimmed))
       continue;
+    if (currentSec.includes("Log") && !currentSec.includes("Blockers") && trimmed.startsWith("> |")) {
+      if (!trimmed.includes("| Time |") && !trimmed.includes(":---")) {
+        const parts = trimmed.replace(/^>\s*\|?/, "").replace(/\|?\s*$/, "").split(/(?<!\\)\|/).map((s) => s.trim());
+        if (parts.length === 3) {
+          const cleanTime = parts[0].replace(/&nbsp;/g, " ");
+          const item = `**${cleanTime}**: [${parts[1].replace(/`/g, "")}] ${parts[2].replace(/\\\|/g, "|")}`;
+          dailyLog.push(item);
+        }
+      }
+      continue;
+    }
     if (trimmed.startsWith(">") || trimmed.startsWith("|"))
       continue;
     if (trimmed.startsWith("Define your focus") || trimmed.startsWith("Things I need") || trimmed.startsWith("Daily basics") || trimmed.startsWith("Something positive") || trimmed.startsWith("What got in my way") || trimmed.startsWith("What did I learn") || trimmed.startsWith("What did I do today") || trimmed.startsWith("What patterns do I notice") || trimmed.startsWith("Based on today") || trimmed.startsWith("What's the 1-3 things")) {
