@@ -1,3 +1,5 @@
+import { aucklandStamp, displayLogTime, normalizeDailyLog } from './daily-log-time';
+
 export interface GitHubEventItem {
   id: string;
   type: string;
@@ -27,21 +29,11 @@ export function cleanBranchName(raw: string): string {
 }
 
 export function formatTime12(date: Date): string {
-  let hours = date.getHours();
-  const minutes = date.getMinutes();
-  const ampm = hours >= 12 ? 'PM' : 'AM';
-  hours = hours % 12;
-  hours = hours ? hours : 12; // 0 becomes 12
-  const hoursStr = String(hours).padStart(2, '0');
-  const minutesStr = String(minutes).padStart(2, '0');
-  return `${hoursStr}:${minutesStr}&nbsp;${ampm}`;
+  return displayLogTime(aucklandStamp(date).time, '&nbsp;');
 }
 
 export function formatDateKey(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return aucklandStamp(date).date;
 }
 
 export interface CommitInfo {
@@ -245,7 +237,7 @@ export function mergeDailyLogTable(existingContent: string, rows: ActivityTableR
 
   if (calloutRegex.test(existingContent)) {
     return {
-      updatedContent: existingContent.replace(calloutRegex, calloutBlock),
+      updatedContent: normalizeDailyLog(existingContent.replace(calloutRegex, () => calloutBlock)),
       count: rows.length
     };
   }
@@ -273,5 +265,5 @@ export function mergeDailyLogTable(existingContent: string, rows: ActivityTableR
   }
 
   lines.splice(nextSectionIdx, 0, '', calloutBlock, '');
-  return { updatedContent: lines.join('\n'), count: rows.length };
+  return { updatedContent: normalizeDailyLog(lines.join('\n')), count: rows.length };
 }

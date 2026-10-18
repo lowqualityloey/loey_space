@@ -15,10 +15,10 @@ test('cleanBranchName: strips refs/heads and trailing long timestamps', () => {
 });
 
 test('formatTime12: converts 24h dates to non-breaking 12h AM/PM strings', () => {
-  const d1 = new Date(2026, 7, 31, 18, 36);
+  const d1 = new Date('2026-08-31T06:36:00Z');
   assert.strictEqual(formatTime12(d1), '06:36&nbsp;PM');
 
-  const d2 = new Date(2026, 7, 31, 9, 5);
+  const d2 = new Date('2026-08-30T21:05:00Z');
   assert.strictEqual(formatTime12(d2), '09:05&nbsp;AM');
 });
 

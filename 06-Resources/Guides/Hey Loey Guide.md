@@ -43,7 +43,7 @@ To prevent the daily note and handoff records from filling with conversational c
 2. **Consolidation**: Multiple review or test cycles on the same task are consolidated into a single milestone summary rather than several repetitive entries.
 3. **Explicit user requests**: When you explicitly ask to log or save a discussion or brainstorm session, that explicit instruction authorizes the entry.
 
-Daily work entries are written under `## 📝 Daily Log` in `01-Daily/YYYY-MM/YYYY-MM-DD.md` using the format `- **HH:MM**: <summary>`. Handoff entries are written to `handoff.md` under `### Latest Updates`.
+Daily work entries are written under `## 📝 Daily Log` in `01-Daily/YYYY-MM/YYYY-MM-DD.md` using the format `- **hh:mm AM/PM**: <summary>` (for example, `- **04:04 PM**: Shipped the fix`). Dates and times use `Pacific/Auckland`. Keep timestamped bullets and rows within each activity table in chronological order, oldest first; when updating an entry's timestamp, move it to its new position. Preserve separate callouts, untimed prose and surrounding sections. Handoff entries are written to `handoff.md` under `### Latest Updates` and retain their `YYYY-MM-DD HH:MM` format.
 
 ## Conversational Prompts vs. CLI Tool
 

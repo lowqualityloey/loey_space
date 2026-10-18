@@ -307,7 +307,7 @@ test("done --dry-run prints the targets and lines but writes nothing", (t) => {
   assert.equal(result.status, 0, `expected exit 0: ${result.stderr}`);
   assert.match(result.stdout, /Dry run — nothing was written/);
   assert.match(result.stdout, new RegExp(dailyRel().replace(/\\/g, "/").replace(/[/.]/g, "\\$&")));
-  assert.match(result.stdout, /- \*\*\d{2}:\d{2}\*\*: Ship the parser fix/);
+  assert.match(result.stdout, /- \*\*\d{2}:\d{2} [AP]M\*\*: Ship the parser fix/);
   assert.deepEqual(snapshot(root), before, "--dry-run must write nothing at all");
 });
 
@@ -319,7 +319,7 @@ test("done writes the documented format to the daily log and the handoff, preser
   assert.equal(result.status, 0, `expected exit 0: ${result.stderr}`);
 
   const daily = fs.readFileSync(path.join(root, dailyRel()), "utf8");
-  assert.match(daily, /- \*\*\d{2}:\d{2}\*\*: Ship the parser fix/, "daily log line format");
+  assert.match(daily, /- \*\*\d{2}:\d{2} [AP]M\*\*: Ship the parser fix/, "daily log line format");
   assert.ok(daily.includes(DAILY_SENTINEL), "the rest of the daily note must survive");
   // The entry must land inside the Daily Log section, not after the `---` divider.
   const logStart = daily.indexOf("## 📝 Daily Log");

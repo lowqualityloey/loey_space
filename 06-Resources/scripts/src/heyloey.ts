@@ -27,6 +27,7 @@
  *   npm run heyloey -- [--root <dir>] <command> [arguments] [--dry-run] [--show-paths]
  */
 import * as fs from 'fs';
+import { aucklandStamp, displayLogTime, normalizeDailyLog } from './lib/daily-log-time';
 import * as path from 'path';
 import * as os from 'os';
 import * as crypto from 'crypto';
@@ -527,16 +528,12 @@ function resolveInsideVault(root: string, rel: string): string | null {
   return isInsideVault(realRoot, realProbe) ? absolute : null;
 }
 
-/** Local YYYY-MM-DD. Never UTC, which shifts the date near midnight. */
 function todayStr(): string {
-  return formatDate(new Date());
+  return aucklandStamp().date;
 }
 
-/** Local 24-hour HH:MM, zero-padded. */
 function timeStr(date: Date = new Date()): string {
-  const hh = String(date.getHours()).padStart(2, '0');
-  const mm = String(date.getMinutes()).padStart(2, '0');
-  return `${hh}:${mm}`;
+  return aucklandStamp(date).time;
 }
 
 function loadDailyNotesConfig(root: string): DailyNotesConfig {
@@ -613,7 +610,7 @@ function insertDailyLogLine(content: string, line: string): InsertResult {
     const insertAt = lastBullet !== -1 ? lastBullet + 1 : section.start + 1;
     lines.splice(insertAt, 0, line);
   }
-  return { content: lines.join('\n'), ok: true };
+  return { content: normalizeDailyLog(lines.join('\n')), ok: true };
 }
 
 /** Insert one bullet directly under `### Latest Updates`, newest first. */
@@ -914,7 +911,7 @@ function runDone(root: string, args: string[], options: Options): number {
   }
 
   const stamp = timeStr();
-  const dailyLine = `- **${stamp}**: ${summary}`;
+  const dailyLine = `- **${displayLogTime(stamp)}**: ${summary}`;
   const handoffLine = `- [x] **[${todayStr()} ${stamp}]** ${summary}`;
 
   // Both insertions are computed before either write, so a heading this command cannot honour
