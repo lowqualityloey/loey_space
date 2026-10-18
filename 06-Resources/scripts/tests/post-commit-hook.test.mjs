@@ -872,7 +872,7 @@ test("without sleep(1), logging is skipped instead of run unbounded", (t) => {
   );
   const before = sha256(path.join(repo, dailyRel()));
 
-  const result = runHook(repo, { PATH: `${toolbox}:${path.dirname(process.execPath)}` });
+  const result = runHook(repo, { PATH: toolbox });
 
   assert.equal(result.status, 0, result.stderr);
   assert.match(
@@ -948,7 +948,9 @@ test("an old but live holder is respected: age never steals a live lock", (t) =>
   const summary = "Held by a live run for a long time";
   assert.equal(commit(repo, `feat: live\n\n${TRAILER} ${summary}`, { HEYLOEY_LOG: "off" }).status, 0);
 
-  writeLock(repo, { pid: process.pid, at: Math.floor(Date.now() / 1000) - 9999 }); // alive, and old
+  // Backdated far enough that age is reported, with margin below the 9999s rollover: the hook reads
+  // `date +%s` after this process does, so a 9999s backdate can round to 10000s and miss /99\d\d/.
+  writeLock(repo, { pid: process.pid, at: Math.floor(Date.now() / 1000) - 9900 }); // alive, and old
   const before = sha256(path.join(repo, dailyRel()));
 
   const result = runHook(repo);
@@ -976,11 +978,11 @@ test("coordination unavailable: logging is skipped with a notice, and the commit
   activate(repo);
   const summary = "Must not run unsynchronised";
   assert.equal(commit(repo, `feat: no lock\n\n${TRAILER} ${summary}`, { HEYLOEY_LOG: "off" }).status, 0);
-  const toolbox = makeToolbox({}, { omit: ["mkdir"] });
+  const toolbox = makeToolbox({}, { omit: ["mkdir"], extra: ["node"] });
   t.after(() => cleanup(toolbox));
   const before = sha256(path.join(repo, dailyRel()));
 
-  const result = runHook(repo, { PATH: `${toolbox}:${path.dirname(process.execPath)}` });
+  const result = runHook(repo, { PATH: toolbox });
 
   assert.equal(result.status, 0, result.stderr);
   assert.match(
