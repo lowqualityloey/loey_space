@@ -61,8 +61,44 @@ const NOTE_FOLDERS = new Set([
 // `type:` line in its prose. This report's whole job is to notice notes that declare
 // NOTHING, so it must read the block or nothing.
 const FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n---/;
-const QUERY_BLOCK = /```dataview(?:js)?[ \t]*\r?\n([\s\S]*?)```/g;
-const FROM_SCOPE = /FROM\s+"([^"]*)"/g;
+// The fence language is captured, because a `dataview` fence holds a QUERY and a `dataviewjs`
+// fence holds code and prose. Only the first is read for `FROM` clauses; conflating them is
+// what let English prose become a source declaration (see `FROM_CLAUSE` below).
+const QUERY_BLOCK = /```dataview(js)?[ \t]*\r?\n([\s\S]*?)```/g;
+
+// DataviewJS names its sources in code, so the same honesty applies one level down.
+// `dv.pages('"01-Daily"')` declares a path and is a fact; `dv.pages(source)` declares
+// nothing this report can read, and pretending otherwise is how 30 real daily notes were
+// once reported as outside every hub. The argument is Dataview source syntax, so the folder
+// is quoted INSIDE the JavaScript string — hence the second pass over `"…"` segments.
+const DV_PAGES_CALL = /dv\.pages\(\s*(?:'([^']*)'|"([^"]*)"|`([^`]*)`)\s*\)/g;
+const DV_PAGES_ANY = /dv\.pages\s*\(/g;
+const QUOTED_PATH = /"([^"]*)"/g;
+// A tag or link source selects by something other than a path, and this report has no
+// folder to attribute it to. Such a hub is unresolved, not scope-less.
+const NON_PATH_SOURCE = /(^|[\s(])[#[]/;
+
+// The same honesty applies to `FROM`, one operand at a time. A DQL clause names sources joined
+// by AND/OR, so the CLAUSE is recognised first and each OPERAND is then classified on its own:
+// `FROM "07-Reviews"` declares a path; `FROM #concept`, `FROM [[]]` and `FROM outgoing([[X]])`
+// declare a selection or a function; `FROM !"99-Templates"` declares an exclusion. None of the
+// last three names a folder this report can attribute, so a hub whose only source is one of
+// them is unresolved, not scope-less — and a clause carrying no positive operand at all selects
+// every other path, a selection this reader cannot bound either.
+//
+// The keyword must be UPPERCASE and must open a line inside a ```dataview fence (DQL also
+// allows `LIST FROM "x"` on one line, hence the keyword alternative). The first attempt at this
+// matched any `from` anywhere, and prose in the dataviewjs hubs ("from its average",
+// "from `…/Tagging & Properties.md`") turned three healthy hubs into unresolved ones — a false
+// alarm that costs exactly the confidence this bucket exists to protect. A dataviewjs fence's
+// sources are read through `dv.pages(…)` below, and a `dv.query(…)` call it makes is reported
+// unresolved rather than guessed at, because that query is a string this reader does not parse.
+const FROM_CLAUSE = /(?:^|\b(?:LIST|TABLE|TASK|CALENDAR)\b[^\n]*?)FROM[ \t]+(\S[^\n]*)$/gm;
+const FROM_TAIL_CUT = /\b(?:WHERE|SORT|GROUP|FLATTEN|LIMIT|TABLE|LIST|TASK|CALENDAR)\b[\s\S]*$/i;
+const DV_QUERY_ANY = /\bdv\.(?:tryQuery|tryQueryMarkdown|query)\s*\(/;
+// `${…}` inside a captured literal means Dataview computes the source at run time, so the
+// text extracted here is not the folder it will actually read.
+const INTERPOLATED = /\$\{/;
 
 function frontmatterOf(content: string): string | null {
   const match = content.match(FRONTMATTER);
@@ -89,6 +125,11 @@ export interface HygieneReport {
   reviewCycleOutsideSchema: string[];
   noIncomingLinks: string[];
   dynamicMocOnly: string[];
+  // Outside every declared scope while at least one hub declares a source this reader
+  // cannot resolve. Reported apart from `noIncomingLinks` because "unknown" is not
+  // "unreachable", and collapsing the two would turn a limitation into a finding.
+  reachabilityUnknown: string[];
+  unresolvedHubs: string[];
 }
 
 interface Candidate {
@@ -100,6 +141,15 @@ interface Candidate {
 function isNoteCandidate(rel: string): boolean {
   if (rel === 'Home.md') return true;
   return NOTE_FOLDERS.has(rel.split('/')[0]);
+}
+
+// The same line `validate-templates` draws with its `99-Attachments/*` rule: that folder is
+// the media store, so a `.md` sitting beside an image is the artifact, not a record. The
+// two reporters disagreed — the contract enforcer exempted these files while this report
+// called them unclassified AND outside every hub — and a disagreement between two checks is
+// worse than either answer, because every finding inherits the doubt.
+function isAttachmentArtifact(rel: string): boolean {
+  return rel.startsWith('99-Attachments/');
 }
 
 function walkMarkdown(root: string, prefix: string): string[] {
@@ -164,19 +214,137 @@ function enumerate(root: string, includeIgnored: boolean): { files: string[]; so
 // `_Triage MOC`'s task scan (`FROM "" AND !"99-Templates"`), which lists notes by
 // STATUS and so does not try to surface a note that carries no status at all. A scope is a
 // path or it is nothing.
-function hubScopes(read: (rel: string) => string, files: string[]): string[] {
+//
+// A hub that declares sources this reader cannot resolve — `dv.pages(source)`, a tag or link
+// source, a `FROM` operand that is a function or an exclusion-only selection, or a
+// `dv.query(…)` call — is reported as UNRESOLVED rather than silently scope-less. When any hub
+// is unresolved, a note outside every declared scope reads as UNKNOWN, not as outside every
+// hub: the queries were never evaluated, so "this report cannot say" is the honest label.
+interface HubSources {
+  scopes: string[];
+  unresolved: boolean;
+}
+
+// A clause's operands are separated by AND/OR or a comma at TOP level only, so `outgoing([[X]])`
+// and a link with an alias (`[[A|B]]`) stay single operands. Quotes are tracked for the same
+// reason: `FROM "a AND b"` is one path, not two.
+function fromOperands(clause: string): string[] {
+  const operands: string[] = [];
+  let current = '';
+  let depth = 0;
+  let quoted = false;
+  for (let index = 0; index < clause.length; index++) {
+    const char = clause[index];
+    if (char === '"') quoted = !quoted;
+    if (!quoted) {
+      if (char === '(' || char === '[') depth++;
+      else if (char === ')' || char === ']') depth = Math.max(0, depth - 1);
+      const join = depth === 0 ? clause.slice(index).match(/^(?:\s+(?:AND|OR)\s+|,\s*)/i) : null;
+      if (join) {
+        operands.push(current);
+        current = '';
+        index += join[0].length - 1;
+        continue;
+      }
+    }
+    current += char;
+  }
+  operands.push(current);
+  return operands.map((operand) => operand.trim()).filter((operand) => operand !== '');
+}
+
+// One recognised FROM clause, read operand by operand. A quoted operand is a path this report
+// can attribute (`FROM "a" OR "b"` names both); a negated one says where a note is NOT listed,
+// so it is an exclusion rather than a source. Everything else — a tag, a link, a function, an
+// expression — is a selection whose result this reader cannot compute, and a clause with no
+// positive operand says the same thing one level up: "everything except these".
+function fromClauseSources(clause: string): HubSources {
+  const scopes: string[] = [];
+  let positives = 0;
+  let exclusions = 0;
+  let unresolved = false;
+  for (const operand of fromOperands(clause)) {
+    const negated = operand.startsWith('!');
+    const source = (negated ? operand.slice(1) : operand).trim();
+    if (negated) exclusions++;
+    else positives++;
+    const quoted = source.match(/^"([\s\S]*)"$/);
+    if (!quoted) {
+      unresolved = true; // a tag, a link, a function or an expression is not a path
+      continue;
+    }
+    const scope = quoted[1].replace(/\/+$/, '');
+    if (scope === '') continue; // `FROM ""` names no path, by documented design
+    if (INTERPOLATED.test(scope) || scope.startsWith('#')) {
+      unresolved = true; // computed, or a tag wearing a path's quotes
+      continue;
+    }
+    if (!negated) scopes.push(scope);
+  }
+  if (positives === 0 && exclusions > 0) unresolved = true;
+  return { scopes, unresolved };
+}
+
+function sourcesOf(content: string): HubSources {
   const scopes = new Set<string>();
+  let unresolved = false;
+  for (const block of content.matchAll(QUERY_BLOCK)) {
+    const isDataviewJs = block[1] === 'js';
+    const body = block[2];
+    if (isDataviewJs) {
+      // Code and prose, not a query. Its sources are read through `dv.pages(…)` below, and a
+      // `dv.query(…)` it builds at run time is unreadable here rather than merely absent.
+      if (DV_QUERY_ANY.test(body)) unresolved = true;
+    } else {
+      for (const from of body.matchAll(FROM_CLAUSE)) {
+        const clause = from[1].replace(FROM_TAIL_CUT, '');
+        const sources = fromClauseSources(clause);
+        for (const scope of sources.scopes) scopes.add(scope);
+        if (sources.unresolved) unresolved = true;
+      }
+    }
+    const calls = body.match(DV_PAGES_ANY) ?? [];
+    let resolvedCalls = 0;
+    for (const call of body.matchAll(DV_PAGES_CALL)) {
+      resolvedCalls++;
+      const literal = call[1] ?? call[2] ?? call[3] ?? '';
+      if (INTERPOLATED.test(literal)) {
+        unresolved = true; // assembled at run time, so the literal is not the folder
+        continue;
+      }
+      if (NON_PATH_SOURCE.test(literal)) {
+        unresolved = true; // selected by tag or link, so no folder can be attributed
+        continue;
+      }
+      let found = 0;
+      for (const quoted of literal.matchAll(QUOTED_PATH)) {
+        const scope = quoted[1].replace(/\/+$/, '');
+        if (scope === '' || scope.startsWith('#')) continue;
+        scopes.add(scope);
+        found++;
+      }
+      if (found === 0) unresolved = true; // a literal that names no folder
+    }
+    // An argument that is not a string literal cannot be read statically at all.
+    if (calls.length > resolvedCalls) unresolved = true;
+  }
+  return { scopes: [...scopes], unresolved };
+}
+
+function hubScopes(
+  read: (rel: string) => string,
+  files: string[]
+): { scopes: string[]; unresolvedHubs: string[] } {
+  const scopes = new Set<string>();
+  const unresolvedHubs: string[] = [];
   for (const rel of files) {
     if (rel.startsWith('99-Templates/')) continue;
     if (!path.basename(rel).startsWith('_')) continue;
-    for (const block of read(rel).matchAll(QUERY_BLOCK)) {
-      for (const from of block[1].matchAll(FROM_SCOPE)) {
-        const scope = from[1].replace(/\/+$/, '');
-        if (scope !== '') scopes.add(scope);
-      }
-    }
+    const sources = sourcesOf(read(rel));
+    for (const scope of sources.scopes) scopes.add(scope);
+    if (sources.unresolved) unresolvedHubs.push(rel);
   }
-  return [...scopes];
+  return { scopes: [...scopes], unresolvedHubs };
 }
 
 function isCovered(rel: string, scopes: string[]): boolean {
@@ -205,6 +373,7 @@ export function auditVaultHygiene(root: string, options: { includeIgnored?: bool
   const reviewCycleOutsideSchema: string[] = [];
 
   for (const { rel, block } of candidates) {
+    if (isAttachmentArtifact(rel)) continue; // the media store is not a record store
     const type = fieldOf(block, 'type');
     if (type === '') {
       unclassified.push(rel);
@@ -238,16 +407,22 @@ export function auditVaultHygiene(root: string, options: { includeIgnored?: bool
   }
 
   const contentByPath = new Map(candidates.map((candidate) => [candidate.rel, candidate.content]));
-  const scopes = hubScopes((rel) => contentByPath.get(rel) ?? '', candidates.map((c) => c.rel));
+  const { scopes, unresolvedHubs } = hubScopes(
+    (rel) => contentByPath.get(rel) ?? '',
+    candidates.map((c) => c.rel)
+  );
 
   const noIncomingLinks: string[] = [];
   const dynamicMocOnly: string[] = [];
+  const reachabilityUnknown: string[] = [];
   for (const { rel } of candidates) {
     const base = path.basename(rel, '.md');
     if ((incoming.get(base.toLowerCase()) ?? 0) > 0) continue;
     if (base.startsWith('_')) continue;      // a hub is a destination, not a linked record
     if (rel === 'Home.md') continue;         // the front door
+    if (isAttachmentArtifact(rel)) continue; // media beside an image, not a record
     if (isCovered(rel, scopes)) dynamicMocOnly.push(rel);
+    else if (unresolvedHubs.length > 0) reachabilityUnknown.push(rel);
     else noIncomingLinks.push(rel);
   }
 
@@ -259,7 +434,9 @@ export function auditVaultHygiene(root: string, options: { includeIgnored?: bool
     missingReviewMetadata,
     reviewCycleOutsideSchema,
     noIncomingLinks,
-    dynamicMocOnly
+    dynamicMocOnly,
+    reachabilityUnknown,
+    unresolvedHubs
   };
 }
 
@@ -465,16 +642,38 @@ export function main(): void {
   }
   console.log('');
 
-  console.log(`🧭 REACHABILITY \u2014 literal backlinks vs hub scope (${report.noIncomingLinks.length + report.dynamicMocOnly.length})`);
+  const reachTotal =
+    report.dynamicMocOnly.length + report.noIncomingLinks.length + report.reachabilityUnknown.length;
+  console.log(`🧭 REACHABILITY \u2014 literal backlinks vs hub scope (${reachTotal})`);
   console.log('   A literal-link orphan count cannot see a note a hub tries to list through a dynamic');
   console.log('   query, so the two are reported apart. The queries are NOT evaluated here: the');
-  console.log("   first bucket means the note sits inside a hub's FROM scope \u2014 not that the hub's");
-  console.log('   result contains it.');
-  console.log(`   - Inside a hub's declared FROM scope, no literal backlink (${report.dynamicMocOnly.length})`);
+  console.log("   first bucket means the note sits inside a hub's declared scope \u2014 a FROM path or a");
+  console.log("   literal dv.pages folder \u2014 not that the hub's result contains it.");
+  console.log(`   - Inside a hub's declared scope, no literal backlink (${report.dynamicMocOnly.length})`);
   for (const file of report.dynamicMocOnly) console.log(`     - ${file}`);
-  console.log(`   - Outside every hub's FROM scope \u2014 no hub names its folder (${report.noIncomingLinks.length})`);
+  if (report.reachabilityUnknown.length > 0) {
+    console.log(`   - Reachability unknown \u2014 a hub declares a source this report cannot resolve (${report.reachabilityUnknown.length})`);
+    for (const hub of report.unresolvedHubs) console.log(`     · unresolved hub: ${hub}`);
+    for (const file of report.reachabilityUnknown) console.log(`     - ${file}`);
+  }
+  console.log(`   - Outside every hub's declared scope \u2014 no hub names its folder (${report.noIncomingLinks.length})`);
   for (const file of report.noIncomingLinks) console.log(`     - ${file}`);
   console.log('');
+
+  // Printed whenever a hub is unresolved, not only when it leaves notes behind: with the
+  // blind spot confined to folders another hub already names, the unknown bucket can be
+  // empty while this hub is still the reason the orphan count cannot be trusted. This is a
+  // LIMIT, not a defect, so it is reported here and not added to the finding total.
+  if (report.unresolvedHubs.length > 0) {
+    console.log(`🔗 UNRESOLVED HUB SOURCES (${report.unresolvedHubs.length})`);
+    console.log('   These hubs name a source this report cannot read \u2014 a tag or link, a FROM operand');
+    console.log('   that is a function or an exclusion, a computed string, or a dv.pages argument that is');
+    console.log('   not a literal. The queries were never evaluated, so a note outside every declared');
+    console.log('   scope reads as unknown rather than as an orphan (\u201cno hub names its folder\u201d is');
+    console.log('   advisory while this section is non-empty).');
+    for (const hub of report.unresolvedHubs) console.log(`   - ${hub}`);
+    console.log('');
+  }
 
   if (report.reviewCycleOutsideSchema.length > 0) {
     console.log(`🔁 SPECIMEN: review_cycle outside the schema (${report.reviewCycleOutsideSchema.length})`);
@@ -528,6 +727,15 @@ export function main(): void {
 
   console.log('='.repeat(40));
 
+  // `reachabilityUnknown` and `unresolvedHubs` are deliberately NOT findings. Both say this
+  // report cannot decide, and charging the owner for a scanner limitation is how a check
+  // earns its way into being ignored. The vault's own projects MOC reads
+  // `dv.pages(\`"${folder}"\`)` inside a forEach — a legitimate pattern whose source is a page
+  // property — and if that counted, this gate could never go green again. A `FROM` tag, a
+  // `FROM outgoing(...)` and a bare `!"folder"` exclusion land in the same bucket for the same
+  // reason: each selects notes by something this reader cannot evaluate, so the honest answer is
+  // "unknown", not "orphan". The blind spot is still reported, loudly, in its own section: a
+  // finding is a defect, and this is a limit.
   const findings =
     report.unclassified.length +
     report.missingReviewMetadata.length +

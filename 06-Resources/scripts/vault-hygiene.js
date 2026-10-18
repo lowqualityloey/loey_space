@@ -104,8 +104,15 @@ var NOTE_FOLDERS = /* @__PURE__ */ new Set([
   "99-Attachments"
 ]);
 var FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n---/;
-var QUERY_BLOCK = /```dataview(?:js)?[ \t]*\r?\n([\s\S]*?)```/g;
-var FROM_SCOPE = /FROM\s+"([^"]*)"/g;
+var QUERY_BLOCK = /```dataview(js)?[ \t]*\r?\n([\s\S]*?)```/g;
+var DV_PAGES_CALL = /dv\.pages\(\s*(?:'([^']*)'|"([^"]*)"|`([^`]*)`)\s*\)/g;
+var DV_PAGES_ANY = /dv\.pages\s*\(/g;
+var QUOTED_PATH = /"([^"]*)"/g;
+var NON_PATH_SOURCE = /(^|[\s(])[#[]/;
+var FROM_CLAUSE = /(?:^|\b(?:LIST|TABLE|TASK|CALENDAR)\b[^\n]*?)FROM[ \t]+(\S[^\n]*)$/gm;
+var FROM_TAIL_CUT = /\b(?:WHERE|SORT|GROUP|FLATTEN|LIMIT|TABLE|LIST|TASK|CALENDAR)\b[\s\S]*$/i;
+var DV_QUERY_ANY = /\bdv\.(?:tryQuery|tryQueryMarkdown|query)\s*\(/;
+var INTERPOLATED = /\$\{/;
 function frontmatterOf(content) {
   const match = content.match(FRONTMATTER);
   return match ? match[1] : null;
@@ -120,6 +127,9 @@ function isNoteCandidate(rel) {
   if (rel === "Home.md")
     return true;
   return NOTE_FOLDERS.has(rel.split("/")[0]);
+}
+function isAttachmentArtifact(rel) {
+  return rel.startsWith("99-Attachments/");
 }
 function walkMarkdown(root, prefix) {
   const skipped = /* @__PURE__ */ new Set([".git", ".obsidian", "node_modules"]);
@@ -159,22 +169,127 @@ function enumerate(root, includeIgnored) {
   }
   return { files: walkMarkdown(root, "").sort(), source: "filesystem" };
 }
+function fromOperands(clause) {
+  const operands = [];
+  let current = "";
+  let depth = 0;
+  let quoted = false;
+  for (let index = 0; index < clause.length; index++) {
+    const char = clause[index];
+    if (char === '"')
+      quoted = !quoted;
+    if (!quoted) {
+      if (char === "(" || char === "[")
+        depth++;
+      else if (char === ")" || char === "]")
+        depth = Math.max(0, depth - 1);
+      const join2 = depth === 0 ? clause.slice(index).match(/^(?:\s+(?:AND|OR)\s+|,\s*)/i) : null;
+      if (join2) {
+        operands.push(current);
+        current = "";
+        index += join2[0].length - 1;
+        continue;
+      }
+    }
+    current += char;
+  }
+  operands.push(current);
+  return operands.map((operand) => operand.trim()).filter((operand) => operand !== "");
+}
+function fromClauseSources(clause) {
+  const scopes = [];
+  let positives = 0;
+  let exclusions = 0;
+  let unresolved = false;
+  for (const operand of fromOperands(clause)) {
+    const negated = operand.startsWith("!");
+    const source = (negated ? operand.slice(1) : operand).trim();
+    if (negated)
+      exclusions++;
+    else
+      positives++;
+    const quoted = source.match(/^"([\s\S]*)"$/);
+    if (!quoted) {
+      unresolved = true;
+      continue;
+    }
+    const scope = quoted[1].replace(/\/+$/, "");
+    if (scope === "")
+      continue;
+    if (INTERPOLATED.test(scope) || scope.startsWith("#")) {
+      unresolved = true;
+      continue;
+    }
+    if (!negated)
+      scopes.push(scope);
+  }
+  if (positives === 0 && exclusions > 0)
+    unresolved = true;
+  return { scopes, unresolved };
+}
+function sourcesOf(content) {
+  const scopes = /* @__PURE__ */ new Set();
+  let unresolved = false;
+  for (const block of content.matchAll(QUERY_BLOCK)) {
+    const isDataviewJs = block[1] === "js";
+    const body = block[2];
+    if (isDataviewJs) {
+      if (DV_QUERY_ANY.test(body))
+        unresolved = true;
+    } else {
+      for (const from of body.matchAll(FROM_CLAUSE)) {
+        const clause = from[1].replace(FROM_TAIL_CUT, "");
+        const sources = fromClauseSources(clause);
+        for (const scope of sources.scopes)
+          scopes.add(scope);
+        if (sources.unresolved)
+          unresolved = true;
+      }
+    }
+    const calls = body.match(DV_PAGES_ANY) ?? [];
+    let resolvedCalls = 0;
+    for (const call of body.matchAll(DV_PAGES_CALL)) {
+      resolvedCalls++;
+      const literal = call[1] ?? call[2] ?? call[3] ?? "";
+      if (INTERPOLATED.test(literal)) {
+        unresolved = true;
+        continue;
+      }
+      if (NON_PATH_SOURCE.test(literal)) {
+        unresolved = true;
+        continue;
+      }
+      let found = 0;
+      for (const quoted of literal.matchAll(QUOTED_PATH)) {
+        const scope = quoted[1].replace(/\/+$/, "");
+        if (scope === "" || scope.startsWith("#"))
+          continue;
+        scopes.add(scope);
+        found++;
+      }
+      if (found === 0)
+        unresolved = true;
+    }
+    if (calls.length > resolvedCalls)
+      unresolved = true;
+  }
+  return { scopes: [...scopes], unresolved };
+}
 function hubScopes(read, files) {
   const scopes = /* @__PURE__ */ new Set();
+  const unresolvedHubs = [];
   for (const rel of files) {
     if (rel.startsWith("99-Templates/"))
       continue;
     if (!path.basename(rel).startsWith("_"))
       continue;
-    for (const block of read(rel).matchAll(QUERY_BLOCK)) {
-      for (const from of block[1].matchAll(FROM_SCOPE)) {
-        const scope = from[1].replace(/\/+$/, "");
-        if (scope !== "")
-          scopes.add(scope);
-      }
-    }
+    const sources = sourcesOf(read(rel));
+    for (const scope of sources.scopes)
+      scopes.add(scope);
+    if (sources.unresolved)
+      unresolvedHubs.push(rel);
   }
-  return [...scopes];
+  return { scopes: [...scopes], unresolvedHubs };
 }
 function isCovered(rel, scopes) {
   return scopes.some(
@@ -199,6 +314,8 @@ function auditVaultHygiene(root, options = {}) {
   const missingReviewMetadata = [];
   const reviewCycleOutsideSchema = [];
   for (const { rel, block } of candidates) {
+    if (isAttachmentArtifact(rel))
+      continue;
     const type = fieldOf(block, "type");
     if (type === "") {
       unclassified.push(rel);
@@ -235,9 +352,13 @@ function auditVaultHygiene(root, options = {}) {
     }
   }
   const contentByPath = new Map(candidates.map((candidate) => [candidate.rel, candidate.content]));
-  const scopes = hubScopes((rel) => contentByPath.get(rel) ?? "", candidates.map((c) => c.rel));
+  const { scopes, unresolvedHubs } = hubScopes(
+    (rel) => contentByPath.get(rel) ?? "",
+    candidates.map((c) => c.rel)
+  );
   const noIncomingLinks = [];
   const dynamicMocOnly = [];
+  const reachabilityUnknown = [];
   for (const { rel } of candidates) {
     const base = path.basename(rel, ".md");
     if ((incoming.get(base.toLowerCase()) ?? 0) > 0)
@@ -246,8 +367,12 @@ function auditVaultHygiene(root, options = {}) {
       continue;
     if (rel === "Home.md")
       continue;
+    if (isAttachmentArtifact(rel))
+      continue;
     if (isCovered(rel, scopes))
       dynamicMocOnly.push(rel);
+    else if (unresolvedHubs.length > 0)
+      reachabilityUnknown.push(rel);
     else
       noIncomingLinks.push(rel);
   }
@@ -259,7 +384,9 @@ function auditVaultHygiene(root, options = {}) {
     missingReviewMetadata,
     reviewCycleOutsideSchema,
     noIncomingLinks,
-    dynamicMocOnly
+    dynamicMocOnly,
+    reachabilityUnknown,
+    unresolvedHubs
   };
 }
 var CYCLE_DAYS = {
@@ -417,18 +544,37 @@ function main() {
     }
   }
   console.log("");
-  console.log(`\u{1F9ED} REACHABILITY \u2014 literal backlinks vs hub scope (${report.noIncomingLinks.length + report.dynamicMocOnly.length})`);
+  const reachTotal = report.dynamicMocOnly.length + report.noIncomingLinks.length + report.reachabilityUnknown.length;
+  console.log(`\u{1F9ED} REACHABILITY \u2014 literal backlinks vs hub scope (${reachTotal})`);
   console.log("   A literal-link orphan count cannot see a note a hub tries to list through a dynamic");
   console.log("   query, so the two are reported apart. The queries are NOT evaluated here: the");
-  console.log("   first bucket means the note sits inside a hub's FROM scope \u2014 not that the hub's");
-  console.log("   result contains it.");
-  console.log(`   - Inside a hub's declared FROM scope, no literal backlink (${report.dynamicMocOnly.length})`);
+  console.log("   first bucket means the note sits inside a hub's declared scope \u2014 a FROM path or a");
+  console.log("   literal dv.pages folder \u2014 not that the hub's result contains it.");
+  console.log(`   - Inside a hub's declared scope, no literal backlink (${report.dynamicMocOnly.length})`);
   for (const file of report.dynamicMocOnly)
     console.log(`     - ${file}`);
-  console.log(`   - Outside every hub's FROM scope \u2014 no hub names its folder (${report.noIncomingLinks.length})`);
+  if (report.reachabilityUnknown.length > 0) {
+    console.log(`   - Reachability unknown \u2014 a hub declares a source this report cannot resolve (${report.reachabilityUnknown.length})`);
+    for (const hub of report.unresolvedHubs)
+      console.log(`     \xB7 unresolved hub: ${hub}`);
+    for (const file of report.reachabilityUnknown)
+      console.log(`     - ${file}`);
+  }
+  console.log(`   - Outside every hub's declared scope \u2014 no hub names its folder (${report.noIncomingLinks.length})`);
   for (const file of report.noIncomingLinks)
     console.log(`     - ${file}`);
   console.log("");
+  if (report.unresolvedHubs.length > 0) {
+    console.log(`\u{1F517} UNRESOLVED HUB SOURCES (${report.unresolvedHubs.length})`);
+    console.log("   These hubs name a source this report cannot read \u2014 a tag or link, a FROM operand");
+    console.log("   that is a function or an exclusion, a computed string, or a dv.pages argument that is");
+    console.log("   not a literal. The queries were never evaluated, so a note outside every declared");
+    console.log("   scope reads as unknown rather than as an orphan (\u201Cno hub names its folder\u201D is");
+    console.log("   advisory while this section is non-empty).");
+    for (const hub of report.unresolvedHubs)
+      console.log(`   - ${hub}`);
+    console.log("");
+  }
   if (report.reviewCycleOutsideSchema.length > 0) {
     console.log(`\u{1F501} SPECIMEN: review_cycle outside the schema (${report.reviewCycleOutsideSchema.length})`);
     console.log(`   The schema accepts exactly: ${[...REVIEW_CYCLES].join(", ")}`);

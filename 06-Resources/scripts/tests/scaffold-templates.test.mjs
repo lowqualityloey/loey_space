@@ -203,8 +203,8 @@ test("the two path exemptions print on the tracked-index path (AC-1b-4)", (t) =>
 });
 
 test("the scaffold folder is declared to a hub, so its notes are not orphans", () => {
-  // `hygiene` counts a note outside every hub's FROM scope as a finding, and `--strict` gates
-  // CI on it. The vault's own answer for a new folder is a hub, and the hub is also what tells
+  // `hygiene` counts a note outside every hub's declared scope as a finding, and `--strict`
+  // gates CI on it. The vault's own answer for a new folder is a hub, and the hub also tells
   // a future reader that this folder is published and must stay synthetic.
   const hub = path.join(SCAFFOLD_DIR, "_Scaffold MOC.md");
   assert.ok(fs.existsSync(hub), "the scaffold folder needs its hub, like every other folder in this vault");

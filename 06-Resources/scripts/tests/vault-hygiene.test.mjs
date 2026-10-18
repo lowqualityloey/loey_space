@@ -482,7 +482,7 @@ test("--strict is the only mode that fails, and a clean report passes it", () =>
     // Two findings, and the pair is the point: `08-Concepts/Untitled.md` is unclassified AND
     // no hub names its folder, and the report says both rather than collapsing them.
     assert.match(lenient.stdout, /UNCLASSIFIED RECORDS \u2014 no `type` in frontmatter \(1\)/);
-    assert.match(lenient.stdout, /Outside every hub's FROM scope \u2014 no hub names its folder \(1\)/);
+    assert.match(lenient.stdout, /Outside every hub's declared scope \u2014 no hub names its folder \(1\)/);
     assert.match(lenient.stdout, /2 finding\(s\).*read-only and changed nothing/);
 
     const strict = run(findingsRoot, "--strict");
@@ -570,3 +570,191 @@ test("auditRot evaluates memory budget, overdue review cycles, and skill guardra
   }
 });
 
+
+// ---------------------------------------------------------------------------------------
+// F07: DataviewJS is how most of this vault's hubs actually select notes, and the report
+// used to read only `FROM`, so every note a `dv.pages(...)` hub lists was reported as
+// outside every hub. Reading the literal folders is the fix; where a source cannot be read
+// statically, the honest answer is UNKNOWN — never "unreachable", because the query was
+// never evaluated here.
+// ---------------------------------------------------------------------------------------
+
+test("a literal dv.pages folder is a hub scope, so a DataviewJS-listed note is not an orphan", () => {
+  const root = makeFixture({
+    "Home.md": classified("dashboard"),
+    "01-Daily/_Daily MOC.md": `---\ntype: moc\n---\n\n\`\`\`dataviewjs\nfor (const page of dv.pages('"01-Daily"').where(p => p.type === "daily")) {\n  dv.list([page.file.link])\n}\n\`\`\`\n`,
+    "01-Daily/2026-10/2026-10-18.md": classified("daily", { type: "daily" }),
+    "03-Dev/Lonely.md": classified("snippet"),
+  });
+  try {
+    const report = auditVaultHygiene(root);
+    assert.deepEqual(report.dynamicMocOnly, ["01-Daily/2026-10/2026-10-18.md"]);
+    assert.deepEqual(report.noIncomingLinks, ["03-Dev/Lonely.md"]);
+    assert.deepEqual(report.reachabilityUnknown, []);
+    assert.deepEqual(report.unresolvedHubs, []);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("a dv.pages source this report cannot read statically makes reachability unknown", () => {
+  // `dv.pages(source)` is evaluated at render time in Obsidian. This reader has no query
+  // engine, so it cannot know whether the note below is listed — and saying "outside every
+  // hub" would assert something it did not check.
+  const root = makeFixture({
+    "Home.md": classified("dashboard"),
+    "07-Reviews/_Reviews MOC.md": `---\ntype: moc\n---\n\n\`\`\`dataviewjs\nconst source = someHelper()\ndv.list(dv.pages(source))\n\`\`\`\n`,
+    "07-Reviews/handoff-archive-2026-10.md": classified("review", { type: "review" }),
+  });
+  try {
+    const report = auditVaultHygiene(root);
+    assert.deepEqual(report.unresolvedHubs, ["07-Reviews/_Reviews MOC.md"]);
+    assert.deepEqual(report.reachabilityUnknown, ["07-Reviews/handoff-archive-2026-10.md"]);
+    assert.deepEqual(report.noIncomingLinks, [], "unknown is not unreachable");
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("a tag or link source names no folder, so the hub stays unresolved", () => {
+  const root = makeFixture({
+    "Home.md": classified("dashboard"),
+    "08-Concepts/_Concepts MOC.md": `---\ntype: moc\n---\n\n\`\`\`dataviewjs\ndv.list(dv.pages("#concept"))\n\`\`\`\n`,
+    "08-Concepts/Tagged.md": classified("concept"),
+  });
+  try {
+    const report = auditVaultHygiene(root);
+    assert.deepEqual(report.unresolvedHubs, ["08-Concepts/_Concepts MOC.md"]);
+    assert.deepEqual(report.reachabilityUnknown, ["08-Concepts/Tagged.md"]);
+    assert.ok(!report.dynamicMocOnly.includes("08-Concepts/Tagged.md"), "a tag is not a folder scope");
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("an attachment artifact is neither an unclassified record nor a reachable note", () => {
+  // `99-Attachments/` is the media store, and `validate-templates` already exempts it with
+  // its `99-Attachments/*` rule. The two reporters must agree: a `.md` beside an image is
+  // the artifact, not a record missing its type.
+  const root = makeFixture({
+    "Home.md": classified("dashboard"),
+    "99-Attachments/2026-10/attachment-note.md": "# Pasted attachment\n\nNo frontmatter at all.\n",
+    "05-Personal/Untyped.md": "# No type either\n",
+  });
+  try {
+    const report = auditVaultHygiene(root);
+    assert.deepEqual(report.unclassified, ["05-Personal/Untyped.md"], "the control still reports");
+    const reachable = [
+      ...report.dynamicMocOnly,
+      ...report.noIncomingLinks,
+      ...report.reachabilityUnknown,
+    ];
+    assert.ok(!reachable.includes("99-Attachments/2026-10/attachment-note.md"));
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("a FROM tag source is unresolved, so its notes are unknown rather than orphans", () => {
+  // `FROM #concept` selects by TAG. The first version of this reader took the bare token as
+  // a folder scope, which matches nothing and turned every note the hub lists into a
+  // definite orphan — an assertion the reader never actually checked.
+  const root = makeFixture({
+    "Home.md": classified("dashboard"),
+    "08-Concepts/_Concepts MOC.md": `---\ntype: moc\n---\n\n\`\`\`dataview\nLIST\nFROM #concept\nWHERE type = "concept"\n\`\`\`\n`,
+    "08-Concepts/Tagged.md": classified("concept"),
+  });
+  try {
+    const report = auditVaultHygiene(root);
+    assert.deepEqual(report.unresolvedHubs, ["08-Concepts/_Concepts MOC.md"]);
+    assert.deepEqual(report.reachabilityUnknown, ["08-Concepts/Tagged.md"]);
+    assert.deepEqual(report.noIncomingLinks, [], "unknown is not unreachable");
+    assert.ok(!report.dynamicMocOnly.includes("08-Concepts/Tagged.md"), "a tag is not a folder");
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("an interpolated dv.pages source is unresolved instead of a bogus folder scope", () => {
+  // The shape the vault actually uses: `dv.pages(\`"${folder}"\`)` inside a forEach, where
+  // `folder` comes from a page at render time. The literal text `${folder}` names nothing, so
+  // reading it as a scope would delete the note from the report and reading the hub as
+  // scope-less would call the note an orphan. Neither: the hub is unresolved.
+  const root = makeFixture({
+    "Home.md": classified("dashboard"),
+    "02-Projects/_Projects MOC.md": `---\ntype: moc\n---\n\n\`\`\`dataviewjs\nconst folder = page.file.folder\ndv.list(dv.pages(\`"\${folder}"\`))\n\`\`\`\n`,
+    "02-Projects/roadie/roadie.md": classified("project"),
+  });
+  try {
+    const report = auditVaultHygiene(root);
+    assert.deepEqual(report.unresolvedHubs, ["02-Projects/_Projects MOC.md"]);
+    assert.deepEqual(report.reachabilityUnknown, ["02-Projects/roadie/roadie.md"]);
+    assert.deepEqual(report.noIncomingLinks, []);
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("a FROM function source is unresolved, so its notes are unknown rather than orphans", () => {
+  // `FROM outgoing([[X]])` asks Dataview to walk the link graph when the query runs. The
+  // previous reader recognised a clause only when its operand began with a quote, a tag or a
+  // link bracket, so this clause was skipped entirely: the hub looked scope-less and every note
+  // it lists was reported as a definite orphan — a verdict the report never actually computed.
+  const root = makeFixture({
+    "Home.md": classified("dashboard"),
+    "08-Concepts/_Concepts MOC.md": `---\ntype: moc\n---\n\n\`\`\`dataview\nLIST\nFROM outgoing([[Home]])\nWHERE type = "concept"\n\`\`\`\n`,
+    "08-Concepts/Linked.md": classified("concept"),
+  });
+  try {
+    const report = auditVaultHygiene(root);
+    assert.deepEqual(report.unresolvedHubs, ["08-Concepts/_Concepts MOC.md"]);
+    assert.deepEqual(report.reachabilityUnknown, ["08-Concepts/Linked.md"]);
+    assert.deepEqual(report.noIncomingLinks, [], "unknown is not unreachable");
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("a FROM exclusion with no positive operand is unresolved, not an empty scope", () => {
+  // `FROM !"99-Templates"` selects everything EXCEPT that folder, so it bounds nothing this
+  // reader can bound. Reading it as "no source" made the hub scope-less and every note an
+  // orphan; reading the excluded folder as a scope would claim coverage the query denies.
+  // The two are different failures, and unresolved is the only honest one.
+  const root = makeFixture({
+    "Home.md": classified("dashboard"),
+    "00-Inbox/_Inbox MOC.md": `---\ntype: moc\n---\n\n\`\`\`dataview\nLIST\nFROM !"99-Templates"\n\`\`\`\n`,
+    "05-Personal/Loose.md": classified("personal"),
+  });
+  try {
+    const report = auditVaultHygiene(root);
+    assert.deepEqual(report.unresolvedHubs, ["00-Inbox/_Inbox MOC.md"]);
+    assert.deepEqual(report.reachabilityUnknown, ["05-Personal/Loose.md"]);
+    assert.deepEqual(report.noIncomingLinks, []);
+    assert.deepEqual(report.dynamicMocOnly, [], "an exclusion is not a scope");
+  } finally {
+    cleanup(root);
+  }
+});
+
+test("a negated FROM path excludes a folder without becoming a scope", () => {
+  // `!"05-Personal/Archive"` says where a note is NOT listed, so it must not be read as a
+  // place a note can be covered FROM — that would claim coverage the query denies. The
+  // negated folder sits outside the positive one here on purpose: this reader's scope model
+  // is prefix coverage, so it has no way to subtract an excluded SUBfolder of a declared
+  // scope, and a test that pretended otherwise would be asserting a feature that does not
+  // exist.
+  const root = makeFixture({
+    "Home.md": classified("dashboard"),
+    "03-Dev/_Dev MOC.md": `---\ntype: moc\n---\n\n\`\`\`dataview\nLIST\nFROM "03-Dev" AND !"05-Personal/Archive"\n\`\`\`\n`,
+    "03-Dev/Public snippet.md": classified("snippet"),
+    "05-Personal/Archive/Parked.md": classified("personal"),
+  });
+  try {
+    const report = auditVaultHygiene(root);
+    assert.deepEqual(report.unresolvedHubs, [], "the clause is a readable pair of paths");
+    assert.deepEqual(report.dynamicMocOnly, ["03-Dev/Public snippet.md"]);
+    assert.deepEqual(report.noIncomingLinks, ["05-Personal/Archive/Parked.md"]);
+  } finally {
+    cleanup(root);
+  }
+});
