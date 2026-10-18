@@ -374,9 +374,18 @@ test("#132: an unclassified type: review record fails, naming the missing field 
     `the diagnostic must name the missing field\n--- stdout ---\n${result.stdout}`
   );
   assert.ok(
-    /weekly, monthly, audit/.test(result.stdout),
+    /weekly, monthly, audit, archive/.test(result.stdout),
     `the diagnostic must name the allowed values\n--- stdout ---\n${result.stdout}`
   );
+});
+
+test("#132: kind: archive is a recognised classification", () => {
+  // F08: the handoff archive is not a retrospective and must not be filed as one. It still
+  // has to be a recognised record, or the check above would report the vault's own archive
+  // as unclassifiable every time it is created.
+  const result = runVault({ "07-Reviews/handoff-archive-2026-10.md": reviewBody({ kind: "archive" }) });
+
+  assertExit(result, 0, "a declared archive kind must pass");
 });
 
 test("#132: an unrecognised kind value fails rather than passing as classified", () => {

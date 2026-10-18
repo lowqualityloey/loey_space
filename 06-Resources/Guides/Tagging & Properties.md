@@ -113,7 +113,7 @@ and in the code together. Do not introduce it in one place only.
 ```yaml
 priority: p0/p1/p2/p3            # Required on project; conventional on capture and task
                                # critical/high/medium/low are accepted equivalents — see § 5
-kind: weekly                     # type: review only — weekly | monthly | audit (see Review Records)
+kind: weekly                     # type: review only — weekly | monthly | audit | archive (see Review Records)
 last_reviewed: YYYY-MM-DD        # See "updated vs last_reviewed" above
 review_cycle: 14d/30d/90d        # Required whenever last_reviewed is present
 language: javascript/typescript  # For code snippets
@@ -138,10 +138,15 @@ them into histories, each review declares **`kind`**:
 | `weekly` | A weekly retrospective | `GGGG-[W]WW` (ISO week-year, e.g. `2026-W41`) |
 | `monthly` | A monthly retrospective | `YYYY-MM` (e.g. `2026-09`) |
 | `audit` | A system, architecture, or vault audit — **not** a retrospective | free-form (e.g. `2026-10-04 Vault Architecture Review`) |
+| `archive` | A month-partitioned record archived out of a live note — **not** a retrospective | free-form (e.g. `handoff-archive-2026-10`) |
 
 The Weekly and Monthly Review templates declare their `kind` for you. Use `kind: audit`
 for any review that is not a recurring retrospective; an audit is listed in its own MOC
-section and never counted as weekly or monthly history.
+section and never counted as weekly or monthly history. Use `kind: archive` only for what
+the vault archives automatically — currently the handoff overflow, whose writer emits it.
+An archive belongs in the vocabulary so it is a classified record rather than an
+unclassifiable one, but it is deliberately in no history: it is a month of raw milestones,
+not a reflection on a period.
 
 > [!IMPORTANT] Legacy compatibility: fall back to the name, never guess a period
 > Reviews written before `kind` existed carry none. The MOC classifies such a note by its

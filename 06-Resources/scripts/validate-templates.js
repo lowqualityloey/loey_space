@@ -335,7 +335,7 @@ function parseFrontmatter(content) {
   return { props, tags };
 }
 var requiredTagNamespaces = ["type", "area", "status"];
-var REVIEW_KINDS = ["weekly", "monthly", "audit"];
+var REVIEW_KINDS = ["weekly", "monthly", "audit", "archive"];
 var LEGACY_REVIEW_KINDS = { "vault-audit": "audit" };
 var LEGACY_REVIEW_NAME = /^\d{4}-W\d{1,2}$/;
 var LEGACY_REVIEW_MONTH_NAME = /^\d{4}-\d{2}$/;

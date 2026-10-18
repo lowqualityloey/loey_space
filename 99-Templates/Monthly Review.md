@@ -5,7 +5,7 @@ type: review
 status: completed
 area: reviews
 # `kind` classifies the record so the Reviews MOC can keep weekly history, monthly
-# history, and system audits distinct (#126). Allowed: weekly | monthly | audit.
+# history, and system audits distinct (#126). Allowed: weekly | monthly | audit | archive.
 kind: monthly
 tags:
   - type/review

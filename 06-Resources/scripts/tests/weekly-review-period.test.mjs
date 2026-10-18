@@ -609,6 +609,25 @@ test("#132: a recognised record is not listed as unclassified", () => {
   assert.doesNotMatch(text, /Synthetic Legacy Audit/);
 });
 
+test("#132: an archive is a classified record and belongs to no history", () => {
+  // F08: the handoff archive declares `kind: archive`. Adding it to the vocabulary is what
+  // takes the record off the unclassified list; keeping it out of the weekly, monthly, and
+  // audit selectors is what stops it being mis-filed as a retrospective it never wrote.
+  const pages = [reviewRecord("handoff-archive-2026-10", { kind: "archive" })];
+  for (const sector of ["weekly", "monthly", "audit"]) {
+    assert.doesNotMatch(
+      runSelector(sector, pages).text,
+      /handoff-archive-2026-10/,
+      `${sector} history claimed an archive`
+    );
+  }
+  assert.doesNotMatch(
+    runSelector("unclassified", pages).text,
+    /handoff-archive-2026-10/,
+    "an archive declares a recognised kind, so it is not unclassified"
+  );
+});
+
 test("#132: an unknown legacy key leaves the record unclassified, not name-classified", () => {
   // The legacy key is authoritative like `kind`: a value the mapping does not know
   // must NOT fall through to the filename, or the MOC and the validator would

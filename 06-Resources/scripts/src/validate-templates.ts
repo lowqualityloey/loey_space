@@ -386,12 +386,17 @@ function parseFrontmatter(content: string): ParsedFrontmatter | null {
 // Expected tag structure
 const requiredTagNamespaces = ['type', 'area', 'status'];
 
-// Issue #132: the three classifications the Reviews MOC sorts a `type: review` record into.
+// Issue #132: the classifications the Reviews MOC sorts a `type: review` record into.
 // A review that carries none of them — by `kind`, by a documented legacy name, or by the
 // legacy `review_kind` key — resolves to "" in every selector and is then invisible while
 // this validator passes it. The MOC accepts the legacy key (`vault-audit` -> `audit`); this
 // check is the explicit report for anything still unclassified.
-const REVIEW_KINDS = ['weekly', 'monthly', 'audit'];
+const REVIEW_KINDS = ['weekly', 'monthly', 'audit', 'archive'];
+// `archive` is a fourth classification, not a variation on the three histories: a
+// month-partitioned record archived out of a live note (the handoff archive) is neither a
+// retrospective nor an audit, and filing it as `weekly` would put it in a history it never
+// wrote. It belongs to the vocabulary so the record is CLASSIFIED rather than reported as
+// unclassifiable, and it stays out of every history because no selector selects it.
 // Only the value observed in the vault is mapped. An unknown `review_kind` is deliberately
 // NOT guessable: an unrecognised value must leave the record unclassified so the check
 // above can report it, rather than inventing a classification.

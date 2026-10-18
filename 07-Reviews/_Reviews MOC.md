@@ -16,7 +16,7 @@ tags:
 > *Periodic retrospectives and longitudinal health tracking — weekly (`YYYY-[W]WW.md`) and monthly (`YYYY-MM.md`) reviews, retrospectives, and 30-day habit analytics.*
 
 > [!INFO] How a review is classified (#126)
-> Each review declares its **`kind`** in frontmatter — `weekly`, `monthly`, or `audit`.
+> Each review declares its **`kind`** in frontmatter — `weekly`, `monthly`, `audit`, or `archive`.
 > Weekly history below shows only genuine weekly records, so an architecture review or a
 > vault audit can never be counted as a weekly retrospective. A review written before
 > `kind` existed is classified by its **name** (`YYYY-Www` → weekly, `YYYY-MM` → monthly)
@@ -37,7 +37,7 @@ tags:
 ```dataviewjs
 // #126 review classification — keep this block identical in every review selector
 // below; `tests/weekly-review-period.test.mjs` fails if the copies drift apart.
-const REVIEW_KINDS = ["weekly", "monthly", "audit"];
+const REVIEW_KINDS = ["weekly", "monthly", "audit", "archive"];
 // #132 legacy key compatibility: a few early audits carry `review_kind` instead of
 // `kind`. See `06-Resources/Guides/Tagging & Properties.md`.
 const LEGACY_REVIEW_KINDS = { "vault-audit": "audit" };
@@ -93,7 +93,7 @@ if (rows.length === 0) {
 ```dataviewjs
 // #126 review classification — keep this block identical in every review selector
 // below; `tests/weekly-review-period.test.mjs` fails if the copies drift apart.
-const REVIEW_KINDS = ["weekly", "monthly", "audit"];
+const REVIEW_KINDS = ["weekly", "monthly", "audit", "archive"];
 // #132 legacy key compatibility: a few early audits carry `review_kind` instead of
 // `kind`. See `06-Resources/Guides/Tagging & Properties.md`.
 const LEGACY_REVIEW_KINDS = { "vault-audit": "audit" };
@@ -153,7 +153,7 @@ if (rows.length === 0) {
 ```dataviewjs
 // #126 review classification — keep this block identical in every review selector
 // below; `tests/weekly-review-period.test.mjs` fails if the copies drift apart.
-const REVIEW_KINDS = ["weekly", "monthly", "audit"];
+const REVIEW_KINDS = ["weekly", "monthly", "audit", "archive"];
 // #132 legacy key compatibility: a few early audits carry `review_kind` instead of
 // `kind`. See `06-Resources/Guides/Tagging & Properties.md`.
 const LEGACY_REVIEW_KINDS = { "vault-audit": "audit" };
@@ -204,6 +204,26 @@ if (rows.length === 0) {
 
 ---
 
+## 🗄️ Handoff & Record Archives
+
+> A month of raw milestones archived out of `handoff.md`, not a reflection on a period. It
+> is classified `kind: archive` so it is a recognised record rather than an unclassifiable
+> one, and it is deliberately in none of the histories above. The canonical writer stamps
+> the kind, so a new month's archive is classified on the day it is created.
+>
+> This is a plain query rather than a copy of the resolver: every archive is written with
+> `kind: archive`, so there is no legacy name or `review_kind` to fall back from — and a
+> fifth copy of a resolver that must stay byte-identical is a fifth copy that can drift.
+
+```dataview
+TABLE WITHOUT ID file.link AS "Archive", created AS "Archived", updated AS "Updated"
+FROM "07-Reviews"
+WHERE type = "review" AND kind = "archive"
+SORT file.name DESC
+```
+
+---
+
 ## 🗃️ Unclassified Review Records
 
 > A review record that declares no recognised `kind` (and carries no documented legacy
@@ -213,7 +233,7 @@ if (rows.length === 0) {
 ```dataviewjs
 // #126 review classification — keep this block identical in every review selector
 // below; `tests/weekly-review-period.test.mjs` fails if the copies drift apart.
-const REVIEW_KINDS = ["weekly", "monthly", "audit"];
+const REVIEW_KINDS = ["weekly", "monthly", "audit", "archive"];
 // #132 legacy key compatibility: a few early audits carry `review_kind` instead of
 // `kind`. See `06-Resources/Guides/Tagging & Properties.md`.
 const LEGACY_REVIEW_KINDS = { "vault-audit": "audit" };
@@ -252,7 +272,7 @@ const rows = unclassifiedReviewRecords()
 if (rows.length === 0) {
   dv.paragraph("Every review record declares a recognised classification.");
 } else {
-  dv.paragraph(rows.length + " review record(s) declare no recognised kind and appear in no history above. Add `kind` (weekly, monthly, or audit) when the note is next touched.");
+  dv.paragraph(rows.length + " review record(s) declare no recognised kind and appear in no history above. Add `kind` (weekly, monthly, audit, or archive) when the note is next touched.");
   dv.table(["Unclassified Review", "Last Modified"], rows);
 }
 ```
