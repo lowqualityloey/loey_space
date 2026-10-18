@@ -37,6 +37,9 @@ __export(heyloey_exports, {
   detectLanguage: () => detectLanguage,
   insertDailyLogLine: () => insertDailyLogLine,
   insertLatestUpdate: () => insertLatestUpdate,
+  kernelLockPath: () => kernelLockPath,
+  legacyLockPath: () => legacyLockPath,
+  lockDirPath: () => lockDirPath,
   mergeLearnNote: () => mergeLearnNote,
   parseArgs: () => parseArgs,
   resolveInsideVault: () => resolveInsideVault,
@@ -45,6 +48,9 @@ __export(heyloey_exports, {
 module.exports = __toCommonJS(heyloey_exports);
 var fs = __toESM(require("fs"));
 var path = __toESM(require("path"));
+var os = __toESM(require("os"));
+var crypto = __toESM(require("crypto"));
+var import_child_process = require("child_process");
 
 // 06-Resources/scripts/src/lib/daily-note.ts
 var DEFAULT_DAILY_NOTES_CONFIG = {
@@ -247,7 +253,7 @@ var LEARN_START = "<!-- heyloey:learn:start -->";
 var LEARN_END = "<!-- heyloey:learn:end -->";
 var HUB_HEADING = "## \u{1F517} Related Resources & Notes";
 var HUB_HEADING_PATTERN = /^#{2,6}\s+.*\bRelated\b/;
-var COMMANDS = ["brief", "context", "done", "learn"];
+var COMMANDS = ["brief", "context", "done", "learn", "lock-state"];
 var WRITING_COMMANDS = /* @__PURE__ */ new Set(["done", "learn"]);
 function usage() {
   return [
@@ -269,6 +275,7 @@ function usage() {
     "                              links it to the existing Dev hub. A colliding title merges",
     "                              into a marked region instead of overwriting hand-written",
     "                              content.",
+    "  lock-state                  Read-only. Reports the vault, lock protocol, and kernel lock file.",
     "",
     "Options:",
     "  --root <dir>   Vault to act on. Defaults to the working directory. Never guessed from",
@@ -285,7 +292,8 @@ function usage() {
   ].join("\n");
 }
 function parseArgs(argv) {
-  let root = process.cwd();
+  let root = process.env.LOEY_SPACE_DIR || process.cwd();
+  let rootExplicit = false;
   let dryRun = false;
   let showPaths = false;
   const positional = [];
@@ -306,6 +314,7 @@ function parseArgs(argv) {
       if (!value)
         return { kind: "error", message: "--root requires a directory" };
       root = value;
+      rootExplicit = true;
       i += 1;
       continue;
     }
@@ -313,6 +322,7 @@ function parseArgs(argv) {
       root = arg.slice("--root=".length);
       if (!root)
         return { kind: "error", message: "--root requires a directory" };
+      rootExplicit = true;
       continue;
     }
     if (arg.startsWith("-") && arg !== "-") {
@@ -330,7 +340,7 @@ function parseArgs(argv) {
     kind: "command",
     command,
     args: positional.slice(1),
-    options: { root: path.resolve(root), dryRun, showPaths }
+    options: { root: path.resolve(root), rootExplicit, dryRun, showPaths }
   };
 }
 function describeTarget(root, showPaths) {
@@ -360,6 +370,256 @@ function validateTarget(root) {
 function refusalLine(failure, root, showPaths) {
   const detail = failure.reason === "not a vault" ? `not a vault: missing ${failure.missing.join(", ")}` : failure.reason;
   return `heyloey: ${detail}: ${describeTarget(root, showPaths)}`;
+}
+var LOCK_TIMEOUT_MS = Number(process.env.LOEY_LOCK_TIMEOUT_MS || 15e3);
+var LOCK_IMPL_REQUESTED = String(process.env.LOEY_LOCK_IMPL || "auto").toLowerCase();
+var LOCK_ALREADY_HELD = process.env.LOEY_LOCK_HELD === "1";
+var LOCK_WRAPPER_PID = LOCK_ALREADY_HELD ? process.ppid : null;
+var LOCK_HOLD_MS = Number(process.env.LOEY_LOCK_HOLD_MS || 0);
+var RETIRED_LOCK_KNOBS = ["LOEY_LOCK_RECOVERY", "LOEY_LOCK_STALE_MS", "LOEY_LOCK_RECLAIM_DELAY_MS"];
+function obsoleteLockConfig() {
+  const problems = [];
+  if (LOCK_IMPL_REQUESTED !== "auto" && LOCK_IMPL_REQUESTED !== "flock") {
+    problems.push(
+      LOCK_IMPL_REQUESTED === "file" ? "LOEY_LOCK_IMPL=file requests the removed metadata-file tier (only auto|flock remain)" : `LOEY_LOCK_IMPL=${LOCK_IMPL_REQUESTED} is not a supported value (only auto|flock remain)`
+    );
+  }
+  for (const knob of RETIRED_LOCK_KNOBS) {
+    const value = process.env[knob];
+    if (value !== void 0 && String(value) !== "") {
+      problems.push(`${knob}=${value} configured the removed metadata-file tier`);
+    }
+  }
+  return problems;
+}
+function lockDirPath() {
+  return process.env.LOEY_LOCK_DIR || (fs.existsSync("/tmp") ? "/tmp/heyloey-locks" : path.join(os.tmpdir(), "heyloey-locks"));
+}
+function vaultLockKey(root) {
+  let identity = root;
+  try {
+    identity = fs.realpathSync(root);
+  } catch (_) {
+  }
+  return crypto.createHash("sha1").update(identity).digest("hex").slice(0, 20);
+}
+function kernelLockPath(root) {
+  return path.join(lockDirPath(), `vault-${vaultLockKey(root)}.flock`);
+}
+function legacyLockPath(root) {
+  return path.join(lockDirPath(), `vault-${vaultLockKey(root)}.lock`);
+}
+var _flockChecked = false;
+var _flockBin = null;
+function flockBinPath() {
+  if (process.env.FLOCK_BIN)
+    return process.env.FLOCK_BIN;
+  if (_flockChecked)
+    return _flockBin;
+  _flockChecked = true;
+  if (process.platform === "win32")
+    return _flockBin;
+  try {
+    const p = (0, import_child_process.execSync)("command -v flock 2>/dev/null", { encoding: "utf8", shell: "/bin/sh" }).trim();
+    if (p)
+      _flockBin = p;
+  } catch (_) {
+  }
+  return _flockBin;
+}
+function kernelLockOwnerGone() {
+  if (!LOCK_ALREADY_HELD)
+    return false;
+  if (LOCK_WRAPPER_PID !== 1 && process.ppid === 1)
+    return true;
+  if (LOCK_WRAPPER_PID && LOCK_WRAPPER_PID > 1) {
+    try {
+      process.kill(LOCK_WRAPPER_PID, 0);
+    } catch (e) {
+      if (e.code === "ESRCH")
+        return true;
+    }
+  }
+  return false;
+}
+function assertKernelLockHeld() {
+  if (!kernelLockOwnerGone())
+    return;
+  console.error(
+    "[heyloey] LOCK unavailable: the kernel lock wrapper is gone (it exited or was killed), so the kernel lock is no longer held; nothing written."
+  );
+  process.exit(8);
+}
+function getVaultSource(root, options) {
+  if (process.env.LOEY_SPACE_DIR && path.resolve(process.env.LOEY_SPACE_DIR) === path.resolve(root)) {
+    return "LOEY_SPACE_DIR";
+  }
+  if (options.rootExplicit) {
+    return "--root";
+  }
+  return "default";
+}
+function detectSynthetic(root) {
+  if (process.env.LOEY_SPACE_SYNTHETIC === "1") {
+    return { synthetic: true, reason: "LOEY_SPACE_SYNTHETIC=1" };
+  }
+  const candidates = [root, process.cwd()];
+  for (const dir of candidates) {
+    if (dir && fs.existsSync(path.join(dir, ".loey-synthetic"))) {
+      return { synthetic: true, reason: `.loey-synthetic in ${dir}` };
+    }
+  }
+  return { synthetic: false, reason: null };
+}
+function atomicWriteFileSync(filePath, content) {
+  assertKernelLockHeld();
+  const dir = path.dirname(filePath);
+  const tmp = path.join(
+    dir,
+    `.${path.basename(filePath)}.tmp-${process.pid}-${Math.random().toString(36).slice(2, 8)}`
+  );
+  let targetMode = null;
+  try {
+    targetMode = fs.statSync(filePath).mode & 511;
+  } catch (_) {
+  }
+  if (targetMode !== null) {
+    fs.accessSync(filePath, fs.constants.W_OK);
+  }
+  let fd = null;
+  try {
+    fd = fs.openSync(tmp, "wx", targetMode !== null ? targetMode : 420);
+    fs.writeSync(fd, content);
+    fs.fsyncSync(fd);
+    fs.closeSync(fd);
+    fd = null;
+    if (targetMode !== null) {
+      try {
+        fs.chmodSync(tmp, targetMode);
+      } catch (_) {
+      }
+    }
+    fs.renameSync(tmp, filePath);
+  } catch (e) {
+    if (fd !== null) {
+      try {
+        fs.closeSync(fd);
+      } catch (_) {
+      }
+    }
+    try {
+      if (fs.existsSync(tmp))
+        fs.unlinkSync(tmp);
+    } catch (_) {
+    }
+    throw e;
+  }
+}
+function runUnderKernelLock(root) {
+  const bin = flockBinPath();
+  if (!bin) {
+    console.error("[heyloey] LOCK unavailable: flock binary not found; nothing written.");
+    process.exit(8);
+  }
+  const p = kernelLockPath(root);
+  try {
+    fs.mkdirSync(path.dirname(p), { recursive: true });
+  } catch (_) {
+  }
+  const timeoutMs = Number(process.env.LOEY_LOCK_TIMEOUT_MS || 15e3);
+  const secs = Math.max(1, Math.ceil(timeoutMs / 1e3));
+  const scriptPath = path.resolve(process.argv[1] || __filename);
+  const child = (0, import_child_process.spawn)(
+    bin,
+    [
+      "-w",
+      String(secs),
+      "-E",
+      "7",
+      p,
+      process.execPath,
+      ...process.execArgv,
+      scriptPath,
+      ...process.argv.slice(2)
+    ],
+    {
+      stdio: "inherit",
+      detached: true,
+      env: {
+        ...process.env,
+        LOEY_LOCK_HELD: "1",
+        LOEY_LOCK_IMPL_USED: "flock"
+      }
+    }
+  );
+  const forwardSig = (sig) => {
+    try {
+      if (child.pid)
+        process.kill(-child.pid, sig);
+    } catch (_) {
+      try {
+        child.kill(sig);
+      } catch (__) {
+      }
+    }
+  };
+  const onSigInt = () => forwardSig("SIGINT");
+  const onSigTerm = () => forwardSig("SIGTERM");
+  const onSigHup = () => forwardSig("SIGHUP");
+  process.once("SIGINT", onSigInt);
+  process.once("SIGTERM", onSigTerm);
+  process.once("SIGHUP", onSigHup);
+  child.on("error", (e) => {
+    console.error(`[heyloey] LOCK unavailable: kernel lock failed: ${e.message} (${p}); nothing written.`);
+    process.exit(8);
+  });
+  child.on("exit", (code, signal) => {
+    process.removeListener("SIGINT", onSigInt);
+    process.removeListener("SIGTERM", onSigTerm);
+    process.removeListener("SIGHUP", onSigHup);
+    if (signal)
+      process.exit(signal === "SIGINT" ? 130 : 143);
+    if (code === 7) {
+      console.error(
+        `[heyloey] LOCK contention: timed out after ${timeoutMs}ms waiting for ${p} (impl=flock, kernel-managed: the kernel releases the lock when its holder exits, so there is no stale state to recover); nothing written.`
+      );
+      process.exit(7);
+    }
+    process.exit(code === null ? 1 : code);
+  });
+}
+function runLockState(root, options) {
+  const problems = obsoleteLockConfig();
+  const source = getVaultSource(root, options);
+  if (problems.length > 0) {
+    console.log(`[heyloey] Vault: ${root} (source: ${source})`);
+    console.log("[heyloey] LOCK protocol: unavailable (removed configuration present)");
+    for (const p of problems)
+      console.error(`[heyloey] LOCK config error: ${p}`);
+    return 8;
+  }
+  if (process.platform === "win32") {
+    console.log(`[heyloey] Vault: ${root} (source: ${source})`);
+    console.log("[heyloey] LOCK protocol: unavailable (flock is not available on native Windows; run within WSL)");
+    return 8;
+  }
+  const legacy = legacyLockPath(root);
+  if (fs.existsSync(legacy)) {
+    console.log(`[heyloey] Vault: ${root} (source: ${source})`);
+    console.log(`[heyloey] LOCK legacy state: a metadata-file lock from the removed file tier exists at ${legacy}`);
+    return 9;
+  }
+  const bin = flockBinPath();
+  if (!bin) {
+    console.log(`[heyloey] Vault: ${root} (source: ${source})`);
+    console.log("[heyloey] LOCK protocol: unavailable (flock binary not found)");
+    return 8;
+  }
+  const kPath = kernelLockPath(root);
+  console.log(`[heyloey] Vault: ${root} (source: ${source})`);
+  console.log("[heyloey] LOCK protocol: kernel-managed flock");
+  console.log(`[heyloey] LOCK kernel lock file: ${kPath}`);
+  return 0;
 }
 function readText(root, rel) {
   const absolute = path.join(root, rel);
@@ -632,11 +892,40 @@ function runContext(root, args, options) {
   }
   return 0;
 }
+function hasSummaryInSection(content, heading, summary) {
+  const lines = content.split("\n");
+  const section = sectionSlice(lines, heading);
+  if (!section)
+    return false;
+  return lines.slice(section.start + 1, section.end).some((line) => line.includes(summary));
+}
+var DONE_EXIT = {
+  logged: 0,
+  "already-recorded": 0,
+  skipped: 3,
+  refused: 4,
+  partial: 5,
+  failed: 6
+};
 function runDone(root, args, options) {
-  const summary = toSingleLine(args.join(" "));
+  const summary = toSingleLine(args.join(" ")).trim();
   if (!summary) {
     console.error('heyloey: done requires a one-line summary, e.g. `done "Ship the parser fix"`');
     return 2;
+  }
+  const source = getVaultSource(root, options);
+  const receipt = (outcome2, daily2, handoff2, verified2) => {
+    console.log(
+      `RESULT done ${outcome2} daily=${daily2} handoff=${handoff2} lock=flock target=${root} source=${source} verified=${verified2 || "none"}`
+    );
+  };
+  const synthetic = detectSynthetic(root);
+  if (synthetic.synthetic) {
+    console.log(`[heyloey] SKIPPED done - explicit synthetic opt-out (${synthetic.reason}); nothing written.`);
+    console.log(
+      `RESULT done skipped lock=flock target=${root} source=${source} reason=synthetic`
+    );
+    return DONE_EXIT.skipped;
   }
   const config = loadDailyNotesConfig(root);
   const dailyRel = resolveDailyNoteFile(todayStr(), config);
@@ -646,7 +935,8 @@ function runDone(root, args, options) {
     const escaping = !dailyTarget ? dailyRel : HANDOFF_RECORD;
     console.error(`heyloey: refusing to write outside the vault: ${escaping}`);
     console.error("   Nothing was written.");
-    return 1;
+    receipt("refused", "not-attempted", "not-attempted", "");
+    return DONE_EXIT.refused;
   }
   const daily = readText(root, dailyRel);
   const handoff = readText(root, HANDOFF_RECORD);
@@ -660,7 +950,8 @@ function runDone(root, args, options) {
     console.error(
       `   Create the missing record with \`npm run init:vault\` (for ${HANDOFF_RECORD}) and open today's daily note from 99-Templates/Daily.md. Nothing was written.`
     );
-    return 1;
+    receipt("refused", daily ? "present" : "missing", handoff ? "present" : "missing", "");
+    return DONE_EXIT.refused;
   }
   const stamp = timeStr();
   const dailyLine = `- **${stamp}**: ${summary}`;
@@ -670,28 +961,80 @@ function runDone(root, args, options) {
     console.error(
       `heyloey: ${dailyRel} has no \`${DAILY_LOG_HEADING}\` section, so there is nowhere established to write. Nothing was written.`
     );
-    return 1;
+    receipt("refused", "section-missing", "not-attempted", "");
+    return DONE_EXIT.refused;
   }
   const handoffResult = insertLatestUpdate(handoff, handoffLine);
   if (!handoffResult.ok) {
     console.error(
       `heyloey: ${HANDOFF_RECORD} has no \`${HANDOFF_HEADING}\` section, so there is nowhere established to write. Nothing was written.`
     );
-    return 1;
+    receipt("refused", "not-attempted", "section-missing", "");
+    return DONE_EXIT.refused;
   }
+  const dailyRecorded = hasSummaryInSection(daily, DAILY_LOG_HEADING, summary);
+  const handoffRecorded = hasSummaryInSection(handoff, HANDOFF_HEADING, summary);
   if (options.dryRun) {
     console.log(`\u{1F50E} Dry run \u2014 nothing was written. Vault: ${describeTarget(root, options.showPaths)}`);
-    console.log(`   ${dailyRel}`);
-    console.log(`     + ${dailyLine}`);
-    console.log(`   ${HANDOFF_RECORD}`);
-    console.log(`     + ${handoffLine}`);
+    console.log(`   ${dailyRel}${dailyRecorded ? " (already recorded)" : ""}`);
+    if (!dailyRecorded)
+      console.log(`     + ${dailyLine}`);
+    console.log(`   ${HANDOFF_RECORD}${handoffRecorded ? " (already recorded)" : ""}`);
+    if (!handoffRecorded)
+      console.log(`     + ${handoffLine}`);
     return 0;
   }
-  fs.writeFileSync(dailyTarget, dailyResult.content);
-  fs.writeFileSync(handoffTarget, handoffResult.content);
-  console.log(`\u270D\uFE0F  Logged milestone to ${dailyRel} and ${HANDOFF_RECORD}.`);
-  console.log(`   ${dailyLine}`);
-  return 0;
+  if (LOCK_HOLD_MS > 0) {
+    const waitBuf = new Int32Array(new SharedArrayBuffer(4));
+    Atomics.wait(waitBuf, 0, 0, LOCK_HOLD_MS);
+  }
+  let dailyStatus = dailyRecorded ? "already-recorded" : "failed";
+  if (!dailyRecorded) {
+    try {
+      atomicWriteFileSync(dailyTarget, dailyResult.content);
+      dailyStatus = readText(root, dailyRel)?.includes(summary) ? "written" : "failed";
+      if (dailyStatus === "failed") {
+        console.error(`heyloey: post-write verification failed for ${dailyRel}; the entry is not there.`);
+      }
+    } catch (error) {
+      console.error(`heyloey: could not write ${dailyRel}: ${error.message}`);
+    }
+  }
+  let handoffStatus = handoffRecorded ? "already-recorded" : "failed";
+  if (!handoffRecorded) {
+    try {
+      atomicWriteFileSync(handoffTarget, handoffResult.content);
+      handoffStatus = readText(root, HANDOFF_RECORD)?.includes(summary) ? "written" : "failed";
+      if (handoffStatus === "failed") {
+        console.error(`heyloey: post-write verification failed for ${HANDOFF_RECORD}; the entry is not there.`);
+      }
+    } catch (error) {
+      console.error(`heyloey: could not write ${HANDOFF_RECORD}: ${error.message}`);
+    }
+  }
+  const verified = [
+    dailyStatus !== "failed" ? "daily" : "",
+    handoffStatus !== "failed" ? "handoff" : ""
+  ].filter(Boolean).join("+");
+  const okCount = [dailyStatus, handoffStatus].filter((status) => status !== "failed").length;
+  const writtenCount = [dailyStatus, handoffStatus].filter((status) => status === "written").length;
+  if (okCount === 2) {
+    const outcome2 = writtenCount === 0 ? "already-recorded" : "logged";
+    if (writtenCount === 0) {
+      console.log(`\u21A9\uFE0E  Milestone already recorded in ${dailyRel} and ${HANDOFF_RECORD}; nothing changed.`);
+    } else {
+      console.log(`\u270D\uFE0F  Logged milestone to ${dailyRel} and ${HANDOFF_RECORD}.`);
+      console.log(`   ${dailyLine}`);
+    }
+    receipt(outcome2, dailyStatus, handoffStatus, verified);
+    return DONE_EXIT[outcome2];
+  }
+  const outcome = writtenCount > 0 ? "partial" : "failed";
+  console.error(
+    `heyloey: ${outcome} \u2014 daily=${dailyStatus}, handoff=${handoffStatus}. Re-run \`done\` to complete the missing half; the recorded half will not be duplicated.`
+  );
+  receipt(outcome, dailyStatus, handoffStatus, verified);
+  return DONE_EXIT[outcome];
 }
 function escapeRegExp(literal) {
   return literal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -927,8 +1270,12 @@ ${connectivitySection(hubLink)}`;
     console.log(`   connects: ${connection}`);
     return 0;
   }
+  if (LOCK_HOLD_MS > 0) {
+    const waitBuf = new Int32Array(new SharedArrayBuffer(4));
+    Atomics.wait(waitBuf, 0, 0, LOCK_HOLD_MS);
+  }
   fs.mkdirSync(path.dirname(targetAbs), { recursive: true });
-  fs.writeFileSync(targetAbs, content);
+  atomicWriteFileSync(targetAbs, content);
   console.log(
     `${action === "created" ? "\u270D\uFE0F  Created" : "\u{1F500} Merged"} ${targetRel.replace(/\\/g, "/")}${action === "merged" ? " (hand-written content preserved; new material is marked for review)" : ""}.`
   );
@@ -954,6 +1301,43 @@ function main() {
     console.error("   Nothing was written. Point --root at a vault, or run this from one.");
     process.exitCode = 1;
     return;
+  }
+  if (command === "lock-state") {
+    process.exitCode = runLockState(options.root, options);
+    return;
+  }
+  if (WRITING_COMMANDS.has(command) && !options.dryRun) {
+    const problems = obsoleteLockConfig();
+    if (problems.length > 0) {
+      console.error("[heyloey] LOCK unavailable: " + problems.join("; ") + "; nothing written.");
+      process.exitCode = 8;
+      return;
+    }
+    if (process.platform === "win32") {
+      console.error(
+        "[heyloey] LOCK unavailable: flock is not available on native Windows; run within WSL; nothing written."
+      );
+      process.exitCode = 8;
+      return;
+    }
+    const legacy = legacyLockPath(options.root);
+    if (fs.existsSync(legacy)) {
+      console.error(
+        `[heyloey] LOCK legacy state: a metadata-file lock from the removed file tier exists at ${legacy}; nothing written.`
+      );
+      process.exitCode = 9;
+      return;
+    }
+    const flockBin = flockBinPath();
+    if (!flockBin) {
+      console.error("[heyloey] LOCK unavailable: flock binary not found; nothing written.");
+      process.exitCode = 8;
+      return;
+    }
+    if (process.env.LOEY_LOCK_HELD !== "1") {
+      runUnderKernelLock(options.root);
+      return;
+    }
   }
   if (!WRITING_COMMANDS.has(command) && options.dryRun) {
     console.log("(read-only command: --dry-run has no effect)");
@@ -987,6 +1371,9 @@ if (require.main === module) {
   detectLanguage,
   insertDailyLogLine,
   insertLatestUpdate,
+  kernelLockPath,
+  legacyLockPath,
+  lockDirPath,
   mergeLearnNote,
   parseArgs,
   resolveInsideVault,

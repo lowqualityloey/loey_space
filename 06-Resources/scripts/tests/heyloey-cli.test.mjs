@@ -281,7 +281,7 @@ test("done refuses when today's daily note is absent, and writes nothing", (t) =
 
   const result = run(["done", "Ship the parser fix"], root);
 
-  assert.equal(result.status, 1, "a missing daily note must be a refusal, never a scaffold");
+  assert.equal(result.status, 4, "a missing daily note is a `refused` outcome (exit 4)");
   assert.match(result.stderr, /daily note is absent/);
   assert.deepEqual(snapshot(root), before, "a refused run must write nothing");
 });
@@ -293,7 +293,7 @@ test("done refuses when handoff.md is absent, and writes nothing", (t) => {
 
   const result = run(["done", "Ship the parser fix"], root);
 
-  assert.equal(result.status, 1);
+  assert.equal(result.status, 4);
   assert.match(result.stderr, /handoff\.md is absent/);
   assert.deepEqual(snapshot(root), before);
 });
@@ -349,7 +349,7 @@ test("done refuses when the daily note has no Daily Log section", (t) => {
 
   const result = run(["done", "Ship the parser fix"], root);
 
-  assert.equal(result.status, 1, "an absent heading must be a refusal, not an invented one");
+  assert.equal(result.status, 4, "an absent heading is a `refused` outcome (exit 4)");
   assert.match(result.stderr, /no `## 📝 Daily Log` section/);
   assert.deepEqual(snapshot(root), before);
 });
@@ -361,7 +361,7 @@ test("done refuses when handoff.md has no Latest Updates section", (t) => {
 
   const result = run(["done", "Ship the parser fix"], root);
 
-  assert.equal(result.status, 1);
+  assert.equal(result.status, 4);
   assert.match(result.stderr, /no `### Latest Updates` section/);
   assert.deepEqual(snapshot(root), before);
 });
@@ -512,7 +512,7 @@ test("done refuses a daily-note path traversal and leaves both records unchanged
 
   const result = run(["done", "Ship the parser fix"], root);
 
-  assert.equal(result.status, 1, "a traversing daily-note path must be refused");
+  assert.equal(result.status, 4, "a traversing daily-note path is a `refused` outcome (exit 4)");
   assert.match(result.stderr, /refusing to write outside the vault/);
   assert.equal(sha256(path.join(root, "handoff.md")), handoffBefore, "the handoff must be untouched");
   assert.equal(sha256(path.join(root, dailyRel())), dailyBefore, "the daily note must be untouched");
@@ -541,7 +541,7 @@ test("done refuses a symlinked handoff escaping the vault, leaving the daily not
   const dailyBefore = sha256(path.join(root, dailyRel()));
   const result = run(["done", "Ship the parser fix"], root);
 
-  assert.equal(result.status, 1, "a symlinked handoff must be refused");
+  assert.equal(result.status, 4, "a symlinked handoff is a `refused` outcome (exit 4)");
   assert.match(result.stderr, /refusing to write outside the vault/);
   assert.equal(
     sha256(path.join(root, dailyRel())),
