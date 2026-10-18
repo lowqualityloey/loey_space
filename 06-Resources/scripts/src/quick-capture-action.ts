@@ -12,13 +12,119 @@ function isTFile(file: any): file is TFile {
   return Boolean(file && typeof file === 'object' && 'extension' in file && 'path' in file);
 }
 
-export = async function quickCaptureAction(params?: QuickAddParams): Promise<void> {
+const DUMP_PATH = '00-Inbox/quick-capture-dump.md';
+const INITIAL_DUMP_CONTENT =
+  `# Quick Capture Dump\n\n> Append quick thoughts, links, or ideas here. Run \`QuickAdd: 🧹 Archive & Clear Quick Capture Dump\` to archive processed entries.\n\n## Captured Notes\n\n`;
+
+async function getOrCreateDumpFile(app: App): Promise<TFile | null> {
+  let dumpFile = app.vault.getAbstractFileByPath(DUMP_PATH);
+
+  if (!dumpFile) {
+    try {
+      dumpFile = await app.vault.create(DUMP_PATH, INITIAL_DUMP_CONTENT);
+    } catch {
+      // If another concurrent capture created the file first, retrieve the newly created file
+      dumpFile = app.vault.getAbstractFileByPath(DUMP_PATH);
+    }
+  }
+
+  if (!dumpFile || !isTFile(dumpFile)) {
+    dumpFile = app.vault.getAbstractFileByPath(DUMP_PATH);
+  }
+
+  return isTFile(dumpFile) ? dumpFile : null;
+}
+
+function formatTimeBadge(now: Date): string {
+  let hours = now.getHours();
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12; // hour 0 is 12
+  return `${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
+}
+
+function insertCaptureIntoDump(
+  content: string,
+  captureText: string,
+  now: Date = new Date()
+): { content: string; timeStr: string } {
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const dateStr = `${year}-${month}-${day}`;
+  const dateHeader = `### 📅 ${dateStr}`;
+
+  const timeStr = formatTimeBadge(now);
+  const newBullet = `- ${captureText} \`${timeStr}\``;
+
+  const capturedMarker = '## Captured Notes';
+  const triagedMatch = content.match(/^##\s+(?:✅\s*)?Triaged\b/m);
+  const triagedIndex = triagedMatch ? triagedMatch.index! : -1;
+  const capturedIndex = content.indexOf(capturedMarker);
+
+  if (capturedIndex !== -1) {
+    const searchEnd = triagedIndex !== -1 && triagedIndex > capturedIndex ? triagedIndex : content.length;
+    const activeSection = content.slice(capturedIndex, searchEnd);
+
+    // Search for today's date header inside ## Captured Notes (before any Triaged section)
+    const headerPattern = new RegExp(`^###\\s*📅\\s*${dateStr}(?:\\s+\\d{2}:\\d{2})?`, 'm');
+    const headerMatch = activeSection.match(headerPattern);
+
+    if (headerMatch && headerMatch.index !== undefined) {
+      const absHeaderIndex = capturedIndex + headerMatch.index;
+      const endOfHeaderLine = content.indexOf('\n', absHeaderIndex);
+      if (endOfHeaderLine !== -1) {
+        const updated =
+          content.slice(0, endOfHeaderLine + 1) +
+          `${newBullet}\n` +
+          content.slice(endOfHeaderLine + 1);
+        return { content: updated, timeStr };
+      } else {
+        const updated = content + `\n${newBullet}\n`;
+        return { content: updated, timeStr };
+      }
+    } else {
+      // Date header does not exist in active section. Insert after ## Captured Notes line.
+      const endOfSecLine = content.indexOf('\n', capturedIndex);
+      if (endOfSecLine !== -1) {
+        const updated =
+          content.slice(0, endOfSecLine + 1) +
+          `\n${dateHeader}\n${newBullet}\n` +
+          content.slice(endOfSecLine + 1);
+        return { content: updated, timeStr };
+      } else {
+        const updated = content + `\n\n${dateHeader}\n${newBullet}\n`;
+        return { content: updated, timeStr };
+      }
+    }
+  } else {
+    // ## Captured Notes does not exist.
+    if (triagedIndex !== -1) {
+      const updated =
+        content.slice(0, triagedIndex) +
+        `## Captured Notes\n\n${dateHeader}\n${newBullet}\n\n` +
+        content.slice(triagedIndex);
+      return { content: updated, timeStr };
+    } else {
+      const prefix =
+        content.length > 0 && !content.endsWith('\n\n')
+          ? content.endsWith('\n')
+            ? '\n'
+            : '\n\n'
+          : '';
+      const updated = content + `${prefix}## Captured Notes\n\n${dateHeader}\n${newBullet}\n`;
+      return { content: updated, timeStr };
+    }
+  }
+}
+
+async function quickCaptureAction(params?: QuickAddParams): Promise<void> {
   const app = params?.app || (window as any).app || (globalThis as any).app;
   const quickAddApi = params?.quickAddApi;
   const Notice = (window as any).Notice || (globalThis as any).Notice;
 
   try {
-    // 1. Prompt user for capture text
     let captureText = params?.variables?.value;
     if (!captureText || typeof captureText !== 'string' || !captureText.trim()) {
       if (quickAddApi) {
@@ -32,95 +138,41 @@ export = async function quickCaptureAction(params?: QuickAddParams): Promise<voi
 
     captureText = captureText.trim();
 
-    const dumpPath = '00-Inbox/quick-capture-dump.md';
-    let dumpFile = app.vault.getAbstractFileByPath(dumpPath);
+    // Require atomic vault.process explicitly to guarantee data integrity before touching any file
+    if (typeof (app.vault as any).process !== 'function') {
+      const errorMsg = 'Atomic vault.process is required for quick capture to prevent data loss.';
+      new Notice(`❌ Capture Refused: ${errorMsg}`, 5000);
+      throw new Error(errorMsg);
+    }
 
+    const dumpFile = await getOrCreateDumpFile(app);
     if (!dumpFile) {
-      const initialContent = `# Quick Capture Dump\n\n> Append quick thoughts, links, or ideas here. Run \`QuickAdd: 🧹 Archive & Clear Quick Capture Dump\` to archive processed entries.\n\n## Captured Notes\n\n`;
-      dumpFile = await app.vault.create(dumpPath, initialContent);
+      const errorMsg = 'Could not access quick capture dump file.';
+      new Notice(`❌ Capture Error: ${errorMsg}`, 4000);
+      throw new Error(errorMsg);
     }
 
-    if (!isTFile(dumpFile)) {
-      new Notice('❌ Could not access quick capture dump file.', 4000);
-      return;
-    }
-
-    let content = await app.vault.read(dumpFile);
-
-    // 2. Format Dates & Times
     const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const dateStr = `${year}-${month}-${day}`;
-    const dateHeader = `### 📅 ${dateStr}`;
+    let recordedTimeStr = '';
 
-    let hours = now.getHours();
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12;
-    hours = hours ? hours : 12; // hour 0 is 12
-    const timeStr = `${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
+    const transform = (current: string): string => {
+      const result = insertCaptureIntoDump(current, captureText as string, now);
+      recordedTimeStr = result.timeStr;
+      return result.content;
+    };
 
-    const newBullet = `- ${captureText} \`${timeStr}\``;
+    await (app.vault as any).process(dumpFile, transform);
 
-    // 3. Re-format existing flooded headers into clean grouped layout
-    const lines = content.split('\n');
-    const cleanedLines: string[] = [];
-    let currentGroupHeader: string | null = null;
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      // Match old flooded headers: ### 📅 YYYY-MM-DD HH:mm or ### 📅 YYYY-MM-DD
-      const oldHeaderMatch = line.match(/^###\s*📅\s*(\d{4}-\d{2}-\d{2})(?:\s+\d{2}:\d{2})?/);
-      if (oldHeaderMatch) {
-        const headerDate = oldHeaderMatch[1];
-        const canonicalHeader = `### 📅 ${headerDate}`;
-        if (cleanedLines.includes(canonicalHeader)) {
-          // Skip duplicate header
-          continue;
-        } else {
-          cleanedLines.push(canonicalHeader);
-          currentGroupHeader = canonicalHeader;
-          continue;
-        }
-      }
-      cleanedLines.push(line);
-    }
-
-    let updatedContent = cleanedLines.join('\n');
-
-    // 4. Insert bullet under today's date header
-    if (updatedContent.includes(dateHeader)) {
-      // Date header exists: insert bullet immediately after the date header line
-      const headerIndex = updatedContent.indexOf(dateHeader);
-      const endOfHeaderLine = updatedContent.indexOf('\n', headerIndex);
-      if (endOfHeaderLine !== -1) {
-        updatedContent = updatedContent.slice(0, endOfHeaderLine + 1) + `${newBullet}\n` + updatedContent.slice(endOfHeaderLine + 1);
-      } else {
-        updatedContent += `\n${newBullet}\n`;
-      }
-    } else {
-      // Date header does not exist: add date header and bullet under ## Captured Notes or at bottom
-      const sectionMarker = '## Captured Notes';
-      if (updatedContent.includes(sectionMarker)) {
-        const secIndex = updatedContent.indexOf(sectionMarker);
-        const endOfSecLine = updatedContent.indexOf('\n', secIndex);
-        if (endOfSecLine !== -1) {
-          updatedContent = updatedContent.slice(0, endOfSecLine + 1) + `\n${dateHeader}\n${newBullet}\n` + updatedContent.slice(endOfSecLine + 1);
-        } else {
-          updatedContent += `\n\n${dateHeader}\n${newBullet}\n`;
-        }
-      } else {
-        updatedContent += `\n\n## Captured Notes\n\n${dateHeader}\n${newBullet}\n`;
-      }
-    }
-
-    await app.vault.modify(dumpFile, updatedContent);
-    new Notice(`📥 Captured to Inbox (\`${timeStr}\`)`, 3000);
-
+    new Notice(`📥 Captured to Inbox (\`${recordedTimeStr}\`)`, 3000);
   } catch (error: any) {
     console.error('Quick Capture Error:', error);
     new Notice(`❌ Capture Error: ${error?.message || error}`, 5000);
+    throw error;
   }
-};
+}
+
+export = Object.assign(quickCaptureAction, {
+  insertCaptureIntoDump,
+  getOrCreateDumpFile,
+  formatTimeBadge,
+});
