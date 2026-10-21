@@ -24,6 +24,7 @@
 .codegraph/
 .opencode/node_modules/
 .clinerules/
+.dsh/
 # MCP server configuration. It names machine-local absolute paths (and for some servers
 # an executable or token), so it is per-machine by nature. It was untracked but matched by
 # NO ignore rule, which means a single `git add -A` would have published it; the coverage
