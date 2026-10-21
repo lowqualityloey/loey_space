@@ -1,6 +1,6 @@
 ---
 created: 2026-10-12
-updated: 2026-10-21
+updated: 2026-10-22
 type: guide
 status: active
 area: resources
@@ -117,7 +117,7 @@ The `loey-space` Model Context Protocol (MCP) server bridges external agents int
 | MCP Tool | Mode | Parameters | Description |
 | :--- | :--- | :--- | :--- |
 | `heyloey_brief` | Read-only | `show_paths?: boolean`, `kiwi?: boolean` | Returns a lightweight orientation summary (~400 tokens) containing present records, daily habits, active tasks, inbox count, and active projects. Set `kiwi: true` to include `SOUL.md` persona instructions. |
-| `heyloey_context` | Read-only | `query: string`, `limit?: number` | Queries project hubs and `03-Dev/` runbooks via Laya scoring, returning relevant paths and scores for fast context injection without token bloat. |
+| `heyloey_context` | Read-only | `query: string`, `limit?: number` | Hybrid context engine combining Laya classification with pure-JS BM25, Porter English stemming, and technical synonym expansion over `02-Projects/`, `03-Dev/` and `08-Concepts/`. Returns matched hubs and top runbooks with procedural fix snippets (<250 tokens per match). |
 | `heyloey_done` | Mutating | `summary: string`, `scope?: string`, `dry_run?: boolean` | Records an autonomous milestone outcome into `### 🤖 Agent Milestones` in today's daily note and `### Latest Updates` in `handoff.md`. If `scope` is provided (e.g. `dsh-web`, `supplywatch`), the entry is prefixed with `[<scope>]`. Serialized via `flock`. |
 | `heyloey_learn` | Mutating | `title: string`, `fix: string`, `lang?: string`, `dry_run?: boolean` | Crystallizes a reusable engineering pattern or bug fix into an atomic runbook note under `03-Dev/<title>.md` and links it to `[[_Dev MOC]]`. Merges safely if the title already exists. |
 | `heyloey_lock_state` | Read-only | _none_ | Audits the vault kernel locking protocol (`flock`), verifying lock file health and flagging any legacy lock files. |

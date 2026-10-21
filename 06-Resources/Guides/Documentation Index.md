@@ -1,6 +1,6 @@
 ---
 created: 2026-10-12
-updated: 2026-10-21
+updated: 2026-10-22
 type: guide
 status: active
 area: resources
