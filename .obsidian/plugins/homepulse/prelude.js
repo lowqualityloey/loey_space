@@ -69,6 +69,11 @@ function ensureVaultHomePulseState(app) {
       }
     }
 
+    if (!hp.data.initialized) {
+      hp.data.initialized = true;
+      healed = true;
+    }
+
     if (hp.data.settings) {
       if (!hp.data.settings.obsidianStartDate) {
         hp.data.settings.obsidianStartDate = "2026-08-22";
