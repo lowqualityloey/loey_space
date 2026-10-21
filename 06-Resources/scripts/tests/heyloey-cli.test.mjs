@@ -835,3 +835,18 @@ test("the scaffold templates still carry none of the CLI's identity literals", (
     assert.ok(!text.includes("heyloey"), `scaffold/${file} must not name the CLI`);
   }
 });
+
+test("brief includes maintenance alerts when thresholds are reached", (t) => {
+  const root = makeFullVault(t);
+  fs.mkdirSync(path.join(root, "00-Inbox"), { recursive: true });
+  // Add 5 unfiled captures to quick-capture-dump.md
+  fs.writeFileSync(
+    path.join(root, "00-Inbox/quick-capture-dump.md"),
+    ["# Dump", "", "- capture 1 #do", "- capture 2 #dev", "- capture 3 #concept", "- capture 4 #learn", "- capture 5 #ref", "", "## ✅ Triaged", ""].join("\n")
+  );
+
+  const result = run(["brief"], root);
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /Alerts:/);
+  assert.match(result.stdout, /⚠️ INBOX: 5 unprocessed captures/);
+});

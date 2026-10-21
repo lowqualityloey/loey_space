@@ -1486,6 +1486,38 @@ function activeProjects(root) {
   }
   return active.sort();
 }
+function findStaleTasks(dailyContent, handoffContent, todayDate) {
+  const stale = [];
+  const dateRegex = /(?:📅|created:)\s*(\d{4}-\d{2}-\d{2})/;
+  const todayMs = new Date(todayDate).getTime();
+  function checkLine(line) {
+    const trimmed = line.trim();
+    if (!/^- \[[ \/]\] /.test(trimmed))
+      return;
+    const match = trimmed.match(dateRegex);
+    if (!match)
+      return;
+    const taskDate = match[1];
+    const taskMs = new Date(taskDate).getTime();
+    if (isNaN(taskMs))
+      return;
+    const days = Math.floor((todayMs - taskMs) / (1e3 * 60 * 60 * 24));
+    if (days >= 7) {
+      const clean = trimmed.replace(/^- \[[ \/]\]\s*/, "").replace(dateRegex, "").trim();
+      const snippet = clean.length > 40 ? clean.slice(0, 37) + "..." : clean;
+      stale.push({ text: snippet, days });
+    }
+  }
+  if (dailyContent) {
+    for (const line of dailyContent.split("\n"))
+      checkLine(line);
+  }
+  if (handoffContent) {
+    for (const line of handoffContent.split("\n"))
+      checkLine(line);
+  }
+  return stale;
+}
 function runBrief(root, options) {
   const label = describeTarget(root, options.showPaths);
   const lines = [];
@@ -1522,6 +1554,29 @@ function runBrief(root, options) {
   lines.push(
     `Active projects: ${projects.length}${projects.length ? ` (${projects.join(", ")})` : ""}`
   );
+  const alerts = [];
+  if (inbox >= 5) {
+    alerts.push(`\u26A0\uFE0F INBOX: ${inbox} unprocessed captures in 00-Inbox/quick-capture-dump.md`);
+  }
+  const auckland = aucklandStamp();
+  const currentHour = parseInt(auckland.time.split(":")[0], 10);
+  if (daily) {
+    const habits = countCheckboxes(daily.split("\n"), "### \u{1F501} Habits");
+    if (currentHour >= 18 && habits.total > 0 && habits.done === 0) {
+      alerts.push(`\u26A0\uFE0F HABITS: 0/${habits.total} completed today (Local time: ${auckland.time})`);
+    }
+  }
+  const handoffText = handoff ? readText(root, HANDOFF_RECORD) : null;
+  const staleTasks = findStaleTasks(daily, handoffText, auckland.date);
+  for (const stale of staleTasks.slice(0, 2)) {
+    alerts.push(`\u26A0\uFE0F STALE TASK: "${stale.text}" (${stale.days}d old)`);
+  }
+  if (alerts.length > 0) {
+    lines.push("Alerts:");
+    for (const alert of alerts) {
+      lines.push(`  ${alert}`);
+    }
+  }
   console.log(lines.join("\n"));
   return 0;
 }
