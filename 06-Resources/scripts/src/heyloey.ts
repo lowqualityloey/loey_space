@@ -904,6 +904,165 @@ function indexRouteCandidates(root: string): RouteCandidate[] {
   return candidates;
 }
 
+// Compact Porter Stemmer for context routing
+function stemRouteToken(word: string): string {
+  if (word.length <= 2) return word;
+  let w = word.toLowerCase();
+
+  const isConsonant = (str: string, i: number): boolean => {
+    const c = str[i];
+    if ('aeiou'.includes(c)) return false;
+    if (c === 'y') return i === 0 ? true : !isConsonant(str, i - 1);
+    return true;
+  };
+
+  const measure = (str: string): number => {
+    let count = 0, i = 0, len = str.length;
+    while (i < len && isConsonant(str, i)) i++;
+    while (i < len) {
+      while (i < len && !isConsonant(str, i)) i++;
+      if (i < len) {
+        count++;
+        while (i < len && isConsonant(str, i)) i++;
+      }
+    }
+    return count;
+  };
+
+  const hasVowel = (str: string): boolean => {
+    for (let i = 0; i < str.length; i++) {
+      if (!isConsonant(str, i)) return true;
+    }
+    return false;
+  };
+
+  const endsWithDoubleConsonant = (str: string): boolean => {
+    if (str.length < 2) return false;
+    return str[str.length - 1] === str[str.length - 2] && isConsonant(str, str.length - 1);
+  };
+
+  const endsCvc = (str: string): boolean => {
+    const l = str.length;
+    if (l < 3) return false;
+    return isConsonant(str, l - 1) &&
+      !isConsonant(str, l - 2) &&
+      isConsonant(str, l - 3) &&
+      !'wxy'.includes(str[l - 1]);
+  };
+
+  if (w.endsWith('sses')) w = w.slice(0, -2);
+  else if (w.endsWith('ies')) w = w.slice(0, -2);
+  else if (!w.endsWith('ss') && w.endsWith('s')) w = w.slice(0, -1);
+
+  let extra1b = false;
+  if (w.endsWith('eed')) {
+    const stemPart = w.slice(0, -3);
+    if (measure(stemPart) > 0) w = stemPart + 'ee';
+  } else if (w.endsWith('ed')) {
+    const stemPart = w.slice(0, -2);
+    if (hasVowel(stemPart)) {
+      w = stemPart;
+      extra1b = true;
+    }
+  } else if (w.endsWith('ing')) {
+    const stemPart = w.slice(0, -3);
+    if (hasVowel(stemPart)) {
+      w = stemPart;
+      extra1b = true;
+    }
+  }
+
+  if (extra1b) {
+    if (w.endsWith('at') || w.endsWith('bl') || w.endsWith('iz')) {
+      w += 'e';
+    } else if (endsWithDoubleConsonant(w) && !w.endsWith('l') && !w.endsWith('s') && !w.endsWith('z')) {
+      w = w.slice(0, -1);
+    } else if (measure(w) === 1 && endsCvc(w)) {
+      w += 'e';
+    }
+  }
+
+  if (w.endsWith('y')) {
+    const stemPart = w.slice(0, -1);
+    if (hasVowel(stemPart)) w = stemPart + 'i';
+  }
+
+  const step2Pairs: Array<[string, string]> = [
+    ['ational', 'ate'], ['tional', 'tion'], ['enci', 'ence'], ['anci', 'ance'],
+    ['izer', 'ize'], ['abli', 'able'], ['alli', 'al'], ['entli', 'ent'],
+    ['eli', 'e'], ['ousli', 'ous'], ['ization', 'ize'], ['ation', 'ate'],
+    ['ator', 'ate'], ['alism', 'al'], ['iveness', 'ive'], ['fulness', 'ful'],
+    ['ousness', 'ous'], ['aliti', 'al'], ['iviti', 'ive'], ['biliti', 'ble']
+  ];
+  for (const [suf, rep] of step2Pairs) {
+    if (w.endsWith(suf)) {
+      const stemPart = w.slice(0, -suf.length);
+      if (measure(stemPart) > 0) w = stemPart + rep;
+      break;
+    }
+  }
+
+  const step3Pairs: Array<[string, string]> = [
+    ['icate', 'ic'], ['ative', ''], ['alize', 'al'], ['iciti', 'ic'],
+    ['ical', 'ic'], ['ful', ''], ['ness', '']
+  ];
+  for (const [suf, rep] of step3Pairs) {
+    if (w.endsWith(suf)) {
+      const stemPart = w.slice(0, -suf.length);
+      if (measure(stemPart) > 0) w = stemPart + rep;
+      break;
+    }
+  }
+
+  const step4Suffixes = [
+    'al', 'ance', 'ence', 'er', 'ic', 'able', 'ible', 'ant', 'ement',
+    'ment', 'ent', 'ou', 'ism', 'ate', 'iti', 'ous', 'ive', 'ize'
+  ];
+  for (const suf of step4Suffixes) {
+    if (w.endsWith(suf)) {
+      const stemPart = w.slice(0, -suf.length);
+      if (measure(stemPart) > 1) w = stemPart;
+      break;
+    }
+  }
+  if (w.endsWith('ion')) {
+    const stemPart = w.slice(0, -3);
+    if (measure(stemPart) > 1 && (stemPart.endsWith('s') || stemPart.endsWith('t'))) {
+      w = stemPart;
+    }
+  }
+
+  if (w.endsWith('e')) {
+    const stemPart = w.slice(0, -1);
+    const m = measure(stemPart);
+    if (m > 1 || (m === 1 && !endsCvc(stemPart))) {
+      w = stemPart;
+    }
+  }
+
+  if (w.endsWith('ll') && measure(w.slice(0, -1)) > 1) {
+    w = w.slice(0, -1);
+  }
+
+  return w;
+}
+
+const ROUTE_DEV_SYNONYMS: Record<string, string[]> = {
+  desync: ['stale', 'unhealthy', 'corrupt', 'disconnect'],
+  stale: ['desync', 'outdated', 'unhealthy'],
+  docker: ['container', 'wsl', 'mount', 'daemon'],
+  container: ['docker', 'podman', 'wsl', 'image'],
+  wsl: ['docker', 'windows', 'mount', 'drvfs', 'vhdx'],
+  mount: ['bind', 'volume', 'wsl', 'disk'],
+  auth: ['jwt', 'token', 'session', 'guard', 'oauth'],
+  jwt: ['auth', 'token', 'bearer', 'header'],
+  guard: ['middleware', 'auth', 'protect', 'policy'],
+  perm: ['permission', 'accessdenied', 'eaccessdenied', 'chmod'],
+  k8s: ['kubernetes', 'cluster', 'pod'],
+  db: ['database', 'postgres', 'postgresql', 'sqlite', 'mysql'],
+  sync: ['reconcile', 'mirror', 'parity']
+};
+
 function runContext(root: string, args: string[], options: Options): number {
   const query = args.join(' ').trim();
   if (!query) {
@@ -911,35 +1070,55 @@ function runContext(root: string, args: string[], options: Options): number {
     return 2;
   }
 
-  const tokens = query
+  const rawTokens = query
     .toLowerCase()
     .split(/[^\p{L}\p{N}]+/u)
     .filter((token) => token.length >= 2);
 
-  if (tokens.length === 0) {
+  if (rawTokens.length === 0) {
     console.log('No usable query tokens (each must be at least two characters).');
     return 0;
+  }
+
+  // Token expansion with stemming and synonyms
+  const tokenMap = new Map<string, { weight: number; isSynonym: boolean }>();
+  for (const token of rawTokens) {
+    const s = stemRouteToken(token);
+    tokenMap.set(token, { weight: 1.0, isSynonym: false });
+    if (s !== token) {
+      tokenMap.set(s, { weight: 1.0, isSynonym: false });
+    }
+    const syns = ROUTE_DEV_SYNONYMS[token] || ROUTE_DEV_SYNONYMS[s];
+    if (syns) {
+      for (const syn of syns) {
+        if (!tokenMap.has(syn)) tokenMap.set(syn, { weight: 0.7, isSynonym: true });
+        const sSyn = stemRouteToken(syn);
+        if (!tokenMap.has(sSyn)) tokenMap.set(sSyn, { weight: 0.7, isSynonym: true });
+      }
+    }
   }
 
   const scored: Array<{ rel: string; score: number; because: string[] }> = [];
   for (const candidate of indexRouteCandidates(root)) {
     const base = path.basename(candidate.rel, '.md').toLowerCase();
+    const baseStem = stemRouteToken(base);
     let score = 0;
     const because: string[] = [];
-    for (const token of tokens) {
-      if (base === token) {
-        score += 8;
+    for (const [token, meta] of tokenMap.entries()) {
+      const w = meta.weight;
+      if (base === token || baseStem === token) {
+        score += 8 * w;
         if (!because.includes('name')) because.push('name');
       } else if (base.includes(token)) {
-        score += 5;
+        score += 5 * w;
         if (!because.includes('name')) because.push('name');
       }
       if ([...candidate.aliases].some((alias) => alias.includes(token))) {
-        score += 6;
+        score += 6 * w;
         if (!because.includes('alias')) because.push('alias');
       }
       if ([...candidate.headings].some((heading) => heading.includes(token))) {
-        score += 3;
+        score += 3 * w;
         if (!because.includes('heading')) because.push('heading');
       }
     }
