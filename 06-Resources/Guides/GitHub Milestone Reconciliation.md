@@ -45,7 +45,7 @@ The target defaults to this script's vault, independently of the working directo
 
 The central logger at `~/.local/bin/heyloey` is preferred over PATH. `HEYLOEY_BIN` can name a different installed logger. Its read-only `lock-state` must identify the intended vault and the same kernel lock before any logging occurs; the repository's portable CLI is not substituted silently.
 
-Today's canonical daily note and `handoff.md` must exist with `## 📝 Daily Log` and `### Latest Updates`. Missing records cause refusal, never fabricated vitals, habits or focus. Create the daily note through the canonical template or morning flow, then retry.
+Today's canonical daily note and `handoff.md` must exist with `## 📝 Daily Log` (reconciled rows land in `### 🤖 Agent Milestones`) and `### Latest Updates`. Missing records cause refusal, never fabricated vitals, habits or focus. Create the daily note through the canonical template or morning flow, then retry.
 
 ## What is recorded
 

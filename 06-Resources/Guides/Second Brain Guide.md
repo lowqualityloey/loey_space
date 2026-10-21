@@ -109,7 +109,7 @@ The core QuickAdd choices required for everyday use are documented in [Setup & C
 | **Weekly Review**                      | Script Macro | `07-Reviews/`              | `weekly-ai-summary.js` (generates weekly summary and habit statistics)                |
 | **Distill Evergreen Concepts**         | Script Macro | Active Note                | Extracts atomic mental models into `08-Concepts/` with backlinks                      |
 | **Start Work on Kanban Task**          | Script Macro | Active Kanban              | Creates GitHub issue in repo, switches git branch, moves card to In Progress          |
-| **Sync GitHub Activity to Daily Log**  | Script Macro | Active / Today Daily Note  | Fetches commits, PRs, and issues with 12h `hh:mm A` timestamps into `## 📝 Daily Log` |
+| **Sync GitHub Activity to Daily Log**  | Script Macro | Active / Today Daily Note  | Fetches commits, PRs, and issues with 12h `hh:mm A` timestamps into the `### 🐙 GitHub Activity` area of `## 📝 Daily Log` |
 | **Sync GitHub Project Kanban**         | Script Macro | Active Kanban              | Multi-project 2-way sync with GitHub Projects v2 (`github_project_number`)            |
 | **Archive & Clear Quick Capture Dump** | Script Macro | `00-Inbox/`                | `clear-capture-dump.js` (Archives dump to `00-Inbox/Archives/`)                       |
 | **Create Daily Note**                  |   Template   | `01-Daily/`                | `99-Templates/Daily`                                                                  |
@@ -176,7 +176,7 @@ Pressing **`Ctrl + Shift + A`** detects the active note category and generates c
 | **Learning Notes** | `04-Learning/...` | Extracts evergreen concepts, reusable patterns, and active recall self-quiz flashcards. |
 
 > [!INFO]- Daily AI Enricher Contract & Chief of Staff Persona (Click to expand)
-> **Reads**: `mood` / `energy` / `sleep_hours`, `### 🎯 Today's Focus`, `### ✅ Tasks` (completed, open, and `[>]` forwarded counted separately), `## 🔁 Habits` (as *n* of 6), `## 📝 Daily Log` personal entries, GitHub Activity Log callout table, `### 💡 Ideas & Fleeting Notes`, and human-written Wins / Blockers / Reflection.
+> **Reads**: `mood` / `energy` / `sleep_hours`, `### 🎯 Today's Focus`, `### ✅ Tasks` (completed, open, and `[>]` forwarded counted separately), `## 🔁 Habits` (as *n* of 6), `### 🧍 Personal Log` entries and `### 🤖 Agent Milestones` rows, GitHub Activity Log callout table, `### 💡 Ideas & Fleeting Notes`, and human-written Wins / Blockers / Reflection.
 >
 > **Writes** into `## 🤖 AI Daily Summary`:
 > - **`### 📖 Daily Debrief`** — 2-paragraph narrative in casual Kiwi English capturing the morning context/friction, afternoon developer output across projects, and evening wind-down.

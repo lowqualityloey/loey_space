@@ -48,10 +48,10 @@ When the user starts a prompt with **`"heyloey"`** or **`"hey loey"`** (case-ins
 | :---------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **`heyloey status`** / **`hey loey status`** (or just `heyloey` / `hey loey`) | **Instant Pulse Check**: Count open items in [`00-Inbox/quick-capture-dump.md`](00-Inbox/quick-capture-dump.md), check today's daily note completion (`mood`, `energy`, habits), check recent GitHub pushes/PRs, and list active `[/]` project tasks.                                                                   |
 | **`heyloey morning`** / **`hey loey morning`**                           | **Morning Kick-off Briefing**: Verify/create today's note (`01-Daily/YYYY-MM/YYYY-MM-DD.md`), populate `> [!QUOTE] 💡 Daily Spark` with a real quote from an iconic thinker/author/personality, recall yesterday's `🎯 Tomorrow's Move` (if present), triage `### ✅ Tasks` so at most **3 active commitments** are selected for today (deferring excess tasks to their appropriate home with user confirmation), surface in-flight project tasks for awareness, check inbox triage, and actively prompt the user for their 1–3 focus intentions (`Today's Focus` defaults empty, not a task list) and morning vitals (`sleep_hours`, textual `mood`, `energy` 1–5). Once answered, write focus as plain bullets (`- `), log vitals, and auto-check `- [x] prioritised`. |
-| **`heyloey log`** / **`heyloey sync`** (or `hey loey log` / `sync`)     | **Fast Daily Log**: Record the current session's completed milestones, wins, blockers, and git commits directly into today's daily note (`01-Daily/YYYY-MM/YYYY-MM-DD.md`). |
+| **`heyloey log`** / **`heyloey sync`** (or `hey loey log` / `sync`)     | **Fast Daily Log**: Record the current session's completed milestones, wins, blockers, and git commits in the matching area of today's daily note (`01-Daily/YYYY-MM/YYYY-MM-DD.md`) — automated outcomes in the one collapsed `Time | Scope | Milestone` table under `### 🤖 Agent Milestones`, your own entries in `### 🧍 Personal Log`. |
 | **`heyloey handoff`** / **`heyloey save`** (or `hey loey handoff` / `save`) | **Session Handoff**: Update `handoff.md` with in-flight objectives, completed milestones, and immediate next moves for the next session. |
-| **`heyloey evening`** / **`hey loey evening`**                           | **Evening Wind-down Retrospective**: Auto-run `npm run log-github` to pull today's code events into `## 📝 Daily Log`, reconcile morning's `Today's Focus`, walk through habit checks & reflections, and synthesize the Kiwi Chief of Staff AI Daily Summary (`Debrief`, `Takeaway`, `Tomorrow's Move`) directly into the daily note. |
-| **`heyloey activity`** / **`github`** (or `hey loey activity`)          | **GitHub Activity Sync**: Fetch today's GitHub commits, PRs, and issues for `lowqualityloey` and non-destructively merge them into `## 📝 Daily Log` in today's daily note (`npm run log-github`).                                                                                                                                                                  |
+| **`heyloey evening`** / **`hey loey evening`**                           | **Evening Wind-down Retrospective**: Auto-run `npm run log-github` to pull today's code events into the `### 🐙 GitHub Activity` area of `## 📝 Daily Log`, reconcile morning's `Today's Focus`, walk through habit checks & reflections, and synthesize the Kiwi Chief of Staff AI Daily Summary (`Debrief`, `Takeaway`, `Tomorrow's Move`) directly into the daily note. |
+| **`heyloey activity`** / **`github`** (or `hey loey activity`)          | **GitHub Activity Sync**: Fetch today's GitHub commits, PRs, and issues for `lowqualityloey` and non-destructively merge them into the `### 🐙 GitHub Activity` area of `## 📝 Daily Log` in today's daily note (`npm run log-github`).                                                                                                                                                                  |
 | **`heyloey sweep`** / **`hey loey sweep`**                               | **Inbox Triage**: Inspect [`quick-capture-dump.md`](00-Inbox/quick-capture-dump.md), auto-tag untagged lines (`#do`, `#dev`, `#concept`, `#learn`, `#ref`, `#personal`, `#project`, `#bin`), and run or simulate [`triage-sweep.js`](06-Resources/scripts/triage-sweep.js). |
 | **`heyloey distill`** / **`heyloey dream`** (or `hey loey distill` / `dream`) | **Knowledge Distillation & Dream Loop**: Read recent daily notes (`Blockers`, `Reflection`, `Ideas`), extract atomic mental models into [`08-Concepts/`](08-Concepts/_Concepts%20MOC.md) or patterns into [`03-Dev/`](03-Dev/_Dev%20MOC.md), audit `memory.md` capacity (`--check-rot`), and propose consolidations (Propose-First for autonomous sweeps, zero unapproved deletion). |
 | **`heyloey weekly`** / **`hey loey weekly`**                             | **Weekly Review**: Review 7-day habit completion (with explicit observation coverage), project milestones & GitHub achievements, and generate the weekly retrospective note in [`07-Reviews/`](07-Reviews/_Reviews%20MOC.md).                                                                                                                                |
@@ -164,11 +164,30 @@ When executing `heyloey log`, `heyloey sync`, or autonomous `heyloey done` miles
    - If the note does NOT exist, **ALWAYS scaffold it strictly from [`99-Templates/Daily.md`](99-Templates/Daily.md)** (with full YAML frontmatter including `mood`, `energy`, `sleep_hours`, title `# <Day>, <Month> <D>, <YYYY>`, `> [!QUOTE] 💡 Daily Spark`, `### 🎯 Today's Focus`, `### ✅ Tasks`, `#### 🎯 In Progress from Projects`, `### 🔁 Habits`, `## 📝 Daily Log`, `## 🌇 End of the Day...`, and `## 🤖 AI Daily Summary`).
    - **NEVER invent ad-hoc markdown structures or headings** (e.g., NEVER write `date:`, `# 📅 YYYY-MM-DD`, `## 🛠️ Work Log`, or rename `### 🎯 Today's Focus`).
 3. **Anchor Location**:
-   - Append all session work logs **strictly under `## 📝 Daily Log`**.
-   - Format entries with bold timestamps: `- **HH:MM**: <concise polished summary>` or `- **[HH:MM]** <concise polished summary>`.
+   - Append session work logs **inside `## 📝 Daily Log`**, in the area that matches the writer:
+     automated agent outcomes in the one collapsed chronological table under `### 🤖 Agent Milestones`, your
+     own entries under `### 🧍 Personal Log`, and synced GitHub events under `### 🐙 GitHub Activity`.
+   - The agent area holds exactly **one** collapsed table: a `> [!NOTE]- 🤖 Show entries (N)` toggle whose
+     `N` is the true row count, followed by the quoted `| Time | Scope | Milestone |` rows. Every agent
+     writer routes into that one container, appending to it and re-labelling the toggle rather than
+     creating a second callout, a second “Agent Milestone Log” title, a parallel bullet list, or duplicate
+     rows. Preserve rows already there; leave the scope blank when it is unknown.
+   - A retired `🤖 Agent Milestone Log` callout, a loose plain table, or stray timestamped agent bullets
+     are previous layouts: fold them into the one container instead of adding a second one.
+   - Personal Log is only for entries the owner writes or explicitly dictates as personal. **Never infer
+     authorship from capitalisation, tense, or verbs** such as fix, implement, ship, review, or log.
+     A personal entry (`heyloey personal "<entry>"`) is never written to `handoff.md`, while an agent
+     milestone still is. The repository CLI also accepts `done --personal` as a shorthand; the installed
+     canonical writer accepts only `personal`, and `done --personal` there must refuse rather than write.
+   - Format personal entries as simple timestamped bullets: `- **HH:MM AM/PM**: <concise summary>`.
+     Format an agent milestone as a quoted row inside the container:
+     `> | HH:MM AM/PM | <scope or blank> | <concise summary> |`.
+   - Migration moves a Personal Log entry only when the owner names it explicitly with
+     `heyloey migrate-log --select "<time>"` or `--select-summary "<text>"`. Without a selection,
+     every entry stays personal and is reported as kept; ambiguous or unmatched selections write nothing.
 4. **Preserve Surrounding Structure**:
    - Never disturb or overwrite `### 🔁 Habits`, task checkboxes, project mirrors, or frontmatter properties.
-   - If git activity is requested or present, non-destructively merge it (e.g. via `npm run log-github`) into the GitHub activity collapsible callout under `## 📝 Daily Log`.
+   - If git activity is requested or present, non-destructively merge it (e.g. via `npm run log-github`) into the `### 🐙 GitHub Activity` area of `## 📝 Daily Log`.
 5. **Session Wins & Blockers**:
    - If the user shares wins, blockers, or reflections during the log command, record them directly into `### Wins` or `### Blockers` under `## 🌇 End of the Day...`.
 
@@ -177,7 +196,7 @@ When executing `heyloey log`, `heyloey sync`, or autonomous `heyloey done` miles
 ## 🌇 Evening Wind-down Protocol (`heyloey evening` / `hey loey evening`)
 
 When executing `heyloey evening` or `hey loey evening`:
-1. **GitHub Activity Auto-Sync**: Automatically execute `npm run log-github` in the background to non-destructively merge today's commits/PRs with 12h timestamps into `## 📝 Daily Log`.
+1. **GitHub Activity Auto-Sync**: Automatically execute `npm run log-github` in the background to non-destructively merge today's commits/PRs with 12h timestamps into the `### 🐙 GitHub Activity` area of `## 📝 Daily Log`.
 2. **Focus Reconciliation & Briefing**:
    - Recall this morning's intentions from `### 🎯 Today's Focus`.
    - Surface today's GitHub achievements, closed issues, and merged PRs for quick celebration.
@@ -263,3 +282,78 @@ The agent has 5 custom skills available in `.agents/skills/`:
 - Every skill must define `version`, `pinned`, and a `## 🧪 Regression Cases` table.
 - Pinned skills (`pinned: true`) are protected from deletion; they may only be patched if all regression cases continue to pass.
 - Any deprecated or merged skill must declare `absorbed_by: <target-skill>` in frontmatter and have its regression cases verified against the absorbing skill before removal.
+
+
+
+<!-- PROMPTKIT_START -->
+## PromptKit OS: Engineering Operating System
+PromptKit OS is active in this workspace (`./.promptkit`). Follow these protocols, workflows, and quality gates during pair-programming, design, code generation, and review:
+Engine: v2.0.0-39-g2ecc74b (2ecc74b) — stamped at install time; run `pk:sync` to check for drift.
+
+### Fast Shorthand Triggers (Collision-Free)
+Activate workflows anytime with these namespaced triggers:
+- `pk:route`: Lifecycle router + decision matrix.
+- `pk:tutor` (or `pk:tutor beginner`, `pk:tutor architect`): Socratic mentorship, 3-tier hints.
+- `pk:grill`: Staff Engineer architecture interview + defense drill.
+- `pk:plan`: Spec-driven architecture + feature planning.
+- `pk:onboard`: Project intake + PROMPTKIT.md scaffold.
+- `pk:tasks` (or `pk:issue`, `pk:kanban`): Decompose specs into atomic issues.
+- `pk:review`: Multi-dimensional PR + architecture review.
+- `pk:commit`: Atomic commits, single-concern staging, secret-leak scan.
+- `pk:pr`: PR descriptions, verification evidence, GitHub CLI.
+- `pk:debug`: Hypothesis-driven debugging + root cause analysis.
+- `pk:fix`: Surgical remediation, security-first ordering.
+- `pk:refactor`: Structural debt remediation.
+- `pk:perf`: Performance profiling, latency SLAs.
+- `pk:data` (or `pk:db`): Relational modeling, indexing, RLS.
+- `pk:auth`: Auth flows, cookie security, session, RBAC.
+- `pk:api`: Frontend-backend handshake, unified envelopes.
+- `pk:test`: Testing strategy, seam allocation, mock boundaries.
+- `pk:ship`: Release engineering, migration sequencing.
+- `pk:spike` (or `pk:research`): Technical spikes + benchmarks.
+- `pk:design`: UI/UX, design tokens, WCAG 2.2 AA.
+- `pk:retro` (or `pk:reflect`): Retrospective log + ADR extraction.
+- `pk:checkpoint` (or `pk:handoff`): State compaction, STATE.md update, handover prompt.
+- `pk:sync` (or `pk:update`, `pk:refresh`): Hot-reload protocols, sync to disk.
+- `pk:profile`: Switch Lite/Balanced/Turbo profile at runtime.
+- `pk:auto`: Autonomous SDLC pipeline, stop at review-ready.
+- `pk:doctor`: Read-only installed-governance audit (hosts, engine version, install mode, ignore state, docs drift).
+
+### Smart Auto-Route & Guardrails (Triggers Are Optional)
+You do not need to memorize triggers. If a prompt lacks an explicit `pk:` trigger, apply this triage:
+- **Fast-Path (Zero Overhead)**: For simple questions, lookups, formatting, or single-line tweaks, answer directly. No heavy ceremony. **Risk-before-size**: 1-line security or data edits escalate immediately.
+- **TL;DR-First Output**: Start substantive turns with TL;DR 1-3 bullets (≤40w: outcome+next) → Details (tables/lines) → Next. Grade-8 plain. No paragraph >3 lines, no essay walls. L0 exempt. L2/L3 evidence never shortened. `TL;DR` live only; `Session Summary` checkpoint-only.
+- **Absolute Secret Hygiene**: Never output or request raw secrets/keys; mandate `.env.example` templates and local `.env`.
+- **Context Economy**: Lowest-cost context first; escalate on Hard Triggers (auth, DB, APIs, shared state). Anti-Starvation: halt/escalate before guessing.
+- **Search Circuit Breaker (advisory)**: 1 unit=1 read/search call (parallel batch=1). Halt past **≤6 (L0/L1)/≤12 (L2/L3)** with no task-advancing edit/test: HALT, ask for paths. Trivial edits do not reset. Read-only tasks exempt.
+- **Session Endurance**: Nudge ~15 substantive turns, hard checkpoint ~30 turns (L2/L3 hard, L1 adv). If unable to recite invariants from a fresh `docs/STATE.md` read, run `pk:checkpoint` for fresh session.
+- **STATE.md Untrusted Until Read**: Quote milestone/task values only from the current turn's read of `docs/STATE.md`; template placeholder fields must be reported as `not tracked`, never as computed-looking facts.
+- **Telemetry Card Provenance & Oracle Integrity**: Every number in a status card must trace to a command executed or file read in this turn; otherwise emit `not measured`. Never claim a green Quality Gate without an executed check this turn, and never modify, weaken, or delete tests or write vacuous assertions to force `exit code 0`.
+- **Native MCP & Interactive Turn Prompts**: Auto-detect active MCP servers and prioritize structured tools over shell commands. Format discretionary Type A/B choices per `card-style:` in `PROMPTKIT.md` (framed box default; `> [!TIP]` when markdown) only when no `[!IMPORTANT]` or `[!WARNING]` halt is active. Route Type C/D decisions through their decision card, and suppress TIP whenever a higher-priority halt is present. When a Type A/B choice has a supported native picker, use it; otherwise format at most 3-4 priced options under `### 💡NEXT STEPS (Type number & Enter):` with Option 1 `(Recommended + why)`. A numeric reply selects only that stated option; it does not authorize a separate protected action.
+- **Telemetry Cards & Single Callout**: Emit card and callouts per `card-style:` (`.promptkit/protocols/telemetry-cards.md`: framed ceiling/floor box default; GFM alert when markdown; `[■■■■■■■■□□]`). Max 1 callout/turn (IMPORTANT > WARNING > TIP). Suppress cards on `status-cards: off` (halts fire); silent on empty state.
+- **Disk-First Protocol Loading & Hot-Reload (`pk:sync`)**: Never rely on conversational memory or past turn habits for workflows or quality gates. Always read `.promptkit/workflows/<trigger>.md` freshly from disk. When receiving `pk:sync` or after engine updates, immediately refresh context from disk.
+- **Context Recovery**: After handover, compaction/continuation, task-invariant loss, or status interruption that displaced active work, pause writes; read `.promptkit/workflows/sync.md` before resuming.
+- **Pre-Response Check**: Before replying, confirm stop state, the highest-priority unresolved human action with its concrete action + `👉 Reply:` hint, retained suppressed actions, honest evidence, and TL;DR on substantive turns (L0 exempt); see `.promptkit/protocols/telemetry-cards.md`.
+- **Project Database & Harness Isolation**: Integration tests and DB verification must use dedicated project-scoped containers (e.g. `./docker-compose.yml`). Never run destructive queries against foreign project containers or credentials.
+- **Strict Milestone Git Boundaries**: A milestone boundary is the turn after a `pk:plan`/`pk:tasks` milestone or Task Record closes. Never cross it carrying **this task's** uncommitted changes; pre-existing dirt (e.g. init output) is surfaced and recommended for `pk:commit`, never a stall reason. At milestone end: stage atomically (`pk:commit`), update `docs/STATE.md`, request human sign-off (`> [!IMPORTANT]`).
+- **Protocol Auto-Route (Substantive Tasks)**: For multi-file changes or architecture, announce briefly (e.g. `[PromptKit OS: Auto-routed to pk:plan]`) and adopt the matching workflow from the Fast Shorthand Triggers above (`pk:auto` for unattended execution).
+
+### Workflows & Protocols Reference
+Load lazily by convention — never preload:
+- Workflow: `.promptkit/workflows/<trigger>.md` (e.g. `pk:plan` -> `workflows/plan.md`, `pk:design` -> `workflows/design-system.md`)
+- Trigger-to-file exceptions (the convention alone would misresolve these): `pk:spike` -> `research.md`, `pk:retro` -> `reflect.md`, `pk:grill` -> `tutor.md`, `pk:design` -> `design-system.md`; parenthesized aliases inherit: `pk:db` -> `data.md`, `pk:handoff` -> `checkpoint.md`, `pk:issue`/`pk:kanban` -> `tasks.md`, `pk:update`/`pk:refresh` -> `sync.md`; all other triggers match their file name.
+- Protocols: `.promptkit/protocols/{setup,context-sync,code-quality-gate,subagent-delegation}.md`
+- Router: load `.promptkit/workflows/route.md` only when routing is ambiguous or Level 3 escalation/downgrade rules are needed
+- Project files: `./PROMPTKIT.md`, `./DESIGN.md`, `./docs/STATE.md` (if present)
+
+### Task Ceremony Levels (classify here — do not load route.md to decide)
+Declare on line 1 of Turn 1 (no banner for informational L0 fast-path): `[PromptKit OS: Level <0-3> (<Name>) — <1-line reason>]`
+- **L0 Direct**: questions, lookups, doc typos, formatting, non-risky 1-line edits. `understand -> change -> verify`. No task record. Risk-before-size: 1-line security/data edits escalate.
+- **L1 Standard**: localized bug fix, small self-contained feature, no schema/auth/breaking contract. Inline planning; no Task Record file.
+- **L2 Controlled**: schema/migrations, auth, permissions, public contracts, multi-component. Requires `docs/tasks/<task-id>.md` + spec before implementation.
+- **L3 Release-Critical**: release, tag, deploy, high-impact contract change. Requires L2 evidence + `pk:ship` + explicit human approval.
+- **Escalate** immediately if scope grows into persistent data, auth, public contracts, or multiple components. **Ties take the higher level.** Downgrades must be announced with a one-line reason; silent downgrade is a protocol violation. `workflows/route.md` remains the canonical authority for these rules and for downgrade guardrails.
+
+### Project Artifact Output Paths
+Save generated project documentation to host `./docs/` per `PROMPTKIT.md` (State: `docs/STATE.md`, Tasks: `docs/tasks/`, Specs: `docs/specs/`, ADRs: `docs/adrs/`, Releases: `docs/releases/`). Specialized directories (`data/`, `auth/`, `api/`, `tests/`, `design/`, `perf/`, `rca/`, `spikes/`, `reviews/`) are created on-demand.
+<!-- PROMPTKIT_END -->

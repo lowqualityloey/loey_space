@@ -27,6 +27,39 @@ var path = __toESM(require("path"));
 var import_child_process = require("child_process");
 
 // 06-Resources/scripts/src/lib/daily-log-time.ts
+var DAILY_LOG_HEADING = "## \u{1F4DD} Daily Log";
+var DAILY_LOG_INTRO = "> _A running timestamp of what happened today._";
+var LOG_AREA_HEADINGS = {
+  personal: "### \u{1F9CD} Personal Log",
+  agent: "### \u{1F916} Agent Milestones",
+  github: "### \u{1F419} GitHub Activity"
+};
+var LOG_AREA_ORDER = ["personal", "agent", "github"];
+var LOG_AREA_BY_HEADING = new Map(
+  LOG_AREA_ORDER.map((area) => [LOG_AREA_HEADINGS[area], area])
+);
+function logAreaOf(line) {
+  return LOG_AREA_BY_HEADING.get(line.trim()) ?? null;
+}
+var AREA_CALLOUT = {
+  personal: /^> \[!NOTE\]-\s*🧍/,
+  agent: /^> \[!NOTE\]-\s*🤖(?:\s+Show entries|\s+Agent Milestone Log)/,
+  github: /^> \[!NOTE\]-\s*🐙 GitHub Activity Log/
+};
+function findAreaCallout(lines, area, from, to) {
+  for (let i = from; i < to; i += 1)
+    if (AREA_CALLOUT[area].test(lines[i].trim()))
+      return i;
+  return -1;
+}
+function calloutBlockEnd(lines, start, limit) {
+  let end = start + 1;
+  while (end < limit && /^\s*>/.test(lines[end]))
+    end += 1;
+  if (end < limit && lines[end].trim() === "")
+    end += 1;
+  return end;
+}
 function aucklandStamp(date = /* @__PURE__ */ new Date()) {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Pacific/Auckland",
@@ -59,17 +92,215 @@ function displayLogTime(value, separator = " ") {
   const hour = Math.floor(minutes / 60);
   return `${String(hour % 12 || 12).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}${separator}${hour >= 12 ? "PM" : "AM"}`;
 }
-function normalizeDailyLog(content) {
-  const newline = content.includes("\r\n") ? "\r\n" : "\n";
-  const lines = content.split(newline);
-  const start = lines.findIndex((line) => /^## 📝 Daily Log\s*$/.test(line));
+function dailyLogBounds(lines) {
+  const start = lines.findIndex((line) => line.trim() === DAILY_LOG_HEADING);
   if (start < 0)
-    return content;
+    return null;
   let end = start + 1;
-  while (end < lines.length && !/^#{1,6}\s|^---\s*$/.test(lines[end]))
+  while (end < lines.length) {
+    const trimmed = lines[end].trim();
+    if (/^#{1,2}\s/.test(trimmed) || /^---\s*$/.test(trimmed))
+      break;
     end++;
+  }
+  return { start, end };
+}
+function dailyLogPreambleEnd(lines, parent) {
+  let index = parent.start + 1;
+  while (index < parent.end && (lines[index].trim() === "" || lines[index].trim().startsWith(">")))
+    index++;
+  return index;
+}
+function logAreaBounds(lines, area) {
+  const parent = dailyLogBounds(lines);
+  if (!parent)
+    return null;
+  const heading = LOG_AREA_HEADINGS[area];
+  let start = -1;
+  for (let i = parent.start + 1; i < parent.end; i++) {
+    if (lines[i].trim() === heading) {
+      start = i;
+      break;
+    }
+  }
+  if (start < 0)
+    return null;
+  let end = start + 1;
+  while (end < parent.end && !/^#{3,}\s/.test(lines[end].trim()))
+    end++;
+  return { start, end };
+}
+function insertHeading(lines, at, heading) {
+  const block = [];
+  if (at > 0 && lines[at - 1].trim() !== "")
+    block.push("");
+  block.push(heading);
+  lines.splice(at, 0, ...block);
+  const after = at + block.length;
+  if (lines[after] !== void 0 && lines[after].trim() !== "")
+    lines.splice(after, 0, "");
+  return at + block.length - 1;
+}
+function ensureLogArea(lines, area) {
+  const existing = logAreaBounds(lines, area);
+  if (existing)
+    return existing.start;
+  const parent = dailyLogBounds(lines);
+  if (!parent)
+    return null;
+  const heading = LOG_AREA_HEADINGS[area];
+  const callout = findAreaCallout(lines, area, parent.start + 1, parent.end);
+  if (callout !== -1)
+    return insertHeading(lines, callout, heading);
+  if (area === "personal")
+    return insertHeading(lines, dailyLogPreambleEnd(lines, parent), heading);
+  for (let index = LOG_AREA_ORDER.indexOf(area) + 1; index < LOG_AREA_ORDER.length; index++) {
+    const later = logAreaBounds(lines, LOG_AREA_ORDER[index]);
+    if (later)
+      return insertHeading(lines, later.start, heading);
+  }
+  return insertHeading(lines, parent.end, heading);
+}
+function agentCalloutLabel(count) {
+  return `> [!NOTE]- \u{1F916} Show entries (${count})`;
+}
+var AGENT_CALLOUT = /^> \[!NOTE\]-\s*🤖\s*Show entries/;
+function tableCellsOf(line) {
+  const match = line.trim().match(/^(?:>\s*)?\|(.*)\|\s*$/);
+  if (!match)
+    return null;
+  const body = match[1];
+  const cells = [];
+  let cell = "";
+  for (let index = 0; index < body.length; index += 1) {
+    const character = body[index];
+    if (character === "\\" && body[index + 1] === "|") {
+      cell += "\\|";
+      index += 1;
+      continue;
+    }
+    if (character === "|") {
+      cells.push(cell.trim());
+      cell = "";
+      continue;
+    }
+    cell += character;
+  }
+  cells.push(cell.trim());
+  return cells;
+}
+function unescapeCell(cell) {
+  return cell.replace(/\\\|/g, "|");
+}
+function isAgentHeader(cells) {
+  return cells.length >= 3 && cells[0].toLowerCase() === "time" && cells[1].toLowerCase() === "scope";
+}
+function isSeparatorRow(cells) {
+  return cells.length > 0 && cells.every((cell) => /^:?-{3,}:?$/.test(cell));
+}
+function readAgentTableRow(line) {
+  const cells = tableCellsOf(line);
+  if (!cells || cells.length < 3 || isAgentHeader(cells) || isSeparatorRow(cells))
+    return null;
+  if (minuteOfDay(cells[0]) === null)
+    return null;
+  return {
+    stamp: cells[0],
+    scope: cells[1],
+    summary: cells.slice(2).map(unescapeCell).join(" | ")
+  };
+}
+function sortAgentTable(lines, header, limit) {
+  let first = header + 1;
+  const separator = tableCellsOf(lines[first] ?? "");
+  if (separator && isSeparatorRow(separator))
+    first += 1;
+  let end = first;
+  while (end < limit) {
+    const cells = tableCellsOf(lines[end]);
+    if (!cells || isSeparatorRow(cells) || minuteOfDay(cells[0]) === null)
+      break;
+    end += 1;
+  }
+  if (end - first < 2)
+    return;
+  const rows = lines.slice(first, end);
+  rows.sort((left, right) => {
+    const leftMinutes = minuteOfDay(tableCellsOf(left)[0]);
+    const rightMinutes = minuteOfDay(tableCellsOf(right)[0]);
+    return leftMinutes - rightMinutes;
+  });
+  lines.splice(first, end - first, ...rows);
+}
+function findAgentContainer(lines, area) {
+  const container = { start: -1, end: -1, header: -1 };
+  for (let index = area.start + 1; index < area.end; index += 1) {
+    if (!AGENT_CALLOUT.test(lines[index].trim()))
+      continue;
+    container.start = index;
+    container.end = calloutBlockEnd(lines, index, area.end);
+    for (let row = index + 1; row < container.end; row += 1) {
+      const cells = tableCellsOf(lines[row]);
+      if (cells && isAgentHeader(cells)) {
+        container.header = row;
+        break;
+      }
+    }
+    return container;
+  }
+  return container;
+}
+function sortAgentAreaTable(lines) {
+  const bounds = logAreaBounds(lines, "agent");
+  if (!bounds)
+    return;
+  const container = findAgentContainer(lines, bounds);
+  const limit = container.start !== -1 ? container.end : bounds.end;
+  let header = container.header;
+  if (header === -1) {
+    for (let index = bounds.start + 1; index < limit; index += 1) {
+      const cells = tableCellsOf(lines[index]);
+      if (cells && isAgentHeader(cells)) {
+        header = index;
+        break;
+      }
+    }
+  }
+  if (header === -1)
+    return;
+  if (container.start !== -1) {
+    let separator = -1;
+    for (let index = container.start + 1; index < container.end; index += 1) {
+      const cells = tableCellsOf(lines[index]);
+      if (cells && isSeparatorRow(cells)) {
+        separator = index;
+        break;
+      }
+    }
+    if (separator !== -1 && (header !== container.start + 1 || separator !== header + 1)) {
+      const structure = [lines[header], lines[separator]];
+      for (const index of [header, separator].sort((left, right) => right - left))
+        lines.splice(index, 1);
+      lines.splice(container.start + 1, 0, ...structure);
+      header = container.start + 1;
+    }
+    lines[container.start] = agentCalloutLabel(countAgentRows(lines, { ...container, header }));
+  }
+  sortAgentTable(lines, header, limit);
+}
+function countAgentRows(lines, container) {
+  if (container.header === -1)
+    return 0;
+  let count = 0;
+  for (let index = container.header + 1; index < container.end; index += 1) {
+    if (readAgentTableRow(lines[index]))
+      count += 1;
+  }
+  return count;
+}
+function sortTimedEntries(lines, start, end) {
   let fenced = false;
-  for (let i = start + 1; i < end; ) {
+  for (let i = start; i < end; ) {
     if (/^\s*(```|~~~)/.test(lines[i])) {
       fenced = !fenced;
       i++;
@@ -106,6 +337,33 @@ function normalizeDailyLog(content) {
     lines.splice(i, cursor - i, ...sorted);
     i = cursor;
   }
+}
+function normalizeDailyLog(content) {
+  const newline = content.includes("\r\n") ? "\r\n" : "\n";
+  const lines = content.split(newline);
+  const parent = dailyLogBounds(lines);
+  if (!parent)
+    return content;
+  const boundaries = [];
+  for (let i = parent.start + 1; i < parent.end; i++) {
+    const area = logAreaOf(lines[i]);
+    if (area)
+      boundaries.push({ index: i, area });
+  }
+  const slices = [];
+  let cursor = parent.start + 1;
+  for (const boundary of boundaries) {
+    slices.push({ start: cursor, end: boundary.index, area: null });
+    cursor = boundary.index + 1;
+  }
+  slices.push({ start: cursor, end: parent.end, area: boundaries.at(-1)?.area ?? null });
+  for (let index = slices.length - 1; index >= 0; index -= 1) {
+    const slice = slices[index];
+    if (slice.area === "agent")
+      continue;
+    sortTimedEntries(lines, slice.start, slice.end);
+  }
+  sortAgentAreaTable(lines);
   return lines.join(newline);
 }
 
@@ -289,39 +547,41 @@ function mergeDailyLogTable(existingContent, rows) {
     return { updatedContent: existingContent, count: 0 };
   }
   const calloutBlock = buildGitHubCalloutTable(rows);
-  const calloutRegex = /> \[!NOTE\]-\s*🐙 GitHub Activity Log[\s\S]*?(?=\r?\n\r?\n|\r?\n#{1,6} |\r?\n---[ \t]*\r?\n|(?![\s\S]))/;
-  if (calloutRegex.test(existingContent)) {
-    return {
-      updatedContent: normalizeDailyLog(existingContent.replace(calloutRegex, () => calloutBlock)),
-      count: rows.length
-    };
-  }
-  const lines = existingContent.split("\n");
-  const sectionIdx = lines.findIndex((l) => l.trim().startsWith("## \u{1F4DD} Daily Log"));
-  if (sectionIdx === -1) {
-    const newSection = `
-## \u{1F4DD} Daily Log
-> _A running timestamp of what happened today._
-- 
-
-${calloutBlock}
-`;
+  const newline = existingContent.includes("\r\n") ? "\r\n" : "\n";
+  const lines = existingContent.split(newline);
+  const parent = dailyLogBounds(lines);
+  if (!parent) {
+    const newSection = `${newline}${DAILY_LOG_HEADING}${newline}${DAILY_LOG_INTRO}${newline}- ${newline}${newline}${LOG_AREA_HEADINGS.github}${newline}${newline}${calloutBlock}${newline}`;
     return { updatedContent: existingContent + newSection, count: rows.length };
   }
-  let insertIdx = sectionIdx + 1;
-  while (insertIdx < lines.length && (lines[insertIdx].trim().startsWith(">") || lines[insertIdx].trim() === "")) {
-    insertIdx++;
+  ensureLogArea(lines, "github");
+  const calloutStart = lines.findIndex((line) => /^\s*> \[!NOTE\]-\s*🐙 GitHub Activity Log/.test(line));
+  const areaBefore = logAreaBounds(lines, "github");
+  if (!areaBefore) {
+    return { updatedContent: existingContent, count: 0 };
   }
-  let nextSectionIdx = lines.length;
-  for (let i = insertIdx; i < lines.length; i++) {
-    const trimmed = lines[i].trim();
-    if (trimmed.startsWith("## ") || trimmed.startsWith("### ") || trimmed === "---") {
-      nextSectionIdx = i;
-      break;
+  if (calloutStart >= 0) {
+    let calloutEnd = calloutStart + 1;
+    while (calloutEnd < lines.length && /^\s*>/.test(lines[calloutEnd]))
+      calloutEnd += 1;
+    if (calloutStart > areaBefore.start && calloutStart < areaBefore.end) {
+      lines.splice(calloutStart, calloutEnd - calloutStart, ...calloutBlock.split(newline));
+      return { updatedContent: normalizeDailyLog(lines.join(newline)), count: rows.length };
+    }
+    lines.splice(calloutStart, calloutEnd - calloutStart);
+    if (lines[calloutStart - 1]?.trim() === "" && lines[calloutStart]?.trim() === "") {
+      lines.splice(calloutStart, 1);
     }
   }
-  lines.splice(nextSectionIdx, 0, "", calloutBlock, "");
-  return { updatedContent: normalizeDailyLog(lines.join("\n")), count: rows.length };
+  const area = logAreaBounds(lines, "github");
+  if (!area) {
+    return { updatedContent: existingContent, count: rows.length };
+  }
+  let insertIdx = area.start + 1;
+  while (insertIdx < area.end && lines[insertIdx].trim() === "")
+    insertIdx++;
+  lines.splice(insertIdx, 0, ...calloutBlock.split(newline), "");
+  return { updatedContent: normalizeDailyLog(lines.join(newline)), count: rows.length };
 }
 
 // 06-Resources/scripts/src/sync-github-activity.ts

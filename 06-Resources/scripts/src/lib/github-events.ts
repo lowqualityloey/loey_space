@@ -1,4 +1,14 @@
-import { aucklandStamp, displayLogTime, normalizeDailyLog } from './daily-log-time';
+import {
+  DAILY_LOG_HEADING,
+  DAILY_LOG_INTRO,
+  LOG_AREA_HEADINGS,
+  aucklandStamp,
+  dailyLogBounds,
+  displayLogTime,
+  ensureLogArea,
+  logAreaBounds,
+  normalizeDailyLog,
+} from './daily-log-time';
 
 export interface GitHubEventItem {
   id: string;
@@ -233,37 +243,55 @@ export function mergeDailyLogTable(existingContent: string, rows: ActivityTableR
   }
 
   const calloutBlock = buildGitHubCalloutTable(rows);
-  const calloutRegex = /> \[!NOTE\]-\s*🐙 GitHub Activity Log[\s\S]*?(?=\r?\n\r?\n|\r?\n#{1,6} |\r?\n---[ \t]*\r?\n|(?![\s\S]))/;
+  const newline = existingContent.includes('\r\n') ? '\r\n' : '\n';
+  const lines = existingContent.split(newline);
+  const parent = dailyLogBounds(lines);
 
-  if (calloutRegex.test(existingContent)) {
-    return {
-      updatedContent: normalizeDailyLog(existingContent.replace(calloutRegex, () => calloutBlock)),
-      count: rows.length
-    };
-  }
-
-  const lines = existingContent.split('\n');
-  const sectionIdx = lines.findIndex((l) => l.trim().startsWith('## 📝 Daily Log'));
-
-  if (sectionIdx === -1) {
-    const newSection = `\n## 📝 Daily Log\n> _A running timestamp of what happened today._\n- \n\n${calloutBlock}\n`;
+  if (!parent) {
+    const newSection =
+      `${newline}${DAILY_LOG_HEADING}${newline}${DAILY_LOG_INTRO}${newline}- ${newline}${newline}${LOG_AREA_HEADINGS.github}${newline}${newline}${calloutBlock}${newline}`;
     return { updatedContent: existingContent + newSection, count: rows.length };
   }
 
-  let insertIdx = sectionIdx + 1;
-  while (insertIdx < lines.length && (lines[insertIdx].trim().startsWith('>') || lines[insertIdx].trim() === '')) {
-    insertIdx++;
+  // The GitHub table owns its own labelled area inside the daily log. The area is created when the
+  // note predates the separation; an existing one is reused, so a second sync never writes a second
+  // copy, and the parent's other areas are never disturbed.
+  ensureLogArea(lines, 'github');
+
+  // A callout written before the areas existed can sit under the personal or agent area. It is
+  // still this writer's content, so it is adopted into the area that owns it rather than left
+  // stranded there — and a later sync must never append a second callout beside it.
+  const calloutStart = lines.findIndex((line) => /^\s*> \[!NOTE\]-\s*🐙 GitHub Activity Log/.test(line));
+  const areaBefore = logAreaBounds(lines, 'github');
+  if (!areaBefore) {
+    return { updatedContent: existingContent, count: 0 };
   }
 
-  let nextSectionIdx = lines.length;
-  for (let i = insertIdx; i < lines.length; i++) {
-    const trimmed = lines[i].trim();
-    if (trimmed.startsWith('## ') || trimmed.startsWith('### ') || trimmed === '---') {
-      nextSectionIdx = i;
-      break;
+  if (calloutStart >= 0) {
+    let calloutEnd = calloutStart + 1;
+    while (calloutEnd < lines.length && /^\s*>/.test(lines[calloutEnd])) calloutEnd += 1;
+
+    if (calloutStart > areaBefore.start && calloutStart < areaBefore.end) {
+      // Already owned: replace it in place so its position and the surrounding prose survive.
+      lines.splice(calloutStart, calloutEnd - calloutStart, ...calloutBlock.split(newline));
+      return { updatedContent: normalizeDailyLog(lines.join(newline)), count: rows.length };
+    }
+
+    lines.splice(calloutStart, calloutEnd - calloutStart);
+    // Removing the block can leave two blank lines behind; collapse the seam, never the prose.
+    if (lines[calloutStart - 1]?.trim() === '' && lines[calloutStart]?.trim() === '') {
+      lines.splice(calloutStart, 1);
     }
   }
 
-  lines.splice(nextSectionIdx, 0, '', calloutBlock, '');
-  return { updatedContent: normalizeDailyLog(lines.join('\n')), count: rows.length };
+  const area = logAreaBounds(lines, 'github');
+  if (!area) {
+    return { updatedContent: existingContent, count: rows.length };
+  }
+
+  let insertIdx = area.start + 1;
+  while (insertIdx < area.end && lines[insertIdx].trim() === '') insertIdx++;
+  lines.splice(insertIdx, 0, ...calloutBlock.split(newline), '');
+
+  return { updatedContent: normalizeDailyLog(lines.join(newline)), count: rows.length };
 }

@@ -169,7 +169,7 @@ The hook reports `milestone not logged`, records no key, and leaves the summary 
 
 To recover:
 
-1. Look at both records: `## 📝 Daily Log` in today's note, and `### Latest Updates` in `handoff.md`.
+1. Look at both records: `### 🤖 Agent Milestones` inside `## 📝 Daily Log` in today's note, and `### Latest Updates` in `handoff.md`.
 2. If the entry is complete in both, do nothing.
 3. If one is missing, finish it: re-run the commit, or log it directly with the CLI (below).
 4. A retry in a later minute writes a second, differently-timestamped daily line, so delete one of the two by hand. A retry inside the same minute is suppressed, because the logger refuses a byte-identical line.

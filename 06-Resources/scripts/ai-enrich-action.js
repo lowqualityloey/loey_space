@@ -764,6 +764,17 @@ The note was left unchanged. See the console for the full response.`,
   }
 }
 
+// 06-Resources/scripts/src/lib/daily-log-time.ts
+var LOG_AREA_HEADINGS = {
+  personal: "### \u{1F9CD} Personal Log",
+  agent: "### \u{1F916} Agent Milestones",
+  github: "### \u{1F419} GitHub Activity"
+};
+var LOG_AREA_ORDER = ["personal", "agent", "github"];
+var LOG_AREA_BY_HEADING = new Map(
+  LOG_AREA_ORDER.map((area) => [LOG_AREA_HEADINGS[area], area])
+);
+
 // 06-Resources/scripts/src/lib/enrichers/daily.ts
 var DAILY_OWNED_SECTIONS = [
   "### \u{1F3AF} Today's Focus",
@@ -934,6 +945,11 @@ ${p2}`;
     connectedNotes: [`[[${d.yesterdayDate}]]`]
   };
 }
+function isDailyLogSection(heading) {
+  if (heading.includes("Log"))
+    return true;
+  return Object.values(LOG_AREA_HEADINGS).some((areaHeading) => heading === areaHeading);
+}
 function parseDailyNoteSections(content, gitRowsCount = 0) {
   const lines = content.split("\n");
   const focusItems = [];
@@ -976,7 +992,7 @@ function parseDailyNoteSections(content, gitRowsCount = 0) {
     }
     if (!trimmed || /^[-*+]$/.test(trimmed) || /^[-*+]\s*\[[ xX]\]$/.test(trimmed))
       continue;
-    if (currentSec.includes("Log") && !currentSec.includes("Blockers") && trimmed.startsWith("> |")) {
+    if (isDailyLogSection(currentSec) && !currentSec.includes("Blockers") && trimmed.startsWith("> |")) {
       if (!trimmed.includes("| Time |") && !trimmed.includes(":---")) {
         const parts = trimmed.replace(/^>\s*\|?/, "").replace(/\|?\s*$/, "").split(/(?<!\\)\|/).map((s) => s.trim());
         if (parts.length === 3) {
@@ -1017,7 +1033,7 @@ function parseDailyNoteSections(content, gitRowsCount = 0) {
       const cleanItem = trimmed.replace(/^[-*+]\s*/, "").trim();
       if (cleanItem.replace(/[^\w]/g, ""))
         ideas.push(cleanItem);
-    } else if (currentSec.includes("Log") && !currentSec.includes("Blockers")) {
+    } else if (isDailyLogSection(currentSec) && !currentSec.includes("Blockers")) {
       const cleanItem = trimmed.replace(/^[-*+]\s*/, "").trim();
       if (cleanItem.replace(/[^\w]/g, ""))
         dailyLog.push(cleanItem);

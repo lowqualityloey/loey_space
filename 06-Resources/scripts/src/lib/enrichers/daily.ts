@@ -1,5 +1,6 @@
 import type { App, TFile } from 'obsidian';
 import { callGeminiJson, formatGeminiFailure } from '../gemini';
+import { LOG_AREA_HEADINGS } from '../daily-log-time';
 import {
   readFrontmatterValue,
   formatDate,
@@ -259,6 +260,15 @@ export interface ParsedDailySections {
   filledSectionCount: number;
 }
 
+/**
+ * The parent `## 📝 Daily Log` and each of its labelled areas are all "the log" here: the walker
+ * sees whichever heading came last, so the area headings must count as log sections too.
+ */
+function isDailyLogSection(heading: string): boolean {
+  if (heading.includes("Log")) return true;
+  return Object.values(LOG_AREA_HEADINGS).some((areaHeading) => heading === areaHeading);
+}
+
 export function parseDailyNoteSections(content: string, gitRowsCount: number = 0): ParsedDailySections {
   const lines = content.split('\n');
   const focusItems: string[] = [];
@@ -296,10 +306,11 @@ export function parseDailyNoteSections(content: string, gitRowsCount: number = 0
     if (/^---+$/.test(trimmed)) { currentSec = ""; continue; }
 
     if (!trimmed || /^[-*+]$/.test(trimmed) || /^[-*+]\s*\[[ xX]\]$/.test(trimmed)) continue;
-    if (currentSec.includes("Log") && !currentSec.includes("Blockers") && trimmed.startsWith("> |")) {
+    if (isDailyLogSection(currentSec) && !currentSec.includes("Blockers") && trimmed.startsWith("> |")) {
       if (!trimmed.includes("| Time |") && !trimmed.includes(":---")) {
         const parts = trimmed.replace(/^>\s*\|?/, "").replace(/\|?\s*$/, "").split(/(?<!\\)\|/).map(s => s.trim());
-        // 3-column Agent Milestone Log: Time | Scope | Milestone
+        // 3-column agent milestone row, quoted inside the `Show entries (N)` container:
+        // Time | Scope | Milestone (the header and separator rows are skipped above)
         if (parts.length === 3) {
           const cleanTime = parts[0].replace(/&nbsp;/g, " ");
           const item = `**${cleanTime}**: [${parts[1].replace(/`/g, "")}] ${parts[2].replace(/\\\|/g, "|")}`;
@@ -338,7 +349,7 @@ export function parseDailyNoteSections(content: string, gitRowsCount: number = 0
     } else if (currentSec.includes("Ideas")) {
       const cleanItem = trimmed.replace(/^[-*+]\s*/, "").trim();
       if (cleanItem.replace(/[^\w]/g, "")) ideas.push(cleanItem);
-    } else if (currentSec.includes("Log") && !currentSec.includes("Blockers")) {
+    } else if (isDailyLogSection(currentSec) && !currentSec.includes("Blockers")) {
       const cleanItem = trimmed.replace(/^[-*+]\s*/, "").trim();
       if (cleanItem.replace(/[^\w]/g, "")) dailyLog.push(cleanItem);
     } else if (currentSec.includes("Habits")) {

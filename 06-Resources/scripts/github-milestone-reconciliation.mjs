@@ -128,15 +128,29 @@ function legacyMergeEvidence(line, pr, allowShortScope) {
   return false;
 }
 
+const LOG_AREA_HEADINGS = ['### 🧍 Personal Log', '### 🤖 Agent Milestones', '### 🐙 GitHub Activity'];
+const AGENT_AREA_HEADING = '### 🤖 Agent Milestones';
+
+/** Plain table rows count only inside the agent-owned area; legacy quoted rows count anywhere. */
+function dailyEvidenceLines(content) {
+  if (typeof content !== 'string') return [];
+  const logLines = sectionLines(content, '## 📝 Daily Log');
+  const separated = LOG_AREA_HEADINGS.some((heading) =>
+    content.split(/\r?\n/).some((line) => line.trim() === heading));
+  const quoted = logLines.filter((line) => /^> \|/.test(line));
+  if (separated) {
+    return sectionLines(content, AGENT_AREA_HEADING).filter((line) => /^\|/.test(line)).concat(quoted);
+  }
+  // Legacy note with no separated areas: the whole Daily Log is the agent surface.
+  return logLines.filter((line) => /^(?:> )?\|/.test(line) || /^- (?:\[x\] )?\*\*/.test(line));
+}
+
 export function recordContains(content, pr, kind, allowShortScope = true) {
-  const lines = kind === 'daily' ? sectionLines(content, '## 📝 Daily Log') :
+  const lines = kind === 'daily' ? dailyEvidenceLines(content) :
     kind === 'handoff' ? sectionLines(content, '### Latest Updates') :
     typeof content === 'string' ? content.split(/\r?\n/) : [];
   const marker = '<!-- loey-github:' + pr.repository + '#' + pr.number + ' -->';
   for (const line of lines) {
-    const row = /^> \|/.test(line);
-    const timestamp = /^- (?:\[x\] )?\*\*/.test(line);
-    if (!row && !timestamp) continue;
     if (line.includes(marker)) return true;
     if (legacyMergeEvidence(line, pr, allowShortScope)) return true;
   }

@@ -92,7 +92,7 @@ The `post-commit` hook records a milestone in today's daily note and in `handoff
     Confirm no writer is running before you remove anything. Remove the `.reclaim` claim only together with the lock, and only when nothing is running: `rm -rf "$(git rev-parse --git-path heyloey-milestones.lock.reclaim)"`.
   - **Expected result**: the next commit logs normally. A live holder's lock is never stolen, at any age, so if the notice says the lock is held, that run is still active and the next attempt should be made later. [Git Hooks Guide](Git%20Hooks%20Guide.md#coordination) explains why reclaiming takes two proofs.
 - **Symptom**: `post-commit: a milestone writer (pid 1234) from a killed hook is still running — not logged; stop that process, …`
-  - **Action**: stop the writer the notice names (`kill <pid>`), then check `## 📝 Daily Log` in today's note and `### Latest Updates` in `handoff.md` for what it managed to write.
+  - **Action**: stop the writer the notice names (`kill <pid>`), then check `## 📝 Daily Log` (its `### 🤖 Agent Milestones` and `### 🧍 Personal Log` areas) in today's note and `### Latest Updates` in `handoff.md` for what it managed to write.
   - **Expected result**: if the entry is complete in both records, remove the lock and stop; nothing needs re-logging. If it is missing, re-run the commit or run `npm run heyloey -- done "<summary>"` — the CLI does not touch the hook's ledger, so the summary stays eligible for a later hook run. A `SIGKILL`ed hook also leaves an inert capture file beside the lock, which is safe to remove:
     ```bash
     gitdir="$(dirname "$(git rev-parse --git-path heyloey-milestones)")"
@@ -103,7 +103,7 @@ The `post-commit` hook records a milestone in today's daily note and in `handoff
   - **Expected result**: the next commit logs normally. A lock with no writer record at all — what an older hook version leaves — is treated the same way.
 - **Symptom**: `npm run log-github` reports no GitHub activity on a day you worked.
   - **Action**: `gh auth status`, then `gh auth login` if it is not authenticated. This is a manual step: the commit hook never calls it.
-  - **Expected result**: the command lists today's commits and pull requests under `## 📝 Daily Log`. Unauthenticated, it reports no activity rather than an error worth acting on.
+  - **Expected result**: the command lists today's commits and pull requests under the `### 🐙 GitHub Activity` area of `## 📝 Daily Log`. Unauthenticated, it reports no activity rather than an error worth acting on.
 
 ---
 
@@ -130,7 +130,7 @@ These write files, update notes, or modify GitHub state:
 - `npm run backup`: Creates a timestamped snapshot in `~/.loey_backups/` with a SHA-256 manifest.
 - `npm run patch-homepulse`: Verifies call sites and injects the locally owned prelude into `.obsidian/plugins/homepulse/main.js`.
 - `npm run distill -- <path>`: Extracts evergreen concepts from a note into `08-Concepts/`.
-- `npm run log-github`: Appends today's GitHub activity under `## 📝 Daily Log` in today's note. Requires an authenticated `gh` CLI and is never invoked automatically.
+- `npm run log-github`: Appends today's GitHub activity under the `### 🐙 GitHub Activity` area of `## 📝 Daily Log` in today's note. Requires an authenticated `gh` CLI and is never invoked automatically.
 - `npm run sync-kanban`: Runs two-way synchronization between Obsidian Kanban boards and GitHub Projects v2.
 - `npm run start-task -- <project> "<title>"`: Converts a Kanban card to a GitHub issue, creates a Git branch, and moves the card to In Progress.
 

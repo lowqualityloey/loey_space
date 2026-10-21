@@ -191,7 +191,17 @@ else dv.paragraph("No project tasks in progress.");
 
 ## 📝 Daily Log
 > _A running timestamp of what happened today._
+
+### 🧍 Personal Log
 - 
+
+### 🤖 Agent Milestones
+
+> [!NOTE]- 🤖 Show entries (0)
+> | Time | Scope | Milestone |
+> | :--- | :--- | :--- |
+
+### 🐙 GitHub Activity
 
 ---
 

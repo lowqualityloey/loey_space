@@ -543,7 +543,11 @@ test("an opted-in milestone is logged to the daily note and the handoff, once", 
 
   const entries = logEntries(repo, summary);
   assert.equal(entries.length, 1, `expected one daily-log entry, got ${entries.length}:\n${entries.join("\n")}`);
-  assert.match(entries[0], /^- \*\*\d{2}:\d{2} [AP]M\*\*: /, "the documented `- **hh:mm AM/PM**: <summary>` format");
+  assert.match(
+    entries[0],
+    /^> \| \d{2}:\d{2}&nbsp;[AP]M \|  \| /,
+    "the documented agent row format, quoted inside the one collapsed container"
+  );
   assert.ok(read(path.join(repo, dailyRel())).includes(DAILY_SENTINEL), "the rest of the daily note must survive");
 
   const handoff = read(path.join(repo, "handoff.md"));

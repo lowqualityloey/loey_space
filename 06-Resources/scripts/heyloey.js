@@ -49,6 +49,39 @@ module.exports = __toCommonJS(heyloey_exports);
 var fs = __toESM(require("fs"));
 
 // 06-Resources/scripts/src/lib/daily-log-time.ts
+var DAILY_LOG_HEADING = "## \u{1F4DD} Daily Log";
+var LOG_AREA_HEADINGS = {
+  personal: "### \u{1F9CD} Personal Log",
+  agent: "### \u{1F916} Agent Milestones",
+  github: "### \u{1F419} GitHub Activity"
+};
+var LOG_AREA_ORDER = ["personal", "agent", "github"];
+var LOG_AREA_BY_HEADING = new Map(
+  LOG_AREA_ORDER.map((area) => [LOG_AREA_HEADINGS[area], area])
+);
+function logAreaOf(line) {
+  return LOG_AREA_BY_HEADING.get(line.trim()) ?? null;
+}
+var AREA_CALLOUT = {
+  personal: /^> \[!NOTE\]-\s*🧍/,
+  agent: /^> \[!NOTE\]-\s*🤖(?:\s+Show entries|\s+Agent Milestone Log)/,
+  github: /^> \[!NOTE\]-\s*🐙 GitHub Activity Log/
+};
+var LEGACY_AGENT_CALLOUT = /^> \[!NOTE\]-\s*🤖 Agent Milestone Log/;
+function findAreaCallout(lines, area, from, to) {
+  for (let i = from; i < to; i += 1)
+    if (AREA_CALLOUT[area].test(lines[i].trim()))
+      return i;
+  return -1;
+}
+function calloutBlockEnd(lines, start, limit) {
+  let end = start + 1;
+  while (end < limit && /^\s*>/.test(lines[end]))
+    end += 1;
+  if (end < limit && lines[end].trim() === "")
+    end += 1;
+  return end;
+}
 function aucklandStamp(date = /* @__PURE__ */ new Date()) {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Pacific/Auckland",
@@ -81,17 +114,458 @@ function displayLogTime(value, separator = " ") {
   const hour = Math.floor(minutes / 60);
   return `${String(hour % 12 || 12).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}${separator}${hour >= 12 ? "PM" : "AM"}`;
 }
-function normalizeDailyLog(content) {
+function dailyLogBounds(lines) {
+  const start = lines.findIndex((line) => line.trim() === DAILY_LOG_HEADING);
+  if (start < 0)
+    return null;
+  let end = start + 1;
+  while (end < lines.length) {
+    const trimmed = lines[end].trim();
+    if (/^#{1,2}\s/.test(trimmed) || /^---\s*$/.test(trimmed))
+      break;
+    end++;
+  }
+  return { start, end };
+}
+function dailyLogPreambleEnd(lines, parent) {
+  let index = parent.start + 1;
+  while (index < parent.end && (lines[index].trim() === "" || lines[index].trim().startsWith(">")))
+    index++;
+  return index;
+}
+function logAreaBounds(lines, area) {
+  const parent = dailyLogBounds(lines);
+  if (!parent)
+    return null;
+  const heading = LOG_AREA_HEADINGS[area];
+  let start = -1;
+  for (let i = parent.start + 1; i < parent.end; i++) {
+    if (lines[i].trim() === heading) {
+      start = i;
+      break;
+    }
+  }
+  if (start < 0)
+    return null;
+  let end = start + 1;
+  while (end < parent.end && !/^#{3,}\s/.test(lines[end].trim()))
+    end++;
+  return { start, end };
+}
+function insertHeading(lines, at, heading) {
+  const block = [];
+  if (at > 0 && lines[at - 1].trim() !== "")
+    block.push("");
+  block.push(heading);
+  lines.splice(at, 0, ...block);
+  const after = at + block.length;
+  if (lines[after] !== void 0 && lines[after].trim() !== "")
+    lines.splice(after, 0, "");
+  return at + block.length - 1;
+}
+function adoptAreaCallout(lines, area) {
+  const parent = dailyLogBounds(lines);
+  const heading = logAreaBounds(lines, area);
+  if (!parent || !heading)
+    return false;
+  const start = findAreaCallout(lines, area, parent.start + 1, parent.end);
+  if (start === -1)
+    return false;
+  if (start > heading.start && start < heading.end)
+    return false;
+  const block = lines.splice(start, calloutBlockEnd(lines, start, parent.end) - start);
+  while (block.length > 1 && block[block.length - 1].trim() === "")
+    block.pop();
+  const target = logAreaBounds(lines, area);
+  if (!target)
+    return false;
+  let at = target.end;
+  while (at > target.start + 1 && lines[at - 1].trim() === "")
+    at -= 1;
+  const insert = [...block];
+  if (at > 0 && lines[at - 1].trim() !== "")
+    insert.unshift("");
+  if (lines[at] !== void 0 && lines[at].trim() !== "")
+    insert.push("");
+  lines.splice(at, 0, ...insert);
+  return true;
+}
+function adoptCalloutAreas(lines) {
+  let adopted = 0;
+  for (const area of LOG_AREA_ORDER) {
+    const parent = dailyLogBounds(lines);
+    if (!parent)
+      break;
+    if (findAreaCallout(lines, area, parent.start + 1, parent.end) === -1)
+      continue;
+    if (!logAreaBounds(lines, area))
+      ensureLogArea(lines, area);
+    if (adoptAreaCallout(lines, area))
+      adopted += 1;
+  }
+  return adopted;
+}
+function ensureLogArea(lines, area) {
+  const existing = logAreaBounds(lines, area);
+  if (existing)
+    return existing.start;
+  const parent = dailyLogBounds(lines);
+  if (!parent)
+    return null;
+  const heading = LOG_AREA_HEADINGS[area];
+  const callout = findAreaCallout(lines, area, parent.start + 1, parent.end);
+  if (callout !== -1)
+    return insertHeading(lines, callout, heading);
+  if (area === "personal")
+    return insertHeading(lines, dailyLogPreambleEnd(lines, parent), heading);
+  for (let index = LOG_AREA_ORDER.indexOf(area) + 1; index < LOG_AREA_ORDER.length; index++) {
+    const later = logAreaBounds(lines, LOG_AREA_ORDER[index]);
+    if (later)
+      return insertHeading(lines, later.start, heading);
+  }
+  return insertHeading(lines, parent.end, heading);
+}
+function insertDailyLogEntry(content, line, area) {
   const newline = content.includes("\r\n") ? "\r\n" : "\n";
   const lines = content.split(newline);
-  const start = lines.findIndex((line) => /^## 📝 Daily Log\s*$/.test(line));
-  if (start < 0)
-    return content;
-  let end = start + 1;
-  while (end < lines.length && !/^#{1,6}\s|^---\s*$/.test(lines[end]))
-    end++;
+  if (!dailyLogBounds(lines))
+    return { content, ok: false };
+  if (ensureLogArea(lines, area) === null)
+    return { content, ok: false };
+  adoptCalloutAreas(lines);
+  const bounds = logAreaBounds(lines, area);
+  const bodyStart = bounds.start + 1;
+  if (lines.slice(bodyStart, bounds.end).some((entry) => entry.trim() === line.trim())) {
+    return { content, ok: true, duplicate: true };
+  }
+  let lastBullet = -1;
+  let emptyBullet = -1;
+  for (let i = bodyStart; i < bounds.end; i += 1) {
+    if (/^\s*-\s+\S/.test(lines[i]))
+      lastBullet = i;
+    else if (/^\s*-\s*$/.test(lines[i]))
+      emptyBullet = i;
+  }
+  if (emptyBullet !== -1) {
+    lines[emptyBullet] = line;
+  } else if (lastBullet === -1 && bodyStart < bounds.end && lines[bodyStart].trim() === "") {
+    lines[bodyStart] = line;
+  } else {
+    const insertAt = lastBullet !== -1 ? lastBullet + 1 : bodyStart;
+    lines.splice(insertAt, 0, line);
+  }
+  const lastBody = logAreaBounds(lines, area).end - 1;
+  if (lastBody >= 0 && lines[lastBody].trim() !== "" && lines[lastBody + 1] !== void 0) {
+    lines.splice(lastBody + 1, 0, "");
+  }
+  tidyAreaSpacer(lines, area);
+  return { content: normalizeDailyLog(lines.join(newline)), ok: true };
+}
+function tidyAreaSpacer(lines, area) {
+  const body = logAreaBounds(lines, area);
+  if (!body)
+    return;
+  let spacer = body.start + 1;
+  while (spacer < body.end && lines[spacer].trim() === "")
+    spacer += 1;
+  if (spacer === body.start + 1)
+    return;
+  if (!lines.slice(spacer, body.end).some((entry) => /^\s*-\s+\S/.test(entry)))
+    return;
+  lines.splice(body.start + 1, spacer - body.start - 1);
+}
+var AGENT_TABLE_HEADER = ["| Time | Scope | Milestone |", "| :--- | :--- | :--- |"];
+function agentCalloutLabel(count) {
+  return `> [!NOTE]- \u{1F916} Show entries (${count})`;
+}
+var AGENT_CALLOUT = /^> \[!NOTE\]-\s*🤖\s*Show entries/;
+function quoted(line) {
+  return `> ${line}`;
+}
+function tableCellsOf(line) {
+  const match = line.trim().match(/^(?:>\s*)?\|(.*)\|\s*$/);
+  if (!match)
+    return null;
+  const body = match[1];
+  const cells = [];
+  let cell = "";
+  for (let index = 0; index < body.length; index += 1) {
+    const character = body[index];
+    if (character === "\\" && body[index + 1] === "|") {
+      cell += "\\|";
+      index += 1;
+      continue;
+    }
+    if (character === "|") {
+      cells.push(cell.trim());
+      cell = "";
+      continue;
+    }
+    cell += character;
+  }
+  cells.push(cell.trim());
+  return cells;
+}
+function unescapeCell(cell) {
+  return cell.replace(/\\\|/g, "|");
+}
+function escapeCell(text) {
+  return text.replace(/\|/g, "\\|").replace(/\r?\n/g, " ").trim();
+}
+function isAgentHeader(cells) {
+  return cells.length >= 3 && cells[0].toLowerCase() === "time" && cells[1].toLowerCase() === "scope";
+}
+function isSeparatorRow(cells) {
+  return cells.length > 0 && cells.every((cell) => /^:?-{3,}:?$/.test(cell));
+}
+function readAgentTableRow(line) {
+  const cells = tableCellsOf(line);
+  if (!cells || cells.length < 3 || isAgentHeader(cells) || isSeparatorRow(cells))
+    return null;
+  if (minuteOfDay(cells[0]) === null)
+    return null;
+  return {
+    stamp: cells[0],
+    scope: cells[1],
+    summary: cells.slice(2).map(unescapeCell).join(" | ")
+  };
+}
+function logAreaEntries(content, area) {
+  const newline = content.includes("\r\n") ? "\r\n" : "\n";
+  const lines = content.split(newline);
+  const bounds = logAreaBounds(lines, area);
+  if (!bounds)
+    return [];
+  const entries = [];
+  for (let index = bounds.start + 1; index < bounds.end; index += 1) {
+    const bullet = readLogEntry(lines[index]);
+    if (bullet) {
+      entries.push({ stamp: bullet.stamp, scope: "", summary: bullet.summary });
+      continue;
+    }
+    const row = readAgentTableRow(lines[index]);
+    if (row)
+      entries.push(row);
+  }
+  return entries;
+}
+function logAreaHasSummary(content, area, summary) {
+  const needle = unescapeCell(summary.trim());
+  return logAreaEntries(content, area).some((entry) => entry.summary.includes(needle));
+}
+function sortAgentTable(lines, header, limit) {
+  let first = header + 1;
+  const separator = tableCellsOf(lines[first] ?? "");
+  if (separator && isSeparatorRow(separator))
+    first += 1;
+  let end = first;
+  while (end < limit) {
+    const cells = tableCellsOf(lines[end]);
+    if (!cells || isSeparatorRow(cells) || minuteOfDay(cells[0]) === null)
+      break;
+    end += 1;
+  }
+  if (end - first < 2)
+    return;
+  const rows = lines.slice(first, end);
+  rows.sort((left, right) => {
+    const leftMinutes = minuteOfDay(tableCellsOf(left)[0]);
+    const rightMinutes = minuteOfDay(tableCellsOf(right)[0]);
+    return leftMinutes - rightMinutes;
+  });
+  lines.splice(first, end - first, ...rows);
+}
+function findAgentContainer(lines, area) {
+  const container = { start: -1, end: -1, header: -1 };
+  for (let index = area.start + 1; index < area.end; index += 1) {
+    if (!AGENT_CALLOUT.test(lines[index].trim()))
+      continue;
+    container.start = index;
+    container.end = calloutBlockEnd(lines, index, area.end);
+    for (let row = index + 1; row < container.end; row += 1) {
+      const cells = tableCellsOf(lines[row]);
+      if (cells && isAgentHeader(cells)) {
+        container.header = row;
+        break;
+      }
+    }
+    return container;
+  }
+  return container;
+}
+function sortAgentAreaTable(lines) {
+  const bounds = logAreaBounds(lines, "agent");
+  if (!bounds)
+    return;
+  const container = findAgentContainer(lines, bounds);
+  const limit = container.start !== -1 ? container.end : bounds.end;
+  let header = container.header;
+  if (header === -1) {
+    for (let index = bounds.start + 1; index < limit; index += 1) {
+      const cells = tableCellsOf(lines[index]);
+      if (cells && isAgentHeader(cells)) {
+        header = index;
+        break;
+      }
+    }
+  }
+  if (header === -1)
+    return;
+  if (container.start !== -1) {
+    let separator = -1;
+    for (let index = container.start + 1; index < container.end; index += 1) {
+      const cells = tableCellsOf(lines[index]);
+      if (cells && isSeparatorRow(cells)) {
+        separator = index;
+        break;
+      }
+    }
+    if (separator !== -1 && (header !== container.start + 1 || separator !== header + 1)) {
+      const structure = [lines[header], lines[separator]];
+      for (const index of [header, separator].sort((left, right) => right - left))
+        lines.splice(index, 1);
+      lines.splice(container.start + 1, 0, ...structure);
+      header = container.start + 1;
+    }
+    lines[container.start] = agentCalloutLabel(countAgentRows(lines, { ...container, header }));
+  }
+  sortAgentTable(lines, header, limit);
+}
+function appendAgentRows(lines, rows, preferredAt = -1) {
+  ensureLogArea(lines, "agent");
+  let area = logAreaBounds(lines, "agent");
+  let container = findAgentContainer(lines, area);
+  if (container.start === -1) {
+    const anchor = preferredAt > area.start && preferredAt < area.end ? preferredAt : area.start + 1;
+    const block = [agentCalloutLabel(rows.length), ...AGENT_TABLE_HEADER.map(quoted), ...rows.map(quoted)];
+    if (anchor > 0 && lines[anchor - 1].trim() !== "")
+      block.unshift("");
+    lines.splice(anchor, 0, ...block);
+    let after = anchor + block.length;
+    while (after < lines.length && lines[after].trim() === "")
+      after += 1;
+    const blanks = after - (anchor + block.length);
+    if (blanks === 0)
+      lines.splice(after, 0, "");
+    else if (blanks > 1)
+      lines.splice(anchor + block.length, blanks - 1);
+  } else if (container.header === -1) {
+    lines.splice(container.start + 1, 0, ...AGENT_TABLE_HEADER.map(quoted), ...rows.map(quoted));
+  } else {
+    let end = container.end;
+    while (end > container.header + 1 && !readAgentTableRow(lines[end - 1]))
+      end -= 1;
+    const separator = tableCellsOf(lines[container.header + 1] ?? "");
+    const firstData = container.header + (separator && isSeparatorRow(separator) ? 2 : 1);
+    lines.splice(Math.max(end, firstData), 0, ...rows.map(quoted));
+  }
+  area = logAreaBounds(lines, "agent");
+  container = findAgentContainer(lines, area);
+  if (container.start !== -1) {
+    const count = countAgentRows(lines, container);
+    lines[container.start] = agentCalloutLabel(count);
+    if (container.end < area.end && lines[container.end]?.trim() !== "") {
+      lines.splice(container.end, 0, "");
+    }
+  }
+  sortAgentAreaTable(lines);
+}
+function countAgentRows(lines, container) {
+  if (container.header === -1)
+    return 0;
+  let count = 0;
+  for (let index = container.header + 1; index < container.end; index += 1) {
+    if (readAgentTableRow(lines[index]))
+      count += 1;
+  }
+  return count;
+}
+function convertAgentArea(lines) {
+  const bounds = logAreaBounds(lines, "agent");
+  if (!bounds)
+    return 0;
+  const removals = [];
+  const added = [];
+  let anchor = -1;
+  const container = findAgentContainer(lines, bounds);
+  for (let index = bounds.start + 1; index < bounds.end; ) {
+    if (container.start !== -1 && index >= container.start && index < container.end) {
+      index = container.end;
+      continue;
+    }
+    const trimmed = lines[index].trim();
+    if (LEGACY_AGENT_CALLOUT.test(trimmed)) {
+      const end = calloutBlockEnd(lines, index, bounds.end);
+      for (let row = index + 1; row < end; row += 1) {
+        const parsed = readAgentTableRow(lines[row]);
+        if (parsed)
+          added.push(`| ${parsed.stamp} | ${parsed.scope} | ${escapeCell(parsed.summary)} |`);
+      }
+      if (anchor === -1)
+        anchor = index;
+      removals.push({ start: index, end });
+      index = end;
+      continue;
+    }
+    const entry = readLogEntry(lines[index]);
+    if (entry) {
+      let cursor = index + 1;
+      while (cursor < bounds.end && /^(?: {2,}|\t)\S/.test(lines[cursor]))
+        cursor += 1;
+      const continuation = lines.slice(index + 1, cursor).map((line) => line.trim()).filter(Boolean).join("<br>");
+      const summary = escapeCell(entry.summary + (continuation ? `<br>${continuation}` : ""));
+      added.push(`| ${displayLogTime(entry.stamp, "&nbsp;")} |  | ${summary} |`);
+      if (anchor === -1)
+        anchor = index;
+      removals.push({ start: index, end: cursor });
+      index = cursor;
+      continue;
+    }
+    const cells = tableCellsOf(lines[index]);
+    if (cells && isAgentHeader(cells)) {
+      let cursor = index + 2;
+      const rowStart = cursor;
+      while (cursor < bounds.end && readAgentTableRow(lines[cursor]))
+        cursor += 1;
+      for (let row = rowStart; row < cursor; row += 1) {
+        const parsed = readAgentTableRow(lines[row]);
+        added.push(`| ${parsed.stamp} | ${parsed.scope} | ${escapeCell(parsed.summary)} |`);
+      }
+      if (anchor === -1)
+        anchor = index;
+      removals.push({ start: index, end: cursor });
+      index = cursor;
+      continue;
+    }
+    index += 1;
+  }
+  if (added.length === 0)
+    return 0;
+  for (let index = removals.length - 1; index >= 0; index -= 1) {
+    const removal = removals[index];
+    lines.splice(removal.start, removal.end - removal.start);
+  }
+  appendAgentRows(lines, added, anchor === -1 ? -1 : anchor);
+  return added.length;
+}
+function insertAgentMilestone(content, entry) {
+  const newline = content.includes("\r\n") ? "\r\n" : "\n";
+  const lines = content.split(newline);
+  if (!dailyLogBounds(lines))
+    return { content, ok: false };
+  ensureLogArea(lines, "agent");
+  adoptCalloutAreas(lines);
+  convertAgentArea(lines);
+  if (logAreaHasSummary(lines.join(newline), "agent", entry.summary)) {
+    return { content, ok: true, duplicate: true };
+  }
+  const row = `| ${displayLogTime(entry.stamp, "&nbsp;")} | ${entry.scope?.trim() ?? ""} | ${escapeCell(entry.summary)} |`;
+  appendAgentRows(lines, [row]);
+  return { content: normalizeDailyLog(lines.join(newline)), ok: true, row };
+}
+function sortTimedEntries(lines, start, end) {
   let fenced = false;
-  for (let i = start + 1; i < end; ) {
+  for (let i = start; i < end; ) {
     if (/^\s*(```|~~~)/.test(lines[i])) {
       fenced = !fenced;
       i++;
@@ -128,7 +602,140 @@ function normalizeDailyLog(content) {
     lines.splice(i, cursor - i, ...sorted);
     i = cursor;
   }
+}
+function normalizeDailyLog(content) {
+  const newline = content.includes("\r\n") ? "\r\n" : "\n";
+  const lines = content.split(newline);
+  const parent = dailyLogBounds(lines);
+  if (!parent)
+    return content;
+  const boundaries = [];
+  for (let i = parent.start + 1; i < parent.end; i++) {
+    const area = logAreaOf(lines[i]);
+    if (area)
+      boundaries.push({ index: i, area });
+  }
+  const slices = [];
+  let cursor = parent.start + 1;
+  for (const boundary of boundaries) {
+    slices.push({ start: cursor, end: boundary.index, area: null });
+    cursor = boundary.index + 1;
+  }
+  slices.push({ start: cursor, end: parent.end, area: boundaries.at(-1)?.area ?? null });
+  for (let index = slices.length - 1; index >= 0; index -= 1) {
+    const slice = slices[index];
+    if (slice.area === "agent")
+      continue;
+    sortTimedEntries(lines, slice.start, slice.end);
+  }
+  sortAgentAreaTable(lines);
   return lines.join(newline);
+}
+function readLogEntry(line) {
+  const match = line.match(/^- \*\*(?:\[)?([^\]*]+?)(?:\])?\*\*(?::\s*|\s+)(.*)$/);
+  if (!match)
+    return null;
+  const stamp = match[1].trim();
+  if (minuteOfDay(stamp) === null)
+    return null;
+  return { stamp, summary: match[2].trim() };
+}
+function timedBlocks(lines, bounds) {
+  const blocks = [];
+  for (let index = bounds.start + 1; index < bounds.end; index += 1) {
+    const entry = readLogEntry(lines[index]);
+    if (!entry)
+      continue;
+    let cursor = index + 1;
+    while (cursor < bounds.end && /^(?: {2,}|\t)\S/.test(lines[cursor]))
+      cursor += 1;
+    blocks.push({
+      start: index,
+      end: cursor,
+      stamp: entry.stamp,
+      summary: entry.summary,
+      continuation: lines.slice(index + 1, cursor).map((line) => line.trim()).filter(Boolean).join("<br>")
+    });
+    index = cursor - 1;
+  }
+  return blocks;
+}
+function migrationRow(block) {
+  const summary = escapeCell(block.continuation ? `${block.summary}<br>${block.continuation}` : block.summary);
+  return `| ${displayLogTime(block.stamp, "&nbsp;")} |  | ${summary} |`;
+}
+function migrateAgentMilestones(content, selection = {}) {
+  const newline = content.includes("\r\n") ? "\r\n" : "\n";
+  const lines = content.split(newline);
+  if (!dailyLogBounds(lines)) {
+    return { content, moved: [], kept: [], adopted: 0, selectionErrors: [], ok: false };
+  }
+  for (const area of LOG_AREA_ORDER)
+    ensureLogArea(lines, area);
+  const adopted = adoptCalloutAreas(lines);
+  const personal = logAreaBounds(lines, "personal");
+  const blocks = timedBlocks(lines, personal);
+  const chosen = /* @__PURE__ */ new Map();
+  const selectionErrors = [];
+  const select = (label, matches) => {
+    const chosenMatches = matches.filter((block) => chosen.has(block.start));
+    if (chosenMatches.length === matches.length && matches.length > 0)
+      return;
+    if (matches.length === 0) {
+      selectionErrors.push(`${label} matches no timestamped personal entry`);
+      return;
+    }
+    if (matches.length > 1) {
+      selectionErrors.push(`${label} matches ${matches.length} personal entries; name one`);
+      return;
+    }
+    chosen.set(matches[0].start, matches[0]);
+  };
+  for (const stamp of selection.selectStamps ?? []) {
+    const minutes = minuteOfDay(stamp);
+    if (minutes === null) {
+      selectionErrors.push(`--select "${stamp}" is not a time (use e.g. "09:21 AM")`);
+      continue;
+    }
+    select(`--select "${stamp}"`, blocks.filter((block) => minuteOfDay(block.stamp) === minutes));
+  }
+  for (const text of selection.selectSummaries ?? []) {
+    const needle = text.trim();
+    if (!needle) {
+      selectionErrors.push("--select-summary requires some text");
+      continue;
+    }
+    select(`--select-summary "${needle}"`, blocks.filter((block) => block.summary.includes(needle)));
+  }
+  if (selectionErrors.length > 0) {
+    return {
+      content,
+      moved: [],
+      kept: blocks.map((block) => block.summary),
+      adopted: 0,
+      selectionErrors,
+      ok: true
+    };
+  }
+  const ordered = [...chosen.values()].sort((left, right) => left.start - right.start);
+  for (let index = ordered.length - 1; index >= 0; index -= 1) {
+    const block = ordered[index];
+    lines.splice(block.start, block.end - block.start);
+  }
+  convertAgentArea(lines);
+  if (ordered.length > 0)
+    appendAgentRows(lines, ordered.map(migrationRow));
+  for (const area of LOG_AREA_ORDER)
+    tidyAreaSpacer(lines, area);
+  const migrated = normalizeDailyLog(lines.join(newline));
+  return {
+    content: migrated,
+    moved: ordered.map((block) => block.summary),
+    kept: logAreaEntries(migrated, "personal").map((entry) => entry.summary),
+    adopted,
+    selectionErrors: [],
+    ok: true
+  };
 }
 
 // 06-Resources/scripts/src/heyloey.ts
@@ -322,7 +929,6 @@ function isDone(task) {
 var REQUIRED_MARKERS = ["AGENTS.md", "99-Templates"];
 var MEMORY_RECORD = "memory.md";
 var HANDOFF_RECORD = "handoff.md";
-var DAILY_LOG_HEADING = "## \u{1F4DD} Daily Log";
 var HANDOFF_HEADING = "### Latest Updates";
 var ROUTE_PREFIXES = ["02-Projects", "03-Dev", "04-Learning", "06-Resources", "08-Concepts"];
 var SNIPPET_DIR = "03-Dev";
@@ -332,8 +938,8 @@ var LEARN_START = "<!-- heyloey:learn:start -->";
 var LEARN_END = "<!-- heyloey:learn:end -->";
 var HUB_HEADING = "## \u{1F517} Related Resources & Notes";
 var HUB_HEADING_PATTERN = /^#{2,6}\s+.*\bRelated\b/;
-var COMMANDS = ["brief", "context", "done", "learn", "lock-state"];
-var WRITING_COMMANDS = /* @__PURE__ */ new Set(["done", "learn"]);
+var COMMANDS = ["brief", "context", "done", "learn", "lock-state", "migrate-log", "personal"];
+var WRITING_COMMANDS = /* @__PURE__ */ new Set(["done", "learn", "migrate-log", "personal"]);
 function usage() {
   return [
     "heyloey \u2014 repository-local vault commands (the CLI, not the chat prefix)",
@@ -346,14 +952,24 @@ function usage() {
     "                              open tasks, habits, inbox count and active projects.",
     '  context "<query>"           Read-only. Routes the query to matching projects, snippets,',
     "                              notes and runbooks, printing paths only.",
-    '  done "<summary>"            Records a completed milestone under `## \u{1F4DD} Daily Log` in',
-    "                              today's daily note and under `### Latest Updates` in",
-    "                              handoff.md. Refuses if either record is absent. Milestones",
-    "                              only \u2014 see the Hey Loey Guide.",
+    '  done "<summary>"            Records a completed milestone as a row in the one agent table',
+    "                              under `### \u{1F916} Agent Milestones` in today's daily note and under",
+    "                              `### Latest Updates` in handoff.md. Refuses if either record is",
+    "                              absent. Milestones only \u2014 see the Hey Loey Guide. With --personal",
+    "                              the entry lands under `### \u{1F9CD} Personal Log` as a bullet and",
+    "                              handoff.md is left alone.",
     '  learn "<Title>" "<Pattern>" Indexes a reusable technical pattern in `03-Dev/` and',
     "                              links it to the existing Dev hub. A colliding title merges",
     "                              into a marked region instead of overwriting hand-written",
     "                              content.",
+    '  personal "<entry>"          Shorthand for `done --personal`: the owner\'s own entry, under',
+    "                              `### \u{1F9CD} Personal Log`, with handoff.md never touched.",
+    "  migrate-log [--date <day>] [--select <time>]... [--select-summary <text>]...",
+    "                              One note (today unless --date is given) gains its labelled areas",
+    "                              and its one agent table. Existing agent bullets and the old",
+    "                              agent callout are converted; nothing is classified by its",
+    "                              wording. Personal entries move only when named with --select",
+    "                              or --select-summary.",
     "  lock-state                  Read-only. Reports the vault, lock protocol, and kernel lock file.",
     "",
     "Options:",
@@ -361,6 +977,13 @@ function usage() {
     "                 this script's location, so the same command works from anywhere.",
     "  --dry-run      For writing commands: print the target paths and the exact lines that",
     "                 would be written, and write nothing.",
+    "  --personal     With `done`: write under `### \u{1F9CD} Personal Log` and skip handoff.md.",
+    "  --date <day>   With `migrate-log`: the daily note to separate (YYYY-MM-DD).",
+    "  --select <t>   With `migrate-log`: move exactly one personal entry with this time, e.g.",
+    '                 "09:21 AM". Repeat for more. This is the ONLY way a personal entry is moved:',
+    "                 the command never infers authorship from a verb or a capital letter.",
+    "  --select-summary <text>",
+    "                 With `migrate-log`: the same, selected by a unique substring of the summary.",
     "  --show-paths   Print the absolute target path (diagnostics). Output is relative by",
     "                 default, because it is routinely pasted into an issue.",
     "  -h, --help     This text.",
@@ -374,6 +997,10 @@ function parseArgs(argv) {
   let root = process.env.LOEY_SPACE_DIR || process.cwd();
   let rootExplicit = false;
   let dryRun = false;
+  let personal = false;
+  let date = null;
+  const select = [];
+  const selectSummaries = [];
   let showPaths = false;
   const positional = [];
   for (let i = 0; i < argv.length; i += 1) {
@@ -382,6 +1009,33 @@ function parseArgs(argv) {
       return { kind: "help" };
     if (arg === "--dry-run") {
       dryRun = true;
+      continue;
+    }
+    if (arg === "--personal") {
+      personal = true;
+      continue;
+    }
+    if (arg === "--date") {
+      const value = argv[i + 1];
+      if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        return { kind: "error", message: "--date requires YYYY-MM-DD, e.g. --date 2026-10-18" };
+      }
+      date = value;
+      i += 1;
+      continue;
+    }
+    if (arg === "--select" || arg.startsWith("--select=")) {
+      const value = arg === "--select" ? argv[++i] : arg.slice("--select=".length);
+      if (!value)
+        return { kind: "error", message: '--select requires a time, e.g. --select "09:21 AM"' };
+      select.push(value);
+      continue;
+    }
+    if (arg === "--select-summary" || arg.startsWith("--select-summary=")) {
+      const value = arg === "--select-summary" ? argv[++i] : arg.slice("--select-summary=".length);
+      if (!value)
+        return { kind: "error", message: "--select-summary requires a substring of the entry" };
+      selectSummaries.push(value);
       continue;
     }
     if (arg === "--show-paths") {
@@ -415,11 +1069,20 @@ function parseArgs(argv) {
   if (!COMMANDS.includes(command)) {
     return { kind: "error", message: `unknown command: ${command}` };
   }
+  if ((select.length > 0 || selectSummaries.length > 0) && command !== "migrate-log") {
+    return { kind: "error", message: "--select and --select-summary are only valid with migrate-log" };
+  }
+  if (personal && command !== "done") {
+    return { kind: "error", message: "--personal is only valid with done" };
+  }
+  if (date !== null && command !== "migrate-log") {
+    return { kind: "error", message: "--date is only valid with migrate-log" };
+  }
   return {
     kind: "command",
     command,
     args: positional.slice(1),
-    options: { root: path.resolve(root), rootExplicit, dryRun, showPaths }
+    options: { root: path.resolve(root), rootExplicit, dryRun, personal, date, select, selectSummaries, showPaths }
   };
 }
 function describeTarget(root, showPaths) {
@@ -749,40 +1412,20 @@ function sectionSlice(lines, heading) {
   const start = lines.findIndex((line) => line.trim() === heading);
   if (start === -1)
     return null;
+  const level = heading.match(/^#+/)?.[0].length ?? 2;
   let end = lines.length;
   for (let i = start + 1; i < lines.length; i += 1) {
     const trimmed = lines[i].trim();
-    if (/^#{2,6}\s/.test(trimmed) || trimmed === "---") {
+    const found = trimmed.match(/^(#{1,6})\s/);
+    if (found && found[1].length <= level || trimmed === "---") {
       end = i;
       break;
     }
   }
   return { start, end };
 }
-function insertDailyLogLine(content, line) {
-  const lines = content.split("\n");
-  const section = sectionSlice(lines, DAILY_LOG_HEADING);
-  if (!section)
-    return { content, ok: false };
-  const body = lines.slice(section.start + 1, section.end);
-  if (body.some((entry) => entry.trim() === line.trim())) {
-    return { content, ok: true, duplicate: true };
-  }
-  let lastBullet = -1;
-  let emptyBullet = -1;
-  for (let i = section.start + 1; i < section.end; i += 1) {
-    if (/^\s*-\s+\S/.test(lines[i]))
-      lastBullet = i;
-    else if (/^\s*-\s*$/.test(lines[i]))
-      emptyBullet = i;
-  }
-  if (emptyBullet !== -1) {
-    lines[emptyBullet] = line;
-  } else {
-    const insertAt = lastBullet !== -1 ? lastBullet + 1 : section.start + 1;
-    lines.splice(insertAt, 0, line);
-  }
-  return { content: normalizeDailyLog(lines.join("\n")), ok: true };
+function insertDailyLogLine(content, line, area = "agent") {
+  return insertDailyLogEntry(content, line, area);
 }
 function insertLatestUpdate(content, line) {
   const lines = content.split("\n");
@@ -990,6 +1633,7 @@ function runDone(root, args, options) {
     console.error('heyloey: done requires a one-line summary, e.g. `done "Ship the parser fix"`');
     return 2;
   }
+  const personal = options.personal;
   const source = getVaultSource(root, options);
   const receipt = (outcome2, daily2, handoff2, verified2) => {
     console.log(
@@ -1016,24 +1660,30 @@ function runDone(root, args, options) {
     return DONE_EXIT.refused;
   }
   const daily = readText(root, dailyRel);
-  const handoff = readText(root, HANDOFF_RECORD);
+  const handoff = personal ? "" : readText(root, HANDOFF_RECORD);
   const problems = [];
   if (!daily)
     problems.push(`today's daily note is absent (${dailyRel})`);
-  if (!handoff)
+  if (!handoff && !personal)
     problems.push(`${HANDOFF_RECORD} is absent`);
   if (problems.length > 0) {
     console.error(`heyloey: ${problems.join("; ")}.`);
     console.error(
       `   Create the missing record with \`npm run init:vault\` (for ${HANDOFF_RECORD}) and open today's daily note from 99-Templates/Daily.md. Nothing was written.`
     );
-    receipt("refused", daily ? "present" : "missing", handoff ? "present" : "missing", "");
+    receipt(
+      "refused",
+      daily ? "present" : "missing",
+      personal ? "not-applicable" : handoff ? "present" : "missing",
+      ""
+    );
     return DONE_EXIT.refused;
   }
   const stamp = timeStr();
-  const dailyLine = `- **${displayLogTime(stamp)}**: ${summary}`;
+  const area = personal ? "personal" : "agent";
+  const dailyLine = personal ? `- **${displayLogTime(stamp)}**: ${summary}` : `| ${displayLogTime(stamp, "&nbsp;")} |  | ${escapeCell(summary)} |`;
   const handoffLine = `- [x] **[${todayStr()} ${stamp}]** ${summary}`;
-  const dailyResult = insertDailyLogLine(daily, dailyLine);
+  const dailyResult = personal ? insertDailyLogLine(daily, dailyLine, "personal") : insertAgentMilestone(daily, { stamp, scope: "", summary });
   if (!dailyResult.ok) {
     console.error(
       `heyloey: ${dailyRel} has no \`${DAILY_LOG_HEADING}\` section, so there is nowhere established to write. Nothing was written.`
@@ -1041,24 +1691,27 @@ function runDone(root, args, options) {
     receipt("refused", "section-missing", "not-attempted", "");
     return DONE_EXIT.refused;
   }
-  const handoffResult = insertLatestUpdate(handoff, handoffLine);
-  if (!handoffResult.ok) {
+  const handoffResult = personal ? null : insertLatestUpdate(handoff, handoffLine);
+  if (handoffResult && !handoffResult.ok) {
     console.error(
       `heyloey: ${HANDOFF_RECORD} has no \`${HANDOFF_HEADING}\` section, so there is nowhere established to write. Nothing was written.`
     );
     receipt("refused", "not-attempted", "section-missing", "");
     return DONE_EXIT.refused;
   }
-  const dailyRecorded = hasSummaryInSection(daily, DAILY_LOG_HEADING, summary);
-  const handoffRecorded = hasSummaryInSection(handoff, HANDOFF_HEADING, summary);
+  const dailyRecorded = logAreaHasSummary(daily, area, summary);
+  const handoffRecorded = personal ? true : hasSummaryInSection(handoff, HANDOFF_HEADING, summary);
   if (options.dryRun) {
     console.log(`\u{1F50E} Dry run \u2014 nothing was written. Vault: ${describeTarget(root, options.showPaths)}`);
-    console.log(`   ${dailyRel}${dailyRecorded ? " (already recorded)" : ""}`);
+    const area2 = personal ? LOG_AREA_HEADINGS.personal : LOG_AREA_HEADINGS.agent;
+    console.log(`   ${dailyRel} [${area2}]${dailyRecorded ? " (already recorded)" : ""}`);
     if (!dailyRecorded)
       console.log(`     + ${dailyLine}`);
-    console.log(`   ${HANDOFF_RECORD}${handoffRecorded ? " (already recorded)" : ""}`);
-    if (!handoffRecorded)
-      console.log(`     + ${handoffLine}`);
+    if (!personal) {
+      console.log(`   ${HANDOFF_RECORD}${handoffRecorded ? " (already recorded)" : ""}`);
+      if (!handoffRecorded)
+        console.log(`     + ${handoffLine}`);
+    }
     return 0;
   }
   if (LOCK_HOLD_MS > 0) {
@@ -1069,7 +1722,8 @@ function runDone(root, args, options) {
   if (!dailyRecorded) {
     try {
       atomicWriteFileSync(dailyTarget, dailyResult.content);
-      dailyStatus = readText(root, dailyRel)?.includes(summary) ? "written" : "failed";
+      const written = readText(root, dailyRel);
+      dailyStatus = written && logAreaHasSummary(written, area, summary) ? "written" : "failed";
       if (dailyStatus === "failed") {
         console.error(`heyloey: post-write verification failed for ${dailyRel}; the entry is not there.`);
       }
@@ -1077,8 +1731,8 @@ function runDone(root, args, options) {
       console.error(`heyloey: could not write ${dailyRel}: ${error.message}`);
     }
   }
-  let handoffStatus = handoffRecorded ? "already-recorded" : "failed";
-  if (!handoffRecorded) {
+  let handoffStatus = personal ? "not-applicable" : handoffRecorded ? "already-recorded" : "failed";
+  if (!personal && !handoffRecorded) {
     try {
       atomicWriteFileSync(handoffTarget, handoffResult.content);
       handoffStatus = readText(root, HANDOFF_RECORD)?.includes(summary) ? "written" : "failed";
@@ -1091,14 +1745,19 @@ function runDone(root, args, options) {
   }
   const verified = [
     dailyStatus !== "failed" ? "daily" : "",
-    handoffStatus !== "failed" ? "handoff" : ""
+    personal ? "" : handoffStatus !== "failed" ? "handoff" : ""
   ].filter(Boolean).join("+");
   const okCount = [dailyStatus, handoffStatus].filter((status) => status !== "failed").length;
   const writtenCount = [dailyStatus, handoffStatus].filter((status) => status === "written").length;
   if (okCount === 2) {
     const outcome2 = writtenCount === 0 ? "already-recorded" : "logged";
     if (writtenCount === 0) {
-      console.log(`\u21A9\uFE0E  Milestone already recorded in ${dailyRel} and ${HANDOFF_RECORD}; nothing changed.`);
+      console.log(
+        personal ? `\u21A9\uFE0E  Personal entry already recorded in ${dailyRel}; nothing changed.` : `\u21A9\uFE0E  Milestone already recorded in ${dailyRel} and ${HANDOFF_RECORD}; nothing changed.`
+      );
+    } else if (personal) {
+      console.log(`\u270D\uFE0F  Logged personal entry to ${dailyRel} (${LOG_AREA_HEADINGS.personal}).`);
+      console.log(`   ${dailyLine}`);
     } else {
       console.log(`\u270D\uFE0F  Logged milestone to ${dailyRel} and ${HANDOFF_RECORD}.`);
       console.log(`   ${dailyLine}`);
@@ -1287,6 +1946,99 @@ function findExistingSnippet(root, safeTitle) {
   }
   return null;
 }
+function runMigrateLog(root, args, options) {
+  const source = getVaultSource(root, options);
+  const receipt = (outcome, moved, kept, adopted, daily2, verified) => {
+    console.log(
+      `RESULT migrate-log ${outcome} migrated=${moved} kept=${kept} adopted=${adopted} daily=${daily2} lock=flock target=${root} source=${source} verified=${verified || "none"}`
+    );
+  };
+  if (args.length > 0) {
+    console.error(`heyloey: migrate-log does not take the argument "${args[0]}"; use --date <YYYY-MM-DD>.`);
+    return 2;
+  }
+  const synthetic = detectSynthetic(root);
+  if (synthetic.synthetic) {
+    console.log(
+      `[heyloey] SKIPPED migrate-log - explicit synthetic opt-out (${synthetic.reason}); nothing written.`
+    );
+    console.log(
+      `RESULT migrate-log skipped migrated=0 kept=0 adopted=0 lock=flock target=${root} source=${source} reason=synthetic`
+    );
+    return DONE_EXIT.skipped;
+  }
+  const config = loadDailyNotesConfig(root);
+  const dailyRel = resolveDailyNoteFile(options.date ?? todayStr(), config);
+  const dailyTarget = resolveInsideVault(root, dailyRel);
+  if (!dailyTarget) {
+    console.error(`heyloey: refusing to write outside the vault: ${dailyRel}`);
+    console.error("   Nothing was written.");
+    receipt("refused", 0, 0, 0, "not-attempted", "");
+    return DONE_EXIT.refused;
+  }
+  const daily = readText(root, dailyRel);
+  if (!daily) {
+    console.error(`heyloey: the daily note is absent (${dailyRel}). Nothing was written.`);
+    receipt("refused", 0, 0, 0, "missing", "");
+    return DONE_EXIT.refused;
+  }
+  const migrated = migrateAgentMilestones(daily, {
+    selectStamps: options.select,
+    selectSummaries: options.selectSummaries
+  });
+  if (!migrated.ok) {
+    console.error(
+      `heyloey: ${dailyRel} has no \`${DAILY_LOG_HEADING}\` section, so there is nothing to separate. Nothing was written.`
+    );
+    receipt("refused", 0, 0, 0, "section-missing", "");
+    return DONE_EXIT.refused;
+  }
+  if (migrated.selectionErrors.length > 0) {
+    for (const message of migrated.selectionErrors)
+      console.error(`heyloey: ${message}`);
+    console.error(
+      "   Nothing was written. Name exactly one personal entry per --select/--select-summary; an ambiguous or unmatched selection is refused rather than guessed."
+    );
+    receipt("refused", 0, migrated.kept.length, 0, "selection-invalid", "");
+    return DONE_EXIT.refused;
+  }
+  if (options.dryRun) {
+    console.log(`\u{1F50E} Dry run \u2014 nothing was written. Vault: ${describeTarget(root, options.showPaths)}`);
+    console.log(`   ${dailyRel} [${LOG_AREA_HEADINGS.personal} \u2192 ${LOG_AREA_HEADINGS.agent}]`);
+    for (const summary of migrated.moved)
+      console.log(`     \u2192 ${summary}`);
+    if (migrated.adopted > 0) {
+      console.log(`     \u21D2 ${migrated.adopted} existing callout(s) already present are adopted by their area`);
+    }
+    for (const summary of migrated.kept)
+      console.log(`     \xB7 left in place: ${summary}`);
+    return 0;
+  }
+  if (migrated.content === daily) {
+    console.log(
+      `\u21A9\uFE0E  ${dailyRel} is already separated: ${migrated.moved.length} moved, ${migrated.kept.length} left in place; nothing changed.`
+    );
+    receipt("already-recorded", migrated.moved.length, migrated.kept.length, migrated.adopted, dailyRel, "daily");
+    return 0;
+  }
+  try {
+    atomicWriteFileSync(dailyTarget, migrated.content);
+  } catch (error) {
+    console.error(`heyloey: could not write ${dailyRel}: ${error.message}`);
+    receipt("failed", migrated.moved.length, migrated.kept.length, migrated.adopted, dailyRel, "");
+    return DONE_EXIT.failed;
+  }
+  if (readText(root, dailyRel) !== migrated.content) {
+    console.error(`heyloey: post-write verification failed for ${dailyRel}; the note is not as written.`);
+    receipt("failed", migrated.moved.length, migrated.kept.length, migrated.adopted, dailyRel, "");
+    return DONE_EXIT.failed;
+  }
+  console.log(
+    `\u{1F9F9} Separated ${dailyRel}: ${migrated.moved.length} agent milestone(s) moved to ${LOG_AREA_HEADINGS.agent}, ${migrated.adopted} callout(s) adopted, ${migrated.kept.length} entry(ies) left in place.`
+  );
+  receipt("logged", migrated.moved.length, migrated.kept.length, migrated.adopted, dailyRel, "daily");
+  return 0;
+}
 function runLearn(root, args, options) {
   const title = toSingleLine(args[0] ?? "");
   const pattern = args.slice(1).join("\n").replace(/\s+$/, "");
@@ -1430,13 +2182,19 @@ function main() {
     case "done":
       code = runDone(options.root, args, options);
       break;
+    case "personal":
+      code = runDone(options.root, args, { ...options, personal: true });
+      break;
+    case "migrate-log":
+      code = runMigrateLog(options.root, args, options);
+      break;
     case "learn":
       code = runLearn(options.root, args, options);
       break;
   }
   process.exitCode = code;
 }
-if (require.main === module) {
+if (typeof require !== "undefined" && require.main === module) {
   main();
 }
 // Annotate the CommonJS export names for ESM import in node:

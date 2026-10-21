@@ -51,7 +51,23 @@ function makeVault(t) {
   fs.mkdirSync(path.dirname(dailyPath), { recursive: true });
   fs.writeFileSync(
     dailyPath,
-    ["---", "type: daily", "---", "# Fixture day", "", "## 📝 Daily Log", "- **09:00**: baseline", "", "---", ""].join("\n")
+    [
+      "---",
+      "type: daily",
+      "---",
+      "# Fixture day",
+      "",
+      "## 📝 Daily Log",
+      "",
+      "### 🤖 Agent Milestones",
+      "",
+      "| Time | Scope | Milestone |",
+      "| :--- | :--- | :--- |",
+      "| 09:00&nbsp;AM |  | baseline |",
+      "",
+      "---",
+      "",
+    ].join("\n")
   );
   return root;
 }
@@ -120,7 +136,12 @@ test("a retry from a valid partial state completes the missing half without dupl
       "# Fixture day",
       "",
       "## 📝 Daily Log",
-      `- **09:00**: ${summary}`,
+      "",
+      "### 🤖 Agent Milestones",
+      "",
+      "| Time | Scope | Milestone |",
+      "| :--- | :--- | :--- |",
+      `| 09:00&nbsp;AM |  | ${summary} |`,
       "",
       "---",
       "",
@@ -143,7 +164,23 @@ test("a milestone already in both records is a byte-for-byte no-op", (t) => {
   const summary = "Already everywhere";
   fs.writeFileSync(
     path.join(root, dailyRel()),
-    ["---", "type: daily", "---", "# Fixture day", "", "## 📝 Daily Log", `- **08:15**: ${summary}`, "", "---", ""].join("\n")
+    [
+      "---",
+      "type: daily",
+      "---",
+      "# Fixture day",
+      "",
+      "## 📝 Daily Log",
+      "",
+      "### 🤖 Agent Milestones",
+      "",
+      "| Time | Scope | Milestone |",
+      "| :--- | :--- | :--- |",
+      `| 08:15&nbsp;AM |  | ${summary} |`,
+      "",
+      "---",
+      "",
+    ].join("\n")
   );
   fs.writeFileSync(
     path.join(root, "handoff.md"),

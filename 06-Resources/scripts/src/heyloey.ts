@@ -27,7 +27,19 @@
  *   npm run heyloey -- [--root <dir>] <command> [arguments] [--dry-run] [--show-paths]
  */
 import * as fs from 'fs';
-import { aucklandStamp, displayLogTime, normalizeDailyLog } from './lib/daily-log-time';
+import {
+  aucklandStamp,
+  displayLogTime,
+  normalizeDailyLog,
+  insertDailyLogEntry,
+  insertAgentMilestone,
+  logAreaHasSummary,
+  escapeCell,
+  migrateAgentMilestones,
+  DAILY_LOG_HEADING,
+  LOG_AREA_HEADINGS,
+  type LogArea,
+} from './lib/daily-log-time';
 import * as path from 'path';
 import * as os from 'os';
 import * as crypto from 'crypto';
@@ -51,8 +63,6 @@ const REQUIRED_MARKERS = ['AGENTS.md', '99-Templates'];
 const MEMORY_RECORD = 'memory.md';
 const HANDOFF_RECORD = 'handoff.md';
 
-/** The daily-note section `done` appends to. */
-const DAILY_LOG_HEADING = '## 📝 Daily Log';
 /** The handoff section `done` appends to, newest first. */
 const HANDOFF_HEADING = '### Latest Updates';
 
@@ -77,16 +87,24 @@ const HUB_HEADING = '## 🔗 Related Resources & Notes';
 /** Any heading a hub link may sit under, so a curated note is connected where it already reads. */
 const HUB_HEADING_PATTERN = /^#{2,6}\s+.*\bRelated\b/;
 
-const COMMANDS = ['brief', 'context', 'done', 'learn', 'lock-state'] as const;
+const COMMANDS = ['brief', 'context', 'done', 'learn', 'lock-state', 'migrate-log', 'personal'] as const;
 type Command = (typeof COMMANDS)[number];
 
 /** True when the command writes to the vault. Used by the help text and by validation. */
-const WRITING_COMMANDS: ReadonlySet<Command> = new Set<Command>(['done', 'learn']);
+const WRITING_COMMANDS: ReadonlySet<Command> = new Set<Command>(['done', 'learn', 'migrate-log', 'personal']);
 
 interface Options {
   root: string;
   rootExplicit: boolean;
   dryRun: boolean;
+  /** `done --personal`: the entry is the owner's own log and never touches handoff.md. */
+  personal: boolean;
+  /** `migrate-log --date <YYYY-MM-DD>`: the note to separate. Defaults to today. */
+  date: string | null;
+  /** `migrate-log --select <HH:MM AM>`: explicit owner selection of a personal entry to move. */
+  select: string[];
+  /** `migrate-log --select-summary <text>`: the same, by a unique substring of the summary. */
+  selectSummaries: string[];
   showPaths: boolean;
 }
 
@@ -107,14 +125,24 @@ function usage(): string {
     '                              open tasks, habits, inbox count and active projects.',
     '  context "<query>"           Read-only. Routes the query to matching projects, snippets,',
     '                              notes and runbooks, printing paths only.',
-    '  done "<summary>"            Records a completed milestone under `## 📝 Daily Log` in',
-    '                              today\'s daily note and under `### Latest Updates` in',
-    '                              handoff.md. Refuses if either record is absent. Milestones',
-    '                              only — see the Hey Loey Guide.',
+    '  done "<summary>"            Records a completed milestone as a row in the one agent table',
+    '                              under `### 🤖 Agent Milestones` in today\'s daily note and under',
+    '                              `### Latest Updates` in handoff.md. Refuses if either record is',
+    '                              absent. Milestones only — see the Hey Loey Guide. With --personal',
+    '                              the entry lands under `### 🧍 Personal Log` as a bullet and',
+    '                              handoff.md is left alone.',
     '  learn "<Title>" "<Pattern>" Indexes a reusable technical pattern in `03-Dev/` and',
     '                              links it to the existing Dev hub. A colliding title merges',
     '                              into a marked region instead of overwriting hand-written',
     '                              content.',
+    '  personal "<entry>"          Shorthand for `done --personal`: the owner\'s own entry, under',
+    '                              `### 🧍 Personal Log`, with handoff.md never touched.',
+    '  migrate-log [--date <day>] [--select <time>]... [--select-summary <text>]...',
+    '                              One note (today unless --date is given) gains its labelled areas',
+    '                              and its one agent table. Existing agent bullets and the old',
+    '                              agent callout are converted; nothing is classified by its',
+    '                              wording. Personal entries move only when named with --select',
+    '                              or --select-summary.',
     '  lock-state                  Read-only. Reports the vault, lock protocol, and kernel lock file.',
     '',
     'Options:',
@@ -122,6 +150,13 @@ function usage(): string {
     '                 this script\'s location, so the same command works from anywhere.',
     '  --dry-run      For writing commands: print the target paths and the exact lines that',
     '                 would be written, and write nothing.',
+    '  --personal     With `done`: write under `### 🧍 Personal Log` and skip handoff.md.',
+    '  --date <day>   With `migrate-log`: the daily note to separate (YYYY-MM-DD).',
+    '  --select <t>   With `migrate-log`: move exactly one personal entry with this time, e.g.',
+    '                 "09:21 AM". Repeat for more. This is the ONLY way a personal entry is moved:',
+    '                 the command never infers authorship from a verb or a capital letter.',
+    '  --select-summary <text>',
+    '                 With `migrate-log`: the same, selected by a unique substring of the summary.',
     '  --show-paths   Print the absolute target path (diagnostics). Output is relative by',
     '                 default, because it is routinely pasted into an issue.',
     '  -h, --help     This text.',
@@ -136,6 +171,10 @@ function parseArgs(argv: string[]): Parsed {
   let root = process.env.LOEY_SPACE_DIR || process.cwd();
   let rootExplicit = false;
   let dryRun = false;
+  let personal = false;
+  let date: string | null = null;
+  const select: string[] = [];
+  const selectSummaries: string[] = [];
   let showPaths = false;
   const positional: string[] = [];
 
@@ -144,6 +183,31 @@ function parseArgs(argv: string[]): Parsed {
     if (arg === '-h' || arg === '--help') return { kind: 'help' };
     if (arg === '--dry-run') {
       dryRun = true;
+      continue;
+    }
+    if (arg === '--personal') {
+      personal = true;
+      continue;
+    }
+    if (arg === '--date') {
+      const value = argv[i + 1];
+      if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        return { kind: 'error', message: '--date requires YYYY-MM-DD, e.g. --date 2026-10-18' };
+      }
+      date = value;
+      i += 1;
+      continue;
+    }
+    if (arg === '--select' || arg.startsWith('--select=')) {
+      const value = arg === '--select' ? argv[++i] : arg.slice('--select='.length);
+      if (!value) return { kind: 'error', message: '--select requires a time, e.g. --select "09:21 AM"' };
+      select.push(value);
+      continue;
+    }
+    if (arg === '--select-summary' || arg.startsWith('--select-summary=')) {
+      const value = arg === '--select-summary' ? argv[++i] : arg.slice('--select-summary='.length);
+      if (!value) return { kind: 'error', message: '--select-summary requires a substring of the entry' };
+      selectSummaries.push(value);
       continue;
     }
     if (arg === '--show-paths') {
@@ -176,12 +240,21 @@ function parseArgs(argv: string[]): Parsed {
   if (!(COMMANDS as readonly string[]).includes(command)) {
     return { kind: 'error', message: `unknown command: ${command}` };
   }
+  if ((select.length > 0 || selectSummaries.length > 0) && command !== 'migrate-log') {
+    return { kind: 'error', message: '--select and --select-summary are only valid with migrate-log' };
+  }
+  if (personal && command !== 'done') {
+    return { kind: 'error', message: '--personal is only valid with done' };
+  }
+  if (date !== null && command !== 'migrate-log') {
+    return { kind: 'error', message: '--date is only valid with migrate-log' };
+  }
 
   return {
     kind: 'command',
     command: command as Command,
     args: positional.slice(1),
-    options: { root: path.resolve(root), rootExplicit, dryRun, showPaths },
+    options: { root: path.resolve(root), rootExplicit, dryRun, personal, date, select, selectSummaries, showPaths },
   };
 }
 
@@ -558,14 +631,23 @@ function loadDailyNotesConfig(root: string): DailyNotesConfig {
   return DEFAULT_DAILY_NOTES_CONFIG;
 }
 
-/** The body of a `##`/`###` section, from its heading to the next heading or horizontal rule. */
+/**
+ * The body of a `##`/`###` section, from its heading to the next heading of the same or a higher
+ * level, or to a horizontal rule.
+ *
+ * Level-aware on purpose: the daily log's `###` areas belong to `## 📝 Daily Log`, so ending the
+ * parent at the first `###` would hide every entry in an area from duplicate prevention — which is
+ * exactly how a retry writes the same milestone twice.
+ */
 function sectionSlice(lines: string[], heading: string): { start: number; end: number } | null {
   const start = lines.findIndex((line) => line.trim() === heading);
   if (start === -1) return null;
+  const level = (heading.match(/^#+/)?.[0].length ?? 2);
   let end = lines.length;
   for (let i = start + 1; i < lines.length; i += 1) {
     const trimmed = lines[i].trim();
-    if (/^#{2,6}\s/.test(trimmed) || trimmed === '---') {
+    const found = trimmed.match(/^(#{1,6})\s/);
+    if ((found && found[1].length <= level) || trimmed === '---') {
       end = i;
       break;
     }
@@ -581,36 +663,16 @@ interface InsertResult {
 }
 
 /**
- * Append one bullet under `## 📝 Daily Log`.
+ * Append one bullet to one labelled area of `## 📝 Daily Log`.
  *
- * The section is closed by the next `##` heading or `---`, so the sections below it are never
- * touched. An untouched template leaves an empty `- ` placeholder; that placeholder is reused
- * rather than preceded, so the first real entry does not sit above a stray bullet.
+ * The area is created when it is absent, in canonical order, so every writer routes to its own
+ * area without asking the caller to prepare the note. An entry already present in that area is a
+ * no-op rather than a duplicate, which is what makes a retry after a partial write safe. An
+ * untouched template leaves an empty `- ` placeholder; it is reused rather than preceded, so the
+ * first real entry does not sit above a stray bullet.
  */
-function insertDailyLogLine(content: string, line: string): InsertResult {
-  const lines = content.split('\n');
-  const section = sectionSlice(lines, DAILY_LOG_HEADING);
-  if (!section) return { content, ok: false };
-
-  const body = lines.slice(section.start + 1, section.end);
-  if (body.some((entry) => entry.trim() === line.trim())) {
-    return { content, ok: true, duplicate: true };
-  }
-
-  let lastBullet = -1;
-  let emptyBullet = -1;
-  for (let i = section.start + 1; i < section.end; i += 1) {
-    if (/^\s*-\s+\S/.test(lines[i])) lastBullet = i;
-    else if (/^\s*-\s*$/.test(lines[i])) emptyBullet = i;
-  }
-
-  if (emptyBullet !== -1) {
-    lines[emptyBullet] = line;
-  } else {
-    const insertAt = lastBullet !== -1 ? lastBullet + 1 : section.start + 1;
-    lines.splice(insertAt, 0, line);
-  }
-  return { content: normalizeDailyLog(lines.join('\n')), ok: true };
+function insertDailyLogLine(content: string, line: string, area: LogArea = 'agent'): InsertResult {
+  return insertDailyLogEntry(content, line, area);
 }
 
 /** Insert one bullet directly under `### Latest Updates`, newest first. */
@@ -832,7 +894,7 @@ function runContext(root: string, args: string[], options: Options): number {
   return 0;
 }
 
-type RecordStatus = 'written' | 'already-recorded' | 'failed';
+type RecordStatus = 'written' | 'already-recorded' | 'failed' | 'not-applicable';
 
 /** True when `summary` already appears in the body of `heading` — a per-record check, not a file-wide one. */
 function hasSummaryInSection(content: string, heading: string, summary: string): boolean {
@@ -858,6 +920,10 @@ function runDone(root: string, args: string[], options: Options): number {
     console.error('heyloey: done requires a one-line summary, e.g. `done "Ship the parser fix"`');
     return 2;
   }
+
+  // A personal entry is the owner's own log. It shares the daily note, the lock and the
+  // duplicate rule with a milestone, and deliberately shares nothing else: no handoff half.
+  const personal = options.personal;
 
   const source = getVaultSource(root, options);
   const receipt = (outcome: string, daily: string, handoff: string, verified: string): void => {
@@ -893,30 +959,40 @@ function runDone(root: string, args: string[], options: Options): number {
   }
 
   const daily = readText(root, dailyRel);
-  const handoff = readText(root, HANDOFF_RECORD);
+  const handoff = personal ? '' : readText(root, HANDOFF_RECORD);
 
   // Refusals come before any write, and they name what is missing and how to create it. The
   // command never scaffolds a note: an invented structure is not what the vault expects.
   const problems: string[] = [];
   if (!daily) problems.push(`today's daily note is absent (${dailyRel})`);
-  if (!handoff) problems.push(`${HANDOFF_RECORD} is absent`);
+  if (!handoff && !personal) problems.push(`${HANDOFF_RECORD} is absent`);
   if (problems.length > 0) {
     console.error(`heyloey: ${problems.join('; ')}.`);
     console.error(
       `   Create the missing record with \`npm run init:vault\` (for ${HANDOFF_RECORD}) and ` +
         `open today's daily note from 99-Templates/Daily.md. Nothing was written.`
     );
-    receipt('refused', daily ? 'present' : 'missing', handoff ? 'present' : 'missing', '');
+    receipt(
+      'refused',
+      daily ? 'present' : 'missing',
+      personal ? 'not-applicable' : handoff ? 'present' : 'missing',
+      ''
+    );
     return DONE_EXIT.refused;
   }
 
   const stamp = timeStr();
-  const dailyLine = `- **${displayLogTime(stamp)}**: ${summary}`;
+  const area: LogArea = personal ? 'personal' : 'agent';
+  const dailyLine = personal
+    ? `- **${displayLogTime(stamp)}**: ${summary}`
+    : `| ${displayLogTime(stamp, '&nbsp;')} |  | ${escapeCell(summary)} |`;
   const handoffLine = `- [x] **[${todayStr()} ${stamp}]** ${summary}`;
 
   // Both insertions are computed before either write, so a heading this command cannot honour
   // refuses the whole run instead of leaving one record updated and the other untouched.
-  const dailyResult = insertDailyLogLine(daily as string, dailyLine);
+  const dailyResult = personal
+    ? insertDailyLogLine(daily as string, dailyLine, 'personal')
+    : insertAgentMilestone(daily as string, { stamp, scope: '', summary });
   if (!dailyResult.ok) {
     console.error(
       `heyloey: ${dailyRel} has no \`${DAILY_LOG_HEADING}\` section, so there is nowhere ` +
@@ -926,8 +1002,8 @@ function runDone(root: string, args: string[], options: Options): number {
     return DONE_EXIT.refused;
   }
 
-  const handoffResult = insertLatestUpdate(handoff as string, handoffLine);
-  if (!handoffResult.ok) {
+  const handoffResult = personal ? null : insertLatestUpdate(handoff as string, handoffLine);
+  if (handoffResult && !handoffResult.ok) {
     console.error(
       `heyloey: ${HANDOFF_RECORD} has no \`${HANDOFF_HEADING}\` section, so there is nowhere ` +
         `established to write. Nothing was written.`
@@ -937,16 +1013,20 @@ function runDone(root: string, args: string[], options: Options): number {
   }
 
   // Each half is decided independently: a retry after a partial write must add only what is
-  // missing, never a second copy of the half that already landed.
-  const dailyRecorded = hasSummaryInSection(daily as string, DAILY_LOG_HEADING, summary);
-  const handoffRecorded = hasSummaryInSection(handoff as string, HANDOFF_HEADING, summary);
+  // missing, never a second copy of the half that already landed. The daily check is scoped to
+  // the area that owns the entry, so identical text in the other area never counts as this one.
+  const dailyRecorded = logAreaHasSummary(daily as string, area, summary);
+  const handoffRecorded = personal ? true : hasSummaryInSection(handoff as string, HANDOFF_HEADING, summary);
 
   if (options.dryRun) {
     console.log(`🔎 Dry run — nothing was written. Vault: ${describeTarget(root, options.showPaths)}`);
-    console.log(`   ${dailyRel}${dailyRecorded ? ' (already recorded)' : ''}`);
+    const area = personal ? LOG_AREA_HEADINGS.personal : LOG_AREA_HEADINGS.agent;
+    console.log(`   ${dailyRel} [${area}]${dailyRecorded ? ' (already recorded)' : ''}`);
     if (!dailyRecorded) console.log(`     + ${dailyLine}`);
-    console.log(`   ${HANDOFF_RECORD}${handoffRecorded ? ' (already recorded)' : ''}`);
-    if (!handoffRecorded) console.log(`     + ${handoffLine}`);
+    if (!personal) {
+      console.log(`   ${HANDOFF_RECORD}${handoffRecorded ? ' (already recorded)' : ''}`);
+      if (!handoffRecorded) console.log(`     + ${handoffLine}`);
+    }
     return 0;
   }
 
@@ -959,7 +1039,11 @@ function runDone(root: string, args: string[], options: Options): number {
   if (!dailyRecorded) {
     try {
       atomicWriteFileSync(dailyTarget, dailyResult.content);
-      dailyStatus = readText(root, dailyRel)?.includes(summary) ? 'written' : 'failed';
+      const written = readText(root, dailyRel);
+      // Verify inside the owning area, at the position the writer claims to own. A text that
+      // landed in the other area is not this writer's record, and saying otherwise is the bug
+      // this check exists to catch.
+      dailyStatus = written && logAreaHasSummary(written, area, summary) ? 'written' : 'failed';
       if (dailyStatus === 'failed') {
         console.error(`heyloey: post-write verification failed for ${dailyRel}; the entry is not there.`);
       }
@@ -968,8 +1052,12 @@ function runDone(root: string, args: string[], options: Options): number {
     }
   }
 
-  let handoffStatus: RecordStatus = handoffRecorded ? 'already-recorded' : 'failed';
-  if (!handoffRecorded) {
+  let handoffStatus: RecordStatus = personal
+    ? 'not-applicable'
+    : handoffRecorded
+      ? 'already-recorded'
+      : 'failed';
+  if (!personal && !handoffRecorded) {
     try {
       atomicWriteFileSync(handoffTarget, handoffResult.content);
       handoffStatus = readText(root, HANDOFF_RECORD)?.includes(summary) ? 'written' : 'failed';
@@ -983,7 +1071,7 @@ function runDone(root: string, args: string[], options: Options): number {
 
   const verified = [
     dailyStatus !== 'failed' ? 'daily' : '',
-    handoffStatus !== 'failed' ? 'handoff' : '',
+    personal ? '' : handoffStatus !== 'failed' ? 'handoff' : '',
   ]
     .filter(Boolean)
     .join('+');
@@ -994,7 +1082,14 @@ function runDone(root: string, args: string[], options: Options): number {
   if (okCount === 2) {
     const outcome = writtenCount === 0 ? 'already-recorded' : 'logged';
     if (writtenCount === 0) {
-      console.log(`↩︎  Milestone already recorded in ${dailyRel} and ${HANDOFF_RECORD}; nothing changed.`);
+      console.log(
+        personal
+          ? `↩︎  Personal entry already recorded in ${dailyRel}; nothing changed.`
+          : `↩︎  Milestone already recorded in ${dailyRel} and ${HANDOFF_RECORD}; nothing changed.`
+      );
+    } else if (personal) {
+      console.log(`✍️  Logged personal entry to ${dailyRel} (${LOG_AREA_HEADINGS.personal}).`);
+      console.log(`   ${dailyLine}`);
     } else {
       console.log(`✍️  Logged milestone to ${dailyRel} and ${HANDOFF_RECORD}.`);
       console.log(`   ${dailyLine}`);
@@ -1247,6 +1342,124 @@ function findExistingSnippet(root: string, safeTitle: string): string | null {
   return null;
 }
 
+/**
+ * Separate one daily note's personal entries from its automated agent milestones.
+ *
+ * Only the note named (`--date`, today by default) is touched. The agent area is always
+ * normalised into its one table; a personal entry moves only when the owner names it with
+ * `--select` or `--select-summary`, because the note stores no provenance and this command
+ * refuses to guess authorship from wording. Re-running is a no-op.
+ */
+function runMigrateLog(root: string, args: string[], options: Options): number {
+  const source = getVaultSource(root, options);
+  const receipt = (
+    outcome: string, moved: number, kept: number, adopted: number, daily: string, verified: string
+  ): void => {
+    console.log(
+      `RESULT migrate-log ${outcome} migrated=${moved} kept=${kept} adopted=${adopted} daily=${daily} ` +
+        `lock=flock target=${root} source=${source} verified=${verified || 'none'}`
+    );
+  };
+
+  if (args.length > 0) {
+    console.error(`heyloey: migrate-log does not take the argument "${args[0]}"; use --date <YYYY-MM-DD>.`);
+    return 2;
+  }
+
+  const synthetic = detectSynthetic(root);
+  if (synthetic.synthetic) {
+    console.log(
+      `[heyloey] SKIPPED migrate-log - explicit synthetic opt-out (${synthetic.reason}); nothing written.`
+    );
+    console.log(
+      `RESULT migrate-log skipped migrated=0 kept=0 adopted=0 lock=flock target=${root} source=${source} reason=synthetic`
+    );
+    return DONE_EXIT.skipped;
+  }
+
+  const config = loadDailyNotesConfig(root);
+  const dailyRel = resolveDailyNoteFile(options.date ?? todayStr(), config);
+  const dailyTarget = resolveInsideVault(root, dailyRel);
+  if (!dailyTarget) {
+    console.error(`heyloey: refusing to write outside the vault: ${dailyRel}`);
+    console.error('   Nothing was written.');
+    receipt('refused', 0, 0, 0, 'not-attempted', '');
+    return DONE_EXIT.refused;
+  }
+
+  const daily = readText(root, dailyRel);
+  if (!daily) {
+    console.error(`heyloey: the daily note is absent (${dailyRel}). Nothing was written.`);
+    receipt('refused', 0, 0, 0, 'missing', '');
+    return DONE_EXIT.refused;
+  }
+
+  const migrated = migrateAgentMilestones(daily, {
+    selectStamps: options.select,
+    selectSummaries: options.selectSummaries,
+  });
+  if (!migrated.ok) {
+    console.error(
+      `heyloey: ${dailyRel} has no \`${DAILY_LOG_HEADING}\` section, so there is nothing to ` +
+        `separate. Nothing was written.`
+    );
+    receipt('refused', 0, 0, 0, 'section-missing', '');
+    return DONE_EXIT.refused;
+  }
+
+  if (migrated.selectionErrors.length > 0) {
+    for (const message of migrated.selectionErrors) console.error(`heyloey: ${message}`);
+    console.error(
+      '   Nothing was written. Name exactly one personal entry per --select/--select-summary; ' +
+        'an ambiguous or unmatched selection is refused rather than guessed.'
+    );
+    receipt('refused', 0, migrated.kept.length, 0, 'selection-invalid', '');
+    return DONE_EXIT.refused;
+  }
+
+  if (options.dryRun) {
+    console.log(`🔎 Dry run — nothing was written. Vault: ${describeTarget(root, options.showPaths)}`);
+    console.log(`   ${dailyRel} [${LOG_AREA_HEADINGS.personal} → ${LOG_AREA_HEADINGS.agent}]`);
+    for (const summary of migrated.moved) console.log(`     → ${summary}`);
+    if (migrated.adopted > 0) {
+      console.log(`     ⇒ ${migrated.adopted} existing callout(s) already present are adopted by their area`);
+    }
+    for (const summary of migrated.kept) console.log(`     · left in place: ${summary}`);
+    return 0;
+  }
+
+  if (migrated.content === daily) {
+    console.log(
+      `↩︎  ${dailyRel} is already separated: ${migrated.moved.length} moved, ` +
+        `${migrated.kept.length} left in place; nothing changed.`
+    );
+    receipt('already-recorded', migrated.moved.length, migrated.kept.length, migrated.adopted, dailyRel, 'daily');
+    return 0;
+  }
+
+  try {
+    atomicWriteFileSync(dailyTarget, migrated.content);
+  } catch (error) {
+    console.error(`heyloey: could not write ${dailyRel}: ${(error as Error).message}`);
+    receipt('failed', migrated.moved.length, migrated.kept.length, migrated.adopted, dailyRel, '');
+    return DONE_EXIT.failed;
+  }
+
+  if (readText(root, dailyRel) !== migrated.content) {
+    console.error(`heyloey: post-write verification failed for ${dailyRel}; the note is not as written.`);
+    receipt('failed', migrated.moved.length, migrated.kept.length, migrated.adopted, dailyRel, '');
+    return DONE_EXIT.failed;
+  }
+
+  console.log(
+    `🧹 Separated ${dailyRel}: ${migrated.moved.length} agent milestone(s) moved to ` +
+      `${LOG_AREA_HEADINGS.agent}, ${migrated.adopted} callout(s) adopted, ` +
+      `${migrated.kept.length} entry(ies) left in place.`
+  );
+  receipt('logged', migrated.moved.length, migrated.kept.length, migrated.adopted, dailyRel, 'daily');
+  return 0;
+}
+
 function runLearn(root: string, args: string[], options: Options): number {
   const title = toSingleLine(args[0] ?? '');
   const pattern = args.slice(1).join('\n').replace(/\s+$/, '');
@@ -1421,6 +1634,12 @@ function main(): void {
     case 'done':
       code = runDone(options.root, args, options);
       break;
+    case 'personal':
+      code = runDone(options.root, args, { ...options, personal: true });
+      break;
+    case 'migrate-log':
+      code = runMigrateLog(options.root, args, options);
+      break;
     case 'learn':
       code = runLearn(options.root, args, options);
       break;
@@ -1428,7 +1647,7 @@ function main(): void {
   process.exitCode = code;
 }
 
-if (require.main === module) {
+if (typeof require !== 'undefined' && require.main === module) {
   main();
 }
 
