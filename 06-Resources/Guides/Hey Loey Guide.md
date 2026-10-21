@@ -1,6 +1,6 @@
 ---
 created: 2026-10-12
-updated: 2026-10-12
+updated: 2026-10-21
 type: guide
 status: active
 area: resources
@@ -27,7 +27,7 @@ When working inside an AI coding assistant (such as Google Antigravity, Claude C
 | `heyloey status` | Pulse check | Counts unprocessed lines in `quick-capture-dump.md`, checks today's habit completion in your daily note, and lists active project tasks. |
 | `heyloey morning` | Morning kick-off | Opens or creates today's note, sets a quote from a notable thinker, surfaces in-flight tasks, and prompts you for 1–3 daily intentions and morning vitals (`mood`, `energy`, `sleep_hours`). |
 | `heyloey evening` | Evening wind-down | Reconciles morning focus, prompts for habit checks and reflections, and writes the AI daily debrief and takeaway into today's note. |
-| `heyloey log` / `sync` | Explicit daily log | Records your session work, wins, or blockers directly into `## 📝 Daily Log` in today's daily note. |
+| `heyloey log` / `sync` | Explicit daily log | Records your session work, wins, or blockers in the matching area of `## 📝 Daily Log` in today's daily note — automated outcomes in `### 🤖 Agent Milestones`, your own entries in `### 🧍 Personal Log`. |
 | `heyloey handoff` | Session handoff | Updates `handoff.md` with in-flight objectives and immediate next moves for your next session. |
 | `heyloey sweep` | Inbox triage | Inspects `quick-capture-dump.md`, adds category tags, and runs the triage sweep script. |
 | `heyloey plan <name>` | Project planning | Creates a project folder in `02-Projects/<name>/`, scaffolds `<name>.md` and a companion visual Kanban board with backlog shielding. |
@@ -43,7 +43,7 @@ To prevent the daily note and handoff records from filling with conversational c
 2. **Consolidation**: Multiple review or test cycles on the same task are consolidated into a single milestone summary rather than several repetitive entries.
 3. **Explicit user requests**: When you explicitly ask to log or save a discussion or brainstorm session, that explicit instruction authorizes the entry.
 
-Daily work entries are written under `## 📝 Daily Log` in `01-Daily/YYYY-MM/YYYY-MM-DD.md` using the format `- **hh:mm AM/PM**: <summary>` (for example, `- **04:04 PM**: Shipped the fix`). Dates and times use `Pacific/Auckland`. Keep timestamped bullets and rows within each activity table in chronological order, oldest first; when updating an entry's timestamp, move it to its new position. Preserve separate callouts, untimed prose and surrounding sections. Handoff entries are written to `handoff.md` under `### Latest Updates` and retain their `YYYY-MM-DD HH:MM` format.
+Daily work entries are written inside `## 📝 Daily Log` in `01-Daily/YYYY-MM/YYYY-MM-DD.md`, in the area that matches the writer: automated agent outcomes in `### 🤖 Agent Milestones`, your own entries in `### 🧍 Personal Log`, and synced events in `### 🐙 GitHub Activity`. Use the format `- **hh:mm AM/PM**: <summary>` (for example, `- **04:04 PM**: Shipped the fix`). Dates and times use `Pacific/Auckland`. Keep timestamped bullets and rows in chronological order, oldest first, within each area and table; when updating an entry's timestamp, move it to its new position. Preserve untimed prose and surrounding sections. Personal entries never reach `handoff.md`; agent milestones do. Handoff entries are written to `handoff.md` under `### Latest Updates` and retain their `YYYY-MM-DD HH:MM` format.
 
 ## Conversational Prompts vs. CLI Tool
 
@@ -81,7 +81,9 @@ Run it from the vault root and the path is implicit. Output names the target rel
 | :--- | :--- | :--- |
 | `npm run heyloey -- brief` | Read-only | Condensed pulse: records present, today's focus and vitals, open tasks, habit count, inbox count, active projects. |
 | `npm run heyloey -- context "<query>"` | Read-only | Routes the query to matching projects, snippets, notes and runbooks, printing paths only. |
-| `npm run heyloey -- done "<summary>"` | Writes | Adds a milestone under `## 📝 Daily Log` in today's daily note and under `### Latest Updates` in `handoff.md`. Refuses if either record, or the heading it owns, is missing — it never scaffolds a note. |
+| `npm run heyloey -- done "<summary>"` | Writes | Adds a milestone under `### 🤖 Agent Milestones` in today's daily note and under `### Latest Updates` in `handoff.md`. Refuses if either record, or the heading it owns, is missing — it never scaffolds a note. |
+| `npm run heyloey -- personal "<entry>"` | Writes | Records your own entry under `### 🧍 Personal Log`. `handoff.md` is never touched. |
+| `npm run heyloey -- migrate-log [--date <day>]` | Writes | One note (today unless `--date` names another) gains its labelled areas: entries whose summary has the automated outcome shape move to `### 🤖 Agent Milestones`, everything else stays exactly where it is. `--dry-run` prints the plan and writes nothing. |
 | `npm run heyloey -- learn "<Title>" "<Pattern>"` | Writes | Indexes a reusable pattern in `03-Dev/` and links it to the existing Dev hub (`[[_Dev MOC]]`); no link is written when the hub is absent. A colliding title merges into a marked, reviewable region; hand-written content is never overwritten, and the hub link is never duplicated. |
 
 Every writing command supports `--dry-run`, which prints the target paths and the exact lines it would write and writes nothing:
@@ -104,4 +106,26 @@ repeated on the same day.
 Eligibility is the trailer alone — nothing infers it, and no tool judges the sentence for you.
 [Git Hooks Guide](Git%20Hooks%20Guide.md) documents activation, the trailer, the settings and how to turn the hook off.
 
-Use conversational prompts when you want an interactive discussion or planning session. Use the CLI in automated scripts or terminal sessions where fast, deterministic execution is needed.
+## External Agents & Model Context Protocol (MCP)
+
+When working in external codebases or containerized AI environments (such as DeepSeek Harness, Claude Code, or Google Antigravity), agents cannot always execute local Node CLI scripts or directly access host filesystems (e.g. sandboxed environments mounting host paths read-only with `EROFS`).
+
+The `loey-space` Model Context Protocol (MCP) server bridges external agents into the host vault with strict security boundaries, path sanitization, and kernel lock serialization.
+
+### The 5 MCP Tools
+
+| MCP Tool | Mode | Parameters | Description |
+| :--- | :--- | :--- | :--- |
+| `heyloey_brief` | Read-only | `show_paths?: boolean`, `kiwi?: boolean` | Returns a lightweight orientation summary (~400 tokens) containing present records, daily habits, active tasks, inbox count, and active projects. Set `kiwi: true` to include `SOUL.md` persona instructions. |
+| `heyloey_context` | Read-only | `query: string`, `limit?: number` | Queries project hubs and `03-Dev/` runbooks via Laya scoring, returning relevant paths and scores for fast context injection without token bloat. |
+| `heyloey_done` | Mutating | `summary: string`, `scope?: string`, `dry_run?: boolean` | Records an autonomous milestone outcome into `### 🤖 Agent Milestones` in today's daily note and `### Latest Updates` in `handoff.md`. If `scope` is provided (e.g. `dsh-web`, `supplywatch`), the entry is prefixed with `[<scope>]`. Serialized via `flock`. |
+| `heyloey_learn` | Mutating | `title: string`, `fix: string`, `lang?: string`, `dry_run?: boolean` | Crystallizes a reusable engineering pattern or bug fix into an atomic runbook note under `03-Dev/<title>.md` and links it to `[[_Dev MOC]]`. Merges safely if the title already exists. |
+| `heyloey_lock_state` | Read-only | _none_ | Audits the vault kernel locking protocol (`flock`), verifying lock file health and flagging any legacy lock files. |
+
+### Sandboxed & Containerized Environments (9p Read-Only Mounts)
+
+Sandboxed AI environments (such as DeepSeek Harness containers running under Bubblewrap/Landlock) mount Windows/WSL host directories like `/mnt/c` via 9p in read-only mode (`EROFS`), and lack elevated permissions (`sudo`) to remount. 
+
+Direct filesystem write tools (`write_file`, `edit_file`) fail inside these containers. By running the `loey-space` MCP server on the host, sandboxed agents call `heyloey_done` and `heyloey_learn` through standard stdio JSON-RPC. The host server holds the kernel `flock` lock and executes the write safely on the host filesystem.
+
+Use conversational prompts when you want an interactive discussion or planning session. Use the CLI in automated scripts or terminal sessions where fast, deterministic execution is needed, and use the MCP server when delegating vault context and milestone recording to external or sandboxed coding agents.

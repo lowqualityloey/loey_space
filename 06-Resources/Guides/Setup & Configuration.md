@@ -1,6 +1,6 @@
 ---
 created: 2026-10-08
-updated: 2026-10-13
+updated: 2026-10-21
 type: guide
 area: resources
 status: active
@@ -150,6 +150,64 @@ Steps 2–5 need the app. In a headless run they are **unverified, not passed**:
 ## 4. If you add your own choices
 
 Choose any IDs you like, but if you bind a hotkey, bind it to the ID QuickAdd generated — and if you *change* the AI action's ID, update `.obsidian/hotkeys.json` in the same commit so the tracked shortcut keeps resolving.
+
+## 5. External AI Agent & Model Context Protocol (MCP) Setup
+
+External coding assistants operating outside the vault access `loey_space` via the Model Context Protocol (MCP) server (`loey-space-safe`). This provides guarded, locked access to `heyloey_brief`, `heyloey_context`, `heyloey_done`, `heyloey_learn`, and `heyloey_lock_state`.
+
+The MCP server entry point is installed at:
+```bash
+/home/heyloey/.local/bin/loey-space-mcp
+```
+(Or directly via Node: `node /home/heyloey/personal/loey-space-mcp/src/safe-mcp.mjs --vault /mnt/c/Users/jonel/Documents/loey_space`)
+
+### Client Configurations
+
+#### Google Antigravity (`~/.gemini/antigravity/mcp/loey-space/`)
+Tool definitions are loaded automatically from individual schema files in `~/.gemini/antigravity/mcp/loey-space/*.json`.
+
+#### Claude Desktop / Claude Code (`~/.config/Claude/claude_desktop_config.json`)
+```json
+{
+  "mcpServers": {
+    "loey-space": {
+      "command": "/home/heyloey/.local/bin/loey-space-mcp",
+      "args": ["--vault", "/mnt/c/Users/jonel/Documents/loey_space"]
+    }
+  }
+}
+```
+
+#### OpenCode (`~/.config/opencode/opencode.json` or `~/.omo/omo.jsonc`)
+```json
+{
+  "mcp": {
+    "loey-space": {
+      "type": "stdio",
+      "command": "/home/heyloey/.local/bin/loey-space-mcp",
+      "args": ["--vault", "/mnt/c/Users/jonel/Documents/loey_space"]
+    }
+  }
+}
+```
+
+#### DeepSeek Harness Web (`cordis.patch.yml` and `presets/*.patch.yml`)
+Add the MCP server to `custom_servers` and whitelist the tools:
+```yaml
+custom_servers:
+  loey_space:
+    command: "/home/heyloey/.local/bin/loey-space-mcp"
+    args:
+      - "--vault"
+      - "/mnt/c/Users/jonel/Documents/loey_space"
+
+tool_whitelist:
+  - "mcp__loey_space__heyloey_brief"
+  - "mcp__loey_space__heyloey_context"
+  - "mcp__loey_space__heyloey_done"
+  - "mcp__loey_space__heyloey_learn"
+  - "mcp__loey_space__heyloey_lock_state"
+```
 
 ## Related
 
