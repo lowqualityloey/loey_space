@@ -190,7 +190,7 @@ function tableCellsOf(line) {
   return cells;
 }
 function unescapeCell(cell) {
-  return cell.replace(/\\\|/g, "|");
+  return cell.replace(/\\\|/g, "|").replace(/&lt;/g, "<").replace(/&amp;/g, "&");
 }
 function isAgentHeader(cells) {
   return cells.length >= 3 && cells[0].toLowerCase() === "time" && cells[1].toLowerCase() === "scope";

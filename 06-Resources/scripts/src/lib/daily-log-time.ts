@@ -357,11 +357,21 @@ function tableCellsOf(line: string): string[] | null {
 }
 
 function unescapeCell(cell: string): string {
-  return cell.replace(/\\\|/g, '|');
+  return cell.replace(/\\\|/g, '|').replace(/&lt;/g, '<').replace(/&amp;/g, '&');
 }
 
 export function escapeCell(text: string): string {
-  return text.replace(/\|/g, '\\|').replace(/\r?\n/g, ' ').trim();
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/\|/g, '\\|')
+    .replace(/<(?!br\s*\/?>)(?=[a-zA-Z/])/gi, '&lt;')
+    .replace(/\r?\n/g, ' ')
+    .trim();
+}
+
+/** Entity-safe form for plain bullets (handoff, personal log), where no cell parser will decode. */
+export function escapeInlineHtml(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/<(?=[a-zA-Z/])/gi, '&lt;');
 }
 
 function isAgentHeader(cells: string[]): boolean {
@@ -411,7 +421,10 @@ export function logAreaEntries(content: string, area: LogArea): AgentTableRow[] 
 
 /** True when `summary` is already recorded in that area — the only duplicate rule a writer needs. */
 export function logAreaHasSummary(content: string, area: LogArea, summary: string): boolean {
-  const needle = unescapeCell(summary.trim());
+  // The needle stays in the caller's form: agent cells are entity-decoded at read time, and a
+  // personal bullet is compared against the exact escaped form the writer produced. Decoding the
+  // needle itself would let a literal "&lt;" input falsely match a real "<" entry.
+  const needle = summary.trim();
   return logAreaEntries(content, area).some(entry => entry.summary.includes(needle));
 }
 

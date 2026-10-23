@@ -35,6 +35,7 @@ import {
   insertAgentMilestone,
   logAreaHasSummary,
   escapeCell,
+  escapeInlineHtml,
   migrateAgentMilestones,
   DAILY_LOG_HEADING,
   LOG_AREA_HEADINGS,
@@ -1227,10 +1228,14 @@ function runDone(root: string, args: string[], options: Options): number {
 
   const stamp = timeStr();
   const area: LogArea = personal ? 'personal' : 'agent';
+  // Agent rows decode through escapeCell/unescapeCell; plain bullets have no cell parser, so they
+  // carry the entity-safe form themselves. A raw "<tag>" in a summary once swallowed the rest of
+  // the note as an unclosed HTML element.
+  const inlineSummary = escapeInlineHtml(summary);
   const dailyLine = personal
-    ? `- **${displayLogTime(stamp)}**: ${summary}`
+    ? `- **${displayLogTime(stamp)}**: ${inlineSummary}`
     : `| ${displayLogTime(stamp, '&nbsp;')} |  | ${escapeCell(summary)} |`;
-  const handoffLine = `- [x] **[${todayStr()} ${stamp}]** ${summary}`;
+  const handoffLine = `- [x] **[${todayStr()} ${stamp}]** ${inlineSummary}`;
 
   // Both insertions are computed before either write, so a heading this command cannot honour
   // refuses the whole run instead of leaving one record updated and the other untouched.
@@ -1259,8 +1264,10 @@ function runDone(root: string, args: string[], options: Options): number {
   // Each half is decided independently: a retry after a partial write must add only what is
   // missing, never a second copy of the half that already landed. The daily check is scoped to
   // the area that owns the entry, so identical text in the other area never counts as this one.
-  const dailyRecorded = logAreaHasSummary(daily as string, area, summary);
-  const handoffRecorded = personal ? true : hasSummaryInSection(handoff as string, HANDOFF_HEADING, summary);
+  const dailyRecorded = logAreaHasSummary(daily as string, area, personal ? inlineSummary : summary);
+  const handoffRecorded = personal
+    ? true
+    : hasSummaryInSection(handoff as string, HANDOFF_HEADING, inlineSummary);
 
   if (options.dryRun) {
     console.log(`🔎 Dry run — nothing was written. Vault: ${describeTarget(root, options.showPaths)}`);
@@ -1287,7 +1294,9 @@ function runDone(root: string, args: string[], options: Options): number {
       // Verify inside the owning area, at the position the writer claims to own. A text that
       // landed in the other area is not this writer's record, and saying otherwise is the bug
       // this check exists to catch.
-      dailyStatus = written && logAreaHasSummary(written, area, summary) ? 'written' : 'failed';
+      dailyStatus = written && logAreaHasSummary(written, area, personal ? inlineSummary : summary)
+        ? 'written'
+        : 'failed';
       if (dailyStatus === 'failed') {
         console.error(`heyloey: post-write verification failed for ${dailyRel}; the entry is not there.`);
       }
@@ -1304,7 +1313,7 @@ function runDone(root: string, args: string[], options: Options): number {
   if (!personal && !handoffRecorded) {
     try {
       atomicWriteFileSync(handoffTarget, handoffResult.content);
-      handoffStatus = readText(root, HANDOFF_RECORD)?.includes(summary) ? 'written' : 'failed';
+      handoffStatus = readText(root, HANDOFF_RECORD)?.includes(inlineSummary) ? 'written' : 'failed';
       if (handoffStatus === 'failed') {
         console.error(`heyloey: post-write verification failed for ${HANDOFF_RECORD}; the entry is not there.`);
       }

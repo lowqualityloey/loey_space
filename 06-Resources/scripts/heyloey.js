@@ -307,10 +307,13 @@ function tableCellsOf(line) {
   return cells;
 }
 function unescapeCell(cell) {
-  return cell.replace(/\\\|/g, "|");
+  return cell.replace(/\\\|/g, "|").replace(/&lt;/g, "<").replace(/&amp;/g, "&");
 }
 function escapeCell(text) {
-  return text.replace(/\|/g, "\\|").replace(/\r?\n/g, " ").trim();
+  return text.replace(/&/g, "&amp;").replace(/\|/g, "\\|").replace(/<(?!br\s*\/?>)(?=[a-zA-Z/])/gi, "&lt;").replace(/\r?\n/g, " ").trim();
+}
+function escapeInlineHtml(text) {
+  return text.replace(/&/g, "&amp;").replace(/<(?=[a-zA-Z/])/gi, "&lt;");
 }
 function isAgentHeader(cells) {
   return cells.length >= 3 && cells[0].toLowerCase() === "time" && cells[1].toLowerCase() === "scope";
@@ -350,7 +353,7 @@ function logAreaEntries(content, area) {
   return entries;
 }
 function logAreaHasSummary(content, area, summary) {
-  const needle = unescapeCell(summary.trim());
+  const needle = summary.trim();
   return logAreaEntries(content, area).some((entry) => entry.summary.includes(needle));
 }
 function sortAgentTable(lines, header, limit) {
@@ -1947,8 +1950,9 @@ function runDone(root, args, options) {
   }
   const stamp = timeStr();
   const area = personal ? "personal" : "agent";
-  const dailyLine = personal ? `- **${displayLogTime(stamp)}**: ${summary}` : `| ${displayLogTime(stamp, "&nbsp;")} |  | ${escapeCell(summary)} |`;
-  const handoffLine = `- [x] **[${todayStr()} ${stamp}]** ${summary}`;
+  const inlineSummary = escapeInlineHtml(summary);
+  const dailyLine = personal ? `- **${displayLogTime(stamp)}**: ${inlineSummary}` : `| ${displayLogTime(stamp, "&nbsp;")} |  | ${escapeCell(summary)} |`;
+  const handoffLine = `- [x] **[${todayStr()} ${stamp}]** ${inlineSummary}`;
   const dailyResult = personal ? insertDailyLogLine(daily, dailyLine, "personal") : insertAgentMilestone(daily, { stamp, scope: "", summary });
   if (!dailyResult.ok) {
     console.error(
@@ -1965,8 +1969,8 @@ function runDone(root, args, options) {
     receipt("refused", "not-attempted", "section-missing", "");
     return DONE_EXIT.refused;
   }
-  const dailyRecorded = logAreaHasSummary(daily, area, summary);
-  const handoffRecorded = personal ? true : hasSummaryInSection(handoff, HANDOFF_HEADING, summary);
+  const dailyRecorded = logAreaHasSummary(daily, area, personal ? inlineSummary : summary);
+  const handoffRecorded = personal ? true : hasSummaryInSection(handoff, HANDOFF_HEADING, inlineSummary);
   if (options.dryRun) {
     console.log(`\u{1F50E} Dry run \u2014 nothing was written. Vault: ${describeTarget(root, options.showPaths)}`);
     const area2 = personal ? LOG_AREA_HEADINGS.personal : LOG_AREA_HEADINGS.agent;
@@ -1989,7 +1993,7 @@ function runDone(root, args, options) {
     try {
       atomicWriteFileSync(dailyTarget, dailyResult.content);
       const written = readText(root, dailyRel);
-      dailyStatus = written && logAreaHasSummary(written, area, summary) ? "written" : "failed";
+      dailyStatus = written && logAreaHasSummary(written, area, personal ? inlineSummary : summary) ? "written" : "failed";
       if (dailyStatus === "failed") {
         console.error(`heyloey: post-write verification failed for ${dailyRel}; the entry is not there.`);
       }
@@ -2001,7 +2005,7 @@ function runDone(root, args, options) {
   if (!personal && !handoffRecorded) {
     try {
       atomicWriteFileSync(handoffTarget, handoffResult.content);
-      handoffStatus = readText(root, HANDOFF_RECORD)?.includes(summary) ? "written" : "failed";
+      handoffStatus = readText(root, HANDOFF_RECORD)?.includes(inlineSummary) ? "written" : "failed";
       if (handoffStatus === "failed") {
         console.error(`heyloey: post-write verification failed for ${HANDOFF_RECORD}; the entry is not there.`);
       }
