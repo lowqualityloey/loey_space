@@ -56,7 +56,7 @@ When the user starts a prompt with **`"heyloey"`** or **`"hey loey"`** (case-ins
 | **`heyloey distill`** / **`heyloey dream`** (or `hey loey distill` / `dream`) | **Knowledge Distillation & Dream Loop**: Read recent daily notes (`Blockers`, `Reflection`, `Ideas`), extract atomic mental models into [`08-Concepts/`](08-Concepts/_Concepts%20MOC.md) or patterns into [`03-Dev/`](03-Dev/_Dev%20MOC.md), audit `memory.md` capacity (`--check-rot`), and propose consolidations (Propose-First for autonomous sweeps, zero unapproved deletion). |
 | **`heyloey weekly`** / **`hey loey weekly`**                             | **Weekly Review**: Review 7-day habit completion (with explicit observation coverage), project milestones & GitHub achievements, and generate the weekly retrospective note in [`07-Reviews/`](07-Reviews/_Reviews%20MOC.md).                                                                                                                                |
 | **`heyloey plan`** / **`project`** (or `hey loey plan`)                 | **Project Planning & Scaffolding**: Scaffold `02-Projects/<name>/` via `99-Templates/Project.md` with `status: planning`, create `<name> Kanban.md`, decompose features into `#priority/p0-p3` cards in `## Backlog` (leveraging the Backlog Shield), and register in `_Projects MOC.md`. |
-| **`heyloey health`** / **`audit`** (or `hey loey health`)               | **Vault Hygiene & Anti-Rot**: Validate templates against [`Tagging & Properties.md`](06-Resources/Guides/Tagging%20&%20Properties.md), check broken wikilinks, run `npm run hygiene -- --check-rot` (overdue reviews, memory budget, skill guardrails), and verify no secrets exist in tracked files. |
+| **`heyloey health`** / **`audit`** (or `hey loey health`)               | **Vault Hygiene & Anti-Rot**: Validate templates against [`Tagging & Properties.md`](06-Resources/Guides/Tagging%20&%20Properties.md), check broken wikilinks, run `npm run check-rot` (overdue reviews, memory budget, skill guardrails; scans the private plane by design), and verify no secrets exist in tracked files. |
 | **`heyloey remind`** / **`hey loey remind`**                             | **Proactive Reminders & Scheduling**: Set one-shot timers or recurring cron reminders for daily routines, project checks, or retrospectives via the scheduler tool.                                                                                                                                                                                                 |
 
 ### 🛡️ Proactive Maintenance Surfacing Policy
@@ -259,7 +259,7 @@ When executing `heyloey plan <name>` / `hey loey plan <name>` or `heyloey projec
 
 When executing `heyloey distill` or `heyloey dream` (or during `heyloey weekly` consolidation):
 1. **Deterministic Anti-Rot Scan (`no_agent`)**:
-   - Run `npm run hygiene -- --check-rot` to inspect:
+   - Run `npm run check-rot` (the alias carries `--include-ignored`, so private-plane hubs are scanned) to inspect:
      - **Memory Capacity**: Checks if `memory.md` exceeds 75% of its budget and verifies the Core Memory Routing Rule header. The budget is 200 lines / 8 KB, so the warning fires at 150 lines / 6 KB.
      - **Overdue Reviews**: Lists notes in `02-Projects/`, `04-Learning/`, `05-Personal/`, and `08-Concepts/` where `last_reviewed + review_cycle < today`.
      - **Skill Library Health**: Verifies `.agents/skills/*/SKILL.md` carry `pinned`, `version`, and `## 🧪 Regression Cases`, and that any deprecated skill declares `absorbed_by`.
