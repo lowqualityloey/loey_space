@@ -32,6 +32,14 @@ export function aucklandDate(instant = DISCOVERY_NOW) {
   return `${part('year')}-${part('month')}-${part('day')}`;
 }
 
+/**
+ * Today in Pacific/Auckland for a live process. Fixtures that pair with an unfrozen writer must
+ * use this rather than the host's calendar, which is a different day for part of every UTC day.
+ */
+export function aucklandToday(now = new Date()) {
+  return aucklandDate(now);
+}
+
 /** Environment for a writer subprocess: the same frozen instant, inherited by its own children. */
 export function clockEnv(now = DISCOVERY_NOW, base = process.env) {
   const inherited = (base.NODE_OPTIONS || '').trim();

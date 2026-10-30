@@ -27,6 +27,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { aucklandToday } from "./helpers/auckland-clock.mjs";
 
 const TEST_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(TEST_DIR, "..", "..", "..");
@@ -63,15 +64,7 @@ const GIT_ENV = {
   GIT_COMMITTER_EMAIL: "fixture@example.invalid",
 };
 
-function pad(n) {
-  return String(n).padStart(2, "0");
-}
-
-function todayStr(now = new Date()) {
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-}
-
-function dailyRel(date = todayStr()) {
+function dailyRel(date = aucklandToday()) {
   return path.join("01-Daily", date.slice(0, 7), `${date}.md`);
 }
 
@@ -202,7 +195,7 @@ function makeVaultRepo(t, options = {}) {
       path.join(repo, dailyRel()),
       [
         "---",
-        `created: ${todayStr()}`,
+        `created: ${aucklandToday()}`,
         "type: daily",
         "---",
         `# Fixture day`,

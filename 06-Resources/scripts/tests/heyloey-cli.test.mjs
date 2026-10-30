@@ -22,6 +22,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { aucklandToday } from "./helpers/auckland-clock.mjs";
 
 const TEST_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(TEST_DIR, "..", "..", "..");
@@ -29,13 +30,7 @@ const BUNDLE = path.join(REPO_ROOT, "06-Resources/scripts/heyloey.js");
 const SOURCE = path.join(REPO_ROOT, "06-Resources/scripts/src/heyloey.ts");
 const SCAFFOLD = path.join(REPO_ROOT, "06-Resources/scaffold");
 
-function todayStr() {
-  const now = new Date();
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-}
-
-function dailyRel(date = todayStr()) {
+function dailyRel(date = aucklandToday()) {
   return path.join("01-Daily", date.slice(0, 7), `${date}.md`);
 }
 
@@ -59,7 +54,7 @@ const HANDOFF_SENTINEL = "SENTINEL: an objective the user wrote";
 /** A vault with the handoff record and today's daily note, both shaped like the templates. */
 function makeFullVault(t) {
   const root = makeVault(t);
-  const date = todayStr();
+  const date = aucklandToday();
 
   fs.writeFileSync(
     path.join(root, "handoff.md"),
@@ -339,7 +334,7 @@ test("done writes the documented format to the daily log and the handoff, preser
 
 test("done refuses when the daily note has no Daily Log section", (t) => {
   const root = makeVault(t);
-  fs.mkdirSync(path.join(root, "01-Daily", todayStr().slice(0, 7)), { recursive: true });
+  fs.mkdirSync(path.join(root, "01-Daily", aucklandToday().slice(0, 7)), { recursive: true });
   fs.writeFileSync(
     path.join(root, dailyRel()),
     ["---", "type: daily", "---", "# A note with no Daily Log heading", ""].join("\n")

@@ -6,18 +6,13 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { aucklandToday } from './helpers/auckland-clock.mjs';
 
 const TEST_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(TEST_DIR, '../../..');
 const BUNDLE = path.join(REPO_ROOT, '06-Resources/scripts/heyloey.js');
 
-function todayStr() {
-  const now = new Date();
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-}
-
-function dailyRel(date = todayStr()) {
+function dailyRel(date = aucklandToday()) {
   return path.join('01-Daily', date.slice(0, 7), `${date}.md`);
 }
 
