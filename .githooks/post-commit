@@ -157,11 +157,16 @@ to_wsl_path() {
   esac
 }
 
-# Absolute path of the WSL-side CLI. Override with LOEY_WSL_CLI when it lives elsewhere.
-wsl_cli="${LOEY_WSL_CLI:-/home/heyloey/.local/bin/heyloey}"
+# The WSL-side CLI. LOEY_WSL_CLI names it explicitly; otherwise the login shell resolves the
+# installed one, so this tracked hook carries no machine-specific home path.
+wsl_cli="${LOEY_WSL_CLI:-}"
 repo_root_wsl=""
 if [ "$hook_os" = windows ] && command -v wsl.exe >/dev/null 2>&1; then
   repo_root_wsl=$(to_wsl_path "$repo_root")
+  if [ -z "$wsl_cli" ]; then
+    wsl_cli=$(MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' \
+      wsl.exe -e bash -lc 'command -v heyloey 2>/dev/null' 2>/dev/null) || wsl_cli=""
+  fi
 fi
 
 # --- configuration ---------------------------------------------------------------
@@ -219,7 +224,7 @@ summary=$(printf '%s' "${summary:-}" | sed -e 's/^[-[:space:]]*//') || exit 0
 node_bin=$(command -v node 2>/dev/null) || node_bin=""
 bundle="$repo_root/06-Resources/scripts/heyloey.js"
 logger=""
-if [ -n "${repo_root_wsl:-}" ]; then
+if [ -n "${repo_root_wsl:-}" ] && [ -n "${wsl_cli:-}" ]; then
   logger="heyloey in WSL"
 elif [ -n "${node_bin:-}" ] && [ -f "$bundle" ]; then
   logger="repo-local bundle"
@@ -566,7 +571,7 @@ run_bounded() { # <seconds> <output file> <command…>
 # GitHub reconciler. Public clones without this private configuration keep the
 # portable bundle path below.
 reconciler="$repo_root/06-Resources/scripts/reconcile-github-milestones.mjs"
-if [ -n "${repo_root_wsl:-}" ]; then
+if [ -n "${repo_root_wsl:-}" ] && [ -n "${wsl_cli:-}" ]; then
   # A function, so the path-conversion override applies to this call only; `run_bounded` starts it
   # in a subshell with the logger's output redirected.
   run_wsl_logger() {
