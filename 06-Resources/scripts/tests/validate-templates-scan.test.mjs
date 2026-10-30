@@ -283,6 +283,34 @@ test("a tag-namespace warning does not affect the exit status", () => {
   );
 });
 
+test("flow-style tags satisfy the required namespaces", () => {
+  // YAML permits `tags: [type/a, area/b, status/c]` as well as the block list. The
+  // block-only reader saw zero tags in the flow form and warned on all three namespaces.
+  const flowFrontmatter = [
+    "created: 2026-01-01",
+    "updated: 2026-01-01",
+    "type: project",
+    "status: completed",
+    "priority: p1",
+    "area: dev",
+    "tags: [type/project, area/dev, status/completed, priority/p1]",
+  ].join("\n");
+
+  const result = runVault({ "02-Projects/Flow Tags.md": note(flowFrontmatter) });
+
+  assertExit(result, 0, "flow-style tags must not fail the contract");
+  assert.ok(
+    result.stdout.includes("02-Projects/Flow Tags.md"),
+    `the flow-tag note must actually have been inspected\n--- stdout ---\n${result.stdout}`
+  );
+  for (const namespace of ["type", "area", "status"]) {
+    assert.ok(
+      !result.stdout.includes(`Missing ${namespace}/* tag`),
+      `flow-style tags must satisfy ${namespace}/*\n--- stdout ---\n${result.stdout}`
+    );
+  }
+});
+
 test("NON-VACUITY: a run whose scan matches no files must not report success", () => {
   // If enumeration silently matched nothing — a wrong path, a broken root, a `git` call
   // that returned nothing — the old validator would print "All templates are properly

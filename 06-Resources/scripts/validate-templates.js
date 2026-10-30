@@ -324,7 +324,16 @@ function parseFrontmatter(content) {
         const [_, key, value] = propMatch;
         props[key] = stripYamlQuotes(value);
         if (key === "tags") {
-          inTags = true;
+          const flow = value.trim();
+          if (flow.startsWith("[") && flow.endsWith("]")) {
+            for (const entry of flow.slice(1, -1).split(",")) {
+              const tag = stripYamlQuotes(entry);
+              if (tag !== "")
+                tags.push(tag);
+            }
+          } else {
+            inTags = true;
+          }
         }
       }
     }

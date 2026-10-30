@@ -368,7 +368,18 @@ function parseFrontmatter(content: string): ParsedFrontmatter | null {
         const [_, key, value] = propMatch;
         props[key] = stripYamlQuotes(value);
         if (key === 'tags') {
-          inTags = true;
+          const flow = value.trim();
+          // YAML flow sequences (`tags: [type/a, area/b]`) are valid frontmatter too.
+          // Without this branch the block reader below sees zero tags and warns on all
+          // three required namespaces.
+          if (flow.startsWith('[') && flow.endsWith(']')) {
+            for (const entry of flow.slice(1, -1).split(',')) {
+              const tag = stripYamlQuotes(entry);
+              if (tag !== '') tags.push(tag);
+            }
+          } else {
+            inTags = true;
+          }
         }
       }
     }
