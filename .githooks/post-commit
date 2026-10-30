@@ -42,6 +42,13 @@
 # nothing. The vault is named explicitly with `--root`, never guessed, so the entry lands in this
 # repository's records and not in whichever vault happens to be current.
 #
+# WINDOWS. From Git Bash the repository bundle is reachable through a Windows `node`, and
+# `--dry-run` renders the rows, but every write is refused with exit 8: the CLI serialises with
+# `flock`, which native Windows does not have. The route that can write is the CLI inside WSL,
+# addressed directly (`wsl.exe -e env LOEY_SPACE_DIR=<vault> … done`), because `wsl.exe -e` starts a
+# fresh environment and would otherwise drop the vault name. Without `wsl.exe` the hook falls back
+# to the documented order, and a refused write is reported rather than absorbed.
+#
 # PATH IS NEVER MODIFIED. An earlier version prefixed `~/.local/bin` and `~/.cargo/bin` onto PATH,
 # which can shadow the caller's own tools for the duration of the hook. Tools are looked up with
 # `command -v` and used as the caller's environment defines them.
@@ -123,6 +130,40 @@ repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 
 note() { printf 'post-commit: %s\n' "$*" >&2; }
 
+# --- Windows Git Bash ---------------------------------------------------------------
+# A Windows `node` can run the repository bundle, and `--dry-run` even renders the rows, but every
+# write is refused with exit 8: "LOCK unavailable: flock is not available on native Windows; run
+# within WSL". The CLI serialises with `flock` and has no fallback, so the only route that can
+# actually write from this shell is the CLI inside WSL, addressed directly.
+#
+# `wsl.exe -e` starts a fresh WSL environment, so a `LOEY_SPACE_DIR` exported here does not cross;
+# it is carried as an argument to `env` instead. MSYS also rewrites the arguments of native
+# executables, which would turn `/mnt/c/...` and the CLI's own path into `C:/Program Files/Git/...`,
+# so that one call runs with path conversion off.
+hook_os=unix
+case "$(uname -s 2>/dev/null || echo unknown)" in
+  MINGW*|MSYS*|CYGWIN*) hook_os=windows ;;
+esac
+
+# /c/Users/jonel/... -> /mnt/c/Users/jonel/... (the spelling the WSL-side CLI expects)
+to_wsl_path() {
+  case "$1" in
+    /mnt/*) printf '%s' "$1" ;;
+    /[a-zA-Z]/*) printf '/mnt%s' "$1" ;;
+    [a-zA-Z]:/*)
+      _drive=$(printf '%s' "${1:0:1}" | tr 'A-Z' 'a-z')
+      printf '/mnt/%s%s' "$_drive" "${1:2}" ;;
+    *) printf '%s' "$1" ;;
+  esac
+}
+
+# Absolute path of the WSL-side CLI. Override with LOEY_WSL_CLI when it lives elsewhere.
+wsl_cli="${LOEY_WSL_CLI:-/home/heyloey/.local/bin/heyloey}"
+repo_root_wsl=""
+if [ "$hook_os" = windows ] && command -v wsl.exe >/dev/null 2>&1; then
+  repo_root_wsl=$(to_wsl_path "$repo_root")
+fi
+
 # --- configuration ---------------------------------------------------------------
 config_bool() { # <key> <default> → true|false. A missing or malformed value falls back.
   local value
@@ -174,11 +215,13 @@ summary=$(printf '%s\n' "$message" | awk '
 summary=$(printf '%s' "${summary:-}" | sed -e 's/^[-[:space:]]*//') || exit 0
 [ -n "$summary" ] || exit 0
 
-# --- the logger: repository-local first, global second, skip third ---------------
+# --- the logger: WSL on Windows, repository-local then global, skip third ---------
 node_bin=$(command -v node 2>/dev/null) || node_bin=""
 bundle="$repo_root/06-Resources/scripts/heyloey.js"
 logger=""
-if [ -n "${node_bin:-}" ] && [ -f "$bundle" ]; then
+if [ -n "${repo_root_wsl:-}" ]; then
+  logger="heyloey in WSL"
+elif [ -n "${node_bin:-}" ] && [ -f "$bundle" ]; then
   logger="repo-local bundle"
 elif command -v heyloey >/dev/null 2>&1; then
   logger="heyloey on PATH"
@@ -523,7 +566,15 @@ run_bounded() { # <seconds> <output file> <command…>
 # GitHub reconciler. Public clones without this private configuration keep the
 # portable bundle path below.
 reconciler="$repo_root/06-Resources/scripts/reconcile-github-milestones.mjs"
-if [ -f "$repo_root/.github-milestone-reconciliation.ready.json" ] && [ -n "${node_bin:-}" ] && [ -f "$reconciler" ]; then
+if [ -n "${repo_root_wsl:-}" ]; then
+  # A function, so the path-conversion override applies to this call only; `run_bounded` starts it
+  # in a subshell with the logger's output redirected.
+  run_wsl_logger() {
+    MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' \
+      wsl.exe -e env "LOEY_SPACE_DIR=$repo_root_wsl" "$wsl_cli" done "$summary"
+  }
+  run_bounded "$timeout_secs" "$capture" run_wsl_logger
+elif [ -f "$repo_root/.github-milestone-reconciliation.ready.json" ] && [ -n "${node_bin:-}" ] && [ -f "$reconciler" ]; then
   run_bounded "$timeout_secs" "$capture" "$node_bin" "$reconciler" --root "$repo_root" --record "$summary"
 elif [ "$logger" = "repo-local bundle" ]; then
   run_bounded "$timeout_secs" "$capture" "$node_bin" "$bundle" --root "$repo_root" done "$summary"
