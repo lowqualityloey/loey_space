@@ -7,6 +7,7 @@ area: inbox
 tags:
   - type/moc
   - area/inbox
+  - status/active
 ---
 
 # 📥 Inbox Dashboard & Capture Hub

@@ -9,6 +9,7 @@ cssclasses:
 tags:
   - type/moc
   - area/personal
+  - status/active
 ---
 
 # 🧘 Personal Life Command Hub

@@ -7,6 +7,7 @@ area: daily
 tags:
   - type/moc
   - area/daily
+  - status/active
 ---
 
 # 📅 Daily Notes MOC & Journal Hub

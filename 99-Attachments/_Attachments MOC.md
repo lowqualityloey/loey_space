@@ -7,6 +7,7 @@ area: attachments
 tags:
   - type/moc
   - area/attachments
+  - status/active
 ---
 
 # 📁 Attachments & Media Dashboard

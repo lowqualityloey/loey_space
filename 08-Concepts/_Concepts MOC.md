@@ -9,6 +9,7 @@ cssclasses:
 tags:
   - type/moc
   - area/concepts
+  - status/active
 ---
 
 # 💡 Concepts MOC & Evergreen Knowledge Hub

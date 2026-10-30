@@ -9,6 +9,7 @@ cssclasses:
 tags:
   - type/moc
   - area/system
+  - status/active
 ---
 
 # 🧹 Triage & Vault Maintenance Hub

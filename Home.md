@@ -7,6 +7,7 @@ area: general
 tags:
   - type/dashboard
   - area/general
+  - status/active
 ---
 
 # 🏠 Central Command Hub

@@ -9,6 +9,7 @@ cssclasses:
 tags:
   - type/moc
   - area/projects
+  - status/active
 ---
 	
 # 🚀 Projects MOC & Engineering Hub

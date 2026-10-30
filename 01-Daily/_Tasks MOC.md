@@ -9,6 +9,7 @@ cssclasses:
 tags:
   - type/moc
   - area/tasks
+  - status/active
 ---
 
 # 📋 Tasks MOC & History Dashboard

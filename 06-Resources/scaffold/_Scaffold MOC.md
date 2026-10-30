@@ -7,6 +7,7 @@ area: resources
 tags:
   - type/moc
   - area/resources
+  - status/active
   - topic/scaffold
 ---
 

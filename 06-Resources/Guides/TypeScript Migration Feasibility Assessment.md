@@ -7,6 +7,7 @@ status: completed
 tags:
   - type/guide
   - area/resources
+  - status/completed
   - topic/typescript
   - topic/automation
   - topic/obsidian

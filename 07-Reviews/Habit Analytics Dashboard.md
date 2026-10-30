@@ -7,6 +7,7 @@ area: reviews
 tags:
   - type/dashboard
   - area/reviews
+  - status/active
   - topic/habits
   - topic/analytics
 ---

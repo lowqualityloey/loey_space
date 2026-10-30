@@ -7,6 +7,7 @@ status: active
 tags:
   - type/guide
   - area/resources
+  - status/active
   - topic/github
 ---
 

@@ -1,6 +1,8 @@
 ---
 created: <% tp.date.now("YYYY-MM-DD") %>
 updated: <% tp.date.now("YYYY-MM-DD") %>
+last_reviewed: <% tp.date.now("YYYY-MM-DD") %>
+review_cycle: 14d
 type: project
 status: active
 priority: medium
