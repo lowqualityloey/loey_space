@@ -22,7 +22,10 @@ on:
 jobs:
   validate:
     name: Build, Typecheck & Validate
-    runs-on: ubuntu-latest
+    # Pinned rather than `ubuntu-latest`: GitHub moves that label to Ubuntu 26 from
+    # October 19, 2026, and a runner-image jump should be a deliberate change with a
+    # verified run, not something a routine push silently picks up.
+    runs-on: ubuntu-24.04
 
     steps:
       - name: 📥 Checkout Repository
