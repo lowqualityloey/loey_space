@@ -1,6 +1,6 @@
 ---
 created: 2026-10-12
-updated: 2026-10-22
+updated: 2026-10-31
 type: guide
 status: active
 area: resources
@@ -36,7 +36,7 @@ This index groups the vault guides by what you want to accomplish. All links use
 ## Maintenance and System Health
 
 - [Maintenance & Troubleshooting](Maintenance%20&%20Troubleshooting.md): Common errors as symptom, action and expected result, plus the read-only versus mutating command reference and the maintenance schedule.
-- [Git Hooks Guide](Git%20Hooks%20Guide.md): Activating the repository's Git hooks, the commit trailer that opts a commit into milestone logging, timeout settings, coordination between concurrent runs, duplicate handling, and partial-write recovery.
+- [Git Hooks Guide](Git%20Hooks%20Guide.md): Activating the repository's Git hooks, the pre-push UTC timezone gate, the commit trailer that opts a commit into milestone logging, timeout settings, coordination between concurrent runs, duplicate handling, and partial-write recovery.
 - [GitHub Milestone Reconciliation](GitHub%20Milestone%20Reconciliation.md): Recovering merged PR milestones into both the daily log and handoff independently of the agent environment, with repository configuration, verified receipts and scheduling.
 - [DSH Plugin Update and Memory Guard Playbook](../../03-Dev/DSH%20Plugin%20Update%20and%20Memory%20Guard%20Playbook.md): Pre-update safety checks, profile backup, and recovery workflow for DeepSeek Harness Web plugin updates and memory preservation.
 - [Vault Security Policy](Vault%20Security%20Policy.md): Storage rules for sensitive information, `.gitignore` boundaries, and the pre-commit secret scanner.

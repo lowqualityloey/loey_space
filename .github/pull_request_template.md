@@ -7,7 +7,7 @@ system — so the split below matters: **the system is open, the journal is not.
 
 - [ ] This PR touches **only** open scope: the `kanban-status-sync` plugin, automation
       scripts (`06-Resources/scripts/`), CSS snippets (`.obsidian/snippets/`), the
-      pre-commit hook (`.githooks/`), templates (`99-Templates/`), or documentation
+      Git hooks (`.githooks/`), templates (`99-Templates/`), or documentation
       (`AGENTS.md`, `README.md`, `06-Resources/Guides/`).
 - [ ] This PR touches **no** personal-note folder (`00-Inbox/`, `01-Daily/`,
       `02-Projects/`, `03-Dev/`, `04-Learning/`, `05-Personal/`,

@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+#
+# pre-push — refuses a push when the UTC timezone lane fails.
+#
+# Why this gate exists: CI runs on a UTC host. A fixture that falls back to the laptop's local date
+# instead of Pacific/Auckland can pass locally and fail in CI once the two calendars differ. The
+# lane reproduces CI's host clock before the refs leave this machine.
+#
+# Blocking, like pre-commit and unlike post-commit: a failing lane means the push is not ready.
+# Override deliberately with `git push --no-verify`.
+#
+# Git supplies the refs on stdin as `<local ref> <local sha> <remote ref> <remote sha>`. A deletion
+# has an all-zero local sha and cannot introduce a new commit, so a deletion-only push skips the
+# lane. Any non-deletion ref runs it once for the whole push.
+#
+# WINDOWS. The lane's suites exercise kernel `flock`, which native Windows Node does not provide,
+# so this hook runs `npm run test:timezone` inside WSL. `wsl.exe -e` starts a fresh environment, so
+# the repository path is carried explicitly through `env`; MSYS path conversion is disabled for
+# that one call so `/mnt/c/...` is not rewritten into a Git Bash path.
+#
+# ACTIVATION. Hooks are inactive in a fresh clone:
+#     git config --local core.hooksPath .githooks
+
+set -u
+
+note() { printf 'pre-push: %s\n' "$*" >&2; }
+
+repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || {
+  note "push blocked: could not resolve the repository root"
+  exit 1
+}
+[ -n "${repo_root:-}" ] || {
+  note "push blocked: could not resolve the repository root"
+  exit 1
+}
+
+# Consume Git's ref list once. Every line that is not a deletion means there is a commit to check.
+# The loop uses the shell's own `read`, so a missing external utility cannot silently skip the gate.
+has_commit=0
+while read -r _local_ref local_sha _remote_ref _remote_sha; do
+  case "$local_sha" in
+    ''|*[!0]*) [ -n "${local_sha:-}" ] && has_commit=1 ;;
+  esac
+done
+
+[ "$has_commit" -eq 1 ] || exit 0
+
+hook_os=unix
+case "$(uname -s 2>/dev/null || echo unknown)" in
+  MINGW*|MSYS*|CYGWIN*) hook_os=windows ;;
+esac
+
+# /c/Users/... -> /mnt/c/Users/... (the spelling WSL expects). Already-WSL paths are left alone.
+to_wsl_path() {
+  case "$1" in
+    /mnt/*) printf '%s' "$1" ;;
+    /[a-zA-Z]/*) printf '/mnt%s' "$1" ;;
+    [a-zA-Z]:/*)
+      _drive=$(printf '%s' "${1:0:1}" | tr '[:upper:]' '[:lower:]')
+      printf '/mnt/%s%s' "$_drive" "${1:2}" ;;
+    *) printf '%s' "$1" ;;
+  esac
+}
+
+if [ "$hook_os" = windows ]; then
+  if ! command -v wsl.exe >/dev/null 2>&1; then
+    note "push blocked: this lane needs WSL or Linux, and wsl.exe was not found"
+    note "install WSL, or override deliberately with: git push --no-verify"
+    exit 1
+  fi
+
+  repo_root_wsl=$(to_wsl_path "$repo_root")
+  note "running the UTC timezone lane in WSL"
+  # The single quotes are deliberate: the outer shell must not expand LOEY_REPO_ROOT, because the
+  # path is resolved inside the fresh WSL shell. Shellcheck sees the literal and cannot know that.
+  # shellcheck disable=SC2016
+  MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' \
+    wsl.exe -e env "LOEY_REPO_ROOT=$repo_root_wsl" \
+    bash -lc 'cd "$LOEY_REPO_ROOT" && npm run test:timezone'
+  status=$?
+else
+  if ! command -v npm >/dev/null 2>&1; then
+    note "push blocked: npm is not on PATH, so the UTC timezone lane cannot run"
+    note "install Node/npm, or override deliberately with: git push --no-verify"
+    exit 1
+  fi
+
+  note "running the UTC timezone lane"
+  ( cd "$repo_root" && npm run test:timezone )
+  status=$?
+fi
+
+if [ "$status" -ne 0 ]; then
+  {
+    echo ""
+    echo "✖ Push blocked — the UTC timezone lane failed."
+    echo "  Fix the failing suite, or override deliberately with: git push --no-verify"
+    echo ""
+  } >&2
+  exit 1
+fi
+
+note "UTC timezone lane passed"
+exit 0

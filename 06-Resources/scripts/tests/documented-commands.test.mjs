@@ -17,7 +17,7 @@ const SCRIPTS_DECLARED = new Set(
 // Issue #63: the guide promised `npm run weekly-summary`, which was never declared, so
 // following the documentation exited 1 with "Missing script". This guard makes a
 // documented command a checked claim rather than a review habit, matching the same
-// reasoning as `check-bundle-parity` and the pre-push boundary guard.
+// reasoning as `check-bundle-parity` and the pre-push timezone gate.
 //
 // `npm test` and `npm ci` are deliberately out of scope: they are npm builtins invoked
 // without `run`, so this scan never sees them. `npm run build` IS seen and IS declared.

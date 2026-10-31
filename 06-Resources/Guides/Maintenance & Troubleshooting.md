@@ -1,6 +1,6 @@
 ---
 created: 2026-10-12
-updated: 2026-10-13
+updated: 2026-10-31
 type: guide
 status: active
 area: resources
@@ -57,10 +57,13 @@ Fixes for the problems this vault produces most often, written as **symptom → 
 
 ### Git hooks and milestone logging
 
-The `post-commit` hook records a milestone in today's daily note and in `handoff.md`. It is opt-in per commit, so most of the entries below only matter for a commit you expected to be logged. It never changes a commit's outcome: it reports what it could not do and the commit stands.
+The `pre-push` hook blocks a push when the UTC timezone lane fails. The `post-commit` hook records a milestone in today's daily note and in `handoff.md`; it is opt-in per commit, so most of the entries below only matter for a commit you expected to be logged. It never changes a commit's outcome: it reports what it could not do and the commit stands.
 
-[Git Hooks Guide](Git%20Hooks%20Guide.md) documents the mechanism — activation, permissions, settings, coordination, duplicates and recovery. The entries here cover the symptoms themselves.
+[Git Hooks Guide](Git%20Hooks%20Guide.md) documents the mechanism — activation, permissions, the pre-push lane, settings, coordination, duplicates and recovery. The entries here cover the symptoms themselves.
 
+- **Symptom**: `✖ Push blocked — the UTC timezone lane failed.`
+  - **Action**: run `npm run test:timezone` for the full output and fix the failing suite. On Windows, run it from WSL; the lane needs kernel `flock`. If the lane cannot run at all, check that `npm` and `node_modules` are installed for the platform running it.
+  - **Expected result**: the next push runs the lane and succeeds. `git push --no-verify` is the deliberate override, but it skips the gate rather than repairing it.
 - **Symptom**: a commit that should have been logged left no entry.
   - **Action**: check these, in order.
     1. **Is the hook active?** `git config --get core.hooksPath` must print `.githooks`. Cloning does not activate hooks; set it with `git config --local core.hooksPath .githooks`.

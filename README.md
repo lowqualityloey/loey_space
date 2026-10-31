@@ -64,7 +64,7 @@ Then, in order:
 
 ### Optional: the Git hooks
 
-Hooks are inactive until you point Git at them. `pre-commit` blocks a commit that stages a secret-shaped string or a declared private record; `post-commit` records a milestone in today's daily note and `handoff.md`, but only for a commit that opts in with a `HeyLoey-Milestone:` trailer.
+Hooks are inactive until you point Git at them. `pre-commit` blocks a commit that stages a secret-shaped string or a declared private record; `pre-push` blocks a push when the UTC timezone lane fails; `post-commit` records a milestone in today's daily note and `handoff.md`, but only for a commit that opts in with a `HeyLoey-Milestone:` trailer.
 
 ```bash
 git config --local core.hooksPath .githooks

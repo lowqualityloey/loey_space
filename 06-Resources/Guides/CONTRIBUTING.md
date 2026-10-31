@@ -1,6 +1,6 @@
 ---
 created: 2026-09-01
-updated: 2026-10-12
+updated: 2026-10-31
 type: guide
 status: active
 area: system
@@ -69,15 +69,25 @@ npm run typecheck
 # 2. Run automated unit test suite
 npm test
 
-# 3. Audit vault wikilinks & graph connectivity
+# 3. Re-run the live Auckland-clock suites with a UTC host clock
+#    CI is UTC; this reproduces the day-boundary that a non-UTC laptop hides.
+npm run test:timezone
+
+# 4. Audit vault wikilinks & graph connectivity
 npm run audit-links
 
-# 4. Validate vault templates and tracked notes against schema
+# 5. Validate vault templates and tracked notes against schema
 npm run validate-templates
 
-# 5. Inspect unclassified records and review metadata coverage
+# 6. Inspect unclassified records and review metadata coverage
 npm run hygiene
 ```
+
+`npm run test:timezone` runs only the suites whose fixtures pair with a writer that resolves
+"today" in Pacific/Auckland, and forces `TZ=UTC` in every child process. The `pre-push` hook runs this
+lane automatically for every non-deletion push, so the command is for a focused run while iterating.
+Like `npm test`, run it from WSL on Windows: the suites exercise kernel `flock`, which native Windows
+Node does not provide.
 
 ### Build and Mutating Workflow Commands
 

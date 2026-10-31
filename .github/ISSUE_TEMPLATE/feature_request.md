@@ -6,7 +6,7 @@
 
 - [ ] It improves the **shared system**: the `homepulse` or `kanban-status-sync`
       plugin, automation scripts (`06-Resources/scripts/`), CSS snippets, the
-      pre-commit hook, templates, or documentation.
+      Git hooks, templates, or documentation.
 - [ ] It is **not** about personal-note content. The numbered folders
       (`00-Inbox/` … `08-Concepts/`, `99-Attachments/`) are your notes, not shared
       artefacts, and are not something a public PR can change.

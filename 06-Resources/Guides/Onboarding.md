@@ -1,6 +1,6 @@
 ---
 created: 2026-10-12
-updated: 2026-10-13
+updated: 2026-10-31
 type: guide
 status: active
 area: resources
@@ -77,12 +77,13 @@ Git hooks are **inactive in a fresh clone** and stay inactive until you point Gi
 git config --local core.hooksPath .githooks
 ```
 
-That enables two hooks with different jobs:
+That enables three hooks with different jobs:
 
 - **`pre-commit` — blocking.** It refuses a commit that stages a secret-shaped string, a forbidden path (`.env`, `.secrets/`, `00-Private/`), or a declared private record. It fails closed: if its scan library is missing it refuses the commit rather than reporting a partial pass. `git commit --no-verify` overrides it deliberately.
+- **`pre-push` — blocking.** It runs `npm run test:timezone` before any non-deletion push, so a host-date regression fails locally instead of in CI. On Windows it runs inside WSL because the lane needs kernel `flock`; `git push --no-verify` overrides it deliberately.
 - **`post-commit` — non-blocking, and opt-in per commit.** It records a milestone in today's daily note and in `handoff.md`, but only for a commit that asks for it. Every other commit logs nothing.
 
-The pre-commit checks also run in CI, so skipping this step does not leave the repository unprotected — it only moves the feedback later.
+The pre-commit checks also run in CI, and the date-sensitive suites run there under UTC, so skipping this step does not leave the repository unprotected — it only moves the feedback later.
 
 ### Opting a commit in
 
@@ -99,7 +100,7 @@ EOF
 
 The trailer's text becomes the entry, so write it as the sentence you would want to read in the log tomorrow. An empty trailer is not an opt-in, and nothing is inferred from the subject line.
 
-Everything else about the hooks — executable permissions, the timeout and other settings, coordination between concurrent runs, duplicate handling, and what to do about a half-written entry — is in the [Git Hooks Guide](Git%20Hooks%20Guide.md).
+Everything else about the hooks — executable permissions, the timeout and other settings, the pre-push lane, coordination between concurrent runs, duplicate handling, and what to do about a half-written entry — is in the [Git Hooks Guide](Git%20Hooks%20Guide.md).
 
 ## Working with an assistant
 

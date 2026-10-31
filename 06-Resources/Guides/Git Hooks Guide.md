@@ -1,6 +1,6 @@
 ---
 created: 2026-10-13
-updated: 2026-10-13
+updated: 2026-10-31
 type: guide
 status: active
 area: resources
@@ -14,14 +14,15 @@ tags:
 
 # Git Hooks Guide
 
-The repository ships two Git hooks in `.githooks/`:
+The repository ships three Git hooks in `.githooks/`:
 
 | Hook | Behaviour | Job |
 | :--- | :--- | :--- |
 | `pre-commit` | Blocking | Refuses a commit that stages a secret-shaped string, a forbidden path, or a declared private record |
+| `pre-push` | Blocking | Refuses a push when the UTC timezone lane fails |
 | `post-commit` | Non-blocking, opt-in | Records a milestone in today's daily note and `handoff.md` |
 
-This guide covers activation, the permission bit Git needs, the logging settings, coordination, duplicates and recovery.
+This guide covers activation, the permission bit Git needs, the pre-push timezone gate, the logging settings, coordination, duplicates and recovery.
 [Onboarding](Onboarding.md) places activation in the first-run sequence, and [Maintenance & Troubleshooting](Maintenance%20&%20Troubleshooting.md) lists the symptoms each failure produces.
 
 ## Activation
@@ -38,8 +39,8 @@ Check that it took:
 git config --get core.hooksPath    # prints .githooks
 ```
 
-`--local` writes the setting to this clone's `.git/config`. Without it, neither hook runs and nothing warns you.
-The `pre-commit` checks also run in CI, so skipping activation only moves the feedback later.
+`--local` writes the setting to this clone's `.git/config`. Without it, no hook runs and nothing warns you.
+The `pre-commit` checks also run in CI, and the date-sensitive suites run there under UTC, so skipping activation only moves the feedback later.
 
 ## Executable permissions
 
@@ -55,7 +56,18 @@ If that prints nothing, Git skips the hook silently. On Windows or WSL with `cor
 git update-index --chmod=+x .githooks/post-commit
 ```
 
-Both hooks are recorded in the repository as mode `100755`, so a normal clone is already correct. The rule matters when you edit a hook on one of those platforms and commit it yourself.
+All three hooks are recorded in the repository as mode `100755`, so a normal clone is already correct. The rule matters when you edit a hook on one of those platforms and commit it yourself.
+
+## Pre-push timezone gate
+
+`pre-push` runs `npm run test:timezone` before Git sends any non-deletion ref. That lane pins the host
+clock to UTC, matching CI, and covers the suites whose fixtures pair with a writer that resolves
+"today" in Pacific/Auckland. A failure refuses the push. On Windows the hook starts the lane inside
+WSL, because those suites need kernel `flock`; on Linux it runs directly. The lane takes about 80
+seconds because the post-commit suite measures real timeout and lock-age behaviour.
+
+A deletion-only push skips the gate: it contains no new commit to test. `git push --no-verify` is the
+deliberate override, just as `--no-verify` is for `pre-commit`.
 
 ## Opt-in logging
 
