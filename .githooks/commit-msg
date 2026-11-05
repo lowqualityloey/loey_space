@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# commit-msg — refuse unsolicited AI attribution in commit messages.
+#
+# PROMPTKIT.md declares `ai-attribution: off`. The engine checker
+# (.promptkit/scripts/check-ai-attribution.sh) decides whether to enforce from
+# that line: `off` scans and fails on a prohibited signature, a missing line or
+# `host-default` skips without blocking. This hook never weakens that decision —
+# it only runs the check and reports a failure, so removing the preference line
+# automatically returns the hook to a no-op.
+#
+# The engine ruleset does not name Codebuff, so the project supplement at
+# .githooks/lib/ai-attribution-extra.txt is loaded through the documented
+# PROMPTKIT_AI_ATTRIBUTION_RULES_EXTRA seam.
+#
+# Fail-closed on a broken check (exit 2 from the engine), matching the engine's
+# own contract, but stay silent and permissive when the engine or the supplement
+# is absent: a missing tool must not block commits in a fresh clone.
+#
+# Reversible: delete this file. No other script installs it.
+
+set -u
+
+msg_file="${1:-}"
+[ -n "$msg_file" ] && [ -f "$msg_file" ] || exit 0
+
+root="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+[ -n "$root" ] || exit 0
+
+checker="$root/.promptkit/scripts/check-ai-attribution.sh"
+extra="$root/.githooks/lib/ai-attribution-extra.txt"
+
+# No engine, or no project supplement: stay out of the way.
+[ -f "$checker" ] || exit 0
+[ -f "$extra" ] || exit 0
+
+PROMPTKIT_AI_ATTRIBUTION_RULES_EXTRA="$extra" \
+    bash "$checker" --root "$root" --message-file "$msg_file" >/dev/null 2>&1
+status=$?
+
+[ "$status" -eq 0 ] && exit 0
+
+echo "commit-msg: blocked by the AI attribution policy (PROMPTKIT.md: ai-attribution: off)." >&2
+echo "commit-msg: the message carries an unsolicited AI co-author or generated-by signature." >&2
+echo "commit-msg: remove the offending line, or use 'git commit --no-verify' to override deliberately." >&2
+exit 1
