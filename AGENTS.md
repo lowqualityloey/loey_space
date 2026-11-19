@@ -186,8 +186,9 @@ When executing `heyloey log`, `heyloey sync`, or autonomous `heyloey done` miles
    - Personal Log is only for entries the owner writes or explicitly dictates as personal. **Never infer
      authorship from capitalisation, tense, or verbs** such as fix, implement, ship, review, or log.
      A personal entry (`heyloey personal "<entry>"`) is never written to `handoff.md`, while an agent
-     milestone still is. The repository CLI also accepts `done --personal` as a shorthand; the installed
-     canonical writer accepts only `personal`, and `done --personal` there must refuse rather than write.
+     milestone still is. Both writers accept `done --personal` as a shorthand for the owner-entry path and
+     route it to Personal Log without touching `handoff.md`; the installed canonical writer does the same
+     (`canonical/heyloey.cjs:61-72`), so it is an accepted alias, not a refused flag.
    - Format personal entries as simple timestamped bullets: `- **HH:MM AM/PM**: <concise summary>`.
      Format an agent milestone as a quoted row inside the container:
      `> | HH:MM AM/PM | <scope or blank> | <concise summary> |`.
