@@ -22,6 +22,7 @@ const TSX_CLI = path.join(REPO_ROOT, 'node_modules', 'tsx', 'dist', 'cli.mjs');
 
 const DATE_SENSITIVE_SUITES = [
   'heyloey-cli.test.mjs',
+  'heyloey-done-date.test.mjs',
   'heyloey-lock-concurrency.test.mjs',
   'heyloey-partial-write.test.mjs',
   'milestone-escaping.test.mjs',
