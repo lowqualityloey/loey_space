@@ -570,6 +570,12 @@ run_bounded() { # <seconds> <output file> <command…>
 # A configured personal vault shares the central logger's kernel lock with the
 # GitHub reconciler. Public clones without this private configuration keep the
 # portable bundle path below.
+#
+# The branch is selected by the repository ALLOWLIST, not by the readiness receipt. A receipt can be
+# stale or deleted, and testing for it made an uncertified vault quietly fall through to the portable
+# logger — logging the milestone and hiding the fact that the reconciler's native verification had
+# expired. Selecting on the allowlist means a vault that owns this integration always asks the
+# reconciler, so a refused certification is printed (below) instead of being routed around.
 reconciler="$repo_root/06-Resources/scripts/reconcile-github-milestones.mjs"
 if [ -n "${repo_root_wsl:-}" ] && [ -n "${wsl_cli:-}" ]; then
   # A function, so the path-conversion override applies to this call only; `run_bounded` starts it
@@ -579,7 +585,7 @@ if [ -n "${repo_root_wsl:-}" ] && [ -n "${wsl_cli:-}" ]; then
       wsl.exe -e env "LOEY_SPACE_DIR=$repo_root_wsl" "$wsl_cli" done "$summary"
   }
   run_bounded "$timeout_secs" "$capture" run_wsl_logger
-elif [ -f "$repo_root/.github-milestone-reconciliation.ready.json" ] && [ -n "${node_bin:-}" ] && [ -f "$reconciler" ]; then
+elif [ -f "$repo_root/.github-milestone-repositories.json" ] && [ -n "${node_bin:-}" ] && [ -f "$reconciler" ]; then
   run_bounded "$timeout_secs" "$capture" "$node_bin" "$reconciler" --root "$repo_root" --record "$summary"
 elif [ "$logger" = "repo-local bundle" ]; then
   run_bounded "$timeout_secs" "$capture" "$node_bin" "$bundle" --root "$repo_root" done "$summary"

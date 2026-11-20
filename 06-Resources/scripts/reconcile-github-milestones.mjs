@@ -24,13 +24,14 @@ const VERIFICATION_FILES = [
 ];
 
 export function parseOptions(args) {
-  const options = { root: process.env.LOEY_SPACE_DIR || path.resolve(path.dirname(filename), '../..'), dryRun: false, applyPlan: false, help: false, enable: false, recordSummary: undefined };
+  const options = { root: process.env.LOEY_SPACE_DIR || path.resolve(path.dirname(filename), '../..'), dryRun: false, applyPlan: false, help: false, enable: false, status: false, recordSummary: undefined };
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--root' && args[i + 1] && !args[i + 1].startsWith('--')) options.root = args[++i];
     else if (args[i] === '--record' && args[i + 1] && !args[i + 1].startsWith('--')) options.recordSummary = args[++i];
     else if (args[i] === '--dry-run') options.dryRun = true;
     else if (args[i] === '--enable') options.enable = true;
     else if (args[i] === '--apply-plan') options.applyPlan = true;
+    else if (args[i] === '--status') options.status = true;
     else if (args[i] === '--help') options.help = true;
     else throw new Error('Unknown or incomplete option: ' + args[i]);
   }
@@ -77,9 +78,12 @@ function ghJson(args) {
   }));
 }
 
+function fileHash(root, relative) {
+  return createHash('sha256').update(fs.readFileSync(safeFile(root, relative))).digest('hex');
+}
+
 function sourceHashes(root) {
-  return Object.fromEntries(VERIFICATION_FILES.map((relative) => [relative,
-    createHash('sha256').update(fs.readFileSync(safeFile(root, relative))).digest('hex')]));
+  return Object.fromEntries(VERIFICATION_FILES.map((relative) => [relative, fileHash(root, relative)]));
 }
 
 function hashesMatch(expected, actual) {
@@ -87,11 +91,118 @@ function hashesMatch(expected, actual) {
     Object.entries(actual).every(([name, hash]) => expected[name] === hash);
 }
 
-function requireReadiness(root) {
-  const ready = readJson(root, READY, true);
-  if (!ready || ready.schemaVersion !== 1 || !hashesMatch(ready.sourceHashes, sourceHashes(root))) {
-    throw new Error('Native verification is not recorded for this source version; run with --enable from a working WSL runtime.');
+/** Provenance lookups are diagnostic only: a slow or absent git costs a label, never the refusal. */
+const PROVENANCE_TIMEOUT_MS = 4000;
+
+function lastTouchingCommit(root, relative) {
+  try {
+    const output = execFileSync('git', ['log', '-1', '--format=%h %cs', '--', relative], {
+      cwd: root, encoding: 'utf8', timeout: PROVENANCE_TIMEOUT_MS, stdio: ['ignore', 'pipe', 'ignore']
+    }).trim();
+    return output || null;
+  } catch {
+    return null; // not a git checkout, a shallow clone, or git too slow to answer
   }
+}
+
+/**
+ * Describe the readiness receipt without throwing.
+ *
+ * The gate used to answer "not recorded" for three unlike situations — no receipt, a receipt from
+ * another schema, and a receipt whose hashes no longer match the source — so a reader could not tell
+ * a fresh clone from three weeks of silent drift. This reports the difference; certifying still
+ * happens only through --enable.
+ */
+export function readinessReport(root) {
+  let ready = null;
+  let problem = '';
+  const readyText = (() => {
+    try { return readText(root, READY); } catch (error) { problem = error.message; return null; }
+  })();
+  if (readyText !== null) {
+    try {
+      ready = JSON.parse(readyText);
+    } catch (error) {
+      problem = 'the receipt is not valid JSON (' + error.message + ')';
+    }
+    if (ready !== null && !ready) {
+      problem = 'the receipt is empty';
+      ready = null;
+    }
+  }
+  const validSchema = ready !== null && typeof ready === 'object' && ready.schemaVersion === 1;
+  const expected = validSchema && ready.sourceHashes && typeof ready.sourceHashes === 'object' ? ready.sourceHashes : {};
+  const files = VERIFICATION_FILES.map((relative) => {
+    let actual = null;
+    try { actual = fileHash(root, relative); } catch { actual = null; }
+    const recorded = Object.prototype.hasOwnProperty.call(expected, relative) && typeof expected[relative] === 'string' ? expected[relative] : null;
+    const short = (hash) => (hash ? hash.slice(0, 12) : 'none');
+    let status = 'ok';
+    let detail = '';
+    if (actual === null) {
+      status = 'missing';
+      detail = 'absent from the working tree';
+    } else if (recorded === null) {
+      status = 'missing';
+      detail = 'not recorded in the receipt';
+    } else if (recorded !== actual) {
+      status = 'drifted';
+      detail = 'recorded=' + short(recorded) + ' actual=' + short(actual);
+    }
+    return { path: relative, status, recorded, actual, detail };
+  });
+  const drifted = files.filter((file) => file.status === 'drifted').map((file) => file.path);
+  const missing = files.filter((file) => file.status === 'missing').map((file) => file.path);
+  const onlyInReceipt = Object.keys(expected).filter((relative) => !VERIFICATION_FILES.includes(relative));
+  const onlyInSource = VERIFICATION_FILES.filter((relative) => !Object.prototype.hasOwnProperty.call(expected, relative));
+  let state = 'ok';
+  if (readyText === null) state = 'absent';
+  else if (!validSchema) state = 'schema';
+  else if (drifted.length || missing.length || onlyInReceipt.length) state = 'drift';
+  return {
+    ready: state === 'ok',
+    state,
+    files,
+    drifted,
+    missing,
+    onlyInReceipt,
+    onlyInSource,
+    verifiedAtUTC: validSchema && typeof ready.verifiedAtUTC === 'string' ? ready.verifiedAtUTC : null,
+    problem
+  };
+}
+
+/** Name at most two drifted files with the commit that last touched each, then count the rest. */
+function describeDrift(root, report, limit = 2) {
+  const named = report.drifted.slice(0, limit).map((relative) => {
+    const commit = lastTouchingCommit(root, relative);
+    return '`' + relative + '` (last changed ' + (commit || '(commit unknown)') + ')';
+  });
+  const more = report.drifted.length - named.length;
+  return named.join(', ') + (more > 0 ? ' (+' + more + ' more)' : '');
+}
+
+export function readinessError(root, report) {
+  // The first sentence is load-bearing: two suites assert on it verbatim. The cause is appended,
+  // never substituted, so an existing reader keeps working while a human gets the diagnosis.
+  const head = 'Native verification is not recorded for this source version; run with --enable from a working WSL runtime.';
+  if (report.state === 'absent') {
+    return head + ' Cause: ' + READY + ' is absent — no source version has been certified in this clone.';
+  }
+  if (report.state === 'schema') {
+    return head + ' Cause: ' + READY + ' does not record schemaVersion 1' + (report.problem ? ' (' + report.problem + ')' : '') + '.';
+  }
+  const parts = [];
+  if (report.drifted.length) parts.push('hash drift in ' + describeDrift(root, report));
+  if (report.missing.length) parts.push('cannot be verified from the working tree: ' + report.missing.join(', '));
+  if (report.onlyInReceipt.length) parts.push('the receipt certifies paths that are no longer verified: ' + report.onlyInReceipt.join(', '));
+  return head + ' Cause: ' + (parts.join('; ') || 'the receipt does not cover this source version') + '.';
+}
+
+function requireReadiness(root) {
+  const report = readinessReport(root);
+  if (report.ready) return;
+  throw new Error(readinessError(root, report));
 }
 
 function verifySource(root) {
@@ -305,7 +416,7 @@ async function runLocked(root, plan) {
 export async function main(args = process.argv.slice(2)) {
   const options = parseOptions(args);
   if (options.help) {
-    console.log('Usage: npm run reconcile-github -- [--root <vault>] [--dry-run | --enable]\nRequires gh authentication, the installed central heyloey CLI, and kernel flock (WSL on Windows).');
+    console.log('Usage: npm run reconcile-github -- [--root <vault>] [--status | --dry-run | --enable]\nRequires gh authentication, the installed central heyloey CLI, and kernel flock (WSL on Windows).\n--status is read-only: it needs no gh, no logger and no flock, and exits 0 ready / 4 not ready.');
     return 0;
   }
   const root = fs.realpathSync(path.resolve(options.root));
@@ -314,6 +425,22 @@ export async function main(args = process.argv.slice(2)) {
     if (process.env.LOEY_RECONCILE_LOCKED !== '1') throw new Error('Internal apply mode requires the kernel-lock launcher.');
     executePlan(root, JSON.parse(fs.readFileSync(0, 'utf8')));
     return 0;
+  }
+  if (options.status) {
+    if (options.dryRun || options.enable || options.recordSummary !== undefined) throw new Error('--status must run on its own.');
+    // Deliberately before the config read: a clone can ask "is this source certified?" without a
+    // repository allowlist, gh authentication, an installed logger or a kernel lock, and asking must
+    // never write anything.
+    const report = readinessReport(root);
+    for (const file of report.files) {
+      console.log(file.status + '  ' + file.path + (file.detail ? '  (' + file.detail + ')' : ''));
+    }
+    for (const relative of report.onlyInReceipt) console.log('stale  ' + relative + '  (certified by the receipt, no longer verified)');
+    const verified = report.verifiedAtUTC ? ' verified-at=' + report.verifiedAtUTC : '';
+    console.log('RESULT reconcile status=' + report.state + ' target=' + root + verified);
+    if (report.ready) return 0;
+    console.error(readinessError(root, report));
+    return 4;
   }
   const config = validateConfig(readJson(root, CONFIG));
   if (options.enable) {

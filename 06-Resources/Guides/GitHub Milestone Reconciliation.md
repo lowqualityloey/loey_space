@@ -1,6 +1,6 @@
 ---
 created: 2026-10-15
-updated: 2026-10-18
+updated: 2026-11-21
 type: guide
 area: resources
 status: active
@@ -56,7 +56,7 @@ The writer uses the installed logger under its existing kernel lock. That logger
 
 The `--enable` command runs the native reconciliation, lock-integration and existing post-commit tests before writing a readiness receipt for their source hashes. Source changes invalidate that receipt. Activation refuses while a vault hook is in flight and restores prior readiness if a hook overlaps the cutover. It never removes the hook's coordination lock.
 
-Once that readiness receipt exists, the vault's post-commit hook uses the same locked writer through the reconciler's internal recording route. This keeps a local vault commit from racing a scheduled scan. Clones without a readiness receipt retain the portable hook path. The hook still requires the canonical milestone trailer. A dry run requires no readiness receipt; live reconciliation refuses without one.
+The vault's post-commit hook uses the same locked writer through the reconciler's internal recording route whenever the vault declares `.github-milestone-repositories.json`. That selection is deliberately made on the allowlist rather than on the readiness receipt: a receipt that is stale or deleted must surface the refusal, not silently fall through to the portable logger, because the fallback writes without verification and looks identical to success. Clones that declare no allowlist keep the portable hook path. The hook still requires the canonical milestone trailer. A dry run requires no readiness receipt; live reconciliation refuses without one.
 
 An existing timestamped merged-PR entry in both records counts as already recorded. Opened-PR entries, negated merge statements and ambiguous multi-PR prose do not count. Legacy summaries must associate the repository, PR number and an affirmative merge action in the same clause; stable reconciliation markers identify their PR directly. If only one record contains the milestone, the missing record alone is repaired. Handoff archives count as retained records. Repository scopes and exact PR identities prevent cross-project collisions.
 
@@ -73,9 +73,27 @@ RESULT reconcile unchanged logged=0 already-recorded=2 milestones-verified=2 loc
 
 A process exit code alone is not evidence that entries were written.
 
+## Diagnose a refusal
+
+A live run refuses with `Native verification is not recorded for this source version` when the working tree no longer matches the certified receipt. The refusal now names the cause rather than only the verdict:
+
+- `Cause: .github-milestone-reconciliation.ready.json is absent` — this clone has never certified a source version.
+- `Cause: .github-milestone-reconciliation.ready.json does not record schemaVersion 1` — the receipt is from an older format.
+- `Cause: hash drift in \`<file>\` (last changed <sha> <date>)` — the listed files changed after certification. At most two are named, with a `(+N more)` count. When the vault is not a Git work tree the label degrades to `(commit unknown)`; the refusal itself is unaffected.
+
+Ask the same question without any of the machinery a write needs:
+
+```bash
+npm run reconcile-github -- --status
+```
+
+`--status` is read-only. It needs no `gh` authentication, no logger, no `flock` and no allowlist; it prints one `ok` / `drifted` / `missing` line per verification file, then `RESULT reconcile status=<ok|drift|absent|schema> target=<vault>`. Exit codes: `0` ready, `4` not ready, `1` error. It never rewrites the receipt.
+
+Re-certifying is always an explicit act: run `npm run reconcile-github -- --enable`. No mode refreshes readiness automatically, because certification is the one step that must stay reviewable.
+
 ## Scheduling
 
-A scheduler can run `npm run reconcile-github` hourly from the vault. Before the first live run of a source version, complete the repository gates and run `npm run reconcile-github -- --enable`. It should remain quiet on unchanged scans and report new recorded milestones or a new actionable blocker. A saved schedule is not evidence of a successful runtime execution: verify the first live receipt and both actual records before calling the integration operational.
+Nothing schedules this by default: no cron entry and no DSH task is registered. A scheduler can run `npm run reconcile-github` hourly from the vault. Before the first live run of a source version, complete the repository gates and run `npm run reconcile-github -- --enable`. It should remain quiet on unchanged scans and report new recorded milestones or a new actionable blocker. A saved schedule is not evidence of a successful runtime execution: verify the first live receipt and both actual records before calling the integration operational.
 
 Run the focused regression suite with:
 

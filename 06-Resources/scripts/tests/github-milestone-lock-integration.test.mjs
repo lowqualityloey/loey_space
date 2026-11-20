@@ -221,3 +221,138 @@ test('an earlier agent discovery without a checkpoint is reused on the next day'
   assert.equal(fs.readFileSync(f.env.FIXTURE_DAILY, 'utf8'), original);
   assert.equal(fs.readFileSync(nextDaily, 'utf8'), '## 📝 Daily Log\n');
 });
+
+// ---------------------------------------------------------------------------------------------
+// Staleness diagnostics. The receipt says "verified" or it says nothing useful; these pin that it
+// now says WHY, that it can be asked without any of the machinery a write needs, and that the
+// commit hook asks the reconciler instead of routing around a refusal.
+// ---------------------------------------------------------------------------------------------
+
+const READY_REL = '.github-milestone-reconciliation.ready.json';
+
+function statusOf(f, overrides = {}) {
+  return spawnSync(process.execPath, [f.driver, '--root', f.vault, '--status'], {
+    cwd: f.vault, encoding: 'utf8', timeout: 30000, env: { ...f.env, ...overrides }
+  });
+}
+
+test('--status reports per-file readiness and exits 0 on a certified source', (t) => {
+  const f = fixture(t);
+  const result = statusOf(f);
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  const lines = result.stdout.trim().split('\n');
+  const fileLines = lines.filter((line) => /^(ok|drifted|missing)  /.test(line));
+  assert.equal(fileLines.length, 6, 'one line per verification file: ' + result.stdout);
+  assert.ok(fileLines.every((line) => line.startsWith('ok  ')), result.stdout);
+  assert.match(result.stdout, /RESULT reconcile status=ok target=/);
+  assert.equal(result.stderr, '');
+});
+
+test('--status names the drifted files and exits 4 without writing anything', (t) => {
+  const f = fixture(t);
+  const target = path.join(f.vault, '06-Resources/scripts/github-milestone-reconciliation.mjs');
+  fs.appendFileSync(target, '\n// Drifted source\n');
+  const before = fs.readFileSync(path.join(f.vault, READY_REL), 'utf8');
+  const result = statusOf(f);
+
+  assert.equal(result.status, 4, result.stdout + result.stderr);
+  assert.match(result.stdout, /drifted  06-Resources\/scripts\/github-milestone-reconciliation\.mjs/);
+  assert.match(result.stdout, /RESULT reconcile status=drift target=/);
+  assert.match(result.stderr, /Native verification is not recorded/);
+  assert.match(result.stderr, /Cause: hash drift in `06-Resources\/scripts\/github-milestone-reconciliation\.mjs` \(last changed \(commit unknown\)\)/);
+  assert.equal(fs.readFileSync(path.join(f.vault, READY_REL), 'utf8'), before, 'a status read must not rewrite the receipt');
+  assert.equal(fs.readFileSync(f.daily, 'utf8'), '## 📝 Daily Log\n');
+  assert.equal(fs.readFileSync(f.handoff, 'utf8'), '### Latest Updates\n');
+});
+
+test('--status reports an absent receipt as absent, not as drift', (t) => {
+  const f = fixture(t);
+  fs.unlinkSync(path.join(f.vault, READY_REL));
+  const result = statusOf(f);
+  assert.equal(result.status, 4);
+  assert.match(result.stdout, /RESULT reconcile status=absent target=/);
+  assert.match(result.stderr, /Cause: \.github-milestone-reconciliation\.ready\.json is absent/);
+});
+
+test('--status needs no repository allowlist, no gh and no logger', (t) => {
+  const f = fixture(t);
+  fs.unlinkSync(path.join(f.vault, '.github-milestone-repositories.json'));
+  const result = statusOf(f, {
+    HEYLOEY_BIN: path.join(f.vault, 'no-such-logger'),
+    PATH: path.join(f.vault, 'empty-bin'),
+    LOEY_LOCK_DIR: path.join(f.vault, 'never-created-locks')
+  });
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /RESULT reconcile status=ok target=/);
+  assert.equal(fs.existsSync(path.join(f.vault, 'never-created-locks')), false, 'status must not take the kernel lock');
+});
+
+test('a drift refusal names the drifted file and the cause, not just the verdict', (t) => {
+  const f = fixture(t);
+  fs.appendFileSync(path.join(f.vault, '06-Resources/scripts/github-milestone-reconciliation.mjs'), '\n// Changed source version\n');
+  const result = spawnSync(process.execPath, [f.driver, '--root', f.vault, '--record', 'Must remain unlogged'], {
+    cwd: f.vault, env: f.env, encoding: 'utf8', timeout: 30000
+  });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Native verification is not recorded/, 'the verbatim first sentence must survive: callers match on it');
+  assert.match(result.stderr, /Cause: hash drift in `06-Resources\/scripts\/github-milestone-reconciliation\.mjs`/);
+  assert.match(result.stderr, /last changed \(commit unknown\)/, 'a non-repository root degrades the label, never the refusal');
+  assert.equal(fs.readFileSync(f.daily, 'utf8'), '## 📝 Daily Log\n');
+  assert.equal(fs.readFileSync(f.handoff, 'utf8'), '### Latest Updates\n');
+});
+
+/** Seed a real repository so the hook can read the commit it is asked to log. */
+function seedCommit(f, summary) {
+  const empty = path.join(f.vault, 'empty-hooks');
+  fs.mkdirSync(empty, { recursive: true });
+  for (const args of [
+    ['init', '--template=' + empty],
+    ['config', 'user.name', 'Fixture'],
+    ['config', 'user.email', 'fixture@example.invalid'],
+    ['config', 'heyloey.log', 'true'],
+    ['config', 'heyloey.timeout', '20'],
+    ['-c', 'core.hooksPath=' + empty, '-c', 'commit.gpgsign=false',
+      'commit', '--allow-empty', '-m', 'Fixture seed', '-m', 'HeyLoey-Milestone: ' + summary]
+  ]) {
+    const result = spawnSync('git', args, { cwd: f.vault, env: f.env, encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+  }
+}
+
+/** Run the tracked hook with a controlled PATH so the reconciler branch is the one under test. */
+function runHookInFixture(f, env = {}) {
+  const toolbox = path.join(f.vault, 'toolbox');
+  fs.mkdirSync(toolbox, { recursive: true });
+  for (const tool of ['node', 'git', 'bash', 'env', 'timeout', 'mkdir', 'rmdir', 'rm', 'sleep', 'dirname',
+    'basename', 'awk', 'sed', 'grep', 'head', 'tail', 'date', 'tr', 'cut', 'sort', 'wc', 'cat']) {
+    const found = spawnSync('bash', ['-c', 'command -v ' + tool], { encoding: 'utf8' }).stdout.trim();
+    if (found) fs.symlinkSync(found, path.join(toolbox, tool));
+  }
+  return spawnSync('bash', [hookSource], {
+    cwd: f.vault, encoding: 'utf8', timeout: 30000,
+    env: { ...f.env, ...env, PATH: toolbox + path.delimiter + path.dirname(process.execPath) + ':/usr/bin:/bin' }
+  });
+}
+
+test('the hook asks the reconciler even when the readiness receipt is gone', (t) => {
+  const f = fixture(t);
+  seedCommit(f, 'Receipt-free milestone');
+  fs.unlinkSync(path.join(f.vault, READY_REL));
+  const result = runHookInFixture(f);
+  assert.equal(result.status, 0, 'a failing logger never changes the commit outcome');
+  assert.match(result.stderr, /milestone not logged/);
+  assert.match(result.stderr, /Native verification is not recorded/,
+    'a vault that owns the reconciler must surface a refused certification, not route around it');
+  assert.equal(fs.readFileSync(f.daily, 'utf8'), '## 📝 Daily Log\n', 'the refusal must not be papered over by another writer');
+});
+
+test('the hook keeps the portable path when the vault declares no reconciler configuration', (t) => {
+  const f = fixture(t);
+  seedCommit(f, 'Allowlist-free milestone');
+  fs.unlinkSync(path.join(f.vault, '.github-milestone-repositories.json'));
+  const result = runHookInFixture(f);
+  assert.equal(result.status, 0);
+  assert.match(result.stderr, /milestone not logged/);
+  assert.ok(!/Native verification is not recorded/.test(result.stderr),
+    'without the allowlist the reconciler must not be consulted at all: public clones keep the bundle path');
+});
