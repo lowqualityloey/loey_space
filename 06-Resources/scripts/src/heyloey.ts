@@ -100,8 +100,14 @@ interface Options {
   dryRun: boolean;
   /** `done --personal`: the entry is the owner's own log and never touches handoff.md. */
   personal: boolean;
-  /** `migrate-log --date <YYYY-MM-DD>`: the note to separate. Defaults to today. */
+  /**
+   * `--date <YYYY-MM-DD>`: the day the entry belongs to.
+   * `migrate-log`: the note to separate. `done`: the day the milestone happened, so a
+   *  milestone replayed after midnight is filed in its own day's note. Defaults to today.
+   */
   date: string | null;
+  /** `done --time <HH:MM>`: the 24-hour clock time to record. Defaults to now. */
+  time: string | null;
   /** `migrate-log --select <HH:MM AM>`: explicit owner selection of a personal entry to move. */
   select: string[];
   /** `migrate-log --select-summary <text>`: the same, by a unique substring of the summary. */
@@ -126,7 +132,8 @@ function usage(): string {
     '                              open tasks, habits, inbox count and active projects.',
     '  context "<query>"           Read-only. Routes the query to matching projects, snippets,',
     '                              notes and runbooks, printing paths only.',
-    '  done "<summary>"            Records a completed milestone as a row in the one agent table',
+    '  done "<summary>" [--date <day>] [--time <HH:MM>]',
+    '                              Records a completed milestone as a row in the one agent table',
     '                              under `### 🤖 Agent Milestones` in today\'s daily note and under',
     '                              `### Latest Updates` in handoff.md. Refuses if either record is',
     '                              absent. Milestones only — see the Hey Loey Guide. With --personal',
@@ -153,6 +160,10 @@ function usage(): string {
     '                 would be written, and write nothing.',
     '  --personal     With `done`: write under `### 🧍 Personal Log` and skip handoff.md.',
     '  --date <day>   With `migrate-log`: the daily note to separate (YYYY-MM-DD).',
+    '                 With `done`: the day the milestone happened, so an entry replayed after',
+    '                 midnight is filed in its own day\'s note. Default: today.',
+    '  --time <t>     With `done --date`: the 24-hour clock time to record, e.g. --time 23:50.',
+    '                 Default: now.',
     '  --select <t>   With `migrate-log`: move exactly one personal entry with this time, e.g.',
     '                 "09:21 AM". Repeat for more. This is the ONLY way a personal entry is moved:',
     '                 the command never infers authorship from a verb or a capital letter.',
@@ -174,6 +185,7 @@ function parseArgs(argv: string[]): Parsed {
   let dryRun = false;
   let personal = false;
   let date: string | null = null;
+  let time: string | null = null;
   const select: string[] = [];
   const selectSummaries: string[] = [];
   let showPaths = false;
@@ -195,7 +207,21 @@ function parseArgs(argv: string[]): Parsed {
       if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
         return { kind: 'error', message: '--date requires YYYY-MM-DD, e.g. --date 2026-10-18' };
       }
+      // A shape match is not a day: 2026-02-31 parses as a number and would file the
+      // entry into a note that can never exist.
+      if (new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) !== value) {
+        return { kind: 'error', message: `--date must be a real YYYY-MM-DD day, got "${value}"` };
+      }
       date = value;
+      i += 1;
+      continue;
+    }
+    if (arg === '--time') {
+      const value = argv[i + 1];
+      if (!value || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value)) {
+        return { kind: 'error', message: '--time requires 24-hour HH:MM, e.g. --time 23:50' };
+      }
+      time = value;
       i += 1;
       continue;
     }
@@ -247,15 +273,18 @@ function parseArgs(argv: string[]): Parsed {
   if (personal && command !== 'done') {
     return { kind: 'error', message: '--personal is only valid with done' };
   }
-  if (date !== null && command !== 'migrate-log') {
-    return { kind: 'error', message: '--date is only valid with migrate-log' };
+  if (date !== null && command !== 'migrate-log' && command !== 'done') {
+    return { kind: 'error', message: '--date is only valid with done or migrate-log' };
+  }
+  if (time !== null && command !== 'done') {
+    return { kind: 'error', message: '--time is only valid with done' };
   }
 
   return {
     kind: 'command',
     command: command as Command,
     args: positional.slice(1),
-    options: { root: path.resolve(root), rootExplicit, dryRun, personal, date, select, selectSummaries, showPaths },
+    options: { root: path.resolve(root), rootExplicit, dryRun, personal, date, time, select, selectSummaries, showPaths },
   };
 }
 
@@ -1188,7 +1217,11 @@ function runDone(root: string, args: string[], options: Options): number {
   }
 
   const config = loadDailyNotesConfig(root);
-  const dailyRel = resolveDailyNoteFile(todayStr(), config);
+  // `--date` names the day the entry belongs to; `todayStr()` is only the default. A milestone
+  // replayed from the hook's pending queue hours after midnight must land in its own day's note,
+  // and the note path is the one thing that decides that.
+  const entryDate = options.date ?? todayStr();
+  const dailyRel = resolveDailyNoteFile(entryDate, config);
 
   // Validate BOTH write targets before reading or writing anything. A traversal in the daily-notes
   // config, or a symlink pointing out of the tree, must refuse the whole command — never write the
@@ -1209,7 +1242,15 @@ function runDone(root: string, args: string[], options: Options): number {
   // Refusals come before any write, and they name what is missing and how to create it. The
   // command never scaffolds a note: an invented structure is not what the vault expects.
   const problems: string[] = [];
-  if (!daily) problems.push(`today's daily note is absent (${dailyRel})`);
+  // The wording keeps the long-standing "daily note is absent" contract (asserted by the vault
+  // suite); only the day named in the path differs, and a back-dated run says which day it named.
+  if (!daily) {
+    problems.push(
+      entryDate === todayStr()
+        ? `today's daily note is absent (${dailyRel})`
+        : `the daily note is absent (${dailyRel}; --date ${entryDate})`
+    );
+  }
   if (!handoff && !personal) problems.push(`${HANDOFF_RECORD} is absent`);
   if (problems.length > 0) {
     console.error(`heyloey: ${problems.join('; ')}.`);
@@ -1226,7 +1267,9 @@ function runDone(root: string, args: string[], options: Options): number {
     return DONE_EXIT.refused;
   }
 
-  const stamp = timeStr();
+  // `--time` names the moment the work happened; a bare `--date` keeps the current clock,
+  // because the day is known and the minute is not - inventing one would be worse.
+  const stamp = options.time ?? timeStr();
   const area: LogArea = personal ? 'personal' : 'agent';
   // Agent rows decode through escapeCell/unescapeCell; plain bullets have no cell parser, so they
   // carry the entity-safe form themselves. A raw "<tag>" in a summary once swallowed the rest of
@@ -1235,7 +1278,7 @@ function runDone(root: string, args: string[], options: Options): number {
   const dailyLine = personal
     ? `- **${displayLogTime(stamp)}**: ${inlineSummary}`
     : `| ${displayLogTime(stamp, '&nbsp;')} |  | ${escapeCell(summary)} |`;
-  const handoffLine = `- [x] **[${todayStr()} ${stamp}]** ${inlineSummary}`;
+  const handoffLine = `- [x] **[${entryDate} ${stamp}]** ${inlineSummary}`;
 
   // Both insertions are computed before either write, so a heading this command cannot honour
   // refuses the whole run instead of leaving one record updated and the other untouched.
@@ -1270,6 +1313,9 @@ function runDone(root: string, args: string[], options: Options): number {
     : hasSummaryInSection(handoff as string, HANDOFF_HEADING, inlineSummary);
 
   if (options.dryRun) {
+    if (entryDate !== todayStr()) {
+      console.log(`[heyloey] back-dated: --date ${entryDate}${options.time ? ` --time ${options.time}` : ''} (not today, ${todayStr()})`);
+    }
     console.log(`🔎 Dry run — nothing was written. Vault: ${describeTarget(root, options.showPaths)}`);
     const area = personal ? LOG_AREA_HEADINGS.personal : LOG_AREA_HEADINGS.agent;
     console.log(`   ${dailyRel} [${area}]${dailyRecorded ? ' (already recorded)' : ''}`);

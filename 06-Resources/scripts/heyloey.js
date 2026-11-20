@@ -955,7 +955,8 @@ function usage() {
     "                              open tasks, habits, inbox count and active projects.",
     '  context "<query>"           Read-only. Routes the query to matching projects, snippets,',
     "                              notes and runbooks, printing paths only.",
-    '  done "<summary>"            Records a completed milestone as a row in the one agent table',
+    '  done "<summary>" [--date <day>] [--time <HH:MM>]',
+    "                              Records a completed milestone as a row in the one agent table",
     "                              under `### \u{1F916} Agent Milestones` in today's daily note and under",
     "                              `### Latest Updates` in handoff.md. Refuses if either record is",
     "                              absent. Milestones only \u2014 see the Hey Loey Guide. With --personal",
@@ -982,6 +983,10 @@ function usage() {
     "                 would be written, and write nothing.",
     "  --personal     With `done`: write under `### \u{1F9CD} Personal Log` and skip handoff.md.",
     "  --date <day>   With `migrate-log`: the daily note to separate (YYYY-MM-DD).",
+    "                 With `done`: the day the milestone happened, so an entry replayed after",
+    "                 midnight is filed in its own day's note. Default: today.",
+    "  --time <t>     With `done --date`: the 24-hour clock time to record, e.g. --time 23:50.",
+    "                 Default: now.",
     "  --select <t>   With `migrate-log`: move exactly one personal entry with this time, e.g.",
     '                 "09:21 AM". Repeat for more. This is the ONLY way a personal entry is moved:',
     "                 the command never infers authorship from a verb or a capital letter.",
@@ -1002,6 +1007,7 @@ function parseArgs(argv) {
   let dryRun = false;
   let personal = false;
   let date = null;
+  let time = null;
   const select = [];
   const selectSummaries = [];
   let showPaths = false;
@@ -1023,7 +1029,19 @@ function parseArgs(argv) {
       if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
         return { kind: "error", message: "--date requires YYYY-MM-DD, e.g. --date 2026-10-18" };
       }
+      if ((/* @__PURE__ */ new Date(`${value}T00:00:00Z`)).toISOString().slice(0, 10) !== value) {
+        return { kind: "error", message: `--date must be a real YYYY-MM-DD day, got "${value}"` };
+      }
       date = value;
+      i += 1;
+      continue;
+    }
+    if (arg === "--time") {
+      const value = argv[i + 1];
+      if (!value || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value)) {
+        return { kind: "error", message: "--time requires 24-hour HH:MM, e.g. --time 23:50" };
+      }
+      time = value;
       i += 1;
       continue;
     }
@@ -1078,14 +1096,17 @@ function parseArgs(argv) {
   if (personal && command !== "done") {
     return { kind: "error", message: "--personal is only valid with done" };
   }
-  if (date !== null && command !== "migrate-log") {
-    return { kind: "error", message: "--date is only valid with migrate-log" };
+  if (date !== null && command !== "migrate-log" && command !== "done") {
+    return { kind: "error", message: "--date is only valid with done or migrate-log" };
+  }
+  if (time !== null && command !== "done") {
+    return { kind: "error", message: "--time is only valid with done" };
   }
   return {
     kind: "command",
     command,
     args: positional.slice(1),
-    options: { root: path.resolve(root), rootExplicit, dryRun, personal, date, select, selectSummaries, showPaths }
+    options: { root: path.resolve(root), rootExplicit, dryRun, personal, date, time, select, selectSummaries, showPaths }
   };
 }
 function describeTarget(root, showPaths) {
@@ -1918,7 +1939,8 @@ function runDone(root, args, options) {
     return DONE_EXIT.skipped;
   }
   const config = loadDailyNotesConfig(root);
-  const dailyRel = resolveDailyNoteFile(todayStr(), config);
+  const entryDate = options.date ?? todayStr();
+  const dailyRel = resolveDailyNoteFile(entryDate, config);
   const dailyTarget = resolveInsideVault(root, dailyRel);
   const handoffTarget = resolveInsideVault(root, HANDOFF_RECORD);
   if (!dailyTarget || !handoffTarget) {
@@ -1931,8 +1953,11 @@ function runDone(root, args, options) {
   const daily = readText(root, dailyRel);
   const handoff = personal ? "" : readText(root, HANDOFF_RECORD);
   const problems = [];
-  if (!daily)
-    problems.push(`today's daily note is absent (${dailyRel})`);
+  if (!daily) {
+    problems.push(
+      entryDate === todayStr() ? `today's daily note is absent (${dailyRel})` : `the daily note is absent (${dailyRel}; --date ${entryDate})`
+    );
+  }
   if (!handoff && !personal)
     problems.push(`${HANDOFF_RECORD} is absent`);
   if (problems.length > 0) {
@@ -1948,11 +1973,11 @@ function runDone(root, args, options) {
     );
     return DONE_EXIT.refused;
   }
-  const stamp = timeStr();
+  const stamp = options.time ?? timeStr();
   const area = personal ? "personal" : "agent";
   const inlineSummary = escapeInlineHtml(summary);
   const dailyLine = personal ? `- **${displayLogTime(stamp)}**: ${inlineSummary}` : `| ${displayLogTime(stamp, "&nbsp;")} |  | ${escapeCell(summary)} |`;
-  const handoffLine = `- [x] **[${todayStr()} ${stamp}]** ${inlineSummary}`;
+  const handoffLine = `- [x] **[${entryDate} ${stamp}]** ${inlineSummary}`;
   const dailyResult = personal ? insertDailyLogLine(daily, dailyLine, "personal") : insertAgentMilestone(daily, { stamp, scope: "", summary });
   if (!dailyResult.ok) {
     console.error(
@@ -1972,6 +1997,9 @@ function runDone(root, args, options) {
   const dailyRecorded = logAreaHasSummary(daily, area, personal ? inlineSummary : summary);
   const handoffRecorded = personal ? true : hasSummaryInSection(handoff, HANDOFF_HEADING, inlineSummary);
   if (options.dryRun) {
+    if (entryDate !== todayStr()) {
+      console.log(`[heyloey] back-dated: --date ${entryDate}${options.time ? ` --time ${options.time}` : ""} (not today, ${todayStr()})`);
+    }
     console.log(`\u{1F50E} Dry run \u2014 nothing was written. Vault: ${describeTarget(root, options.showPaths)}`);
     const area2 = personal ? LOG_AREA_HEADINGS.personal : LOG_AREA_HEADINGS.agent;
     console.log(`   ${dailyRel} [${area2}]${dailyRecorded ? " (already recorded)" : ""}`);

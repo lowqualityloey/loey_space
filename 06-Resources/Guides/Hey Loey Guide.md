@@ -81,7 +81,7 @@ Run it from the vault root and the path is implicit. Output names the target rel
 | :--- | :--- | :--- |
 | `npm run heyloey -- brief` | Read-only | Condensed pulse: records present, today's focus and vitals, open tasks, habit count, inbox count, active projects. |
 | `npm run heyloey -- context "<query>"` | Read-only | Routes the query to matching projects, snippets, notes and runbooks, printing paths only. |
-| `npm run heyloey -- done "<summary>"` | Writes | Adds a milestone under `### 🤖 Agent Milestones` in today's daily note and under `### Latest Updates` in `handoff.md`. Refuses if either record, or the heading it owns, is missing — it never scaffolds a note. |
+| `npm run heyloey -- done "<summary>" [--date <day>] [--time <HH:MM>]` | Writes | Adds a milestone under `### 🤖 Agent Milestones` in today's daily note and under `### Latest Updates` in `handoff.md`. Refuses if either record, or the heading it owns, is missing — it never scaffolds a note. `--date` names the day the milestone happened (a milestone replayed after midnight is filed in its own day's note), `--time` names the clock time; without `--time` the current clock time is used, and the handoff's `updated:` field always names today because it describes when the file was touched. |
 | `npm run heyloey -- personal "<entry>"` | Writes | Records your own entry under `### 🧍 Personal Log`. `handoff.md` is never touched. |
 | `npm run heyloey -- migrate-log [--date <day>]` | Writes | One note (today unless `--date` names another) gains its labelled areas: entries whose summary has the automated outcome shape move to `### 🤖 Agent Milestones`, everything else stays exactly where it is. `--dry-run` prints the plan and writes nothing. |
 | `npm run heyloey -- learn "<Title>" "<Pattern>"` | Writes | Indexes a reusable pattern in `03-Dev/` and links it to the existing Dev hub (`[[_Dev MOC]]`); no link is written when the hub is absent. A colliding title merges into a marked, reviewable region; hand-written content is never overwritten, and the hub link is never duplicated. |
@@ -93,6 +93,8 @@ npm run heyloey -- done "Ship the parser fix" --dry-run
 ```
 
 `done` follows the milestone-only logging policy above: record shipped outcomes and decisions, not routine questions or health checks.
+
+`--date` and `--time` are accepted by `done` only (plus `--date` on `migrate-log`). Another command refuses them by name instead of swallowing them as part of the text, and an impossible day such as `2026-02-31` is rejected before anything is written.
 
 ### The commit hook logs the same way — when you ask it to
 
