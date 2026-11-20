@@ -79,7 +79,7 @@ A live run refuses with `Native verification is not recorded for this source ver
 
 - `Cause: .github-milestone-reconciliation.ready.json is absent` — this clone has never certified a source version.
 - `Cause: .github-milestone-reconciliation.ready.json does not record schemaVersion 1` — the receipt is from an older format.
-- `Cause: hash drift in \`<file>\` (last changed <sha> <date>)` — the listed files changed after certification. At most two are named, with a `(+N more)` count. When the vault is not a Git work tree the label degrades to `(commit unknown)`; the refusal itself is unaffected.
+- Cause: hash drift — `hash drift in '<file>' (last changed <sha> <date>)`; the listed files changed after certification. At most two are named, with a `(+N more)` count. When the vault is not a Git work tree the label degrades to `(commit unknown)`; the refusal itself is unaffected.
 
 Ask the same question without any of the machinery a write needs:
 
