@@ -150,8 +150,13 @@ export function recordContains(content, pr, kind, allowShortScope = true) {
     kind === 'handoff' ? sectionLines(content, '### Latest Updates') :
     typeof content === 'string' ? content.split(/\r?\n/) : [];
   const marker = '<!-- loey-github:' + pr.repository + '#' + pr.number + ' -->';
+  // The handoff writer escapes inline text, so its copy of the marker arrives HTML-escaped
+  // ('&lt;!--' ... '--&gt;'), while the daily table keeps the raw form because escapeCell only
+  // escapes '<' that a tag name follows. Both spellings are the same record; matching only the
+  // raw one made every freshly written handoff entry unverifiable.
+  const escapedMarker = marker.replace(/&/g, '&amp;').replace(/</g, '&lt;');
   for (const line of lines) {
-    if (line.includes(marker)) return true;
+    if (line.includes(marker) || line.includes(escapedMarker)) return true;
     if (legacyMergeEvidence(line, pr, allowShortScope)) return true;
   }
   return false;
@@ -165,6 +170,21 @@ export function requireReceipt(output, command, root) {
     throw new Error('Logger did not return a verified success receipt for the intended vault.');
   }
   return line;
+}
+
+/**
+ * A refusal (exit 4) means the writer declined and wrote nothing: the milestone is intact and
+ * still retryable. Every other failure is a real fault that must stop the scan.
+ */
+function isRefusal(error) {
+  if (!error || error.status !== 4) return false;
+  const text = String(error.stderr || '') + String(error.stdout || '');
+  return /REFUSED|refused/.test(text);
+}
+
+function refusalReason(error) {
+  const line = String(error.stderr || error.stdout || '').split(/\r?\n/).map((l) => l.trim()).find(Boolean);
+  return line ? line.replace(/^\[heyloey\]\s*/, '') : 'the writer refused and wrote nothing';
 }
 
 export function reconcileMilestones({ config, state, pullRequests, through }, io) {
@@ -184,6 +204,7 @@ export function reconcileMilestones({ config, state, pullRequests, through }, io
   const ordered = [...candidates.values()].sort((a, b) => a.mergedAt.localeCompare(b.mergedAt) || a.url.localeCompare(b.url));
   let logged = 0;
   let alreadyRecorded = 0;
+  const skipped = [];
   for (const pr of ordered) {
     const receipt = nextState.receipts[pr.url];
     const uniqueSlug = config.repositories.filter((repo) => repo.split('/')[1] === pr.repository.split('/')[1]).length === 1;
@@ -193,8 +214,22 @@ export function reconcileMilestones({ config, state, pullRequests, through }, io
     if (receipt && !proof.daily) throw new Error('Previously verified daily entry is absent; checkpoint preserved.');
     if (!proof.daily || !proof.handoff) {
       io.requireRecords();
-      const command = !proof.daily && !proof.handoff ? 'done' : !proof.daily ? 'log' : 'handoff';
-      requireReceipt(io.log(command, milestoneSummary(pr, config.timeZone)), command, io.root);
+      // A milestone belongs to the day the merge happened, not the day the scan noticed it.
+      // Only `done` accepts --date/--time, so it is the one command that can back-date, and it
+      // is idempotent on both records: the record that already exists reports already-recorded.
+      const when = localStamp(pr.mergedAt, config.timeZone);
+      let output;
+      try {
+        output = io.log('done', milestoneSummary(pr, config.timeZone), when);
+      } catch (e) {
+        // A refusal is a per-milestone condition, never a reason to abandon the rest of the
+        // scan: an hourly job must not wedge on one unrecordable day. No receipt is saved, so
+        // the milestone stays retryable once the obstacle is cleared.
+        if (!isRefusal(e)) throw e;
+        skipped.push({ url: pr.url, date: when.date, reason: refusalReason(e) });
+        continue;
+      }
+      requireReceipt(output, 'done', io.root);
       proof = inspect();
       if (!proof.daily || !proof.handoff) throw new Error('Post-write verification failed for ' + pr.url + '.');
       logged++;
@@ -211,5 +246,5 @@ export function reconcileMilestones({ config, state, pullRequests, through }, io
     if (!previous || Date.parse(previous) < cutoff) nextState.scans[repository] = through;
   }
   io.saveState(nextState);
-  return { outcome: logged ? 'logged' : 'unchanged', logged, alreadyRecorded, state: nextState };
+  return { outcome: logged ? 'logged' : 'unchanged', logged, alreadyRecorded, skipped, state: nextState };
 }

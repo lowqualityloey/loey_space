@@ -65,9 +65,27 @@ function fixture(t) {
     '  if (spawnSync("flock", ["-n", lock, "true"]).status === 0) throw new Error("Writer did not hold the shared kernel lock");',
     '  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 150);',
     '  const summary = process.argv[3];',
-    '  if (command !== "handoff") fs.appendFileSync(process.env.FIXTURE_DAILY, "- **10:00**: " + summary + "\\n");',
+    '  if (process.env.FIXTURE_ARGV) fs.appendFileSync(process.env.FIXTURE_ARGV, JSON.stringify(process.argv.slice(2)) + "\\n");',
+    '  const flag = (name) => { const at = process.argv.indexOf(name); return at === -1 ? null : process.argv[at + 1]; };',
+    '  const when = flag("--date");',
+    '  const whenTime = flag("--time");',
+    '  let target = process.env.FIXTURE_DAILY;',
+    '  if (when) {',
+    '    target = path.join(vault, "01-Daily", when.slice(0, 7), when + ".md");',
+    '    if (!fs.existsSync(target)) {',
+    '      console.error("[heyloey] REFUSED daily note: " + path.relative(vault, target) + " is absent; nothing written.");',
+    '      process.exit(4);',
+    '    }',
+    '  }',
+    '  // The real writer is idempotent on both records (logAreaHasSummary/handoffHasEntry).',
+    '  // A fixture that appends unconditionally would invent the duplicate it claims to detect.',
+    '  const appendOnce = (file, line) => {',
+    '    const prior = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "";',
+    '    if (!prior.includes(summary)) fs.appendFileSync(file, line);',
+    '  };',
+    '  if (command !== "handoff") appendOnce(target, "- **" + (whenTime || "10:00") + "**: " + summary + "\\n");',
     '  if (process.env.FIXTURE_FAIL_HANDOFF === "1") throw new Error("Interrupted after daily write");',
-    '  if (command !== "log") fs.appendFileSync(path.join(vault, "handoff.md"), "- [x] **[2026-10-15 10:00]** " + summary + "\\n");',
+    '  if (command !== "log") appendOnce(path.join(vault, "handoff.md"), "- [x] **[2026-10-15 10:00]** " + summary + "\\n");',
     '  console.log("RESULT " + command + " logged daily=written handoff=written lock=flock target=" + vault + " source=LOEY_SPACE_DIR verified=daily+handoff");',
     '}'
   ].join('\n');
@@ -180,6 +198,9 @@ function discoveryFixture(t) {
   const gh = put('bin/gh', '#!' + process.execPath + '\nconsole.log(JSON.stringify(process.argv.includes("search/issues") ? {total_count:1,incomplete_results:false,items:[{number:638}]} : ' + JSON.stringify(raw) + '));\n');
   fs.chmodSync(gh, 0o700);
   const dailyRelative = day => `01-Daily/${day.slice(0, 7)}/${day}.md`;
+  // The milestone merged on 2026-10-15 (01:00Z is 14:00 Pacific/Auckland), so that is the note a
+  // correct back-dated write must land in — not whichever day the scan happened to run.
+  put(dailyRelative('2026-10-15'), '## 📝 Daily Log\n');
   put(dailyRelative('2026-10-16'), '## 📝 Daily Log\n');
   put(dailyRelative('2026-10-17'), '## 📝 Daily Log\n');
   const env = { ...f.env, PATH: path.join(f.vault, 'bin') + path.delimiter + process.env.PATH,
@@ -193,19 +214,27 @@ function discoveryFixture(t) {
 
 test('a retry on another discovery day repairs handoff without duplicating the interrupted daily entry', t => {
   const f = discoveryFixture(t);
-  const first = f.run({ FIXTURE_FAIL_HANDOFF: '1' });
+  const mergeDay = path.join(f.vault, f.dailyRelative('2026-10-15'));
+  const first = f.run({ FIXTURE_FAIL_HANDOFF: '1', FIXTURE_DAILY: mergeDay, FIXTURE_ARGV: path.join(f.vault, 'argv.log') });
   assert.notEqual(first.status, 0, first.stdout + first.stderr);
-  const original = fs.readFileSync(f.env.FIXTURE_DAILY, 'utf8');
+  const original = fs.readFileSync(mergeDay, 'utf8');
   assert.match(original, /loey-github:example-owner\/example-project#638/);
+  // The flag pair is what makes a back-dated write possible at all; assert it on the wire, not
+  // just in the source, because a logger that silently ignores an extra argument looks green.
+  const argv = fs.readFileSync(path.join(f.vault, 'argv.log'), 'utf8').trim().split('\n').map(line => JSON.parse(line));
+  assert.equal(argv.length, 1, 'one write attempt before the interruption: ' + JSON.stringify(argv));
+  assert.equal(argv[0][0], 'done', 'only `done` can back-date a milestone');
+  assert.deepEqual(argv[0].slice(2), ['--date', '2026-10-15', '--time', '14:00']);
+  assert.ok(argv[0][1].includes('loey-github:example-owner/example-project#638'), argv[0][1]);
   const statePath = path.join(f.vault, '.github-milestone-reconciliation.json');
   assert.equal(fs.existsSync(statePath), false);
   const nextDaily = path.join(f.vault, f.dailyRelative('2026-10-17'));
   const retry = f.run({ FIXTURE_NOW: '2026-10-17T01:00:00Z', FIXTURE_DAILY: nextDaily });
   assert.equal(retry.status, 0, retry.stdout + retry.stderr);
-  assert.equal(fs.readFileSync(f.env.FIXTURE_DAILY, 'utf8'), original);
+  assert.equal(fs.readFileSync(mergeDay, 'utf8'), original);
   assert.equal(fs.readFileSync(nextDaily, 'utf8'), '## 📝 Daily Log\n');
   assert.equal(fs.readFileSync(f.handoff, 'utf8').split('loey-github:example-owner/example-project#638').length - 1, 1);
-  assert.equal(JSON.parse(fs.readFileSync(statePath)).receipts['https://github.com/example-owner/example-project/pull/638'].dailyPath, f.dailyRelative('2026-10-16'));
+  assert.equal(JSON.parse(fs.readFileSync(statePath)).receipts['https://github.com/example-owner/example-project/pull/638'].dailyPath, f.dailyRelative('2026-10-15'));
 });
 
 test('an earlier agent discovery without a checkpoint is reused on the next day', t => {

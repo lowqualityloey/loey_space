@@ -360,7 +360,10 @@ function executePlan(root, plan) {
   const result = reconcileMilestones({ ...plan, config, state }, {
     root,
     inspect(pr, receipt, allowShortScope) {
-      const possible = [...new Set([receipt?.dailyPath, todayPath, ...history.keys()].filter(Boolean))];
+      // The milestone's own day is the note a back-dated write lands in, so it must be read
+      // even when it is older than the configured history window or newer than the last scan.
+      const ownPath = dailyPath(root, localStamp(pr.mergedAt, config.timeZone).date);
+      const possible = [...new Set([receipt?.dailyPath, ownPath, todayPath, ...history.keys()].filter(Boolean))];
       const matched = possible.find((relative) => recordContains(history.has(relative) ? history.get(relative) : readText(root, relative), pr, 'daily', allowShortScope));
       const handoff = recordContains(readText(root, 'handoff.md'), pr, 'handoff', allowShortScope) ||
         archives().some((relative) => recordContains(readText(root, relative), pr, 'archive', allowShortScope));
@@ -373,16 +376,25 @@ function executePlan(root, plan) {
       }
       if (localStamp(new Date().toISOString(), config.timeZone).date !== today) throw new Error('Date changed during reconciliation; retry.');
     },
-    log(command, summary) {
-      return execFileSync(logger, [command, summary], {
+    log(command, summary, when) {
+      // --date/--time file a milestone under the day it happened. Only `done` accepts them
+      // (canonical/heyloey.cjs refuses them for log/handoff), so a back-dated write is always done.
+      const args = [command, summary];
+      if (when && when.date) args.push('--date', when.date, '--time', when.time);
+      return execFileSync(logger, args, {
         cwd: root, encoding: 'utf8', timeout: 30000, maxBuffer: 4 * 1024 * 1024,
         env: loggerEnvironment
       });
     },
     saveState(value) { saveState(root, value); }
   });
+  // A skipped milestone is reported, never hidden: it is work the run did not complete.
+  for (const item of result.skipped || []) {
+    console.log('[reconcile] SKIPPED ' + item.url + ' (' + item.date + '): ' + item.reason);
+  }
+  const skippedNote = result.skipped && result.skipped.length ? ' skipped=' + result.skipped.length : '';
   console.log('RESULT reconcile ' + result.outcome + ' logged=' + result.logged + ' already-recorded=' + result.alreadyRecorded +
-    ' milestones-verified=' + (result.logged + result.alreadyRecorded) + ' lock=flock target=' + root);
+    ' milestones-verified=' + (result.logged + result.alreadyRecorded) + skippedNote + ' lock=flock target=' + root);
 }
 
 async function runLocked(root, plan) {

@@ -50,7 +50,7 @@ Today's canonical daily note and `handoff.md` must exist with `## 📝 Daily Log
 
 ## What is recorded
 
-A milestone includes the repository, PR number, title, merge SHA, original merge time in the configured timezone, and canonical GitHub URL. It is logged on the day it is discovered; the original merge time remains in its text.
+A milestone includes the repository, PR number, title, merge SHA, original merge time in the configured timezone, and canonical GitHub URL. It is written into the daily note for the day the pull request merged, using `done --date <merge day> --time <merge time>`, so a scan that notices a merge late still files the milestone under the correct date. Only `done` accepts those flags, which is why it is the command the reconciler uses for a live write.
 
 The writer uses the installed logger under its existing kernel lock. That logger remains responsible for daily-note formatting and handoff overflow into monthly archives. No external repository, Git history, PR, issue or project status is changed.
 
@@ -60,7 +60,9 @@ The vault's post-commit hook uses the same locked writer through the reconciler'
 
 An existing timestamped merged-PR entry in both records counts as already recorded. Opened-PR entries, negated merge statements and ambiguous multi-PR prose do not count. Legacy summaries must associate the repository, PR number and an affirmative merge action in the same clause; stable reconciliation markers identify their PR directly. If only one record contains the milestone, the missing record alone is repaired. Handoff archives count as retained records. Repository scopes and exact PR identities prevent cross-project collisions.
 
-Before writing, reconciliation checks canonical daily notes from the configured starting date through today, following the daily-note folder and filename settings. This includes earlier discovery days, not just the PR's merge day. An interrupted writer can therefore recover an already-written daily entry even when its checkpoint was never saved. A successful retry saves that original daily path in its verified receipt and repairs only a missing record. Historical notes remain unchanged.
+Before writing, reconciliation checks canonical daily notes from the configured starting date through today, following the daily-note folder and filename settings. That reach covers both the PR's merge day and any later day where an interrupted run may have written. An interrupted writer can therefore recover an already-written daily entry even when its checkpoint was never saved. A successful retry saves that original daily path in its verified receipt and repairs only a missing record. Historical notes remain unchanged.
+
+A writer refusal is scoped to the milestone that caused it. If the target daily note is absent, that milestone is reported as `[reconcile] SKIPPED <url> (<date>): <reason>`, no receipt is saved for it, and the scan continues with the rest. The next run retries it once the note exists. Only an ordinary (non-refusal) write failure aborts the scan, because that is a fault in the integration rather than missing input.
 
 A stable marker and private checkpoint make repeated scans idempotent even if a PR title is edited. The checkpoint advances only after GitHub retrieval is complete and both record entries have been read back. Authentication failures, incomplete searches, pagination limits, failed logger receipts and partial writes do not advance it past unverified work. Each repository's next scan overlaps one day to catch delayed indexing.
 
@@ -69,7 +71,10 @@ Expected output after reconciliation:
 ```text
 RESULT reconcile logged logged=2 already-recorded=0 milestones-verified=2 lock=flock target=<vault>
 RESULT reconcile unchanged logged=0 already-recorded=2 milestones-verified=2 lock=flock target=<vault>
+RESULT reconcile logged logged=1 already-recorded=3 milestones-verified=4 skipped=1 lock=flock target=<vault>
 ```
+
+The `skipped=<n>` tail appears only when a milestone was refused, and each refusal is printed on its own line above the result.
 
 A process exit code alone is not evidence that entries were written.
 
@@ -93,7 +98,9 @@ Re-certifying is always an explicit act: run `npm run reconcile-github -- --enab
 
 ## Scheduling
 
-Nothing schedules this by default: no cron entry and no DSH task is registered. A scheduler can run `npm run reconcile-github` hourly from the vault. Before the first live run of a source version, complete the repository gates and run `npm run reconcile-github -- --enable`. It should remain quiet on unchanged scans and report new recorded milestones or a new actionable blocker. A saved schedule is not evidence of a successful runtime execution: verify the first live receipt and both actual records before calling the integration operational.
+An hourly cron entry runs this from the vault, so a merged pull request is normally recorded within the hour rather than at the next interactive session. Check the installed line with `crontab -l`. It should remain quiet on unchanged scans and report new recorded milestones or a new actionable blocker. A saved schedule is not evidence of a successful runtime execution: verify the first live receipt and both actual records before calling the integration operational.
+
+Cron runs with a minimal environment: the entry therefore sets `PATH` explicitly (so `gh` resolves) and `LOEY_SPACE_DIR`, and runs the script directly instead of through a login shell. Before the first live run of a source version, complete the repository gates and run `npm run reconcile-github -- --enable`.
 
 Run the focused regression suite with:
 

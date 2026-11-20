@@ -25,6 +25,7 @@ function fixture() {
     archive: ''
   };
   const calls = [];
+  const wheres = [];
   let saved;
   const io = {
     root: '/fixture/vault',
@@ -38,16 +39,22 @@ function fixture() {
     requireRecords() {
       if (!files.daily.includes('## 📝 Daily Log') || !files.handoff.includes('### Latest Updates')) throw new Error('Missing records');
     },
-    log(command, summary) {
+    log(command, summary, when) {
       calls.push(command);
-      if (command === 'done' || command === 'log') files.daily = files.daily.replace('## 📝 Daily Log\n', '## 📝 Daily Log\n- **10:00**: ' + summary + '\n');
-      if (command === 'done' || command === 'handoff') files.handoff = files.handoff.replace('### Latest Updates\n', '### Latest Updates\n- [x] **[2026-10-15 10:00]** ' + summary + '\n');
+      if (when) wheres.push(when);
+      // The real writer is idempotent per record, so a second `done` must not duplicate either line.
+      if ((command === 'done' || command === 'log') && !files.daily.includes(summary)) {
+        files.daily = files.daily.replace('## 📝 Daily Log\n', '## 📝 Daily Log\n- **10:00**: ' + summary + '\n');
+      }
+      if ((command === 'done' || command === 'handoff') && !files.handoff.includes(summary)) {
+        files.handoff = files.handoff.replace('### Latest Updates\n', '### Latest Updates\n- [x] **[2026-10-15 10:00]** ' + summary + '\n');
+      }
       return 'RESULT ' + command + ' logged lock=flock target=/fixture/vault source=LOEY_SPACE_DIR verified=daily+handoff';
     },
     saveState(value) { saved = structuredClone(value); }
   };
   const run = (state = null, pullRequests = [pr], cfg = config) => reconcileMilestones({ config: cfg, state, pullRequests, through }, io);
-  return { files, calls, io, run, saved: () => saved };
+  return { files, calls, wheres, io, run, saved: () => saved };
 }
 
 test('Auckland date and time cross the UTC day correctly', () => {
@@ -118,22 +125,27 @@ test('affirmative merge clauses keep their PR and repository identities together
   assert.equal(recordContains('## 📝 Daily Log\n- **09:00 AM**: [owner/project] PR #638 opened; [other/project] PR #638 merged.', pr, 'daily'), false);
 });
 
-test('an existing daily entry repairs only the missing handoff entry', () => {
+test('an existing daily entry repairs the missing handoff entry without losing the original', () => {
   const f = fixture();
   f.files.daily = '## 📝 Daily Log\n- **09:34**: [project/main] PR #638 merged.\n';
-  const before = f.files.daily;
-  f.run();
-  assert.deepEqual(f.calls, ['handoff']);
-  assert.equal(f.files.daily, before);
+  const result = f.run();
+  assert.deepEqual(f.calls, ['done']);
+  assert.equal(result.logged, 1);
+  // The repair goes through `done`, which is the only writer that can back-date a milestone to
+  // its merge day. It dedupes on summary text, so legacy-form evidence gains the canonical row
+  // rather than being replaced; the original line must survive that.
+  assert.ok(f.files.daily.includes('- **09:34**: [project/main] PR #638 merged.'));
+  assert.ok(f.files.handoff.includes('<!-- loey-github:owner/project#638 -->'));
 });
 
-test('an existing handoff entry repairs only the missing daily entry', () => {
+test('an existing handoff entry repairs the missing daily entry without losing the original', () => {
   const f = fixture();
   f.files.handoff = '### Latest Updates\n- [x] **[2026-10-15 09:34]** [project/main] PR #638 merged.\n';
-  const before = f.files.handoff;
-  f.run();
-  assert.deepEqual(f.calls, ['log']);
-  assert.equal(f.files.handoff, before);
+  const result = f.run();
+  assert.deepEqual(f.calls, ['done']);
+  assert.equal(result.logged, 1);
+  assert.ok(f.files.handoff.includes('- [x] **[2026-10-15 09:34]** [project/main] PR #638 merged.'));
+  assert.ok(f.files.daily.includes('<!-- loey-github:owner/project#638 -->'));
 });
 
 test('handoff overflow into its archive still counts as recorded', () => {
@@ -157,7 +169,7 @@ test('a partial logger failure can be retried without duplicating its first writ
   const before = f.files.daily;
   f.io.log = original;
   f.run();
-  assert.deepEqual(f.calls, ['handoff']);
+  assert.deepEqual(f.calls, ['done']);
   assert.equal(f.files.daily, before);
 });
 
@@ -286,3 +298,64 @@ test('invalid options fail instead of targeting an accidental working directory'
   assert.throws(() => parseOptions(['--record']), /option/);
   assert.equal(parseOptions(['--enable']).enable, true);
 });
+
+test('the escaped handoff marker is the same record as the raw one', () => {
+  // updateHandoff escapes inline text, so the handoff copy arrives as &lt;!-- ... --&gt; while the
+  // daily table keeps the raw form (escapeCell only escapes '<' followed by a tag name).
+  // Matching just the raw spelling made every freshly written handoff entry unverifiable.
+  const raw = '### Latest Updates\n- [x] **[2026-10-15 09:34]** PR merged. <!-- loey-github:owner/project#638 -->\n';
+  // escapeInlineText escapes '&' and '<' only, so the closing '-->' survives unescaped.
+  const escaped = '### Latest Updates\n- [x] **[2026-10-15 09:34]** PR merged. &lt;!-- loey-github:owner/project#638 -->\n';
+  assert.equal(recordContains(raw, pr, 'handoff'), true);
+  assert.equal(recordContains(escaped, pr, 'handoff'), true);
+  assert.equal(recordContains('### Latest Updates\n- [x] **[2026-10-15 09:34]** PR merged.\n', pr, 'handoff'), false);
+});
+
+test('a freshly written handoff is proof enough to checkpoint', () => {
+  const f = fixture();
+  // Simulate the writer escaping the marker the way the real handoff writer does.
+  const log = f.io.log;
+  f.io.log = (command, summary, when) => {
+    const out = log(command, summary, when);
+    f.files.handoff = f.files.handoff.replace(/<!-- loey-github:([^ ]+) -->/g, '&lt;!-- loey-github:$1 --&gt;');
+    return out;
+  };
+  const result = f.run();
+  assert.equal(result.logged, 1);
+  assert.ok(f.saved().receipts[pr.url], 'an escaped handoff marker must still verify');
+});
+
+test('a milestone is back-dated to the day it merged, not the day it was scanned', () => {
+  const f = fixture();
+  f.run();
+  // 2026-10-14T20:34:02Z is 2026-10-15 09:34 in Pacific/Auckland; the scan happens days later.
+  assert.deepEqual(f.wheres, [{ date: '2026-10-15', time: '09:34' }]);
+});
+
+test('a refusal skips only that milestone and leaves it retryable', () => {
+  const f = fixture();
+  f.io.log = (command, summary, when) => {
+    f.wheres.push(when);
+    const error = new Error('Command failed');
+    error.status = 4;
+    error.stderr = '[heyloey] REFUSED daily note: 01-Daily/2026-10/2026-10-15.md is absent; nothing written.\n';
+    throw error;
+  };
+  const result = f.run();
+  assert.equal(result.logged, 0);
+  assert.equal(result.skipped.length, 1);
+  assert.deepEqual(result.skipped[0], {
+    url: pr.url,
+    date: '2026-10-15',
+    reason: 'REFUSED daily note: 01-Daily/2026-10/2026-10-15.md is absent; nothing written.'
+  });
+  assert.equal(f.saved().receipts[pr.url], undefined, 'a skipped milestone must stay retryable');
+});
+
+test('an ordinary write failure is not softened into a skip', () => {
+  const f = fixture();
+  f.io.log = () => { throw new Error('Interrupted between record writes'); };
+  assert.throws(() => f.run(), /Interrupted/);
+  assert.equal(f.saved(), undefined);
+});
+
