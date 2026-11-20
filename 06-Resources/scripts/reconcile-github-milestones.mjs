@@ -353,6 +353,11 @@ function executePlan(root, plan) {
   const today = localStamp(new Date().toISOString(), config.timeZone).date;
   const todayPath = dailyPath(root, today);
   const history = dailyHistory(root, config, today, todayPath);
+  // The window is scanned once so a run with many milestones does not re-read the same notes
+  // per candidate. The cache must die the moment this run writes one of those notes: a
+  // post-write inspection served from the pre-write snapshot reports its own successful write
+  // as absent, which is indistinguishable from a logger that lied about the receipt.
+  const rewritten = new Set();
   const archiveDir = safeFile(root, '07-Reviews');
   const archives = () => fs.existsSync(archiveDir) ? fs.readdirSync(archiveDir)
     .filter((name) => /^handoff-archive-\d{4}-\d{2}\.md$/.test(name))
@@ -364,7 +369,9 @@ function executePlan(root, plan) {
       // even when it is older than the configured history window or newer than the last scan.
       const ownPath = dailyPath(root, localStamp(pr.mergedAt, config.timeZone).date);
       const possible = [...new Set([receipt?.dailyPath, ownPath, todayPath, ...history.keys()].filter(Boolean))];
-      const matched = possible.find((relative) => recordContains(history.has(relative) ? history.get(relative) : readText(root, relative), pr, 'daily', allowShortScope));
+      const matched = possible.find((relative) => recordContains(
+        history.has(relative) && !rewritten.has(relative) ? history.get(relative) : readText(root, relative),
+        pr, 'daily', allowShortScope));
       const handoff = recordContains(readText(root, 'handoff.md'), pr, 'handoff', allowShortScope) ||
         archives().some((relative) => recordContains(readText(root, relative), pr, 'archive', allowShortScope));
       return { daily: Boolean(matched), dailyPath: matched || todayPath, handoff };
@@ -381,10 +388,13 @@ function executePlan(root, plan) {
       // (canonical/heyloey.cjs refuses them for log/handoff), so a back-dated write is always done.
       const args = [command, summary];
       if (when && when.date) args.push('--date', when.date, '--time', when.time);
-      return execFileSync(logger, args, {
+      const output = execFileSync(logger, args, {
         cwd: root, encoding: 'utf8', timeout: 30000, maxBuffer: 4 * 1024 * 1024,
         env: loggerEnvironment
       });
+      // Whatever this run filed for that day just made the cached copy of the note obsolete.
+      if (when && when.date) rewritten.add(dailyPath(root, when.date));
+      return output;
     },
     saveState(value) { saveState(root, value); }
   });

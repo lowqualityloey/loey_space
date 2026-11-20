@@ -251,6 +251,29 @@ test('an earlier agent discovery without a checkpoint is reused on the next day'
   assert.equal(fs.readFileSync(nextDaily, 'utf8'), '## 📝 Daily Log\n');
 });
 
+// A run scans the daily window once and reuses that snapshot for every candidate. That cache is
+// only valid before the run writes: serving the post-write proof from it made a successful write
+// look unverifiable, so an hourly tick logged one milestone and then reported failure forever.
+test('post-write verification reads the note from disk, not the pre-write snapshot', t => {
+  const f = discoveryFixture(t);
+  const mergeDay = path.join(f.vault, f.dailyRelative('2026-10-15'));
+  // The snapshot taken at the start of the run holds this note with no row, so a cached read
+  // cannot satisfy the proof — only a fresh read of what the writer just produced can.
+  assert.equal(fs.readFileSync(mergeDay, 'utf8'), '## 📝 Daily Log\n');
+  const first = f.run({});
+  assert.equal(first.status, 0, first.stdout + first.stderr);
+  assert.match(first.stdout, /RESULT reconcile logged logged=1 already-recorded=0/);
+  assert.match(fs.readFileSync(mergeDay, 'utf8'), /loey-github:example-owner\/example-project#638/);
+  const state = JSON.parse(fs.readFileSync(path.join(f.vault, '.github-milestone-reconciliation.json'), 'utf8'));
+  assert.equal(state.receipts['https://github.com/example-owner/example-project/pull/638'].dailyPath,
+    f.dailyRelative('2026-10-15'));
+  // A saved receipt is what proves the run got past its own verification. Before the fix the
+  // first run threw, no receipt was written, and every later tick retried the same milestone.
+  const second = f.run({});
+  assert.equal(second.status, 0, second.stdout + second.stderr);
+  assert.match(second.stdout, /RESULT reconcile unchanged logged=0 already-recorded=1/);
+});
+
 // ---------------------------------------------------------------------------------------------
 // Staleness diagnostics. The receipt says "verified" or it says nothing useful; these pin that it
 // now says WHY, that it can be asked without any of the machinery a write needs, and that the
