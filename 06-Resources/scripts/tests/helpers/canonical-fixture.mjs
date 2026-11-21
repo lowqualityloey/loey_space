@@ -22,6 +22,8 @@ const TEST_DIR = path.dirname(fileURLToPath(import.meta.url));
 export const TESTS_DIR = path.resolve(TEST_DIR, '..');
 export const REPO_ROOT = path.resolve(TESTS_DIR, '..', '..', '..');
 export const FIXTURE = path.join(TESTS_DIR, 'fixtures', 'canonical-heyloey.cjs');
+/** The BM25 engine the canonical writer resolves as `<cli dir>/src/search-engine.cjs`. */
+export const FIXTURE_SRC = path.join(TESTS_DIR, 'fixtures', 'src');
 export const PATCH = path.join(REPO_ROOT, '06-Resources/scripts/patches/canonical-heyloey-agent-table.patch');
 export const INSTALLED = process.env.HEYLOEY_INSTALLED || 'heyloey';
 
@@ -51,12 +53,19 @@ export function dailyRel(date = todayStr()) {
   return path.join('01-Daily', date.slice(0, 7), `${date}.md`);
 }
 
-/** A disposable patched-canonical CLI. The fixture is the reproducible test input. */
+/**
+ * A disposable patched-canonical CLI. The fixture is the reproducible test input.
+ *
+ * The writer resolves its search engine as `<cli dir>/src/search-engine.cjs` and refuses to run
+ * without it, so the vendored engine travels beside the copy. The fixture is a directory-shaped
+ * test input for that reason: one file is no longer a runnable writer.
+ */
 export function canonicalCli(t) {
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'loey-canonical-writer-'));
   t.after(() => fs.rmSync(work, { recursive: true, force: true }));
   const cli = path.join(work, 'heyloey.cjs');
   fs.copyFileSync(FIXTURE, cli);
+  fs.cpSync(FIXTURE_SRC, path.join(work, 'src'), { recursive: true });
   return cli;
 }
 

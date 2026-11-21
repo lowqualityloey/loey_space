@@ -6,16 +6,138 @@ const path = require('path');
 const { createHash } = require('crypto');
 const { execSync, spawn } = require('child_process');
 
-// --- Central-vault targeting (explicit and documented) -----------------------
+// --- Vault targeting (explicit and portable) --------------------------------
 // Precedence, in full:
-//   1. LOEY_SPACE_DIR   explicit override (documented in `heyloey` usage)
-//   2. DEFAULT_VAULT_DIR documented constant (WSL mount for the Windows host)
+//   1. --root <dir>      explicit per-invocation override (resolved against cwd)
+//   2. LOEY_SPACE_DIR    explicit override for this CLI
+//   3. LOEY_VAULT_ROOT   the same variable the MCP launcher and server use
+//   4. ~/loey_space      portable fallback; no machine-specific path is built in
 // The resolved path AND which source produced it are reported by `status` and in
 // the machine-readable RESULT line, so a caller never has to guess where a write went.
-const DEFAULT_VAULT_DIR = '/mnt/c/Users/jonel/Documents/loey_space';
+//
+// The flag is consumed HERE, before any command parsing, so it is accepted before or
+// after the command and can never be mistaken for message text.
+const DEFAULT_VAULT_DIR = path.join(os.homedir(), 'loey_space');
+const ROOT_OVERRIDE = (() => {
+  const argv = process.argv;
+  for (let index = 2; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === '--root') {
+      const value = argv[index + 1];
+      if (value === undefined || value.startsWith('--')) {
+        console.error('[heyloey] --root requires a directory. Nothing written.');
+        process.exit(2);
+      }
+      argv.splice(index, 2);
+      return value;
+    }
+    if (arg.startsWith('--root=')) {
+      const value = arg.slice('--root='.length);
+      argv.splice(index, 1);
+      if (!value) {
+        console.error('[heyloey] --root requires a directory. Nothing written.');
+        process.exit(2);
+      }
+      return value;
+    }
+  }
+  return null;
+})();
+
+// Global planning/output flags, consumed the same way as --root so they are accepted
+// before or after the command and can never become message text.
+const DRY_RUN = (() => {
+  const at = process.argv.indexOf('--dry-run');
+  if (at === -1) return false;
+  process.argv.splice(at, 1);
+  return true;
+})();
+const SHOW_PATHS = (() => {
+  const at = process.argv.indexOf('--show-paths');
+  if (at === -1) return false;
+  process.argv.splice(at, 1);
+  return true;
+})();
+// `done --personal` is the repository CLI's shorthand for the owner-entry path: the entry
+// lands under the Personal Log and handoff.md is never touched. Accepted only on `done`.
+const DONE_PERSONAL = (() => {
+  // The flocked child re-execs without the consumed flag, so the parent marks it here.
+  if (process.env.LOEY_DONE_PERSONAL === '1') return true;
+  const argv = process.argv;
+  if (argv[2] !== 'done') return false;
+  const at = argv.indexOf('--personal', 3);
+  if (at === -1) return false;
+  argv.splice(at, 1);
+  return true;
+})();
+// `done --date <YYYY-MM-DD> [--time <HH:MM>]` names the moment the milestone actually
+// happened, so a write that is replayed late still lands in its own day. The post-commit hook
+// uses it to replay a milestone it queued before midnight instead of back-stamping it onto
+// today. Accepted only after `done`/`milestone`, consumed here so it can never become message
+// text, and carried to the flocked child through the environment because the consumed tokens
+// are gone from argv by the time that child starts.
+const DONE_WHEN = (() => {
+  const argv = process.argv;
+  const verb = argv[2] ? argv[2].toLowerCase() : '';
+  const takesFlags = verb === 'done' || verb === 'milestone';
+  const take = (flag, envName) => {
+    const fromEnv = process.env[envName];
+    if (fromEnv) return fromEnv;
+    if (!takesFlags) return null;
+    for (let index = 3; index < argv.length; index += 1) {
+      const arg = argv[index];
+      if (arg === flag) {
+        const value = argv[index + 1];
+        if (value === undefined || value.startsWith('--')) {
+          console.error(`[heyloey] ${flag} requires a value. Nothing written.`);
+          process.exit(1);
+        }
+        argv.splice(index, 2);
+        return value;
+      }
+      if (arg.startsWith(flag + '=')) {
+        const value = arg.slice(flag.length + 1);
+        argv.splice(index, 1);
+        if (!value) {
+          console.error(`[heyloey] ${flag} requires a value. Nothing written.`);
+          process.exit(1);
+        }
+        return value;
+      }
+    }
+    return null;
+  };
+  const when = { date: take('--date', 'LOEY_DONE_DATE'), time: take('--time', 'LOEY_DONE_TIME') };
+  // A back-dated write names a real calendar day and a real 24h clock time, or it writes
+  // nothing: a note silently filed under an impossible date is worse than a refused command.
+  if (when.date !== null) {
+    const parsed = /^\d{4}-\d{2}-\d{2}$/.test(when.date) ? new Date(`${when.date}T00:00:00Z`) : null;
+    if (!parsed || Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== when.date) {
+      console.error(`[heyloey] --date must be a real YYYY-MM-DD day, got "${when.date}". Nothing written.`);
+      process.exit(1);
+    }
+  }
+  if (when.time !== null && !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(when.time)) {
+    console.error(`[heyloey] --time must be 24-hour HH:MM, got "${when.time}". Nothing written.`);
+    process.exit(1);
+  }
+  return when;
+})();
 function resolveVaultTarget() {
+  // The flocked child inherits LOEY_SPACE_DIR for the resolved target, but the ORIGINAL
+  // selector is carried in LOEY_VAULT_SOURCE so `source=` names `--root` rather than the
+  // transport variable the re-exec had to use.
+  if (process.env.LOEY_LOCK_HELD === '1' && process.env.LOEY_VAULT_SOURCE) {
+    return { dir: process.env.LOEY_SPACE_DIR || DEFAULT_VAULT_DIR, source: process.env.LOEY_VAULT_SOURCE };
+  }
+  if (ROOT_OVERRIDE) {
+    return { dir: path.resolve(ROOT_OVERRIDE), source: '--root' };
+  }
   if (process.env.LOEY_SPACE_DIR) {
     return { dir: process.env.LOEY_SPACE_DIR, source: 'LOEY_SPACE_DIR' };
+  }
+  if (process.env.LOEY_VAULT_ROOT) {
+    return { dir: process.env.LOEY_VAULT_ROOT, source: 'LOEY_VAULT_ROOT' };
   }
   return { dir: DEFAULT_VAULT_DIR, source: 'default' };
 }
@@ -120,7 +242,33 @@ function normalizeDailyLog(content) {
 
 function getTodayInfo(offsetDays = 0) {
   const stamp = aucklandStamp(new Date(Date.now() + offsetDays * 86400000));
-  return { dateStr: stamp.date, monthDir: stamp.date.slice(0, 7), timeStr: stamp.time };
+  return { dateStr: stamp.date, monthDir: stamp.date.slice(0, 7), timeStr: stamp.time, backDated: false };
+}
+
+/**
+ * The day and clock time a `done` write belongs to.
+ *
+ * Without `--date` this is today, exactly as before. With it, the caller is naming the moment
+ * the milestone actually happened - typically because the milestone was queued by the
+ * post-commit hook while the vault was unwritable and is only being replayed now. A replayed
+ * write must land in the note for the day it happened, not in today's, or the record is a lie
+ * about when the work was done. `--date` without `--time` keeps the current clock time, which
+ * is the honest reading: the day is known, the minute is not, and inventing one would be worse
+ * than using the minute the write lands.
+ *
+ * `getTodayInfo` is deliberately NOT overridden here: it also decides the handoff's `updated:`
+ * frontmatter and the archive month for pruned updates, and those describe when the FILE was
+ * touched, which is still now. Only the entry's own stamp is back-dated.
+ */
+function resolveWhen(when) {
+  const now = getTodayInfo();
+  if (!when || !when.date) return now;
+  return {
+    dateStr: when.date,
+    monthDir: when.date.slice(0, 7),
+    timeStr: when.time || now.timeStr,
+    backDated: when.date !== now.dateStr
+  };
 }
 
 // --- Explicit synthetic-test opt-out ----------------------------------------
@@ -407,6 +555,9 @@ let _flockBin = null;
  * Absolute path of `flock`, or null. There is exactly ONE implementation, so this
  * returns the protocol or nothing: it never selects an alternative.
  *
+ * The absolute util-linux locations are probed before PATH, so the protocol is still found
+ * when the caller's PATH is set but does not carry /usr/bin.
+ *
  * NOT AVAILABLE ON NATIVE WINDOWS: `flock` is util-linux, so it exists on Linux and
  * under WSL and not in a cmd/PowerShell environment. This vault's supported Windows
  * path is WSL, and the Windows shims already delegate to `wsl.exe -e`; a native
@@ -416,6 +567,18 @@ function flockBinPath() {
   if (_flockChecked) return _flockBin;
   _flockChecked = true;
   if (process.platform === 'win32') return _flockBin;
+  // The absolute util-linux locations are probed FIRST. A caller whose PATH is set but does
+  // not carry /usr/bin (an empty PATH, a minimal service environment) must still find the one
+  // protocol implementation: resolving through PATH alone is what made every writer refuse
+  // to run while /usr/bin/flock was present on the host.
+  for (const candidate of ['/usr/bin/flock', '/bin/flock']) {
+    try {
+      fs.accessSync(candidate, fs.constants.X_OK);
+      _flockBin = candidate;
+      return _flockBin;
+    } catch (_) {}
+  }
+  // PATH stays the fallback for a host that installs flock somewhere else.
   try {
     const p = execSync('command -v flock 2>/dev/null', { encoding: 'utf8', shell: '/bin/sh' }).trim();
     if (p) _flockBin = p;
@@ -443,7 +606,25 @@ function runUnderKernelLock() {
     const child = spawn(
       bin,
       ['-w', String(secs), '-E', String(OUTCOME_EXIT['lock-contended']), p, process.execPath, __filename, ...process.argv.slice(2)],
-      { stdio: 'inherit', detached: true, env: { ...process.env, LOEY_LOCK_HELD: '1', LOEY_LOCK_IMPL_USED: 'flock' } }
+      {
+        stdio: 'inherit',
+        detached: true,
+        // Pin the resolved target for the flocked child. A --root override has already been
+        // consumed from argv, so without this the child could resolve a different vault.
+        env: {
+          ...process.env,
+          LOEY_SPACE_DIR: VAULT_DIR,
+          LOEY_VAULT_SOURCE: VAULT_TARGET.source,
+          LOEY_LOCK_HELD: '1',
+          LOEY_LOCK_IMPL_USED: 'flock',
+          ...(DONE_PERSONAL ? { LOEY_DONE_PERSONAL: '1' } : {}),
+          // The flag tokens were spliced out of argv at module load, so the child would
+          // otherwise see a plain `done` and write into today's note - silently undoing the
+          // back-dating this process was asked for.
+          ...(DONE_WHEN.date ? { LOEY_DONE_DATE: DONE_WHEN.date } : {}),
+          ...(DONE_WHEN.time ? { LOEY_DONE_TIME: DONE_WHEN.time } : {})
+        }
+      }
     );
     // `flock` FORKS: the command it runs is a GRANDCHILD of this process. Signalling
     // flock alone would kill the lock holder and orphan the writer, which would keep
@@ -567,7 +748,12 @@ function verifySectionContains(filePath, headings, needle) {
   }
   const body = sectionBody(content, headings);
   if (body === null) return { ok: false, reason: `${Array.isArray(headings) ? headings[0] : headings} section missing` };
-  if (!body.includes(needle)) return { ok: false, reason: `entry not found inside ${Array.isArray(headings) ? headings[0] : headings}` };
+  // The needle is the raw message; stored entries are escaped for markdown safety, so the
+  // unescaped body is the correct place to look (otherwise a message containing '&' or '<'
+  // would be written successfully and then reported as a failed verification).
+  if (!unescapeCell(body).includes(needle)) {
+    return { ok: false, reason: `entry not found inside ${Array.isArray(headings) ? headings[0] : headings}` };
+  }
   return { ok: true };
 }
 
@@ -604,14 +790,14 @@ function summarizeOutcome(records, synthetic) {
   return 'logged';
 }
 
-function reportOutcome(command, labelled, outcome, synthetic, extra = '') {
+function reportOutcome(command, labelled, outcome, synthetic, extra = '', prefix = '') {
   const parts = labelled.map(([name, r]) => `${name}=${r.status}`);
   // Which protocol serialized this write. Always emitted (and always `flock` for a
   // writer), so a caller - or a harness - can prove which protocol was in force
   // rather than inferring it from the absence of a warning.
   const lockImpl = LOCK_IMPL_IN_FORCE !== 'none' ? LOCK_IMPL_IN_FORCE : process.env.LOEY_LOCK_IMPL_USED || 'none';
   console.log(
-    `[heyloey] RESULT ${command} ${outcome} ${parts.join(' ')} lock=${lockImpl} target=${VAULT_DIR} source=${VAULT_TARGET.source}` +
+    `[heyloey] RESULT ${command} ${outcome} ${prefix}${parts.join(' ')} lock=${lockImpl} target=${VAULT_DIR} source=${VAULT_TARGET.source}` +
       (synthetic.synthetic ? ` synthetic=${synthetic.reason}` : '') +
       extra
   );
@@ -722,13 +908,14 @@ function insertHeading(lines, at, heading) {
   return at + block.length - 1;
 }
 
-/** Create an area heading when it is absent, in canonical order; existing entries never move. */
 function ensureLogArea(lines, area) {
   const existing = logAreaBounds(lines, area);
   if (existing) return existing.start;
   const parent = dailyLogBounds(lines);
   if (!parent) return null;
   const heading = LOG_AREA_HEADINGS[area];
+  const callout = findAreaCallout(lines, area, parent.start + 1, parent.end);
+  if (callout !== -1) return insertHeading(lines, callout, heading);
   if (area === 'personal') {
     let at = parent.start + 1;
     while (at < parent.end && (lines[at].trim() === '' || lines[at].trim().startsWith('>'))) at++;
@@ -877,11 +1064,49 @@ function tableCellsOf(line) {
 }
 
 function unescapeCell(cell) {
-  return String(cell).replace(/\\\|/g, '|').trim();
+  return String(cell).replace(/\\\|/g, '|').replace(/&lt;/g, '<').replace(/&amp;/g, '&').trim();
 }
 
 function escapeCell(text) {
-  return String(text).replace(/\|/g, '\\|').replace(/\r?\n/g, ' ').trim();
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/\|/g, '\\|')
+    .replace(/<(?!br\s*\/?>)(?=[a-zA-Z/])/gi, '&lt;')
+    .replace(/\r?\n/g, ' ')
+    .trim();
+}
+
+/**
+ * Escape text written into an INLINE markdown position (a personal bullet or a handoff
+ * entry). Table cells use escapeCell; inline text needs the same HTML safety without the
+ * pipe escaping. Without this, a milestone is escaped in the daily table but rendered as
+ * raw HTML in handoff.md.
+ */
+function escapeInlineText(text) {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .trim();
+}
+
+/** Reverse escapeInlineText, for comparisons and post-write verification. */
+function unescapeInlineText(text) {
+  return String(text).replace(/&lt;/g, '<').replace(/&amp;/g, '&');
+}
+
+/** Escape a literal string for use inside a RegExp source. */
+function escapeRegExpText(text) {
+  return String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Whether handoff.md already carries this exact milestone entry (any timestamp). */
+function handoffHasEntry(content, message) {
+  const entryText = escapeInlineText(message);
+  const pattern = new RegExp(
+    `^- \\[x\\] \\*\\*\\[[^\\]]+\\]\\*\\* (?:${escapeRegExpText(entryText)}|${escapeRegExpText(message)})\\r?$`,
+    'm'
+  );
+  return pattern.test(content);
 }
 
 function tableTime(stamp) {
@@ -922,12 +1147,14 @@ function logAreaHasSummary(content, area, summary) {
   const lines = content.split(/\r?\n/);
   const body = logAreaBody(lines, area);
   if (body === null) return false;
-  const needle = unescapeCell(summary);
+  // EXACT entry comparison: a milestone must not be suppressed because its text is a
+  // substring of a different record that is already there.
+  const needle = String(summary);
   for (const line of body.split(/\r?\n/)) {
     const row = readAgentTableRow(line);
-    if (row && row.summary.includes(needle)) return true;
+    if (row && row.summary === needle) return true;
     const bullet = line.match(/^- \*\*(?:\[)?([^\]*]+?)(?:\])?\*\*(?::|\s)\s*(.*)$/);
-    if (bullet && unescapeCell(bullet[2]).includes(needle)) return true;
+    if (bullet && unescapeInlineText(bullet[2]) === needle) return true;
   }
   return false;
 }
@@ -945,6 +1172,65 @@ function agentCalloutLabel(count) {
 
 const AGENT_CALLOUT = /^> \[!NOTE\]-\s*🤖\s*Show entries/;
 const LEGACY_AGENT_CALLOUT = /^> \[!NOTE\]-\s*🤖 Agent Milestone Log/;
+
+/** The callout a logging tool already writes for each area, wherever an older write left it. */
+const AREA_CALLOUT = {
+  personal: /^> \[!NOTE\]-\s*🧍/,
+  agent: /^> \[!NOTE\]-\s*🤖(?:\s+Show entries|\s+Agent Milestone Log)/,
+  github: /^> \[!NOTE\]-\s*🐙 GitHub Activity Log/
+};
+
+/** The first index of an area's own callout inside [from, to), or -1. */
+function findAreaCallout(lines, area, from, to) {
+  for (let i = from; i < to; i += 1) if (AREA_CALLOUT[area].test(lines[i].trim())) return i;
+  return -1;
+}
+
+/** A callout block: its header line, every quoted line under it, and one trailing blank line. */
+function calloutBlockEnd(lines, start, limit) {
+  let end = start + 1;
+  while (end < limit && /^\s*>/.test(lines[end])) end += 1;
+  if (end < limit && lines[end].trim() === '') end += 1;
+  return end;
+}
+
+/**
+ * Move an area's own callout under its heading when an earlier write left it in another area.
+ * A positional move only: not one of its lines is rewritten.
+ */
+function adoptAreaCallout(lines, area) {
+  const parent = dailyLogBounds(lines);
+  if (!parent) return false;
+  const heading = logAreaBounds(lines, area);
+  if (!heading) return false;
+  const start = findAreaCallout(lines, area, parent.start + 1, parent.end);
+  if (start === -1) return false;
+  if (start > heading.start && start < heading.end) return false;
+  const block = lines.splice(start, calloutBlockEnd(lines, start, parent.end) - start);
+  while (block.length > 1 && block[block.length - 1].trim() === '') block.pop();
+  const target = logAreaBounds(lines, area);
+  if (!target) return false;
+  let at = target.end;
+  while (at > target.start + 1 && lines[at - 1].trim() === '') at -= 1;
+  const insert = [...block];
+  if (at > 0 && lines[at - 1].trim() !== '') insert.unshift('');
+  if (lines[at] !== undefined && lines[at].trim() !== '') insert.push('');
+  lines.splice(at, 0, ...insert);
+  return true;
+}
+
+/** Give every callout already present the area heading it belongs under; returns how many moved. */
+function adoptCalloutAreas(lines) {
+  let adopted = 0;
+  for (const area of LOG_AREA_ORDER) {
+    const parent = dailyLogBounds(lines);
+    if (!parent) break;
+    if (findAreaCallout(lines, area, parent.start + 1, parent.end) === -1) continue;
+    if (!logAreaBounds(lines, area)) ensureLogArea(lines, area);
+    if (adoptAreaCallout(lines, area)) adopted += 1;
+  }
+  return adopted;
+}
 
 function quoted(line) {
   return `> ${line}`;
@@ -1022,18 +1308,23 @@ function sortAgentTable(lines) {
 }
 
 /** Append rows to the area's one table, creating the collapsible container when it is absent. */
-function appendAgentRows(lines, rows) {
+function appendAgentRows(lines, rows, preferredAt = -1) {
   ensureLogArea(lines, 'agent');
   let area = logAreaBounds(lines, 'agent');
   if (!area) return;
   let container = findAgentContainer(lines);
 
   if (container.start === -1) {
-    const at = area.start + 1;
+    const anchor = preferredAt > area.start && preferredAt < area.end ? preferredAt : area.start + 1;
     const block = [agentCalloutLabel(rows.length), ...AGENT_TABLE_HEADER.map(quoted), ...rows.map(quoted)];
-    if (lines[at] !== undefined && lines[at].trim() !== '') block.unshift('');
-    if (lines[at] !== undefined) block.push('');
-    lines.splice(at, 0, ...block);
+    if (anchor > 0 && lines[anchor - 1].trim() !== '') block.unshift('');
+    lines.splice(anchor, 0, ...block);
+    // Exactly one blank line after the container, whatever spacing the line it displaced left.
+    let after = anchor + block.length;
+    while (after < lines.length && lines[after].trim() === '') after += 1;
+    const blanks = after - (anchor + block.length);
+    if (blanks === 0) lines.splice(after, 0, '');
+    else if (blanks > 1) lines.splice(anchor + block.length, blanks - 1);
   } else if (container.header === -1) {
     lines.splice(container.start + 1, 0, ...AGENT_TABLE_HEADER.map(quoted), ...rows.map(quoted));
   } else {
@@ -1046,7 +1337,7 @@ function appendAgentRows(lines, rows) {
 
   area = logAreaBounds(lines, 'agent');
   container = findAgentContainer(lines);
-  if (container.start !== -1) {
+  if (container.start !== -1 && area) {
     lines[container.start] = agentCalloutLabel(countAgentRows(lines, container));
     if (container.end < area.end && lines[container.end] && lines[container.end].trim() !== '') {
       lines.splice(container.end, 0, '');
@@ -1055,28 +1346,6 @@ function appendAgentRows(lines, rows) {
   sortAgentTable(lines);
 }
 
-/**
- * Fold a legacy `🤖 Agent Milestone Log` callout — wherever an earlier writer left it — into the
- * area's one collapsible container. The old label is discarded: only `🤖 Show entries (N)` is
- * written from now on, and its rows are appended to the table that already exists when there is one.
- */
-function adoptAgentCallout(lines) {
-  const start = lines.findIndex((line) => LEGACY_AGENT_CALLOUT.test(line.trim()));
-  if (start < 0) return 0;
-  let end = start;
-  while (end < lines.length && /^>/.test(lines[end].trim())) end++;
-  const rows = [];
-  for (let i = start + 1; i < end; i++) {
-    const row = readAgentTableRow(lines[i]);
-    if (row) rows.push(`| ${tableTime(row.stamp)} | ${row.scope ? escapeCell(row.scope) : ''} | ${escapeCell(row.summary)} |`);
-  }
-  if (end < lines.length && lines[end].trim() === '') end++;
-  lines.splice(start, end - start);
-  if (!rows.length) return 0;
-  ensureLogArea(lines, 'agent');
-  appendAgentRows(lines, rows);
-  return 1;
-}
 
 /**
  * Convert the agent area's previous representations into rows: timestamped bullets and the plain
@@ -1087,6 +1356,7 @@ function convertAgentAreaBullets(lines) {
   if (!area) return 0;
   const rows = [];
   const remove = [];
+  let anchor = -1;
   // Everything the one container already holds is that container's business: it is current format,
   // and re-reading it here would duplicate rows and strand a separator line.
   const container = findAgentContainer(lines);
@@ -1096,14 +1366,29 @@ function convertAgentAreaBullets(lines) {
       i = container.end - 1;
       continue;
     }
+    if (LEGACY_AGENT_CALLOUT.test(lines[i].trim())) {
+      const end = calloutBlockEnd(lines, i, area.end);
+      for (let j = i + 1; j < end; j++) {
+        const parsed = readAgentTableRow(lines[j]);
+        if (parsed) {
+          rows.push(`| ${tableTime(parsed.stamp)} | ${parsed.scope ? escapeCell(parsed.scope) : ''} | ${escapeCell(parsed.summary)} |`);
+        }
+      }
+      if (anchor === -1) anchor = i;
+      for (let j = i; j < end; j++) remove.push(j);
+      i = end - 1;
+      continue;
+    }
     const row = readAgentTableRow(lines[i]);
     if (row) {
       rows.push(`| ${tableTime(row.stamp)} | ${row.scope ? escapeCell(row.scope) : ''} | ${escapeCell(row.summary)} |`);
+      if (anchor === -1) anchor = i;
       remove.push(i);
       continue;
     }
     const cells = tableCellsOf(lines[i]);
     if (cells && /^time$/i.test(String(cells[0]).trim())) {
+      if (anchor === -1) anchor = i;
       remove.push(i);
       let cursor = i + 2;
       while (cursor < area.end && readAgentTableRow(lines[cursor])) cursor++;
@@ -1125,6 +1410,7 @@ function convertAgentAreaBullets(lines) {
     while (cursor < area.end && /^(?: {2,}|\t)\S/.test(lines[cursor])) continuation.push(lines[cursor++].trim());
     if (continuation.length) summary += '<br>' + continuation.join('<br>');
     rows.push(`| ${tableTime(match[1])} |  | ${escapeCell(summary)} |`);
+    if (anchor === -1) anchor = i;
     for (let j = i; j < cursor; j++) remove.push(j);
     i = cursor - 1;
   }
@@ -1132,8 +1418,188 @@ function convertAgentAreaBullets(lines) {
   const unique = [...new Set(remove)].sort((a, b) => b - a);
   for (const index of unique) lines.splice(index, 1);
   ensureLogArea(lines, 'agent');
-  appendAgentRows(lines, rows);
+  appendAgentRows(lines, rows, anchor);
   return rows.length;
+}
+
+/** One timestamped log bullet's stamp and summary, in either bullet form the log uses. */
+function readLogEntry(line) {
+  const match = line.match(/^- \*\*(?:\[)?([^\]*]+?)(?:\])?\*\*(?::\s*|\s+)(.*)$/);
+  if (!match) return null;
+  const stamp = match[1].trim();
+  if (minuteOfDay(stamp) === null) return null;
+  return { stamp, summary: match[2].trim() };
+}
+
+/** Timestamped bullets inside one area, with their continuation lines. */
+function timedBlocks(lines, bounds) {
+  const blocks = [];
+  for (let index = bounds.start + 1; index < bounds.end; index += 1) {
+    const entry = readLogEntry(lines[index]);
+    if (!entry) continue;
+    let cursor = index + 1;
+    while (cursor < bounds.end && /^(?: {2,}|\t)\S/.test(lines[cursor])) cursor += 1;
+    blocks.push({
+      start: index,
+      end: cursor,
+      stamp: entry.stamp,
+      summary: entry.summary,
+      continuation: lines
+        .slice(index + 1, cursor)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .join('<br>')
+    });
+    index = cursor - 1;
+  }
+  return blocks;
+}
+
+function migrationRow(block) {
+  const summary = escapeCell(block.continuation ? `${block.summary}<br>${block.continuation}` : block.summary);
+  return `| ${displayLogTime(block.stamp, '&nbsp;')} |  | ${summary} |`;
+}
+
+/** Entries inside one area: timestamped bullets and agent-table rows. */
+function logAreaEntries(content, area) {
+  const newline = content.includes('\r\n') ? '\r\n' : '\n';
+  const lines = content.split(newline);
+  const bounds = logAreaBounds(lines, area);
+  if (!bounds) return [];
+  const entries = [];
+  for (let index = bounds.start + 1; index < bounds.end; index += 1) {
+    const bullet = readLogEntry(lines[index]);
+    if (bullet) {
+      entries.push({ stamp: bullet.stamp, scope: '', summary: bullet.summary });
+      continue;
+    }
+    const row = readAgentTableRow(lines[index]);
+    if (row) entries.push(row);
+  }
+  return entries;
+}
+
+/** Drop the blank spacer directly under an area heading once the area carries entries. */
+function tidyAreaSpacer(lines, area) {
+  const body = logAreaBounds(lines, area);
+  if (!body) return;
+  let spacer = body.start + 1;
+  while (spacer < body.end && lines[spacer].trim() === '') spacer += 1;
+  if (spacer === body.start + 1) return;
+  if (!lines.slice(spacer, body.end).some((entry) => /^\s*-\s+\S/.test(entry))) return;
+  lines.splice(body.start + 1, spacer - body.start - 1);
+}
+
+/**
+ * Put one daily note into its canonical shape without guessing authorship.
+ *
+ * Format migration is automatic: every labelled area is created, agent bullets and any legacy
+ * `Agent Milestone Log` callout become the area's one table. A personal entry moves into that
+ * table ONLY when the caller names it with --select or --select-summary. No verb, capitalisation
+ * or tone is treated as evidence, so an ambiguous or unmatched selection writes nothing.
+ */
+function migrateAgentMilestones(content, selection = {}) {
+  const newline = content.includes('\r\n') ? '\r\n' : '\n';
+  const lines = content.split(newline);
+  if (!dailyLogBounds(lines)) {
+    return { content, moved: [], kept: [], adopted: 0, selectionErrors: [], hasDailyLog: false };
+  }
+
+  for (const area of LOG_AREA_ORDER) ensureLogArea(lines, area);
+  const adopted = adoptCalloutAreas(lines);
+
+  const personal = logAreaBounds(lines, 'personal');
+  const blocks = personal ? timedBlocks(lines, personal) : [];
+  const chosen = new Map();
+  const selectionErrors = [];
+
+  const select = (label, matches) => {
+    const already = matches.filter((block) => chosen.has(block.start));
+    if (matches.length > 0 && already.length === matches.length) return;
+    if (matches.length === 0) {
+      selectionErrors.push(`${label} matches no timestamped personal entry`);
+      return;
+    }
+    if (matches.length > 1) {
+      selectionErrors.push(`${label} matches ${matches.length} personal entries; name one`);
+      return;
+    }
+    chosen.set(matches[0].start, matches[0]);
+  };
+
+  for (const stamp of selection.selectStamps || []) {
+    const minutes = minuteOfDay(stamp);
+    if (minutes === null) {
+      selectionErrors.push(`--select "${stamp}" is not a time (use e.g. "09:21 AM")`);
+      continue;
+    }
+    select(`--select "${stamp}"`, blocks.filter((block) => minuteOfDay(block.stamp) === minutes));
+  }
+  for (const text of selection.selectSummaries || []) {
+    const needle = text.trim();
+    if (!needle) {
+      selectionErrors.push('--select-summary requires some text');
+      continue;
+    }
+    select(`--select-summary "${needle}"`, blocks.filter((block) => block.summary.includes(needle)));
+  }
+
+  if (selectionErrors.length > 0) {
+    return {
+      content,
+      moved: [],
+      kept: blocks.map((block) => block.summary),
+      adopted: 0,
+      selectionErrors,
+      hasDailyLog: true
+    };
+  }
+
+  const ordered = [...chosen.values()].sort((left, right) => left.start - right.start);
+  for (let index = ordered.length - 1; index >= 0; index -= 1) {
+    const block = ordered[index];
+    lines.splice(block.start, block.end - block.start);
+  }
+
+  convertAgentAreaBullets(lines);
+  if (ordered.length > 0) appendAgentRows(lines, ordered.map(migrationRow));
+
+  for (const area of LOG_AREA_ORDER) tidyAreaSpacer(lines, area);
+  const migrated = normalizeDailyLog(lines.join(newline));
+  return {
+    content: migrated,
+    moved: ordered.map((block) => block.summary),
+    kept: logAreaEntries(migrated, 'personal').map((entry) => entry.summary),
+    adopted,
+    selectionErrors: [],
+    hasDailyLog: true
+  };
+}
+
+/** `migrate-log` flags: repeated selections, an optional date and a dry run. */
+function parseMigrateArgs(tokens) {
+  const parsed = { date: null, select: [], selectSummaries: [], dryRun: false, errors: [] };
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index];
+    if (token === '--dry-run') {
+      parsed.dryRun = true;
+      continue;
+    }
+    if (token === '--date' || token === '--select' || token === '--select-summary') {
+      const value = tokens[index + 1];
+      if (value === undefined || value.startsWith('--')) {
+        parsed.errors.push(`${token} requires a value`);
+        continue;
+      }
+      if (token === '--date') parsed.date = value;
+      else if (token === '--select') parsed.select.push(value);
+      else parsed.selectSummaries.push(value);
+      index += 1;
+      continue;
+    }
+    parsed.errors.push(`unexpected argument: ${token}; use --date <YYYY-MM-DD>`);
+  }
+  return parsed;
 }
 
 function insertAgentTableRow(content, timeStr, message) {
@@ -1153,7 +1619,7 @@ function insertAgentTableRow(content, timeStr, message) {
   // One container, whatever the note arrived with: adopt a stranded legacy callout, fold bullets or
   // the previous plain table into rows, then append the new row to the table that is now there.
   ensureLogArea(lines, 'agent');
-  adoptAgentCallout(lines);
+  adoptCalloutAreas(lines);
   convertAgentAreaBullets(lines);
   appendAgentRows(lines, [
     `| ${format12hNbsp(timeStr)} | ${scope ? escapeCell(scope) : ''} | ${escapeCell(summary)} |`,
@@ -1175,7 +1641,7 @@ function insertPersonalBullet(content, timeStr, message) {
     }
   }
   area = logAreaBounds(lines, 'personal');
-  const bullet = `- **${format12hPlain(timeStr)}**: ${cleanMessage(message)}`;
+  const bullet = `- **${format12hPlain(timeStr)}**: ${escapeInlineText(cleanMessage(message))}`;
   let insertAt = area.start + 1;
   for (let i = area.start + 1; i < area.end; i++) {
     if (!/^- \*\*(?:\[)?[^\]*]+(?:\])?\*\*(?::|\s)/.test(lines[i])) continue;
@@ -1186,8 +1652,8 @@ function insertPersonalBullet(content, timeStr, message) {
   return lines.join('\n');
 }
 
-function logToDailyNote(message, synthetic = detectSynthetic()) {
-  const { dateStr, monthDir, timeStr } = getTodayInfo();
+function logToDailyNote(message, synthetic = detectSynthetic(), when = null) {
+  const { dateStr, monthDir, timeStr } = resolveWhen(when);
   const filePath = dailyNotePath(dateStr, monthDir);
   const rel = vaultRel(filePath);
 
@@ -1229,8 +1695,8 @@ function logToDailyNote(message, synthetic = detectSynthetic()) {
   }
 }
 
-function logToPersonal(message, synthetic = detectSynthetic()) {
-  const { dateStr, monthDir, timeStr } = getTodayInfo();
+function logToPersonal(message, synthetic = detectSynthetic(), when = null) {
+  const { dateStr, monthDir, timeStr } = resolveWhen(when);
   const filePath = dailyNotePath(dateStr, monthDir);
   const rel = vaultRel(filePath);
 
@@ -1343,10 +1809,10 @@ function pruneHandoffContent(content, maxUpdates = MAX_HANDOFF_UPDATES) {
   return { content: updatedContent, prunedCount: overflow.length };
 }
 
-function updateHandoff(message, synthetic = detectSynthetic()) {
+function updateHandoff(message, synthetic = detectSynthetic(), when = null) {
   const handoffPath = path.join(VAULT_DIR, 'handoff.md');
   const rel = vaultRel(handoffPath);
-  const { dateStr, timeStr } = getTodayInfo();
+  const { dateStr, timeStr } = resolveWhen(when);
 
   if (synthetic.synthetic) {
     console.log(`[heyloey] SKIPPED handoff - explicit synthetic opt-out (${synthetic.reason}); nothing written.`);
@@ -1361,12 +1827,16 @@ function updateHandoff(message, synthetic = detectSynthetic()) {
   try {
     let content = fs.readFileSync(handoffPath, 'utf8');
 
-    if (content.includes(message)) {
+    // Exact entry-line match. A milestone whose text merely appears inside another entry
+    // must still be logged. Legacy raw entries are matched as well, so switching to escaped
+    // text does not create a duplicate on the next retry.
+    const entryText = escapeInlineText(message);
+    if (handoffHasEntry(content, message)) {
       console.log(`[heyloey] ALREADY-RECORDED handoff: ${rel} (entry already present)`);
       return { status: 'already-recorded', path: rel, detail: 'entry already present' };
     }
 
-    const entry = `- [x] **[${dateStr} ${timeStr}]** ${message}`;
+    const entry = `- [x] **[${dateStr} ${timeStr}]** ${entryText}`;
 
     if (/### Latest Updates[^\n]*\n/.test(content)) {
       // Callback form: `entry` carries user text, so `$&`, `$$`, `$'`, "`$`" and `$1`
@@ -1380,7 +1850,9 @@ function updateHandoff(message, synthetic = detectSynthetic()) {
 
     const pruned = pruneHandoffContent(content, MAX_HANDOFF_UPDATES);
     content = pruned.content;
-    content = content.replace(/updated: \d{4}-\d{2}-\d{2}/, () => `updated: ${dateStr}`);
+    // `updated:` describes when the FILE was touched, which is now even for a back-dated entry:
+    // only the entry's own stamp names the moment the milestone happened.
+    content = content.replace(/updated: \d{4}-\d{2}-\d{2}/, () => `updated: ${getTodayInfo().dateStr}`);
 
     atomicWriteFileSync(handoffPath, content);
 
@@ -1406,6 +1878,146 @@ function stripFrontmatterAndCode(md) {
     .replace(/^[ \t]*>[ \t]*.*$/gm, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+}
+
+function findStaleTasksInContent(dailyContent, handoffContent, todayDate) {
+  const stale = [];
+  const dateRegex = /(?:📅|created:)\s*(\d{4}-\d{2}-\d{2})/;
+  const todayMs = new Date(todayDate).getTime();
+
+  function checkLine(line) {
+    const trimmed = line.trim();
+    if (!/^- \[[ \/]\] /.test(trimmed)) return;
+    const match = trimmed.match(dateRegex);
+    if (!match) return;
+    const taskDate = match[1];
+    const taskMs = new Date(taskDate).getTime();
+    if (isNaN(taskMs)) return;
+    const days = Math.floor((todayMs - taskMs) / (1000 * 60 * 60 * 24));
+    if (days >= 7) {
+      const clean = trimmed
+        .replace(/^- \[[ \/]\]\s*/, '')
+        .replace(dateRegex, '')
+        .trim();
+      const snippet = clean.length > 40 ? clean.slice(0, 37) + '...' : clean;
+      stale.push({ text: snippet, days });
+    }
+  }
+
+  if (dailyContent) {
+    for (const line of dailyContent.split(/\r?\n/)) checkLine(line);
+  }
+  if (handoffContent) {
+    for (const line of handoffContent.split(/\r?\n/)) checkLine(line);
+  }
+  return stale;
+}
+
+// --- Reconciler health ------------------------------------------------------
+// The GitHub milestone reconciler runs from cron, so nothing on the interactive path
+// would ever notice it stopping: a dead tick, a failed tick and a drifted readiness
+// receipt all leave behind the same quiet file nobody opens. This reads that state and
+// states it as a maintenance alert. Warn-only by design - it never writes, never
+// refreshes readiness, and certification stays the exclusive job of --enable.
+const RECONCILER_CONFIG = '.github-milestone-repositories.json';
+const RECONCILER_STALE_MS = 2 * 60 * 60 * 1000;
+
+function loadReconcilerModule() {
+  // The reconciler owns both its log location and its readiness classifier. Requiring it
+  // means this alert and the commit refusal can never disagree about the same state.
+  try {
+    return require(path.join(VAULT_DIR, '06-Resources/scripts/reconcile-github-milestones.mjs'));
+  } catch (_) {
+    return null; // an older vault without the integration is not drift
+  }
+}
+
+function reconcilerLogPath(reconcilerModule) {
+  // Prefer the reconciler's own answer; the fallback only matters for a vault whose copy
+  // predates that export, and it mirrors what the installed cron line resolves.
+  if (reconcilerModule && typeof reconcilerModule.reconcileLogPath === 'function') {
+    return reconcilerModule.reconcileLogPath();
+  }
+  if (process.env.LOEY_RECONCILE_LOG) return process.env.LOEY_RECONCILE_LOG;
+  const stateHome = process.env.XDG_STATE_HOME || path.join(os.homedir(), '.local', 'state');
+  return path.join(stateHome, 'heyloey', 'reconcile.log');
+}
+
+function displayPath(target) {
+  const home = os.homedir();
+  return home && target.startsWith(home + path.sep) ? '~' + target.slice(home.length) : target;
+}
+
+function describeAge(ms) {
+  const minutes = Math.max(1, Math.round(ms / 60000));
+  if (minutes < 90) return minutes + ' min';
+  if (minutes < 36 * 60) return (minutes / 60).toFixed(1) + 'h';
+  return (minutes / 1440).toFixed(1) + 'd';
+}
+
+function latestReconcileResult(text) {
+  const lines = String(text).split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (lines[i].startsWith('RESULT reconcile ')) return lines[i];
+  }
+  return null;
+}
+
+// Only the two outcomes that mean the scan completed count as clean. 'skipped',
+// 'failed' and a lock refusal are all work the run did not do.
+function isCleanReconcileResult(line) {
+  return /^RESULT reconcile (logged|unchanged) /.test(line);
+}
+
+function reconcilerHealthAlerts(alerts) {
+  // A vault that declares no repositories has not opted into this integration, so a
+  // missing log there is configuration, not rot. Silence is the honest answer.
+  if (!fs.existsSync(path.join(VAULT_DIR, RECONCILER_CONFIG))) return;
+
+  const reconcilerModule = loadReconcilerModule();
+  const logPath = reconcilerLogPath(reconcilerModule);
+  let logText = null;
+  let logAge = null;
+  try {
+    if (fs.existsSync(logPath)) {
+      logText = fs.readFileSync(logPath, 'utf8');
+      logAge = Date.now() - fs.statSync(logPath).mtimeMs;
+    }
+  } catch (_) {
+    logText = null;
+    logAge = null;
+  }
+
+  if (logText === null) {
+    alerts.push('⚠️ RECONCILER: no run recorded yet (' + displayPath(logPath) + ') - check "crontab -l"');
+  } else {
+    const result = latestReconcileResult(logText);
+    if (!result) {
+      alerts.push('⚠️ RECONCILER: ' + displayPath(logPath) + ' holds no RESULT line - the tick never completed');
+    } else if (!isCleanReconcileResult(result)) {
+      // One alert per condition: a run that failed 4 hours ago is reported as failed,
+      // not also as stale, so the reason is never buried under a second complaint.
+      const reason = result.replace(/^RESULT reconcile /, '');
+      alerts.push('⚠️ RECONCILER: last run did not finish cleanly - ' + (reason.length > 140 ? reason.slice(0, 137) + '...' : reason));
+    } else if (logAge !== null && logAge > RECONCILER_STALE_MS) {
+      alerts.push('⚠️ RECONCILER: no run for ' + describeAge(logAge) + ' (hourly cron expected; ' + displayPath(logPath) + ')');
+    }
+  }
+
+  // The receipt is classified by the reconciler's own module, never re-derived here.
+  try {
+    if (reconcilerModule && typeof reconcilerModule.readinessReport === 'function') {
+      const report = reconcilerModule.readinessReport(VAULT_DIR);
+      if (!report.ready) {
+        const affected = [].concat(report.drifted || [], report.missing || [], report.onlyInReceipt || []);
+        const named = affected.slice(0, 2).join(', ') + (affected.length > 2 ? ' (+' + (affected.length - 2) + ' more)' : '');
+        alerts.push('⚠️ RECONCILER: source verification ' + report.state + (named ? ' - ' + named : '') +
+          '; the next commit refuses until "npm run reconcile-github -- --enable"');
+      }
+    }
+  } catch (_) {
+    // An older vault without the module cannot be compared, so it is not reported as drift.
+  }
 }
 
 function generateBrief(includeKiwiSoul = false) {
@@ -1515,6 +2127,56 @@ function generateBrief(includeKiwiSoul = false) {
     }
   }
 
+  // Maintenance alerts (0 lines when clean)
+  const alerts = [];
+  const dumpPath = path.join(VAULT_DIR, '00-Inbox', 'quick-capture-dump.md');
+  if (fs.existsSync(dumpPath)) {
+    const dumpContent = fs.readFileSync(dumpPath, 'utf8');
+    const dumpLines = dumpContent.split(/\r?\n/);
+    const archiveIdx = dumpLines.findIndex((l) => /^##\s+.*Triaged/i.test(l.trim()));
+    const activeLines = archiveIdx >= 0 ? dumpLines.slice(0, archiveIdx) : dumpLines;
+    const inboxCount = activeLines.filter((l) => /^\s*-\s+/.test(l)).length;
+    if (inboxCount >= 5) {
+      alerts.push(`⚠️ INBOX: ${inboxCount} unprocessed captures in 00-Inbox/quick-capture-dump.md`);
+    }
+  }
+
+  const stamp = aucklandStamp();
+  const aucklandHour = parseInt(stamp.time.split(':')[0], 10);
+  if (fs.existsSync(dailyPath)) {
+    const dailyContent = fs.readFileSync(dailyPath, 'utf8');
+    const habitsMatch = dailyContent.match(/###\s+.*Habits[\s\S]*?(?=\n---|\n##|$)/i);
+    let habitsDone = 0;
+    let habitsTotal = 0;
+    if (habitsMatch) {
+      const habitLines = habitsMatch[0].split(/\r?\n/);
+      for (const h of habitLines) {
+        if (/^\s*-\s*\[x\]/i.test(h)) {
+          habitsDone++;
+          habitsTotal++;
+        } else if (/^\s*-\s*\[ \]/i.test(h)) {
+          habitsTotal++;
+        }
+      }
+    }
+    if (aucklandHour >= 18 && habitsTotal > 0 && habitsDone === 0) {
+      alerts.push(`⚠️ HABITS: 0/${habitsTotal} completed today (Local time: ${stamp.time})`);
+    }
+
+    const handoffContent = fs.existsSync(handoffPath) ? fs.readFileSync(handoffPath, 'utf8') : null;
+    const staleTasks = findStaleTasksInContent(dailyContent, handoffContent, stamp.date);
+    for (const stale of staleTasks.slice(0, 2)) {
+      alerts.push(`⚠️ STALE TASK: "${stale.text}" (${stale.days}d old)`);
+    }
+  }
+
+  reconcilerHealthAlerts(alerts);
+
+  if (alerts.length > 0) {
+    out.push('\n[MAINTENANCE ALERTS]');
+    alerts.forEach((a) => out.push(`- ${a}`));
+  }
+
   if (includeKiwiSoul && fs.existsSync(soulPath)) {
     const soul = stripFrontmatterAndCode(fs.readFileSync(soulPath, 'utf8'));
     out.push('\n[KIWI CHIEF-OF-STAFF SOUL]');
@@ -1524,10 +2186,36 @@ function generateBrief(includeKiwiSoul = false) {
   return out.join('\n');
 }
 
+// --- BM25 search engine -------------------------------------------------------
+// ONE implementation, shared with src/hybrid-search.mjs. The engine used to exist twice
+// (this inline copy plus an ESM module that only the tests imported), so the suite could
+// pass against code the CLI never ran. Keep it in src/search-engine.cjs and require it.
+// Resolve through the script's REAL path: the supported install is a symlink
+// (~/.local/bin/heyloey -> canonical/heyloey.cjs), so __dirname alone can point at the
+// symlink's directory and the engine would not be found. Two layouts are supported:
+// the repository checkout (../src/search-engine.cjs) and a vendored single-directory
+// copy such as a vault bundle (./src/search-engine.cjs).
+const SCRIPT_REAL_DIR = path.dirname(fs.realpathSync(__filename));
+const SEARCH_ENGINE_CANDIDATES = [
+  path.join(SCRIPT_REAL_DIR, '..', 'src', 'search-engine.cjs'),
+  path.join(SCRIPT_REAL_DIR, 'src', 'search-engine.cjs')
+];
+let searchEngine = null;
+for (const candidate of SEARCH_ENGINE_CANDIDATES) {
+  try {
+    searchEngine = require(candidate);
+    break;
+  } catch (_) {}
+}
+if (!searchEngine) {
+  console.error('[heyloey] Missing search engine module: expected ../src/search-engine.cjs or ./src/search-engine.cjs beside the CLI.');
+  process.exit(OUTCOME_EXIT.failed);
+}
+
+
 function routeContextWithLaya(queryStr) {
   const query = (queryStr || getGitRepoName() || '').toLowerCase();
   const projectsDir = path.join(VAULT_DIR, '02-Projects');
-  const devDir = path.join(VAULT_DIR, '03-Dev');
 
   const projectCandidates = [];
   if (fs.existsSync(projectsDir)) {
@@ -1567,26 +2255,11 @@ function routeContextWithLaya(queryStr) {
     }
   }
 
-  const matchedDevNotes = [];
-  if (fs.existsSync(devDir) && queryTokens.length > 0) {
-    for (const f of fs.readdirSync(devDir)) {
-      if (!f.endsWith('.md') || f.startsWith('_')) continue;
-      const fullPath = path.join(devDir, f);
-      const content = fs.readFileSync(fullPath, 'utf8');
-      const hay = `${f} ${content.slice(0, 800)}`.toLowerCase();
-      let score = 0;
-      for (const tok of queryTokens) {
-        if (hay.includes(tok)) score += 2;
-      }
-      if (score >= 2) {
-        matchedDevNotes.push({ title: f.replace(/\.md$/, ''), relPath: `03-Dev/${f}`, score, content });
-      }
-    }
-    matchedDevNotes.sort((a, b) => b.score - a.score);
-  }
+  // Pure-JS BM25 Hybrid Retrieval over 03-Dev & 08-Concepts
+  const matchedRunbooks = searchEngine.searchVaultRunbooks(VAULT_DIR, query, { limit: 2, minScore: 1.2 });
 
   const out = [generateBrief(false)];
-  out.push(`\n=== LAYA CONTEXT ROUTER (query: "${query || 'auto'}") ===`);
+  out.push(`\n=== HEYLOEY CONTEXT ROUTER (query: "${query || 'auto'}") ===`);
 
   if (bestProject && bestScore > 0) {
     const statusMatch = bestProject.content.match(/^status:\s*([^\r\n]+)/m);
@@ -1605,16 +2278,75 @@ function routeContextWithLaya(queryStr) {
     out.push('Matched Project Hub: none (external repo or general system session)');
   }
 
-  if (matchedDevNotes.length > 0) {
-    out.push('Matched 03-Dev Runbooks/Snippets:');
-    for (const n of matchedDevNotes.slice(0, 3)) {
-      const summaryMatch = n.content.match(/^>\s*\*\*([^*]+)\*\*/m);
-      const summary = summaryMatch ? summaryMatch[1].trim() : '';
-      out.push(`  - ${n.relPath}${summary ? `: ${summary}` : ''}`);
+  if (matchedRunbooks.length > 0) {
+    out.push('Matched Runbooks / 03-Dev Snippets:');
+    for (const r of matchedRunbooks) {
+      out.push(`  - ${r.relPath} (score: ${r.score})`);
+      if (r.summary) {
+        out.push(`    Summary: ${r.summary}`);
+      }
+      if (r.fix && r.fix !== r.summary) {
+        const indentFix = r.fix.split('\n').map((l) => `    ${l}`).join('\n');
+        out.push(`    Procedural Fix:\n${indentFix}`);
+      }
     }
+  } else {
+    out.push('Matched Runbooks: none');
   }
 
   return out.join('\n');
+}
+
+const LEARN_START = '<!-- heyloey-learn:start -->';
+const LEARN_END = '<!-- heyloey-learn:end -->';
+
+/** The generated payload, wrapped in markers so a repeat can be recognised and replaced. */
+function buildLearnNote(safeTitle, bodyRaw, dateStr, langOpt, topicTag) {
+  const gitContext = getGitContext().trim() || 'global';
+  const core = [
+    '---',
+    'created: ' + dateStr,
+    'updated: ' + dateStr,
+    'type: snippet',
+    'area: dev',
+    'status: active',
+    'language: ' + langOpt,
+    'source: heyloey-learn',
+    'tags:',
+    '  - type/snippet',
+    '  - area/dev',
+    '  - status/active',
+    '  - topic/' + topicTag,
+    '---',
+    '',
+    '# 💻 ' + safeTitle,
+    '',
+    LEARN_START,
+    '> **' + bodyRaw + '**',
+    '',
+    '---',
+    '',
+    '## 🔍 Root Cause & Procedural Fix',
+    '- ' + bodyRaw,
+    '- Captured from repository context: `' + gitContext + '` on ' + dateStr + '.',
+    LEARN_END,
+    ''
+  ].join('\n');
+  return core + '\n---\n\n## 🔗 Related Resources & Notes\n- [[03-Dev/_Dev MOC|_Dev MOC]]\n';
+}
+
+/** Merge a regenerated pattern into a note without replacing hand-written content. */
+function mergeLearnNote(existing, core, bodyRaw) {
+  const region = new RegExp(escapeRegExpText(LEARN_START) + '[\\s\\S]*?' + escapeRegExpText(LEARN_END));
+  const match = existing.match(region);
+  if (match) {
+    if (match[0].includes(bodyRaw)) return { content: existing, action: 'unchanged' };
+    const replacement = core.slice(core.indexOf(LEARN_START), core.indexOf(LEARN_END) + LEARN_END.length);
+    return { content: existing.replace(region, () => replacement), action: 'merged' };
+  }
+  if (existing.includes(bodyRaw)) return { content: existing, action: 'unchanged' };
+  const block = core.slice(core.indexOf(LEARN_START), core.indexOf(LEARN_END) + LEARN_END.length);
+  return { content: existing.trimEnd() + '\n\n---\n\n' + block + '\n', action: 'merged' };
 }
 
 function crystallizeSkill(titleRaw, bodyRaw, langOpt = 'bash') {
@@ -1624,43 +2356,25 @@ function crystallizeSkill(titleRaw, bodyRaw, langOpt = 'bash') {
   if (!fs.existsSync(devDir)) {
     fs.mkdirSync(devDir, { recursive: true });
   }
-  const filePath = path.join(devDir, `${safeTitle}.md`);
+  const filePath = path.join(devDir, safeTitle + '.md');
   const topicTag = safeTitle.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2)[0] || 'debugging';
+  const core = buildLearnNote(safeTitle, bodyRaw, dateStr, langOpt, topicTag);
 
-  const noteContent = `---
-created: ${dateStr}
-updated: ${dateStr}
-type: snippet
-area: dev
-status: active
-language: ${langOpt}
-source: heyloey-learn
-tags:
-  - type/snippet
-  - area/dev
-  - status/active
-  - topic/${topicTag}
----
-
-# 💻 ${safeTitle}
-
-> **${bodyRaw}**
-
----
-
-## 🔍 Root Cause & Procedural Fix
-- ${bodyRaw}
-- Captured from repository context: \`${getGitContext().trim() || 'global'}\` on ${dateStr}.
-
----
-
-## 🔗 Related Resources & Notes
-- [[03-Dev/_Dev MOC|_Dev MOC]]
-`;
-
-  atomicWriteFileSync(filePath, noteContent);
-  console.log(`[heyloey] Crystallized procedural runbook: 03-Dev/${safeTitle}.md`);
-  logToDailyNote(`[learn] Crystallized procedural runbook into 03-Dev/${safeTitle}.md`);
+  let content = core;
+  let action = 'created';
+  if (fs.existsSync(filePath)) {
+    const merged = mergeLearnNote(fs.readFileSync(filePath, 'utf8'), core, bodyRaw);
+    if (merged.action === 'unchanged') {
+      console.log('[heyloey] Crystallized procedural runbook: 03-Dev/' + safeTitle + '.md (already recorded, nothing changed)');
+      return { status: 'already-recorded', path: '03-Dev/' + safeTitle + '.md', action: 'unchanged' };
+    }
+    content = merged.content;
+    action = 'merged';
+  }
+  atomicWriteFileSync(filePath, content);
+  console.log('[heyloey] Crystallized procedural runbook: 03-Dev/' + safeTitle + '.md (' + action + ')');
+  logToDailyNote('[learn] Crystallized procedural runbook into 03-Dev/' + safeTitle + '.md');
+  return { status: 'written', path: '03-Dev/' + safeTitle + '.md', action };
 }
 
 function runDreamLoop() {
@@ -1746,14 +2460,29 @@ if (!fs.existsSync(VAULT_DIR)) {
 const prefix = getGitContext();
 const formattedMessage = rawMessage ? `${prefix}${cleanMessage(rawMessage)}` : '';
 
-// Agent milestones and owner entries take free text only. A flag used to be swallowed as part of
-// the text, which silently wrote `--personal` into the agent table; refuse instead of guessing.
+// `--date`/`--time` are consumed for done/milestone only. A command that takes free text would
+// otherwise swallow the pair as literal words and file a milestone under a title nobody chose, so
+// refuse it by name. migrate-log parses its own --date, hence the exemption.
+if (!['done', 'milestone', 'migrate-log'].includes(command)) {
+  const misfiled = ['--date', '--time'].filter((flag) => args.includes(flag));
+  if (misfiled.length) {
+    console.error(
+      `[heyloey] ${misfiled.join(' and ')} only apply to done/milestone (or migrate-log --date), not ${command}. Nothing written.`
+    );
+    process.exit(1);
+  }
+}
+
+// Agent milestones and owner entries take free text plus the flags consumed above. A flag used to
+// be swallowed as part of the text, which silently wrote `--personal` into the agent table; refuse
+// instead of guessing. `--personal`, `--date` and `--time` are already gone from argv, so anything
+// still matching here really is unsupported.
 if (['done', 'milestone', 'personal'].includes(command)) {
   const flags = args.slice(1).filter((arg) => arg.startsWith('--'));
   if (flags.length) {
     console.error(
       `[heyloey] Unsupported option(s) for ${command}: ${flags.join(', ')}.\n` +
-        '[heyloey] Agent milestones take free text only; use `heyloey personal "<entry>"` for an owner entry. Nothing written.'
+        '[heyloey] Agent milestones take free text only (plus --date <YYYY-MM-DD> and --time <HH:MM> on done); use `heyloey personal "<entry>"` for an owner entry. Nothing written.'
     );
     process.exit(1);
   }
@@ -1762,10 +2491,141 @@ if (['done', 'milestone', 'personal'].includes(command)) {
 // Commands that WRITE vault records. Readers (brief/context/status/help/install-hook)
 // take no lock: contention should never delay a read, and install-hook writes into a
 // repository's own .git/hooks, not into vault records.
-const WRITER_COMMANDS = new Set(['done', 'milestone', 'personal', 'log', 'sync', 'handoff', 'save', 'learn', 'snippet', 'dream', 'prune']);
+const WRITER_COMMANDS = new Set(['done', 'milestone', 'personal', 'log', 'sync', 'handoff', 'save', 'learn', 'snippet', 'dream', 'prune', 'migrate-log']);
+
+function dryRunTarget(absolutePath) {
+  return SHOW_PATHS ? absolutePath : (path.relative(VAULT_DIR, absolutePath) || '.');
+}
+
+/** Preview a writing command without taking the lock or touching a record. */
+function runDryRun() {
+  // A preview must name the same record the real run would write, or it is a lie about the
+  // most consequential thing it reports: which note the entry lands in.
+  const { dateStr, monthDir, timeStr } = resolveWhen(DONE_WHEN);
+  const dailyPath = dailyNotePath(dateStr, monthDir);
+  const handoffPath = path.join(VAULT_DIR, 'handoff.md');
+  const say = (line) => console.log(line);
+  const header = (label) => say('[heyloey] DRY RUN - nothing written. Vault: ' + dryRunTarget(VAULT_DIR) + ' (' + label + ')');
+  const backDated = DONE_WHEN.date && DONE_WHEN.date !== getTodayInfo().dateStr;
+  if (backDated) {
+    say('[heyloey] back-dated: --date ' + DONE_WHEN.date + (DONE_WHEN.time ? ' --time ' + DONE_WHEN.time : '') +
+      ' (not today, ' + getTodayInfo().dateStr + ')');
+  }
+  const requireFile = (file, label) => {
+    if (fs.existsSync(file)) return fs.readFileSync(file, 'utf8');
+    console.error('[heyloey] REFUSED ' + label + ': ' + vaultRel(file) + ' is absent - ' + DAILY_NOTE_HINT + '; nothing written.');
+    process.exit(OUTCOME_EXIT.refused);
+  };
+  const requireMessage = () => {
+    if (!rawMessage || rawMessage.length < 5) {
+      console.error('Error: Message must be at least 5 characters.');
+      process.exit(1);
+    }
+  };
+
+  switch (command) {
+    case 'done':
+    case 'milestone': {
+      requireMessage();
+      const daily = requireFile(dailyPath, 'daily note');
+      if (DONE_PERSONAL) {
+        const entry = cleanMessage(rawMessage);
+        header(LOG_AREA_HEADINGS.personal);
+        say('   ' + dryRunTarget(dailyPath) + ' [' + LOG_AREA_HEADINGS.personal + ']');
+        if (logAreaHasSummary(daily, 'personal', entry)) say('   (already recorded)');
+        else say('   + - **' + format12hPlain(timeStr) + '**: ' + escapeInlineText(entry));
+        process.exit(0);
+      }
+      const handoff = requireFile(handoffPath, 'handoff');
+      const split = splitScopeAndSummary(formattedMessage);
+      const needle = split.summary.length > 0 ? split.summary : formattedMessage;
+      header(LOG_AREA_HEADINGS.agent);
+      say('   ' + dryRunTarget(dailyPath) + ' [' + LOG_AREA_HEADINGS.agent + ']');
+      if (logAreaHasSummary(daily, 'agent', needle)) say('   (already recorded)');
+      else say('   + | ' + format12hNbsp(timeStr) + ' | ' + (split.scope ? escapeCell(split.scope) : '') + ' | ' + escapeCell(split.summary) + ' |');
+      say('   ' + dryRunTarget(handoffPath) + ' [### Latest Updates]');
+      if (handoffHasEntry(handoff, formattedMessage)) say('   (already recorded)');
+      else say('   + - [x] **[' + dateStr + ' ' + timeStr + ']** ' + escapeInlineText(formattedMessage));
+      process.exit(0);
+    }
+    case 'personal': {
+      requireMessage();
+      const daily = requireFile(dailyPath, 'daily note');
+      const entry = cleanMessage(rawMessage);
+      header(LOG_AREA_HEADINGS.personal);
+      say('   ' + dryRunTarget(dailyPath) + ' [' + LOG_AREA_HEADINGS.personal + ']');
+      if (logAreaHasSummary(daily, 'personal', entry)) say('   (already recorded)');
+      else say('   + - **' + format12hPlain(timeStr) + '**: ' + escapeInlineText(entry));
+      process.exit(0);
+    }
+    case 'log':
+    case 'sync': {
+      requireMessage();
+      const daily = requireFile(dailyPath, 'daily note');
+      const split = splitScopeAndSummary(formattedMessage);
+      const needle = split.summary.length > 0 ? split.summary : formattedMessage;
+      header(LOG_AREA_HEADINGS.agent);
+      say('   ' + dryRunTarget(dailyPath) + ' [' + LOG_AREA_HEADINGS.agent + ']');
+      if (logAreaHasSummary(daily, 'agent', needle)) say('   (already recorded)');
+      else say('   + | ' + format12hNbsp(timeStr) + ' | ' + (split.scope ? escapeCell(split.scope) : '') + ' | ' + escapeCell(split.summary) + ' |');
+      process.exit(0);
+    }
+    case 'handoff':
+    case 'save': {
+      requireMessage();
+      const handoff = requireFile(handoffPath, 'handoff');
+      header('### Latest Updates');
+      say('   ' + dryRunTarget(handoffPath) + ' [### Latest Updates]');
+      if (handoffHasEntry(handoff, formattedMessage)) say('   (already recorded)');
+      else say('   + - [x] **[' + dateStr + ' ' + timeStr + ']** ' + escapeInlineText(formattedMessage));
+      process.exit(0);
+    }
+    case 'learn':
+    case 'snippet': {
+      const nonFlagArgs = args.slice(1).filter((arg) => !arg.startsWith('--'));
+      const title = nonFlagArgs[0];
+      const fix = nonFlagArgs.slice(1).join(' ').trim();
+      if (!title || !fix) {
+        console.error('Usage: heyloey learn "<Title>" "<Root cause & reusable fix>" [--lang=typescript|bash|python]');
+        process.exit(1);
+      }
+      const langFlag = args.find((arg) => arg.startsWith('--lang='));
+      const lang = langFlag ? langFlag.split('=')[1] : 'bash';
+      const safeTitle = title.replace(/[\/\\:*?"<>|]/g, '-').trim();
+      const topicTag = safeTitle.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2)[0] || 'debugging';
+      const target = path.join(VAULT_DIR, '03-Dev', safeTitle + '.md');
+      const core = buildLearnNote(safeTitle, fix, dateStr, lang, topicTag);
+      let plan = 'would create';
+      if (fs.existsSync(target)) {
+        const merged = mergeLearnNote(fs.readFileSync(target, 'utf8'), core, fix);
+        plan = merged.action === 'unchanged' ? 'already recorded; nothing would change' : 'would merge into the marked region';
+      }
+      header('03-Dev');
+      say('   ' + dryRunTarget(target) + ' (' + plan + ')');
+      process.exit(0);
+    }
+    case 'dream':
+    case 'prune': {
+      header('handoff.md');
+      say('   would prune handoff overflow into 07-Reviews/ and carry unfinished tasks forward');
+      process.exit(0);
+    }
+    default:
+      console.error('[heyloey] --dry-run is not implemented for ' + command + '. Nothing written.');
+      process.exit(2);
+  }
+}
 
 async function dispatch() {
-  if (WRITER_COMMANDS.has(command)) {
+  if (DRY_RUN) {
+    if (!WRITER_COMMANDS.has(command)) {
+      console.error(`[heyloey] --dry-run applies to writing commands only; ${command} writes nothing.`);
+      process.exit(2);
+    }
+    // migrate-log prints its own dry-run report; every other writer previews here.
+    // Neither path takes the lock or touches a record.
+    if (command !== 'migrate-log' && command !== 'migrate') runDryRun();
+  } else if (WRITER_COMMANDS.has(command)) {
     // Refuse BEFORE the lock and before any read of a record. A configuration that
     // names the removed tier is an error, never a hint to select something else.
     const obsolete = obsoleteLockConfig();
@@ -1847,8 +2707,24 @@ async function dispatch() {
       console.error('Error: Message must be at least 5 characters.');
       process.exit(1);
     }
+    if (DONE_PERSONAL) {
+      // `done --personal` is the owner-entry shorthand: Personal Log only, never handoff.md.
+      const synthetic = detectSynthetic();
+      const daily = logToPersonal(rawMessage, synthetic, DONE_WHEN);
+      const outcome =
+        daily.status === 'written' ? 'logged' :
+        daily.status === 'already-recorded' ? 'already-recorded' :
+        daily.status === 'missing' ? 'refused' : daily.status;
+      reportOutcome(
+        'done',
+        [['daily', daily], ['handoff', { status: 'not-attempted', path: 'handoff.md', detail: 'done --personal never enters handoff' }]],
+        outcome,
+        synthetic
+      );
+      process.exit(OUTCOME_EXIT[outcome]);
+    }
     const synthetic = detectSynthetic();
-    const { dateStr, monthDir } = getTodayInfo();
+    const { dateStr, monthDir } = resolveWhen(DONE_WHEN);
     const handoffPath = path.join(VAULT_DIR, 'handoff.md');
     const dailyPath = dailyNotePath(dateStr, monthDir);
     const { summary } = splitScopeAndSummary(formattedMessage);
@@ -1879,8 +2755,8 @@ async function dispatch() {
         reportOutcome('done', [['daily', daily], ['handoff', handoff]], 'refused', synthetic);
         return { refused: true };
       }
-      const daily = logToDailyNote(formattedMessage, synthetic);
-      const handoff = updateHandoff(formattedMessage, synthetic);
+      const daily = logToDailyNote(formattedMessage, synthetic, DONE_WHEN);
+      const handoff = updateHandoff(formattedMessage, synthetic, DONE_WHEN);
       // Success is reported ONLY after re-reading BOTH required records from disk
       // (still under the lock) and confirming the intended milestone is inside the
       // expected section of each.
@@ -1929,7 +2805,7 @@ async function dispatch() {
       process.exit(1);
     }
     const synthetic = detectSynthetic();
-    const daily = logToPersonal(rawMessage, synthetic);
+    const daily = logToPersonal(rawMessage, synthetic, DONE_WHEN);
     const outcome =
       daily.status === 'written' ? 'logged' :
       daily.status === 'already-recorded' ? 'already-recorded' :
@@ -1942,6 +2818,89 @@ async function dispatch() {
       daily.status === 'written' || daily.status === 'already-recorded' ? ' verified=daily' : ''
     );
     process.exit(OUTCOME_EXIT[outcome] ?? 1);
+  }
+
+  case 'migrate-log':
+  case 'migrate': {
+    const parsed = parseMigrateArgs(args.slice(1));
+    if (parsed.errors.length) {
+      for (const message of parsed.errors) console.error(`[heyloey] ${message}`);
+      console.error('[heyloey] Nothing written.');
+      process.exit(1);
+    }
+    if (parsed.date && !/^\d{4}-\d{2}-\d{2}$/.test(parsed.date)) {
+      console.error(`[heyloey] --date must be YYYY-MM-DD, got "${parsed.date}". Nothing written.`);
+      process.exit(1);
+    }
+
+    const synthetic = detectSynthetic();
+    const dateStr = parsed.date || getTodayInfo().dateStr;
+    const rel = path.join('01-Daily', dateStr.slice(0, 7), `${dateStr}.md`);
+    const notePath = path.join(VAULT_DIR, rel);
+
+    if (synthetic.synthetic) {
+      console.log(`[heyloey] SKIPPED migrate-log - explicit synthetic opt-out (${synthetic.reason}); nothing written.`);
+      const lockImpl = LOCK_IMPL_IN_FORCE !== 'none' ? LOCK_IMPL_IN_FORCE : process.env.LOEY_LOCK_IMPL_USED || 'none';
+      console.log(
+        `[heyloey] RESULT migrate-log skipped migrated=0 kept=0 adopted=0 lock=${lockImpl} target=${VAULT_DIR} source=${VAULT_TARGET.source} reason=synthetic`
+      );
+      process.exit(OUTCOME_EXIT.skipped);
+    }
+    if (!fs.existsSync(notePath)) {
+      console.error(`[heyloey] REFUSED migrate-log: ${rel} is absent - ${DAILY_NOTE_HINT}; nothing written.`);
+      reportOutcome('migrate-log', [['daily', { status: 'missing', path: rel, detail: 'daily note absent' }]], 'refused', synthetic, ' verified=none', 'migrated=0 kept=0 adopted=0 ');
+      process.exit(OUTCOME_EXIT.refused);
+    }
+
+    const original = fs.readFileSync(notePath, 'utf8');
+    const migrated = migrateAgentMilestones(original, {
+      selectStamps: parsed.select,
+      selectSummaries: parsed.selectSummaries
+    });
+
+    if (!migrated.hasDailyLog) {
+      console.error(`[heyloey] REFUSED migrate-log: ${rel} has no ${DAILY_LOG_HEADING} section, so there is nothing to separate. Nothing written.`);
+      reportOutcome('migrate-log', [['daily', { status: 'section-missing', path: rel, detail: 'daily log section absent' }]], 'refused', synthetic, ' verified=none', 'migrated=0 kept=0 adopted=0 ');
+      process.exit(OUTCOME_EXIT.refused);
+    }
+    if (migrated.selectionErrors.length) {
+      for (const message of migrated.selectionErrors) console.error(`[heyloey] ${message}`);
+      console.error('[heyloey] Nothing written. Name exactly one personal entry per --select/--select-summary; an ambiguous or unmatched selection is refused rather than guessed.');
+      reportOutcome('migrate-log', [['daily', { status: 'selection-invalid', path: rel, detail: 'selection invalid' }]], 'refused', synthetic, ' verified=none', `migrated=0 kept=${migrated.kept.length} adopted=0 `);
+      process.exit(OUTCOME_EXIT.refused);
+    }
+
+    if (parsed.dryRun || DRY_RUN) {
+      console.log(`[heyloey] DRY RUN - nothing written. Vault: ${SHOW_PATHS ? VAULT_DIR : '.'}`);
+      console.log(`[heyloey]   ${rel} [${LOG_AREA_HEADINGS.personal} -> ${LOG_AREA_HEADINGS.agent}]`);
+      for (const summary of migrated.moved) console.log(`[heyloey]     -> ${summary}`);
+      if (migrated.adopted > 0) console.log(`[heyloey]     => ${migrated.adopted} legacy callout(s) adopted by the agent area`);
+      for (const summary of migrated.kept) console.log(`[heyloey]     . left in place: ${summary}`);
+      process.exit(0);
+    }
+
+    const counts = `migrated=${migrated.moved.length} kept=${migrated.kept.length} adopted=${migrated.adopted} `;
+    if (migrated.content === original) {
+      console.log(`[heyloey] ALREADY-RECORDED migrate-log: ${rel} is already separated (${migrated.moved.length} moved, ${migrated.kept.length} left in place); nothing changed.`);
+      reportOutcome('migrate-log', [['daily', { status: rel, path: rel, detail: 'note already separated' }]], 'already-recorded', synthetic, ' verified=daily', counts);
+      process.exit(OUTCOME_EXIT['already-recorded']);
+    }
+
+    try {
+      atomicWriteFileSync(notePath, migrated.content);
+    } catch (e) {
+      console.error(`[heyloey] FAILED migrate-log: ${rel} - ${e.message}`);
+      reportOutcome('migrate-log', [['daily', { status: rel, path: rel, detail: e.message }]], 'failed', synthetic, ' verified=none', counts);
+      process.exit(OUTCOME_EXIT.failed);
+    }
+    if (fs.readFileSync(notePath, 'utf8') !== migrated.content) {
+      console.error(`[heyloey] FAILED migrate-log: ${rel} - post-write verification failed; the note is not as written.`);
+      reportOutcome('migrate-log', [['daily', { status: rel, path: rel, detail: 'post-write verification failed' }]], 'failed', synthetic, ' verified=none', counts);
+      process.exit(OUTCOME_EXIT.failed);
+    }
+    console.log(`[heyloey] SEPARATED ${rel}: ${migrated.moved.length} moved, ${migrated.adopted} callout(s) adopted, ${migrated.kept.length} left in place.`);
+    reportOutcome('migrate-log', [['daily', { status: rel, path: rel, detail: 'note separated' }]], 'logged', synthetic, ' verified=daily', counts);
+    process.exit(0);
   }
 
   case 'brief':
@@ -2028,34 +2987,71 @@ async function dispatch() {
   }
 
   case 'install-hook':
-  case 'hook':
+  case 'hook': {
+    const hookArgs = args.slice(1);
+    const force = hookArgs.includes('--force');
+    const unexpected = hookArgs.filter((arg) => arg !== '--force');
+    if (unexpected.length) {
+      console.error(`[heyloey] Unsupported option(s) for install-hook: ${unexpected.join(', ')}. Use --force to replace a foreign post-commit hook.`);
+      process.exit(2);
+    }
     try {
+      // `--git-path hooks` honours core.hooksPath, so a repository that configures
+      // .githooks (like loey_space itself) gets the hook where git actually runs it.
       const repoRoot = execSync('git rev-parse --show-toplevel 2>/dev/null', { encoding: 'utf8' }).trim();
       if (!repoRoot) {
         console.error('Error: Not inside a git repository.');
         process.exit(1);
       }
-      const hooksDir = path.join(repoRoot, '.git', 'hooks');
+      const hooksDir = path.resolve(repoRoot, execSync('git rev-parse --git-path hooks 2>/dev/null', { encoding: 'utf8' }).trim());
+      const hookPath = path.join(hooksDir, 'post-commit');
+      const MARKER = '# heyloey-managed';
+      // Opt-in only: the same trailer the vault's own hook uses. A commit without the
+      // trailer is a silent no-op, so this hook can never turn every commit into a
+      // milestone entry (the documented milestone-only policy).
+      const hookScript = `#!/usr/bin/env bash
+${MARKER}: logs a milestone ONLY when the commit message carries the trailer
+#     HeyLoey-Milestone: <one-line summary>
+# Managed by \`heyloey install-hook\`; re-run that command to refresh it. Nothing else is
+# ever logged: a commit without the trailer is a silent no-op here.
+set -u
+command -v heyloey >/dev/null 2>&1 || exit 0
+raw=$(git log -1 --pretty=%B 2>/dev/null) || exit 0
+summary=$(printf '%s\\n' "$raw" | awk '/^HeyLoey-Milestone:/{v=substr($0,length("HeyLoey-Milestone:")+1); sub(/^[ \\t]+/,"",v); sub(/[ \\t\\r]+$/,"",v); print v; exit}')
+summary=$(printf '%s' "\${summary:-}" | sed -e 's/^[-[:space:]]*//')
+[ -n "\${summary:-}" ] || exit 0
+if command -v timeout >/dev/null 2>&1; then
+  timeout 20 heyloey done "$summary" >/dev/null 2>&1 || true
+else
+  heyloey done "$summary" >/dev/null 2>&1 || true
+fi
+`;
+      const existing = fs.existsSync(hookPath) ? fs.readFileSync(hookPath, 'utf8') : null;
+      if (existing !== null && !existing.includes(MARKER)) {
+        if (!force) {
+          console.error(
+            `[heyloey] REFUSED install-hook: ${hookPath} already exists and was not installed by heyloey. Nothing written.\n` +
+              '[heyloey] Re-run with --force to replace it; a timestamped backup is written first.'
+          );
+          process.exit(1);
+        }
+        const backup = `${hookPath}.bak-${new Date().toISOString().replace(/[:.]/g, '-')}`;
+        fs.copyFileSync(hookPath, backup);
+        console.log(`[heyloey] Backed up existing hook: ${backup}`);
+      }
       if (!fs.existsSync(hooksDir)) {
         fs.mkdirSync(hooksDir, { recursive: true });
       }
-      const hookPath = path.join(hooksDir, 'post-commit');
-      const hookScript = `#!/usr/bin/env bash
-# Git post-commit hook for automated loey_space daily logging
-if command -v heyloey >/dev/null 2>&1; then
-  COMMIT_MSG=$(git log -1 --pretty=%s 2>/dev/null)
-  if [ -n "$COMMIT_MSG" ]; then
-    heyloey log "$COMMIT_MSG" >/dev/null 2>&1 &
-  fi
-fi
-`;
       fs.writeFileSync(hookPath, hookScript, { encoding: 'utf8', mode: 0o755 });
-      console.log(`[heyloey] Installed post-commit hook into ${hookPath}`);
+      fs.chmodSync(hookPath, 0o755);
+      console.log(`[heyloey] Installed trailer-gated post-commit hook into ${hookPath}`);
+      console.log('[heyloey] Opt-in: add "HeyLoey-Milestone: <summary>" to a commit message. Every other commit is a no-op.');
     } catch (e) {
       console.error('Failed to install hook:', e.message);
       process.exit(1);
     }
     break;
+  }
 
   default:
     console.log(`Usage: heyloey <command> [args]
@@ -2063,21 +3059,40 @@ Commands:
   brief [--kiwi]             Condensed ~400-token snapshot of memory + handoff + today's tasks (add --kiwi for SOUL.md)
   lock-state                 Read-only report: lock protocol, \`flock\` presence, configuration, and any
                              legacy file-tier lock state (exit 0 ready / 8 unusable / 9 legacy state)
-  context [query]            Laya System-1 context router: outputs brief + matched 02-Projects hub & 03-Dev runbooks
+  context [query]            Single-pass context router: outputs brief + matched 02-Projects hub & 03-Dev runbooks
   learn "<title>" "<fix>"    Crystallize a reusable debugging fix/pattern into 03-Dev/<title>.md (--lang=bash|ts|py)
   dream                      Run Nightly Dream Loop (auto-prune handoff.md >10 items to 07-Reviews/, carry over tasks, check rot)
   done "<msg>"               Log to today's daily note AND update handoff.md (with auto-pruning & deduplication)
+  personal "<entry>"         Owner's own entry: today's \`### 🧍 Personal Log\` only; handoff.md is never touched
   log "<msg>"                Append entry to today's daily note
   handoff "<msg>"            Update handoff.md (with auto-pruning)
   status                     Check status of daily note, handoff, and Kiwi SOUL.md
   install-hook               Install auto-logging post-commit hook into current git repo
+  migrate-log [options]      Separate one daily note: create its labelled areas and fold agent
+                             bullets/callouts into the one agent table. A personal entry moves
+                             only when named with --select or --select-summary.
 
 Targeting:
-  LOEY_SPACE_DIR=<dir>       Target vault. Defaults to the documented constant
-                             ${DEFAULT_VAULT_DIR}
+  --root <dir>               Target vault for this invocation. Wins over the environment.
+                             Relative values resolve against the working directory.
+  --dry-run                  With a writing command: print the lines that would be written and
+                             write nothing (takes no lock).
+  --show-paths               Print absolute paths in diagnostics; output is relative by default.
+  --personal                 With done: write under ### 🧍 Personal Log and skip handoff.md.
+  LOEY_SPACE_DIR=<dir>       Target vault for this CLI. Overrides LOEY_VAULT_ROOT.
+  LOEY_VAULT_ROOT=<dir>      Fallback target; the same variable the MCP launcher uses.
+  (neither set)              Defaults to ~/loey_space (${DEFAULT_VAULT_DIR}).
   LOEY_SPACE_SYNTHETIC=1     Explicit synthetic-test opt-out: writes nothing.
                              A '.loey-synthetic' sentinel in the repo root or cwd
                              has the same effect.
+
+  --date <day>               With migrate-log: the daily note to separate (YYYY-MM-DD). Default: today.
+                             With done: the day the milestone happened, so a milestone replayed
+                             after midnight is filed in its own day's note. Default: today.
+  --time <HH:MM>             With done --date: the 24-hour clock time to record. Default: now.
+  --select <time>            With migrate-log: move exactly one personal entry with this time, e.g. "09:21 AM".
+  --select-summary <text>    With migrate-log: the same, by a unique substring of the summary.
+  --dry-run                  With migrate-log: report what would move and write nothing.
 
 Outcomes (also emitted as one machine-readable line:
   [heyloey] RESULT <cmd> <outcome> <record>=<status> ... target=<dir> source=<src>)

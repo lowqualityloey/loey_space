@@ -10,13 +10,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import path from 'node:path';
 import {
-  AGENT_AREA, AGENT_TOGGLE, DAILY_HEADING, FIXTURE, GITHUB_AREA, INSTALLED, PERSONAL_AREA,
-  SENTINEL, TABLE_HEADER, agentToggles, areaOf, canonicalCli, claimedCount, makeVault, rowsOf,
-  runCli, sha256, writeDaily,
+  AGENT_AREA, AGENT_TOGGLE, DAILY_HEADING, FIXTURE, FIXTURE_SRC, GITHUB_AREA, INSTALLED,
+  PERSONAL_AREA, SENTINEL, TABLE_HEADER, agentToggles, areaOf, canonicalCli, claimedCount,
+  makeVault, rowsOf, runCli, sha256, writeDaily,
 } from './helpers/canonical-fixture.mjs';
 
-const PINNED_SHA256 = '8f77c4da28b2a5e883dd98867d07f938d38e1a49a71195d782538c090aeb4c00';
+const PINNED_SHA256 = 'dd934b5b23027640914c5a988cf3aec65864034e46704878b78112fbad35390e';
 
 function fixtureVault(t, personal = []) {
   const root = makeVault(t);
@@ -42,8 +43,20 @@ function fixtureVault(t, personal = []) {
 test('the pinned canonical test input is reproducibly present', () => {
   assert.ok(fs.existsSync(FIXTURE), 'the canonical fixture must ship with the repository');
   assert.equal(sha256(FIXTURE), PINNED_SHA256, 'update the fixture and this pin together');
-  assert.match(fs.readFileSync(FIXTURE, 'utf8'), /AGENT_TABLE_HEADER/);
-  assert.match(fs.readFileSync(FIXTURE, 'utf8'), /case 'personal'/);
+  const source = fs.readFileSync(FIXTURE, 'utf8');
+  assert.match(source, /AGENT_TABLE_HEADER/);
+  assert.match(source, /case 'personal'/);
+  // The fixture must be the writer that accepts `done --personal`, not the pre-2cdb132 stub that
+  // refused it. Without this the pin could re-adopt a stale writer and only the env-gated test
+  // would notice.
+  assert.match(source, /const DONE_PERSONAL = /, 'the fixture must carry the done --personal shim');
+  assert.match(source, /argv\[2\] !== 'done'\) return false/);
+});
+
+test('the fixture ships the search engine the canonical writer refuses to run without', () => {
+  const engine = path.join(FIXTURE_SRC, 'search-engine.cjs');
+  assert.ok(fs.existsSync(engine), 'the vendored BM25 engine must ship beside the fixture');
+  assert.ok(fs.statSync(engine).size > 0, 'the vendored BM25 engine must not be empty');
 });
 
 test('the canonical writer (MCP and post-deployment installed logger) writes the agent table', (t) => {
@@ -244,18 +257,39 @@ test('the personal entry point writes a Personal Log bullet and never touches ha
   assert.equal(fs.readFileSync(file, 'utf8'), before, 'a repeat personal entry must not duplicate');
 });
 
-test('personal flags that are not supported refuse instead of becoming agent milestones', (t) => {
+test('a personal flag on the personal command refuses instead of becoming an agent milestone', (t) => {
   const cli = canonicalCli(t);
   const { root, file } = fixtureVault(t);
   const daily = fs.readFileSync(file, 'utf8');
   const handoff = fs.readFileSync(`${root}/handoff.md`, 'utf8');
 
-  for (const args of [['personal', '--handoff', 'walk'], ['done', '--personal', 'walk']]) {
-    const result = runCli(root, cli, args);
-    assert.notEqual(result.status, 0, `${args.join(' ')} must refuse`);
-    assert.equal(fs.readFileSync(file, 'utf8'), daily, 'no daily write');
-    assert.equal(fs.readFileSync(`${root}/handoff.md`, 'utf8'), handoff, 'no handoff write');
-  }
+  const result = runCli(root, cli, ['personal', '--handoff', 'walked the harbour']);
+  assert.notEqual(result.status, 0, 'personal --handoff must refuse');
+  assert.match(result.stderr + result.stdout, /Unsupported option/);
+  assert.equal(fs.readFileSync(file, 'utf8'), daily, 'no daily write');
+  assert.equal(fs.readFileSync(`${root}/handoff.md`, 'utf8'), handoff, 'no handoff write');
+});
+
+/*
+ * `done --personal` is the repository CLI's shorthand for the owner-entry path: the entry lands
+ * under the Personal Log and handoff.md is never touched. It is deliberately NOT a refusal, and
+ * the message is longer than five characters so this can only pass on the routing, not on the
+ * minimum-length guard the earlier assertion tripped by accident.
+ */
+test('done --personal routes to the Personal Log and never to the agent table', (t) => {
+  const cli = canonicalCli(t);
+  const { root, file } = fixtureVault(t);
+  const handoff = fs.readFileSync(`${root}/handoff.md`, 'utf8');
+  const entry = 'walked the harbour at dusk';
+
+  const result = runCli(root, cli, ['done', '--personal', entry]);
+  assert.equal(result.status, 0, `expected exit 0: ${result.stderr}`);
+  assert.match(result.stdout, /RESULT done logged daily=written handoff=not-attempted/);
+
+  const daily = fs.readFileSync(file, 'utf8');
+  assert.match(areaOf(daily, PERSONAL_AREA), /^- \*\*\d{2}:\d{2} [AP]M\*\*: walked the harbour at dusk$/m);
+  assert.doesNotMatch(areaOf(daily, AGENT_AREA), /walked the harbour/, 'a personal entry is not an agent row');
+  assert.equal(fs.readFileSync(`${root}/handoff.md`, 'utf8'), handoff, 'handoff must be byte-identical');
 });
 
 const installedPath = process.env.HEYLOEY_INSTALLED;
@@ -283,7 +317,17 @@ test('the installed writer passes the same behavior after the coordinated deploy
   assert.ok(fs.readFileSync(`${root}/handoff.md`, 'utf8').includes('installed writer milestone'));
   assert.ok(fs.readFileSync(`${root}/handoff.md`, 'utf8') !== handoff);
 
-  const rejected = runCli(root, INSTALLED, ['done', '--personal', 'silent agent write']);
-  assert.notEqual(rejected.status, 0, 'the installed writer must reject done --personal');
-  assert.equal(fs.readFileSync(file, 'utf8').includes('silent agent write'), false);
+  // `done --personal` is the owner-entry shorthand on the installed writer too: it routes to the
+  // Personal Log and leaves handoff.md alone. This asserted a refusal until the fixture was
+  // re-pinned to the writer that actually ships; the old assertion also tripped the five-character
+  // message guard, so it could pass on a writer that accepted the flag.
+  const beforeShorthand = fs.readFileSync(`${root}/handoff.md`, 'utf8');
+  const shorthand = runCli(root, INSTALLED, ['done', '--personal', 'installed shorthand personal']);
+  assert.equal(shorthand.status, 0, `installed done --personal failed: ${shorthand.stderr}`);
+  assert.match(shorthand.stdout, /RESULT done logged daily=written handoff=not-attempted/);
+  assert.match(
+    areaOf(fs.readFileSync(file, 'utf8'), PERSONAL_AREA),
+    /^- \*\*\d{2}:\d{2} [AP]M\*\*: installed shorthand personal$/m,
+  );
+  assert.equal(fs.readFileSync(`${root}/handoff.md`, 'utf8'), beforeShorthand, 'shorthand must not touch handoff');
 });
