@@ -44,6 +44,15 @@ npm run reconcile-github
 
 The target defaults to this script's vault, independently of the working directory. `LOEY_SPACE_DIR` or `--root <vault>` selects another vault explicitly.
 
+A single milestone can be recorded through the same locked writer, without a GitHub scan:
+
+```bash
+npm run reconcile-github -- --record "One line describing the milestone"
+npm run reconcile-github -- --record "Queued overnight milestone" --date 2026-11-20 --time 23:50
+```
+
+`--date` files the entry under the day the work happened, which is what a replayed record needs: a milestone queued at 23:50 and drained after midnight would otherwise land in the wrong note. Without `--time` the current clock time is kept on the named day, matching `done --date` exactly. Both values are validated before the lock is taken, so a malformed day costs nothing and writes nothing. `--date` and `--time` are refused unless `--record` is present.
+
 The central logger at `~/.local/bin/heyloey` is preferred over PATH. `HEYLOEY_BIN` can name a different installed logger. Its read-only `lock-state` must identify the intended vault and the same kernel lock before any logging occurs; the repository's portable CLI is not substituted silently.
 
 Today's canonical daily note and `handoff.md` must exist with `## 📝 Daily Log` (reconciled rows land in `### 🤖 Agent Milestones`) and `### Latest Updates`. Missing records cause refusal, never fabricated vitals, habits or focus. Create the daily note through the canonical template or morning flow, then retry.

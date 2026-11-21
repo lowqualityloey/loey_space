@@ -398,6 +398,58 @@ test('the hook asks the reconciler even when the readiness receipt is gone', (t)
   assert.equal(fs.readFileSync(f.daily, 'utf8'), '## 📝 Daily Log\n', 'the refusal must not be papered over by another writer');
 });
 
+test('a replayed milestone is filed under the day it happened, not the day of the replay', (t) => {
+  const f = fixture(t);
+  const day = path.join(f.vault, '01-Daily', '2026-11', '2026-11-20.md');
+  fs.mkdirSync(path.dirname(day), { recursive: true });
+  fs.writeFileSync(day, '## 📝 Daily Log\n');
+  const argvLog = path.join(f.vault, 'argv.log');
+  const result = spawnSync(process.execPath, [f.driver, '--root', f.vault, '--record', 'Queued overnight milestone',
+    '--date', '2026-11-20', '--time', '23:50'], {
+    cwd: f.vault, env: { ...f.env, FIXTURE_ARGV: argvLog }, encoding: 'utf8', timeout: 30000
+  });
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /RESULT done logged/);
+  const argv = fs.readFileSync(argvLog, 'utf8').trim().split('\n').map((line) => JSON.parse(line)).pop();
+  assert.deepEqual(argv, ['done', 'Queued overnight milestone', '--date', '2026-11-20', '--time', '23:50'],
+    'the writer must be told the day explicitly; a bare summary would land in whichever day is current');
+  assert.match(fs.readFileSync(day, 'utf8'), /Queued overnight milestone/);
+  assert.equal(fs.readFileSync(f.daily, 'utf8'), '## 📝 Daily Log\n', 'the replay must not touch the live note');
+});
+
+test('a replayed milestone with no --time keeps the writer clock instead of inventing midnight', (t) => {
+  const f = fixture(t);
+  const day = path.join(f.vault, '01-Daily', '2026-11', '2026-11-20.md');
+  fs.mkdirSync(path.dirname(day), { recursive: true });
+  fs.writeFileSync(day, '## 📝 Daily Log\n');
+  const argvLog = path.join(f.vault, 'argv.log');
+  const result = spawnSync(process.execPath, [f.driver, '--root', f.vault, '--record', 'Day-only replay',
+    '--date', '2026-11-20'], { cwd: f.vault, env: { ...f.env, FIXTURE_ARGV: argvLog }, encoding: 'utf8', timeout: 30000 });
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  const argv = fs.readFileSync(argvLog, 'utf8').trim().split('\n').map((line) => JSON.parse(line)).pop();
+  assert.deepEqual(argv, ['done', 'Day-only replay', '--date', '2026-11-20']);
+});
+
+test('a malformed day is refused before the lock and writes nothing', (t) => {
+  const f = fixture(t);
+  const result = spawnSync(process.execPath, [f.driver, '--root', f.vault, '--record', 'Must remain unlogged',
+    '--date', '2026-02-30'], { cwd: f.vault, env: f.env, encoding: 'utf8', timeout: 30000 });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /real YYYY-MM-DD day/);
+  assert.match(result.stderr, /Nothing written/);
+  assert.equal(fs.existsSync(path.join(f.vault, 'locks')), false, 'a typo must not cost a lock');
+  assert.equal(fs.readFileSync(f.daily, 'utf8'), '## 📝 Daily Log\n');
+});
+
+test('--date without --record is refused rather than silently ignored', (t) => {
+  const f = fixture(t);
+  const result = spawnSync(process.execPath, [f.driver, '--root', f.vault, '--date', '2026-11-20'], {
+    cwd: f.vault, env: f.env, encoding: 'utf8', timeout: 30000
+  });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /only apply with --record/);
+});
+
 test('the hook keeps the portable path when the vault declares no reconciler configuration', (t) => {
   const f = fixture(t);
   seedCommit(f, 'Allowlist-free milestone');

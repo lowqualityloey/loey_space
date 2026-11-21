@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { collectPlan, parseOptions } from '../reconcile-github-milestones.mjs';
+import { collectPlan, parseOptions, validateRecordWhen } from '../reconcile-github-milestones.mjs';
 import {
   validateConfig, validateState, scanSince, localStamp, normalizePullRequest,
   milestoneSummary, recordContains, requireReceipt, reconcileMilestones
@@ -297,6 +297,29 @@ test('invalid options fail instead of targeting an accidental working directory'
   assert.equal(parseOptions(['--record', 'A completed milestone']).recordSummary, 'A completed milestone');
   assert.throws(() => parseOptions(['--record']), /option/);
   assert.equal(parseOptions(['--enable']).enable, true);
+});
+
+test('a replayed milestone carries the day it happened, and nothing is invented', () => {
+  assert.equal(parseOptions(['--record', 'Replayed']).recordDate, undefined);
+  assert.equal(parseOptions(['--record', 'Replayed', '--date', '2026-11-20']).recordDate, '2026-11-20');
+  assert.equal(parseOptions(['--record', 'Replayed', '--date', '2026-11-20', '--time', '23:50']).recordTime, '23:50');
+  assert.throws(() => parseOptions(['--date']), /option/, 'a flag with no value is a typo, not a default');
+
+  assert.equal(validateRecordWhen(undefined, undefined), undefined, 'a live record keeps the CLI clock');
+  // --date alone must NOT become midnight: the CLI keeps the current clock time on the named day,
+  // and a fabricated 00:00 would file a manual back-date at an hour nobody claimed.
+  assert.deepEqual(validateRecordWhen('2026-11-20', undefined), { date: '2026-11-20' });
+  assert.deepEqual(validateRecordWhen('2026-11-20', '23:50'), { date: '2026-11-20', time: '23:50' });
+});
+
+test('an impossible day or clock time is refused before any lock or write', () => {
+  assert.throws(() => validateRecordWhen(undefined, '23:50'), /--time needs --date/);
+  assert.throws(() => validateRecordWhen('2026-02-30', undefined), /real YYYY-MM-DD/);
+  assert.throws(() => validateRecordWhen('2026-13-01', undefined), /real YYYY-MM-DD/);
+  assert.throws(() => validateRecordWhen('20-11-2026', undefined), /real YYYY-MM-DD/);
+  assert.throws(() => validateRecordWhen('2026-11-20', '24:00'), /24-hour HH:MM/);
+  assert.throws(() => validateRecordWhen('2026-11-20', '7:05'), /24-hour HH:MM/);
+  assert.throws(() => validateRecordWhen('2026-11-20', '2350'), /24-hour HH:MM/);
 });
 
 test('the escaped handoff marker is the same record as the raw one', () => {

@@ -24,10 +24,12 @@ const VERIFICATION_FILES = [
 ];
 
 export function parseOptions(args) {
-  const options = { root: process.env.LOEY_SPACE_DIR || path.resolve(path.dirname(filename), '../..'), dryRun: false, applyPlan: false, help: false, enable: false, status: false, recordSummary: undefined };
+  const options = { root: process.env.LOEY_SPACE_DIR || path.resolve(path.dirname(filename), '../..'), dryRun: false, applyPlan: false, help: false, enable: false, status: false, recordSummary: undefined, recordDate: undefined, recordTime: undefined };
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--root' && args[i + 1] && !args[i + 1].startsWith('--')) options.root = args[++i];
     else if (args[i] === '--record' && args[i + 1] && !args[i + 1].startsWith('--')) options.recordSummary = args[++i];
+    else if (args[i] === '--date' && args[i + 1] && !args[i + 1].startsWith('--')) options.recordDate = args[++i];
+    else if (args[i] === '--time' && args[i + 1] && !args[i + 1].startsWith('--')) options.recordTime = args[++i];
     else if (args[i] === '--dry-run') options.dryRun = true;
     else if (args[i] === '--enable') options.enable = true;
     else if (args[i] === '--apply-plan') options.applyPlan = true;
@@ -36,6 +38,31 @@ export function parseOptions(args) {
     else throw new Error('Unknown or incomplete option: ' + args[i]);
   }
   return options;
+}
+
+/**
+ * A back-dated record names the moment the milestone actually happened, because a queued replay is
+ * filed by the vault calendar and not by whatever clock the replaying shell happens to hold.
+ *
+ * The checks mirror the CLI's own --date/--time validation exactly, so a bad value is refused here
+ * with the reconciler's message rather than after a lock is taken and a logger is spawned. Diverging
+ * would be worse than either check alone: a value the CLI accepts but this refuses turns a valid
+ * replay into a permanent refusal, and one this accepts but the CLI rejects burns the lock to learn
+ * something a regex already knew.
+ */
+export function validateRecordWhen(date, time) {
+  if (date === undefined && time === undefined) return undefined;
+  if (date === undefined) throw new Error('--time needs --date: a clock time alone names no day.');
+  const parsed = /^\d{4}-\d{2}-\d{2}$/.test(date) ? new Date(date + 'T00:00:00Z') : null;
+  if (!parsed || Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date) {
+    throw new Error('--date must be a real YYYY-MM-DD day, got "' + date + '". Nothing written.');
+  }
+  if (time !== undefined && !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+    throw new Error('--time must be 24-hour HH:MM, got "' + time + '". Nothing written.');
+  }
+  // --date without --time keeps the CLI's own behaviour: the current clock time, on the named day.
+  // Inventing 00:00 here would file a manual back-date at midnight, which is a different claim.
+  return time === undefined ? { date } : { date, time };
 }
 
 function safeFile(root, relative) {
@@ -387,7 +414,11 @@ function executePlan(root, plan) {
   requireReadiness(root);
   if (typeof plan.recordSummary === 'string') {
     if (!plan.recordSummary.trim() || /[\r\n]/.test(plan.recordSummary)) throw new Error('A milestone must be a nonempty single line.');
-    const output = execFileSync(logger, ['done', plan.recordSummary], {
+    // A replayed milestone names the moment the work happened, not the moment the replay ran.
+    // Without this the hook's queued records would all pile into the note of whichever day the
+    // commit finally succeeded, which is a false record rather than a late one.
+    const when = plan.when === undefined ? [] : ['--date', plan.when.date, ...(plan.when.time ? ['--time', plan.when.time] : [])];
+    const output = execFileSync(logger, ['done', plan.recordSummary, ...when], {
       cwd: root, encoding: 'utf8', timeout: 30000, maxBuffer: 4 * 1024 * 1024, env: loggerEnvironment
     });
     const receipt = requireReceipt(output, 'done', root);
@@ -484,7 +515,7 @@ async function runLocked(root, plan) {
 export async function main(args = process.argv.slice(2)) {
   const options = parseOptions(args);
   if (options.help) {
-    console.log('Usage: npm run reconcile-github -- [--root <vault>] [--status | --dry-run | --enable]\nRequires gh authentication, the installed central heyloey CLI, and kernel flock (WSL on Windows).\n--status is read-only: it needs no gh, no logger and no flock, and exits 0 ready / 4 not ready.');
+    console.log('Usage: npm run reconcile-github -- [--root <vault>] [--status | --dry-run | --enable | --record <summary> [--date <YYYY-MM-DD> [--time <HH:MM>]]]\nRequires gh authentication, the installed central heyloey CLI, and kernel flock (WSL on Windows).\n--status is read-only: it needs no gh, no logger and no flock, and exits 0 ready / 4 not ready.\n--date files a replayed milestone under the day the work happened; without --time the current clock time is kept.');
     return 0;
   }
   const root = fs.realpathSync(path.resolve(options.root));
@@ -495,7 +526,8 @@ export async function main(args = process.argv.slice(2)) {
     return 0;
   }
   if (options.status) {
-    if (options.dryRun || options.enable || options.recordSummary !== undefined) throw new Error('--status must run on its own.');
+    if (options.dryRun || options.enable || options.recordSummary !== undefined ||
+        options.recordDate !== undefined || options.recordTime !== undefined) throw new Error('--status must run on its own.');
     // Deliberately before the config read: a clone can ask "is this source certified?" without a
     // repository allowlist, gh authentication, an installed logger or a kernel lock, and asking must
     // never write anything.
@@ -510,18 +542,30 @@ export async function main(args = process.argv.slice(2)) {
     console.error(readinessError(root, report));
     return 4;
   }
+  // Refused before rotation, config and the lock: a mistyped flag must cost nothing at all.
+  // Guarded on --record being absent, because with it present these flags are the whole point.
+  if (options.recordSummary === undefined &&
+      (options.recordDate !== undefined || options.recordTime !== undefined)) {
+    throw new Error('--date and --time only apply with --record. Nothing written.');
+  }
   // Only a real run rotates, and it rotates before anything can fail: the shell has already
   // opened this tick's output against the log, so a vault that never scans cleanly must still
   // have that file bounded. --status returned above and --dry-run is a pure reader.
   if (!options.dryRun) rotateReconcileLog();
   const config = validateConfig(readJson(root, CONFIG));
   if (options.enable) {
-    if (options.dryRun || options.recordSummary !== undefined) throw new Error('--enable must run on its own.');
+    if (options.dryRun || options.recordSummary !== undefined ||
+        options.recordDate !== undefined || options.recordTime !== undefined) throw new Error('--enable must run on its own.');
     return runLocked(root, { config, enable: true, sourceHashes: verifySource(root) });
   }
   if (options.recordSummary !== undefined) {
     if (options.dryRun) throw new Error('--record cannot be combined with --dry-run.');
-    return runLocked(root, { config, recordSummary: options.recordSummary });
+    // Validated here, before the lock is taken and a logger is spawned: a malformed day must cost
+    // nothing and must not leave a half-attempted write behind a 15s flock wait.
+    const when = validateRecordWhen(options.recordDate, options.recordTime);
+    return runLocked(root, when === undefined
+      ? { config, recordSummary: options.recordSummary }
+      : { config, recordSummary: options.recordSummary, when });
   }
   const state = validateState(readJson(root, STATE, true));
   if (!options.dryRun) requireReadiness(root);
