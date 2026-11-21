@@ -205,6 +205,52 @@ function requireReadiness(root) {
   throw new Error(readinessError(root, report));
 }
 
+// --- Run-log rotation -------------------------------------------------------
+// The installed cron line appends every tick to one file, so an unattended
+// reconciler grows it forever. Rotation happens in the writer, not in cron: the
+// shell has already opened the log with >> by the time this runs, so the archive
+// is a copy and the live file is truncated in place. The inode never changes,
+// which means the pending append from that same shell keeps landing in the live
+// file instead of following a renamed one into the archive (the classic
+// rename-based rotation bug), and no sparse hole is left behind.
+const LOG_MAX_BYTES = 512 * 1024;
+
+export function reconcileLogPath() {
+  if (process.env.LOEY_RECONCILE_LOG) return process.env.LOEY_RECONCILE_LOG;
+  const stateHome = process.env.XDG_STATE_HOME || path.join(os.homedir(), '.local', 'state');
+  return path.join(stateHome, 'heyloey', 'reconcile.log');
+}
+
+// How many trailing lines survive a rotation. The health alert only needs the newest
+// RESULT, but a human reading the log after an incident wants the last few ticks, so
+// the live file keeps a short tail instead of being emptied.
+const LOG_KEEP_LINES = 200;
+
+/**
+ * Rotate once the log passes maxBytes. Never throws: a full disk must not fail a scan.
+ *
+ * The live file keeps its newest LOG_KEEP_LINES lines, so the newest RESULT is still
+ * there for the health alert immediately after a rotation; the archive holds everything.
+ */
+export function rotateReconcileLog(logPath = reconcileLogPath(), maxBytes = LOG_MAX_BYTES) {
+  try {
+    if (!fs.existsSync(logPath)) return { rotated: false, size: 0, archive: null, kept: 0 };
+    const size = fs.statSync(logPath).size;
+    if (size <= maxBytes) return { rotated: false, size, archive: null, kept: 0 };
+    const text = fs.readFileSync(logPath, 'utf8');
+    const archive = logPath + '.1';
+    fs.copyFileSync(logPath, archive);
+    const lines = text.split('\n');
+    const tail = lines.slice(Math.max(0, lines.length - LOG_KEEP_LINES));
+    const kept = tail.join('\n');
+    fs.truncateSync(logPath, 0);
+    if (kept) fs.appendFileSync(logPath, kept);
+    return { rotated: true, size, archive, kept: kept.length };
+  } catch {
+    return { rotated: false, size: 0, archive: null, kept: 0 };
+  }
+}
+
 function verifySource(root) {
   const before = sourceHashes(root);
   // Verification must run the suites for real even when the reconciler itself was
@@ -464,6 +510,10 @@ export async function main(args = process.argv.slice(2)) {
     console.error(readinessError(root, report));
     return 4;
   }
+  // Only a real run rotates, and it rotates before anything can fail: the shell has already
+  // opened this tick's output against the log, so a vault that never scans cleanly must still
+  // have that file bounded. --status returned above and --dry-run is a pure reader.
+  if (!options.dryRun) rotateReconcileLog();
   const config = validateConfig(readJson(root, CONFIG));
   if (options.enable) {
     if (options.dryRun || options.recordSummary !== undefined) throw new Error('--enable must run on its own.');
