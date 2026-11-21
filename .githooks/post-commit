@@ -223,6 +223,14 @@ summary=$(printf '%s' "${summary:-}" | sed -e 's/^[-[:space:]]*//') || exit 0
 # --- the logger: WSL on Windows, repository-local then global, skip third ---------
 node_bin=$(command -v node 2>/dev/null) || node_bin=""
 bundle="$repo_root/06-Resources/scripts/heyloey.js"
+# A vault that owns the GitHub reconciler has a writer even when the portable bundle is absent: the
+# reconciler runs the installed CLI itself. Counting it here keeps the early skip below from
+# reporting "no tooling" for a vault that can perfectly well log its milestone.
+reconciler="$repo_root/06-Resources/scripts/reconcile-github-milestones.mjs"
+owns_reconciler=false
+if [ -f "$repo_root/.github-milestone-repositories.json" ] && [ -f "$reconciler" ]; then
+  owns_reconciler=true
+fi
 logger=""
 if [ -n "${repo_root_wsl:-}" ] && [ -n "${wsl_cli:-}" ]; then
   logger="heyloey in WSL"
@@ -232,7 +240,7 @@ elif command -v heyloey >/dev/null 2>&1; then
   logger="heyloey on PATH"
 fi
 
-if [ -z "$logger" ]; then
+if [ -z "$logger" ] && [ "$owns_reconciler" != true ]; then
   # Missing tooling is an expected state in a fresh clone, not an error worth reporting on every
   # commit. Say nothing and leave the commit alone.
   exit 0
@@ -576,8 +584,40 @@ run_bounded() { # <seconds> <output file> <command…>
 # logger — logging the milestone and hiding the fact that the reconciler's native verification had
 # expired. Selecting on the allowlist means a vault that owns this integration always asks the
 # reconciler, so a refused certification is printed (below) instead of being routed around.
-reconciler="$repo_root/06-Resources/scripts/reconcile-github-milestones.mjs"
-if [ -n "${repo_root_wsl:-}" ] && [ -n "${wsl_cli:-}" ]; then
+#
+# The allowlist is consulted BEFORE the platform branch, and that order is the point. On Windows the
+# WSL logger used to be tried first, so a vault that owns the reconciler logged its milestones through
+# the plain CLI and never asked for its own certification: the gate was skipped by dispatch order
+# rather than by any decision. Asking first, then choosing the platform that can answer, means a
+# Windows commit reaches the same reconciler a Linux one does.
+if [ "$owns_reconciler" = true ]; then
+  if [ -n "${repo_root_wsl:-}" ]; then
+    # The reconciler runs inside WSL because that is the only platform where the CLI can take its
+    # kernel lock and write; a native Windows run refuses before touching a record. `bash -lc`
+    # resolves node from the WSL login shell, the same way the pre-push hook resolves npm, so this
+    # tracked hook still carries no machine-specific interpreter path. The script and the root are
+    # arguments rather than interpolated text, so a vault path with spaces or quotes survives.
+    #
+    # A function, so the path-conversion override applies to this call only; `run_bounded` starts it
+    # in a subshell with the logger's output redirected.
+    run_wsl_reconciler() {
+      MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' \
+        wsl.exe -e env "LOEY_SPACE_DIR=$repo_root_wsl" \
+          bash -lc 'exec node "$1" --root "$2" --record "$3"' _ \
+          "$repo_root_wsl/06-Resources/scripts/reconcile-github-milestones.mjs" "$repo_root_wsl" "$summary"
+    }
+    logger="GitHub reconciler in WSL"
+    run_bounded "$timeout_secs" "$capture" run_wsl_reconciler
+  elif [ -n "${node_bin:-}" ]; then
+    logger="GitHub reconciler"
+    run_bounded "$timeout_secs" "$capture" "$node_bin" "$reconciler" --root "$repo_root" --record "$summary"
+  else
+    # Falling back to the plain logger here would be the bypass this branch exists to prevent, so the
+    # milestone is left unlogged and the reason is stated instead.
+    note "milestone not logged: this vault owns the GitHub reconciler, but no node was found to run it"
+    exit 0
+  fi
+elif [ -n "${repo_root_wsl:-}" ] && [ -n "${wsl_cli:-}" ]; then
   # A function, so the path-conversion override applies to this call only; `run_bounded` starts it
   # in a subshell with the logger's output redirected.
   run_wsl_logger() {
@@ -585,8 +625,6 @@ if [ -n "${repo_root_wsl:-}" ] && [ -n "${wsl_cli:-}" ]; then
       wsl.exe -e env "LOEY_SPACE_DIR=$repo_root_wsl" "$wsl_cli" done "$summary"
   }
   run_bounded "$timeout_secs" "$capture" run_wsl_logger
-elif [ -f "$repo_root/.github-milestone-repositories.json" ] && [ -n "${node_bin:-}" ] && [ -f "$reconciler" ]; then
-  run_bounded "$timeout_secs" "$capture" "$node_bin" "$reconciler" --root "$repo_root" --record "$summary"
 elif [ "$logger" = "repo-local bundle" ]; then
   run_bounded "$timeout_secs" "$capture" "$node_bin" "$bundle" --root "$repo_root" done "$summary"
 else

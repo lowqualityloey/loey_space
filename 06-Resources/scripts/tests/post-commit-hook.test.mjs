@@ -1305,6 +1305,96 @@ test("a SIGKILLed hook's surviving writer keeps the lock, and the documented rec
   assert.ok(!fs.existsSync(lockPath(repo)), "the lock is released after recovery");
 });
 
+/**
+ * A Windows-shaped toolbox: the real tools, a `uname` that reports MINGW, and a `wsl.exe` that
+ * records its argv instead of crossing into a distribution.
+ *
+ * The Windows branch cannot be executed on this host, but the call it makes can be observed exactly —
+ * the same double the pre-push suite uses. The `command -v heyloey` probe is answered separately so
+ * the hook resolves a CLI path the way it does on a real machine, rather than capturing the recorded
+ * argv as if it were one.
+ */
+function makeWindowsToolbox(t, record) {
+  return makeToolbox({
+    uname: "#!/bin/sh\nprintf '%s\\n' MINGW64_NT-10.0\n",
+    "wsl.exe": [
+      "#!/bin/sh",
+      'case "$*" in',
+      '  *"command -v heyloey"*) printf \'%s\\n\' "/home/fixture/.local/bin/heyloey" ;;',
+      '  *) printf \'%s\\n\' "$*" >> "$FAKE_WSL_RECORD" ;;',
+      "esac",
+      "",
+    ].join("\n"),
+  });
+}
+
+/** Give a fixture the private configuration that makes it own the GitHub reconciler. */
+function ownReconciler(repo) {
+  for (const name of ["reconcile-github-milestones.mjs", "github-milestone-reconciliation.mjs"]) {
+    fs.copyFileSync(path.join(REPO_ROOT, "06-Resources/scripts", name), path.join(repo, "06-Resources/scripts", name));
+  }
+  write(
+    path.join(repo, ".github-milestone-repositories.json"),
+    JSON.stringify({ schemaVersion: 1, repositories: ["fixture/project"], startTime: "2026-01-01T00:00:00Z" })
+  );
+}
+
+test("a Windows commit in a vault that owns the reconciler asks the reconciler, not the plain CLI", (t) => {
+  // The defect this pins: the WSL logger branch used to be tried first, so on Git Bash a vault that
+  // owns the reconciler logged its milestone through the plain CLI and never asked for its own
+  // certification. The gate was skipped by dispatch order, not by any decision — nothing printed a
+  // refusal, so nothing looked wrong.
+  const repo = makeVaultRepo(t);
+  ownReconciler(repo);
+  activate(repo);
+  assert.equal(commit(repo, "feat: windows dispatch\n\n" + TRAILER + " Windows dispatch milestone", { HEYLOEY_LOG: "off" }).status, 0);
+
+  const tools = makeWindowsToolbox(t);
+  const record = path.join(repo, "wsl-call.txt");
+  const result = runHook(repo, { PATH: tools, FAKE_WSL_RECORD: record });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.ok(fs.existsSync(record), "the Windows branch must cross into WSL, not run natively");
+  const call = read(record);
+  assert.match(call, /reconcile-github-milestones\.mjs/, "the reconciler is the writer this vault requires");
+  assert.match(call, /--record/, "the milestone must be handed to the reconciler, not to a bare CLI");
+  assert.doesNotMatch(call, /\bdone\b/, "the plain logger must not be the writer when the vault owns the gate");
+});
+
+test("a Windows commit in a clone with no reconciler configuration keeps the plain WSL logger", (t) => {
+  // The counterpart: a public clone has no allowlist, so the portable path must survive unchanged.
+  const repo = makeVaultRepo(t);
+  activate(repo);
+  assert.equal(commit(repo, "feat: portable windows\n\n" + TRAILER + " Portable windows milestone", { HEYLOEY_LOG: "off" }).status, 0);
+
+  const tools = makeWindowsToolbox(t);
+  const record = path.join(repo, "wsl-call.txt");
+  const result = runHook(repo, { PATH: tools, FAKE_WSL_RECORD: record });
+
+  assert.equal(result.status, 0, result.stderr);
+  const call = read(record);
+  assert.match(call, /\bdone\b/, "without the allowlist the installed CLI is still the writer");
+  assert.doesNotMatch(call, /--record/, "a public clone must not be routed through the reconciler");
+});
+
+test("a vault that owns the reconciler refuses to fall back when no node can run it", (t) => {
+  // A silent fallback to the bundle here would be the bypass the reconciler branch exists to
+  // prevent: the milestone would be logged and the expired certification would never be reported.
+  const repo = makeVaultRepo(t);
+  ownReconciler(repo);
+  activate(repo);
+  const summary = "No node for the reconciler";
+  assert.equal(commit(repo, "feat: no node\n\n" + TRAILER + " " + summary, { HEYLOEY_LOG: "off" }).status, 0);
+
+  const before = sha256(path.join(repo, dailyRel()));
+  const result = runHook(repo, { PATH: makeToolbox() });
+
+  assert.equal(result.status, 0, "the commit outcome is never affected");
+  assert.match(result.stderr, /owns the GitHub reconciler, but no node was found/);
+  assert.equal(sha256(path.join(repo, dailyRel())), before, "a refused dispatch must write nothing");
+  assert.deepEqual(ledgerKeys(repo), [], "and must not record a key it did not log");
+});
+
 test("a lock whose writer cannot be accounted for is never reclaimed", (t) => {
   // Two states that cannot be told apart from "a writer is still running": `pending`, which is the
   // interval between recording the intent to fork and recording the pid, and a lock carrying no
