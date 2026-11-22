@@ -114,20 +114,28 @@ When working in external codebases or containerized AI environments (such as Dee
 
 The `loey-space` Model Context Protocol (MCP) server bridges external agents into the host vault with strict security boundaries, path sanitization, and kernel lock serialization.
 
-### The 5 MCP Tools
+### The 9 MCP Tools
+
+Every schema is `.strict()`, so an unknown parameter is rejected rather than ignored. Four tools read notes; five wrap the canonical CLI, and only two of those can write.
 
 | MCP Tool | Mode | Parameters | Description |
 | :--- | :--- | :--- | :--- |
-| `heyloey_brief` | Read-only | `show_paths?: boolean`, `kiwi?: boolean` | Returns a lightweight orientation summary (~400 tokens) containing present records, daily habits, active tasks, inbox count, and active projects. Set `kiwi: true` to include `SOUL.md` persona instructions. |
-| `heyloey_context` | Read-only | `query: string`, `limit?: number` | Hybrid context engine combining Laya classification with pure-JS BM25, Porter English stemming, and technical synonym expansion over `02-Projects/`, `03-Dev/` and `08-Concepts/`. Returns matched hubs and top runbooks with procedural fix snippets (<250 tokens per match). |
-| `heyloey_done` | Mutating | `summary: string`, `scope?: string`, `dry_run?: boolean` | Records an autonomous milestone outcome into `### 🤖 Agent Milestones` in today's daily note and `### Latest Updates` in `handoff.md`. If `scope` is provided (e.g. `dsh-web`, `supplywatch`), the entry is prefixed with `[<scope>]`. Serialized via `flock`. |
-| `heyloey_learn` | Mutating | `title: string`, `fix: string`, `lang?: string`, `dry_run?: boolean` | Crystallizes a reusable engineering pattern or bug fix into an atomic runbook note under `03-Dev/<title>.md` and links it to `[[_Dev MOC]]`. Merges safely if the title already exists. |
+| `list_allowed_directories` | Read-only | _none_ | Returns the fixed vault root and the note access policy. MCP client roots cannot expand it. |
+| `list_directory` | Read-only | `path?: string` (default `"."`) | Lists up to 200 permitted note entries; hidden and private entries are omitted. |
+| `read_text_file` | Read-only | `path: string`, `head?: number` (1–300, default 150), `offset?: number`, `char_offset?: number` | Reads an ordinary Markdown note, at most 300 lines / 24,000 characters. Private paths and symlink escapes are denied. Windowed paging reconstructs long lines and blank-line boundaries losslessly. |
+| `get_file_info` | Read-only | `path: string` | Returns metadata only (bytes, modified) for a permitted Markdown note. |
+| `heyloey_brief` | Read-only | _none_ | Returns a lightweight orientation summary (~400 tokens) containing present records, daily habits, active tasks, inbox count, and active projects. Private Kiwi/`SOUL.md` mode is **not** available over MCP. |
+| `heyloey_context` | Read-only | `query: string` (max 300) | Dependency-free hybrid retrieval: a single-pass keyword scorer plus a pure-JS BM25 ranker with a Porter English stemmer and technical synonym expansion. Matches `02-Projects/` hubs and ranks `03-Dev/` and `08-Concepts/` notes, returning procedural fix snippets. There is no Laya call and no external classifier — the router is in-memory JavaScript. |
+| `heyloey_done` | **Mutating** | `summary: string` (5–600), `scope?: string` (1–80) | Records a milestone into the one collapsed agent table under `### 🤖 Agent Milestones` in today's daily note and into `### Latest Updates` in `handoff.md`. `scope` fills the table's Scope column (e.g. `loey_space`); it is not a prefix on the summary. Serialized via kernel `flock`. |
+| `heyloey_learn` | **Mutating** | `title: string` (3–120), `fix: string` (10–4000), `lang?: "bash" \| "typescript" \| "python" \| "yaml"` (default `bash`) | Crystallizes a reusable engineering pattern or bug fix into an atomic runbook under `03-Dev/<title>.md` and links it to `[[_Dev MOC]]`. A colliding title merges into a marked, reviewable region instead of overwriting hand-written content. |
 | `heyloey_lock_state` | Read-only | _none_ | Audits the vault kernel locking protocol (`flock`), verifying lock file health and flagging any legacy lock files. |
 
-### Sandboxed & Containerized Environments (9p Read-Only Mounts)
+There is no `dry_run` parameter on any MCP tool: a preview belongs to the CLI (`--dry-run`), not to this interface.
 
-Sandboxed AI environments (such as DeepSeek Harness containers running under Bubblewrap/Landlock) mount Windows/WSL host directories like `/mnt/c` via 9p in read-only mode (`EROFS`), and lack elevated permissions (`sudo`) to remount. 
+### Sandboxed & Containerized Environments
 
-Direct filesystem write tools (`write_file`, `edit_file`) fail inside these containers. By running the `loey-space` MCP server on the host, sandboxed agents call `heyloey_done` and `heyloey_learn` through standard stdio JSON-RPC. The host server holds the kernel `flock` lock and executes the write safely on the host filesystem.
+A sandboxed agent may be unable to run the vault's Node CLI or reach the vault filesystem at all, depending on how its sandbox is configured. Whether it can write is a property of that sandbox, not of the mount type: a DeepSeek Harness session whose workspace *is* the vault can write to it directly, while a session confined to a read-only mount cannot.
+
+The MCP server exists so the write path does not depend on the caller's sandbox. Run `loey-space-mcp` on the host and the agent calls `heyloey_done` and `heyloey_learn` over stdio JSON-RPC; the host process holds the kernel `flock` lock and performs the write on the host filesystem. That is the reason to prefer it over a direct CLI call from inside a container — not a claim that every container is read-only.
 
 Use conversational prompts when you want an interactive discussion or planning session. Use the CLI in automated scripts or terminal sessions where fast, deterministic execution is needed, and use the MCP server when delegating vault context and milestone recording to external or sandboxed coding agents.

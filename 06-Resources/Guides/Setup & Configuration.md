@@ -153,13 +153,15 @@ Choose any IDs you like, but if you bind a hotkey, bind it to the ID QuickAdd ge
 
 ## 5. External AI Agent & Model Context Protocol (MCP) Setup
 
-External coding assistants operating outside the vault access `loey_space` via the Model Context Protocol (MCP) server (`loey-space-safe`). This provides guarded, locked access to `heyloey_brief`, `heyloey_context`, `heyloey_done`, `heyloey_learn`, and `heyloey_lock_state`.
+External coding assistants operating outside the vault access `loey_space` via the Model Context Protocol (MCP) server, which advertises itself as `loey-space-safe`. It exposes nine tools: four read-only note tools (`list_allowed_directories`, `list_directory`, `read_text_file`, `get_file_info`) and five `heyloey_*` tools (`heyloey_brief`, `heyloey_context`, `heyloey_done`, `heyloey_learn`, `heyloey_lock_state`). Only `heyloey_done` and `heyloey_learn` can write, and both delegate to the canonical CLI under a kernel `flock`.
 
 The MCP server entry point is installed at:
 ```bash
 /home/heyloey/.local/bin/loey-space-mcp
 ```
-(Or directly via Node: `node /home/heyloey/personal/loey-space-mcp/src/safe-mcp.mjs --vault /mnt/c/Users/jonel/Documents/loey_space`)
+(Or directly via Node: `LOEY_VAULT_ROOT=/mnt/c/Users/jonel/Documents/loey_space node /home/heyloey/personal/loey-space-mcp/src/safe-mcp.mjs`)
+
+The vault root is supplied **only** through `LOEY_VAULT_ROOT`. The launcher refuses every argument — `--vault` exits 2 with `this external-agent interface accepts no extra roots or flags` — and the server never parses `argv`, so a `--vault` flag handed to `node` is silently ignored and startup fails with `Vault root must be explicitly configured via options.vault or LOEY_VAULT_ROOT`.
 
 ### Client Configurations
 
@@ -172,42 +174,48 @@ Tool definitions are loaded automatically from individual schema files in `~/.ge
   "mcpServers": {
     "loey-space": {
       "command": "/home/heyloey/.local/bin/loey-space-mcp",
-      "args": ["--vault", "/mnt/c/Users/jonel/Documents/loey_space"]
+      "args": [],
+      "env": {
+        "LOEY_VAULT_ROOT": "/mnt/c/Users/jonel/Documents/loey_space"
+      }
     }
   }
 }
 ```
 
 #### OpenCode (`~/.config/opencode/opencode.json` or `~/.omo/omo.jsonc`)
+OpenCode spells the environment block `environment` and takes the command as an array:
 ```json
 {
   "mcp": {
     "loey-space": {
-      "type": "stdio",
-      "command": "/home/heyloey/.local/bin/loey-space-mcp",
-      "args": ["--vault", "/mnt/c/Users/jonel/Documents/loey_space"]
+      "type": "local",
+      "command": ["/home/heyloey/.local/bin/loey-space-mcp"],
+      "environment": {
+        "LOEY_VAULT_ROOT": "/mnt/c/Users/jonel/Documents/loey_space"
+      },
+      "enabled": true
     }
   }
 }
 ```
 
-#### DeepSeek Harness Web (`cordis.patch.yml` and `presets/*.patch.yml`)
-Add the MCP server to `custom_servers` and whitelist the tools:
+#### DeepSeek Harness Web (`~/.dsh/profiles/<profile>/cordis.patch.yml`)
+DSH has no `custom_servers` or `tool_whitelist` key. A server is one `@deepseek-ai/dsh-mcp-client` plugin entry, and the MCP Servers settings panel writes it for you:
 ```yaml
-custom_servers:
-  loey_space:
-    command: "/home/heyloey/.local/bin/loey-space-mcp"
-    args:
-      - "--vault"
-      - "/mnt/c/Users/jonel/Documents/loey_space"
-
-tool_whitelist:
-  - "mcp__loey_space__heyloey_brief"
-  - "mcp__loey_space__heyloey_context"
-  - "mcp__loey_space__heyloey_done"
-  - "mcp__loey_space__heyloey_learn"
-  - "mcp__loey_space__heyloey_lock_state"
+- insert:
+    - id: mcp-loey_space
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: loey_space
+        transport: stdio
+        command: '/home/heyloey/.local/bin/loey-space-mcp'
+        cwd: '/home/heyloey'
+        env:
+          LOEY_VAULT_ROOT: '/mnt/c/Users/jonel/Documents/loey_space'
+        toolCallTimeoutMs: 45000
 ```
+The `serverName` is what produces the `mcp__loey_space__*` tool prefix.
 
 ## Related
 
