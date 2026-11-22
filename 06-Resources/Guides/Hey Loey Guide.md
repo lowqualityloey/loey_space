@@ -31,7 +31,8 @@ When working inside an AI coding assistant (such as Google Antigravity, Claude C
 | `heyloey handoff` | Session handoff | Updates `handoff.md` with in-flight objectives and immediate next moves for your next session. |
 | `heyloey sweep` | Inbox triage | Inspects `quick-capture-dump.md`, adds category tags, and runs the triage sweep script. |
 | `heyloey plan <name>` | Project planning | Creates a project folder in `02-Projects/<name>/`, scaffolds `<name>.md` and a companion visual Kanban board with backlog shielding. |
-| `heyloey distill` | Knowledge distillation | Reviews recent daily notes, extracts evergreen ideas into `08-Concepts/`, and checks memory capacity. |
+| `heyloey dream` | Nightly dream loop | The only CLI verb here: prunes `handoff.md` overflow past 10 items into `07-Reviews/`, carries up to 3 unfinished tasks into today's **existing** note, and prints the `memory.md` budget. It does not read daily notes or write concepts. |
+| `heyloey distill` | Knowledge distillation *(agent protocol, not a CLI verb)* | Run on request: reviews recent daily notes, proposes evergreen concepts for `08-Concepts/`, and checks memory capacity. `heyloey distill` itself falls through to the usage block. |
 | `heyloey weekly` | Weekly review | Aggregates seven-day habit trends and project progress into `07-Reviews/YYYY-[W]WW.md`. |
 | `heyloey health` | Vault hygiene | Validates frontmatter taxonomy, checks for broken wikilinks, runs anti-rot checks, and confirms no secrets exist in tracked files. |
 

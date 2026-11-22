@@ -53,7 +53,7 @@ When the user starts a prompt with **`"heyloey"`** or **`"hey loey"`** (case-ins
 | **`heyloey evening`** / **`hey loey evening`**                           | **Evening Wind-down Retrospective**: Auto-run `npm run log-github` to pull today's code events into the `### 🐙 GitHub Activity` area of `## 📝 Daily Log`, reconcile morning's `Today's Focus`, walk through habit checks & reflections, and synthesize the Kiwi Chief of Staff AI Daily Summary (`Debrief`, `Takeaway`, `Tomorrow's Move`) directly into the daily note. |
 | **`heyloey activity`** / **`github`** (or `hey loey activity`)          | **GitHub Activity Sync**: Fetch today's GitHub commits, PRs, and issues for `lowqualityloey` and non-destructively merge them into the `### 🐙 GitHub Activity` area of `## 📝 Daily Log` in today's daily note (`npm run log-github`).                                                                                                                                                                  |
 | **`heyloey sweep`** / **`hey loey sweep`**                               | **Inbox Triage**: Inspect [`quick-capture-dump.md`](00-Inbox/quick-capture-dump.md), auto-tag untagged lines (`#do`, `#dev`, `#concept`, `#learn`, `#ref`, `#personal`, `#project`, `#bin`), and run or simulate [`triage-sweep.js`](06-Resources/scripts/triage-sweep.js). |
-| **`heyloey distill`** / **`heyloey dream`** (or `hey loey distill` / `dream`) | **Knowledge Distillation & Dream Loop**: Read recent daily notes (`Blockers`, `Reflection`, `Ideas`), extract atomic mental models into [`08-Concepts/`](08-Concepts/_Concepts%20MOC.md) or patterns into [`03-Dev/`](03-Dev/_Dev%20MOC.md), audit `memory.md` capacity (`--check-rot`), and propose consolidations (Propose-First for autonomous sweeps, zero unapproved deletion). |
+| **`heyloey dream`** (or `hey loey dream`) / **`heyloey distill`** (agent protocol — *not* a CLI verb) | **Dream Loop & Distillation**: The CLI verb `dream` does exactly three things — prune `handoff.md` overflow past 10 items into `07-Reviews/handoff-archive-YYYY-MM.md`, carry up to 3 unfinished tasks from yesterday's `### ✅ Tasks` into today's **existing** note (it never creates one), and print the `memory.md` budget. It does **not** read daily notes and does **not** write notes. Distillation — reading recent `Blockers`/`Reflection`/`Ideas` and proposing atomic concepts into [`08-Concepts/`](08-Concepts/_Concepts%20MOC.md) or patterns into [`03-Dev/`](03-Dev/_Dev%20MOC.md) — is an agent protocol run on request, Propose-First, with zero unapproved deletion. |
 | **`heyloey weekly`** / **`hey loey weekly`**                             | **Weekly Review**: Review 7-day habit completion (with explicit observation coverage), project milestones & GitHub achievements, and generate the weekly retrospective note in [`07-Reviews/`](07-Reviews/_Reviews%20MOC.md).                                                                                                                                |
 | **`heyloey plan`** / **`project`** (or `hey loey plan`)                 | **Project Planning & Scaffolding**: Scaffold `02-Projects/<name>/` via `99-Templates/Project.md` with `status: planning`, create `<name> Kanban.md`, decompose features into `#priority/p0-p3` cards in `## Backlog` (leveraging the Backlog Shield), and register in `_Projects MOC.md`. |
 | **`heyloey health`** / **`audit`** (or `hey loey health`)               | **Vault Hygiene & Anti-Rot**: Validate templates against [`Tagging & Properties.md`](06-Resources/Guides/Tagging%20&%20Properties.md), check broken wikilinks, run `npm run check-rot` (overdue reviews, memory budget, skill guardrails; scans the private plane by design), and verify no secrets exist in tracked files. |
@@ -257,24 +257,36 @@ When executing `heyloey plan <name>` / `hey loey plan <name>` or `heyloey projec
 
 ---
 
-## 🌙 Dream Loop & Anti-Rot Protocol (`heyloey distill` / `heyloey dream`)
+## 🌙 Dream Loop & Distillation Protocol
 
-When executing `heyloey distill` or `heyloey dream` (or during `heyloey weekly` consolidation):
-1. **Deterministic Anti-Rot Scan (`no_agent`)**:
-   - Run `npm run check-rot` (the alias carries `--include-ignored`, so private-plane hubs are scanned) to inspect:
-     - **Memory Capacity**: Checks if `memory.md` exceeds 75% of its budget and verifies the Core Memory Routing Rule header. The budget is 200 lines / 8 KB, so the warning fires at 150 lines / 6 KB.
-     - **Overdue Reviews**: Lists notes in `02-Projects/`, `04-Learning/`, `05-Personal/`, and `08-Concepts/` where `last_reviewed + review_cycle < today`.
-     - **Skill Library Health**: Verifies `.agents/skills/*/SKILL.md` carry `pinned`, `version`, and `## 🧪 Regression Cases`, and that any deprecated skill declares `absorbed_by`.
-2. **Read-Only Session & Daily Log Synthesis**:
-   - Inspect the last 7 days of `01-Daily/YYYY-MM/*.md` (`### Blockers`, `### Reflection`, `### 💡 Ideas & Fleeting Notes`).
-   - Identify repeated friction, solved debugging patterns, and recurring mental models.
-3. **Proportionate Approval (Propose-First vs. Explicit Request)**:
-   - **Autonomous Consolidation (`heyloey distill` / `dream` / `weekly`)**: Present a structured proposal before mutating evergreen or system files:
-     - **Candidate Concepts (`08-Concepts/`)**: Atomic mental models (`review_cycle: 90d`).
-     - **Candidate Snippets (`03-Dev/`)**: Reusable code patterns (`type: snippet`).
-     - **Memory Offload (`memory.md` $\rightarrow$ `06-Resources/`)**: Specific infra/system details to move out of core memory if usage is high.
-   - **Explicit User Request**: When the user directly asks to create or distill a specific concept or snippet note, that request already authorizes the write—create the note and update its MOC directly without an extra confirmation prompt.
+Two different things share this name, and conflating them is how this section drifted from the code. **`heyloey dream` is a CLI verb that does three mechanical things. Distillation is an agent protocol you run on request.** The verb never reads a daily note's reflections and never writes a concept or snippet.
+
+### 1. `heyloey dream` — the CLI verb (mechanical, no agent)
+
+Runs nightly at 02:00 from cron (`0 2 * * * /home/heyloey/.local/bin/heyloey dream`). It does exactly three things, and nothing else:
+
+1. **Prune `handoff.md` overflow** past `MAX_HANDOFF_UPDATES` (10) into `07-Reviews/handoff-archive-YYYY-MM.md`. This is redundant with `done`, which already prunes on every write.
+2. **Carry up to 3 unfinished tasks** from yesterday's `### ✅ Tasks` into today's note. It only matches `- [ ] <text>` with text after the box, and it **never creates today's note** — an absent note is reported and skipped.
+3. **Print the `memory.md` budget** (lines/bytes against 200 / 8192). It reports; it does not act.
+
+It does **not** run `check-rot`, does **not** read `Blockers`/`Reflection`/`Ideas`, and does **not** write any note other than the handoff prune. `heyloey distill` is **not a CLI verb** — it falls through to the usage block. `--dry-run` prints what would be pruned and carried without writing.
+
+### 2. Distillation — the agent protocol (on request, Propose-First)
+
+When the owner asks for a distillation pass (`heyloey distill`, `heyloey dream` in conversation, or during `heyloey weekly` consolidation), the agent does the work the CLI does not:
+
+1. **Deterministic anti-rot scan**: run `npm run check-rot` (the alias carries `--include-ignored`, so private-plane hubs are scanned) to inspect:
+   - **Memory Capacity**: whether `memory.md` exceeds 75% of its budget, and whether the Core Memory Routing Rule header is present. Budget is 200 lines / 8 KB, so the warning fires at 150 lines / 6 KB.
+   - **Overdue Reviews**: notes in `02-Projects/`, `04-Learning/`, `05-Personal/`, and `08-Concepts/` where `last_reviewed + review_cycle < today`.
+   - **Skill Library Health**: `.agents/skills/*/SKILL.md` carry `pinned`, `version`, and `## 🧪 Regression Cases`; a deprecated skill declares `absorbed_by`.
+2. **Read-only synthesis**: inspect the last 7 days of `01-Daily/YYYY-MM/*.md` (`### Blockers`, `### Reflection`, `### 💡 Ideas & Fleeting Notes`) and the milestone tables, then identify repeated friction, solved debugging patterns, and recurring mental models.
+3. **Proportionate Approval (Propose-First vs. Explicit Request)**: present a structured proposal before mutating evergreen or system files:
+   - **Candidate Concepts (`08-Concepts/`)**: atomic mental models (`review_cycle: 90d`).
+   - **Candidate Snippets (`03-Dev/`)**: reusable code patterns (`type: snippet`).
+   - **Memory Offload (`memory.md` $\rightarrow$ `06-Resources/`)**: specific infra/system details to move out of core memory if usage is high.
+   - **Explicit User Request**: when the owner directly asks to create a specific concept or snippet, that request already authorizes the write — create the note and update its MOC without an extra confirmation prompt.
    - **Never autonomously delete skills or notes.** Archive stale notes via `status: archived` only after explicit user sign-off.
+   - **Never invent the owner's own record.** An empty `Reflection` or `Ideas` section is empty; do not fill it with inferred content to make a distillation pass look productive.
 
 ---
 

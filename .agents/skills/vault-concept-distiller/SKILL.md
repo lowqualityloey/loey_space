@@ -1,6 +1,6 @@
 ---
 name: vault-concept-distiller
-version: "1.0"
+version: "1.1"
 pinned: true
 description: >-
   Extracts atomic evergreen mental models, principles, and concepts from daily notes,
@@ -15,7 +15,7 @@ This skill guides the agent in identifying, synthesizing, and filing atomic ever
 ---
 
 ## 🎯 When to Activate
-- The user runs `hey loey distill` or asks to extract/distill concepts from recent work or reading.
+- The user asks to extract/distill concepts from recent work or reading (e.g. *"distill this week into concepts"*). There is no `heyloey distill` CLI verb — `heyloey dream` is the CLI verb and it does not do this; distillation is this agent protocol, run on request.
 - A daily note or dev log contains a reusable insight, architectural pattern, or mental model.
 - Clipped articles in `06-Resources/Articles/` need synthesis into evergreen knowledge.
 
@@ -74,7 +74,7 @@ When *not* to use this, trade-offs, or common misunderstandings.
 
 ### Step 4: Proportionate Approval, File & Update MOC
 1. **Proportionate Approval Gate**:
-   - **Autonomous / Batch Consolidation (`heyloey distill`, `heyloey dream`, `heyloey weekly`)**: Follow the **Propose-First** rule from `AGENTS.md`—present candidate concepts (title, 1-sentence distillation, target `area`, and origin link) and wait for user approval before writing to `08-Concepts/`.
+   - **Autonomous / Batch Consolidation (a distillation sweep, `heyloey weekly` consolidation, or any batch pass the agent initiates)**: Follow the **Propose-First** rule from `AGENTS.md`—present candidate concepts (title, 1-sentence distillation, target `area`, and origin link) and wait for user approval before writing to `08-Concepts/`. Note that `heyloey dream` is *not* one of these triggers: the CLI verb only prunes `handoff.md`, carries tasks forward, and prints the `memory.md` budget — it never distils.
    - **Explicit Direct Request**: When the user explicitly asks to create or distill a specific concept note (e.g., *"distill X into a concept note"*), the request itself authorizes the write—proceed directly to filing without an extra confirmation prompt.
 2. Write the note to `08-Concepts/<Concept Title>.md` (or `YYYY-MM-DD_HHmm <Title>.md` if timestamped).
 3. Check `08-Concepts/_Concepts MOC.md` and link the newly created concept note.
@@ -87,7 +87,8 @@ When *not* to use this, trade-offs, or common misunderstandings.
 | Case | Trigger / Input | Expected Invariant |
 | :--- | :--- | :--- |
 | **RC-1: Atomic Split** | Daily log contains 2 distinct architectural patterns. | Creates 2 separate `08-Concepts/` notes (`review_cycle: 90d`), never an omnibus note. |
-| **RC-2: MOC & Backlinks** | `heyloey distill` extracts a concept from `01-Daily/2026-10/2026-10-11.md`. | Links new concept in `08-Concepts/_Concepts MOC.md` and adds backreference to origin note. |
+| **RC-2: MOC & Backlinks** | A distillation pass extracts a concept from `01-Daily/2026-10/2026-10-11.md`. | Links new concept in `08-Concepts/_Concepts MOC.md` and adds backreference to origin note. |
 | **RC-3: Link Safety** | Concept mentions external tool with no vault note. | Uses plain text or `#topic/*` tag, never an uncreated `[[Wikilink]]`. |
-| **RC-4: Proportionate Approval** | Autonomous `heyloey distill` sweep vs. explicit user request to create a specific concept note. | Autonomous sweep proposes candidates first before writing; explicit user request writes directly without redundant confirmation. |
+| **RC-4: Proportionate Approval** | An agent-initiated distillation sweep vs. an explicit user request to create a specific concept note. | Autonomous sweep proposes candidates first before writing; explicit user request writes directly without redundant confirmation. |
+| **RC-5: No Phantom CLI Verb** | Any instruction, guide, or skill text that tells the agent to run `heyloey distill`. | The agent does not run it — `distill` is not a CLI verb and falls through to the usage block. Distillation is performed by the agent directly; the CLI verb is `heyloey dream`, which does not distil. |
 

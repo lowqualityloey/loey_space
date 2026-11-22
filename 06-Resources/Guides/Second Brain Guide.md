@@ -307,7 +307,7 @@ To trigger specific workflows, start prompts with `"heyloey"` or `"hey loey"`:
 - `heyloey evening`: Evening review, habit check, and daily debrief.
 - `heyloey sweep`: Triage inbox captures.
 - `heyloey plan <name>`: Scaffold a new project and Kanban board.
-- `heyloey distill`: Extract concepts into `08-Concepts/`.
+- `heyloey distill`: Extract concepts into `08-Concepts/` (an agent protocol run on request — not a CLI verb; the CLI verb is `heyloey dream`).
 
 For the complete prompt catalog, milestone-only logging policy, and the distinction between chat prompts and the repository-local `npm run heyloey -- <command>` CLI, see the dedicated [Hey Loey Guide](Hey%20Loey%20Guide.md).
 
