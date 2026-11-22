@@ -146,6 +146,31 @@ test("#58 regression: energy 0 is a reading, not a missing value", () => {
   assert.equal(entry.energy, 0);
 });
 
+test("a quoted reading is the reading, not an unknown", () => {
+  // YAML allows `energy: "3"` and `sleep_hours: '7.5'`, and Obsidian's own
+  // property editor writes the quoted form when a value would otherwise be
+  // ambiguous. Dataview YAML-parses first, so the same note renders correctly
+  // in the vault; this extractor regex-matches the raw line and saw the quote
+  // characters, so seven real readings were silently dropped.
+  const entry = extractDailyData(note({ energy: '"3"', sleep: '"7.5"' }), "2026-10-06");
+  assert.equal(entry.energy, 3);
+  assert.equal(entry.sleepHours, 7.5);
+});
+
+test("single quotes are stripped too, and a quoted zero stays zero", () => {
+  const entry = extractDailyData(note({ energy: "'0'", sleep: "'8'" }), "2026-10-06");
+  assert.equal(entry.energy, 0);
+  assert.equal(entry.sleepHours, 8);
+});
+
+test("a quote pair is stripped once, so a quoted non-number is still unknown", () => {
+  // Stripping must not turn `"high"` into a number, and must not eat a lone
+  // quote that is part of the value.
+  const entry = extractDailyData(note({ energy: '"high"', sleep: '"7.5' }), "2026-10-06");
+  assert.equal(entry.energy, null);
+  assert.equal(entry.sleepHours, null);
+});
+
 test("a non-numeric reading is unknown rather than coerced", () => {
   const entry = extractDailyData(note({ energy: "high", sleep: "ages" }), "2026-10-06");
   assert.equal(entry.energy, null);

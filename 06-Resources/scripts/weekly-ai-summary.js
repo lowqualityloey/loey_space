@@ -198,14 +198,24 @@ function frontmatterValue(content, key) {
   const raw = line.slice(line.indexOf(":") + 1).trim();
   return raw === "" ? null : raw;
 }
+function unquote(raw) {
+  const doubleQuoted = raw.match(/^"([\s\S]*)"$/);
+  if (doubleQuoted)
+    return doubleQuoted[1];
+  const singleQuoted = raw.match(/^'([\s\S]*)'$/);
+  if (singleQuoted)
+    return singleQuoted[1];
+  return raw;
+}
 function numericOrNull(raw, integer) {
   if (raw === null)
     return null;
+  const value = unquote(raw).trim();
   const pattern = integer ? /^-?\d+$/ : /^-?\d+(\.\d+)?$/;
-  if (!pattern.test(raw))
+  if (!pattern.test(value))
     return null;
-  const value = integer ? Number.parseInt(raw, 10) : Number.parseFloat(raw);
-  return Number.isFinite(value) ? value : null;
+  const parsed = integer ? Number.parseInt(value, 10) : Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 var PLACEHOLDERS = /* @__PURE__ */ new Set(["...", "\u2026", "none", "n/a", "unknown"]);
 function isPlaceholder(text) {

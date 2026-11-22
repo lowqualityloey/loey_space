@@ -98,13 +98,35 @@ export function frontmatterValue(content: string, key: string): string | null {
   return raw === "" ? null : raw;
 }
 
+/**
+ * Strip one matching pair of surrounding quotes.
+ *
+ * YAML allows `energy: "3"` and `sleep_hours: '7.5'`, and Obsidian's property
+ * editor writes the quoted form whenever a value would otherwise be ambiguous.
+ * `frontmatterValue` returns the raw text after the colon, so the quotes reach
+ * the numeric test and a real reading parses as `null`. Dataview YAML-parses
+ * first and never sees this, which is why the same note renders correctly in
+ * the vault and wrongly in the generated summary.
+ *
+ * Exactly one pair is removed, and only when both ends match: a lone quote is
+ * part of the value, not a delimiter.
+ */
+function unquote(raw: string): string {
+  const doubleQuoted = raw.match(/^"([\s\S]*)"$/);
+  if (doubleQuoted) return doubleQuoted[1];
+  const singleQuoted = raw.match(/^'([\s\S]*)'$/);
+  if (singleQuoted) return singleQuoted[1];
+  return raw;
+}
+
 /** A whole-number reading, or `null`. `0` is a reading; `""` is not. */
 function numericOrNull(raw: string | null, integer: boolean): number | null {
   if (raw === null) return null;
+  const value = unquote(raw).trim();
   const pattern = integer ? /^-?\d+$/ : /^-?\d+(\.\d+)?$/;
-  if (!pattern.test(raw)) return null;
-  const value = integer ? Number.parseInt(raw, 10) : Number.parseFloat(raw);
-  return Number.isFinite(value) ? value : null;
+  if (!pattern.test(value)) return null;
+  const parsed = integer ? Number.parseInt(value, 10) : Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 const PLACEHOLDERS = new Set(["...", "\u2026", "none", "n/a", "unknown"]);
