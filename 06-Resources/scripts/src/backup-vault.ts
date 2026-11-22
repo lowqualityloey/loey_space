@@ -73,6 +73,29 @@ export const OWNER_DIRS = [
   'docs',
 ];
 
+/**
+ * Authored or stateful files that git does not track and no command regenerates.
+ *
+ * `OWNER_FILES`/`OWNER_DIRS` above are the vault's own records. These are the machine-local
+ * companions a restore would otherwise lose silently: the MCP registration, the reconciler's
+ * target list and its receipt ledger, and hand-installed agent skills and plans. They are copied
+ * into `owner-state/` at their original relative path, so the same `cp -r` overlay restores them.
+ *
+ * Deliberately NOT listed, because a documented command regenerates them: `GEMINI.md`,
+ * `.clinerules/promptkit.md`, `.opencode/rules.md` and `.github/ISSUE_TEMPLATE/task.md`
+ * (`.promptkit/init.sh`; the issue template is byte-identical to the submodule's
+ * `templates/github-issue-template.md`), `06-Resources/scripts/.enriched-timestamps.json`
+ * (an enrichment cache), `.omo/run-continuation/` (transient session state), `.codegraph/`
+ * (a rebuildable index), and `06-Resources/sync-daemon.log` (a log).
+ */
+export const EXTRA_FILES = [
+  '.mcp.json',
+  '.github-milestone-repositories.json',
+  '.github-milestone-reconciliation.json',
+  '.github-milestone-reconciliation.ready.json',
+];
+export const EXTRA_DIRS = ['.dsh/skills', '.zcode/plans'];
+
 function sha256File(absPath: string): string {
   const bytes = fs.readFileSync(absPath);
   return crypto.createHash('sha256').update(bytes).digest('hex');
@@ -158,6 +181,8 @@ function buildRestoreInstructions(snapshotName: string, gitBundleStatus: GitBund
     '',
     '## 3. Restore Owner-Only & Working-Tree State',
     'Overlay `owner-state/` (`memory.md`, `handoff.md`, `.env`, `PROMPTKIT.md`, `.secrets/`, `00-Private/`, knowledge folders, `06-Resources/Guides/` & `Articles/`, `99-Attachments/`, `docs/`, and `.obsidian/plugins/*/data.json`) onto the restored working tree. Conflict policy: `cp -r` overwrites files checked out from `repo.bundle` so uncommitted working-tree edits captured in `owner-state/` take precedence over older committed versions:',
+    '',
+    '`owner-state/` also carries the machine-local companions that git ignores and no command regenerates: `.mcp.json`, `.github-milestone-repositories.json`, `.github-milestone-reconciliation.json`, `.github-milestone-reconciliation.ready.json`, `.dsh/skills/`, and `.zcode/plans/`. They land at their original relative paths, so the same overlay restores them. The reconciler will rebuild its receipt ledger from GitHub on the next run, but the target list in `.github-milestone-repositories.json` is authored and must be restored or re-entered by hand.',
     '```bash',
     'SNAPSHOT_DIR="${SNAPSHOT_DIR:-$(pwd)}"',
     'RESTORE_DIR="${RESTORE_DIR:-./loey_space}"',
@@ -464,7 +489,7 @@ export function backupVault(root: string, options: BackupOptions = {}): BackupRe
     try {
       fs.chmodSync(ownerStateDir, 0o700);
     } catch (_) {}
-    for (const file of OWNER_FILES) {
+    for (const file of [...OWNER_FILES, ...EXTRA_FILES]) {
       const srcAbs = path.join(root, file);
       if (fs.existsSync(srcAbs) && fs.statSync(srcAbs).isFile()) {
         const destAbs = path.join(ownerStateDir, file);
@@ -479,7 +504,7 @@ export function backupVault(root: string, options: BackupOptions = {}): BackupRe
         recordedRelPaths.push(`owner-state/${file}`);
       }
     }
-    for (const dir of OWNER_DIRS) {
+    for (const dir of [...OWNER_DIRS, ...EXTRA_DIRS]) {
       const srcAbs = path.join(root, dir);
       if (fs.existsSync(srcAbs) && fs.statSync(srcAbs).isDirectory()) {
         copyDirRecursive(srcAbs, path.join(ownerStateDir, dir), `owner-state/${dir}`, recordedRelPaths);
@@ -558,10 +583,49 @@ export function backupVault(root: string, options: BackupOptions = {}): BackupRe
   }
 }
 
+const USAGE = `Usage: backup-vault [--out <dir>]
+
+Creates a deterministic, verified snapshot of this vault under <dir>
+(default: ~/.loey_backups): a git bundle, the owner-only ignored records,
+a SHA-256 manifest and RESTORE.md.
+
+Options:
+  --out <dir>   Write the snapshot under <dir> instead of ~/.loey_backups.
+  -h, --help    Print this message and exit without writing anything.
+
+There is no dry-run mode. Any other argument is rejected rather than
+ignored, because an ignored flag would still write a full snapshot.`;
+
 export function main(): void {
   const argv = process.argv.slice(2);
-  const outIdx = argv.indexOf('--out');
-  const backupRoot = outIdx !== -1 && argv[outIdx + 1] ? path.resolve(argv[outIdx + 1]) : undefined;
+
+  // A usage probe must never cost a snapshot. Before this guard, `--help` fell through to
+  // `backupVault` and wrote a complete 41 MB snapshot, because `main` parsed `--out` and
+  // silently discarded every other token.
+  if (argv.includes('--help') || argv.includes('-h')) {
+    console.log(USAGE);
+    return;
+  }
+
+  let backupRoot: string | undefined;
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === '--out') {
+      const value = argv[i + 1];
+      if (value === undefined || value === '' || value.startsWith('-')) {
+        console.error(`backup-vault: --out requires a directory\n\n${USAGE}`);
+        process.exitCode = 2;
+        return;
+      }
+      backupRoot = path.resolve(value);
+      i += 1;
+      continue;
+    }
+    console.error(`backup-vault: unrecognized argument '${arg}'\n\n${USAGE}`);
+    process.exitCode = 2;
+    return;
+  }
+
   const root = process.cwd();
 
   const result = backupVault(root, { backupRoot });
