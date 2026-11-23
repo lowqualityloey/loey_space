@@ -638,8 +638,28 @@ test('Heyloey Agent Alignment: fresh-clone safe instruction check (tracked files
     );
   }
 
+  const PROTOCOLS_GUIDE = '06-Resources/Guides/Chief of Staff Protocols.md';
+
   function runAlignmentCheckForRoot(rootDir, fallbackOverlays) {
-    const agentsMd = fs.readFileSync(path.join(rootDir, 'AGENTS.md'), 'utf8');
+    // AGENTS.md is the router; the per-command protocols it delegates to live in the guide.
+    // Assert against both so a protocol that moves between them still counts as documented.
+    const agentsMd = [
+      fs.readFileSync(path.join(rootDir, 'AGENTS.md'), 'utf8'),
+      fs.readFileSync(path.join(rootDir, PROTOCOLS_GUIDE), 'utf8'),
+    ].join('\n');
+
+    // Antigravity truncates any rule file past 24,000 bytes and silently drops the tail, so an
+    // oversized router loses protocols without any error. The usual cause is a PromptKit rerun:
+    // init.sh re-appends its directive to every agent file it finds, and AGENTS.md carries no
+    // markers to update in place, so the block lands at EOF again.
+    const agentsMdBytes = fs.statSync(path.join(rootDir, 'AGENTS.md')).size;
+    assert.ok(
+      agentsMdBytes < 24000,
+      `AGENTS.md must stay under Antigravity's 24,000-byte rule-file limit (currently ${agentsMdBytes} bytes). ` +
+        'If a PromptKit rerun re-appended the PROMPTKIT_START..END directive, delete that block from ' +
+        'AGENTS.md: the same directive is already injected into CLAUDE.md, GEMINI.md, .opencode/rules.md ' +
+        'and .clinerules/promptkit.md, and Antigravity reads only AGENTS.md.'
+    );
     const distillerSkill = fs.readFileSync(
       path.join(rootDir, '.agents/skills/vault-concept-distiller/SKILL.md'),
       'utf8'
@@ -675,6 +695,8 @@ test('Heyloey Agent Alignment: fresh-clone safe instruction check (tracked files
   const freshCloneDir = fs.mkdtempSync(path.join(os.tmpdir(), 'loey-fresh-clone-'));
   try {
     fs.copyFileSync(path.join(repoRoot, 'AGENTS.md'), path.join(freshCloneDir, 'AGENTS.md'));
+    fs.mkdirSync(path.join(freshCloneDir, '06-Resources/Guides'), { recursive: true });
+    fs.copyFileSync(path.join(repoRoot, PROTOCOLS_GUIDE), path.join(freshCloneDir, PROTOCOLS_GUIDE));
     fs.mkdirSync(path.join(freshCloneDir, '.agents/skills/vault-concept-distiller'), { recursive: true });
     fs.mkdirSync(path.join(freshCloneDir, '.agents/skills/habit-trend-analyzer'), { recursive: true });
     fs.copyFileSync(

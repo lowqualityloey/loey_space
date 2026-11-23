@@ -1,6 +1,6 @@
 ---
 created: 2026-10-12
-updated: 2026-10-31
+updated: 2026-11-24
 type: guide
 status: active
 area: resources
@@ -27,6 +27,7 @@ This index groups the vault guides by what you want to accomplish. All links use
 - [Second Brain Guide](Second%20Brain%20Guide.md): Daily note routines, folder structure, task lifecycle, Kanban board lanes, and concept note connections.
 - [QuickAdd Inbox Optimization Guide](QuickAdd%20Inbox%20Optimization%20Guide.md): How rapid capture works, the inbox dump file, and optional template capture choices.
 - [Hey Loey Guide](Hey%20Loey%20Guide.md): Conversational commands (`"hey loey"`), daily routines, autonomous milestone logging, CLI commands, and the Model Context Protocol (MCP) server for external AI agents.
+- [Chief of Staff Protocols](Chief%20of%20Staff%20Protocols.md): The per-command protocols behind the `"Hey Loey"` dispatcher: evening wind-down, project planning, note polishing, the dream loop and distillation, and the vault skill lifecycle guardrails.
 
 ## Reviews and Analytics
 
